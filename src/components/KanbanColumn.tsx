@@ -1,0 +1,50 @@
+import React from 'react';
+import { useDroppable } from '@dnd-kit/core';
+import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import type { PhaseId, Trailer } from '../types';
+import { TrailerCard } from './TrailerCard';
+
+interface Props {
+  id: PhaseId;
+  title: string;
+  trailers: Trailer[];
+  onCardClick?: (trailer: Trailer) => void;
+  onUpdateTrailer?: (id: string, updates: Partial<Trailer>) => void;
+  totalHours?: number;
+}
+
+export const KanbanColumn: React.FC<Props> = ({ id, title, trailers, onCardClick, onUpdateTrailer, totalHours }) => {
+  const { setNodeRef } = useDroppable({
+    id,
+  });
+
+  return (
+    <div className="kanban-column" ref={setNodeRef}>
+      <div className="column-header">
+        <span className="column-title">{title}</span>
+        <span className="column-count">{trailers.length}</span>
+      </div>
+      <div className="cards-container">
+        <SortableContext
+          items={trailers.map((t) => t.id)}
+          strategy={verticalListSortingStrategy}
+        >
+          {trailers.map((trailer) => (
+            <TrailerCard 
+              key={trailer.id} 
+              trailer={trailer} 
+              onUpdateTrailer={onUpdateTrailer}
+              onCardClick={() => onCardClick?.(trailer)}
+            />
+          ))}
+        </SortableContext>
+      </div>
+      {typeof totalHours === 'number' && (
+        <div className="column-footer" style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid rgba(0,0,0,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Work in {title}</span>
+          <span style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--accent)' }}>{totalHours}h</span>
+        </div>
+      )}
+    </div>
+  );
+};
