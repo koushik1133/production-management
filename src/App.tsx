@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { Routes, Route, useNavigate } from 'react-router-dom';
+import { Routes, Route, useNavigate, Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import {
   DndContext,
@@ -261,7 +261,9 @@ function Dashboard({ trailers, setTrailers, updateTrailer }: {
     <div className="app-container">
       <header className="header" style={{ padding: '0.75rem 1.5rem', height: 'auto', minHeight: '64px' }}>
         <div className="header-left">
-          <img src={logo} alt="Lane Trailers" style={{ height: '32px' }} />
+          <Link to="/" style={{ display: 'flex', alignItems: 'center' }}>
+            <img src={logo} alt="Lane Trailers" style={{ height: '32px' }} />
+          </Link>
           <div style={{ marginLeft: '1.5rem', display: 'flex', flexDirection: 'column', borderLeft: '1px solid #e2e8f0', paddingLeft: '1.5rem' }}>
             <div style={{ fontSize: '0.9rem', fontWeight: 800, color: '#0f172a' }}>{format(currentTime, 'EEEE, MMMM d')}</div>
             <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b', letterSpacing: '0.05em' }}>{format(currentTime, 'hh:mm:ss a')} <span style={{ opacity: 0.5 }}>• LIVE</span></div>
