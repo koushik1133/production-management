@@ -1233,3 +1233,39 @@
     font-size: 0.75rem;
   }
 }
+
+/* Manual Hours Input Styling */
+.station-badge-wrapper {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.bay-selector-pill.manual-timer {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+}
+
+.manual-hours-input {
+  width: 40px;
+  background: transparent;
+  border: none;
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: #0f172a;
+  outline: none;
+  padding: 0;
+  margin-left: 4px;
+}
+
+.manual-hours-input::placeholder {
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+/* Hide Spinners */
+.manual-hours-input::-webkit-outer-spin-button,
+.manual-hours-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
