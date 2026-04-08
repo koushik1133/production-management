@@ -54,75 +54,13 @@ import { exportToCsv, parseCsv } from './utils/CsvUtils';
 import logo from './assets/logo.jpeg';
 import './App.css';
 
-const INITIAL_TRAILERS: Trailer[] = [
-  {
-    id: '1',
-    name: 'Precision Ag Services',
-    model: 'LAD 2424 Gooseneck',
-    serialNumber: 'LT-10023',
-    station: 'B1',
-    dateStarted: Date.now() - 86400000 * 5,
-    currentPhase: 'build',
-    isPriority: true,
-    notes: 'Awaiting drone landing pad structural verification.',
-    history: [{ phase: 'build', enteredAt: Date.now() - 86400000 * 5 }]
-  },
-  {
-    id: '2',
-    name: 'Northwest Utility Co.',
-    model: 'LRG 1010R',
-    serialNumber: 'LT-10156',
-    station: 'B2',
-    dateStarted: Date.now() - 86400000 * 2,
-    currentPhase: 'prefab',
-    history: [{ phase: 'prefab', enteredAt: Date.now() - 86400000 * 2 }]
-  },
-  {
-    id: '3',
-    name: 'Global Fiber Solutions',
-    model: 'LPT 4260',
-    serialNumber: 'LT-10189',
-    station: 'B3',
-    dateStarted: Date.now() - 3600000 * 4,
-    currentPhase: 'backlog',
-    history: [{ phase: 'backlog', enteredAt: Date.now() - 3600000 * 4 }]
-  },
-  {
-    id: '4',
-    name: 'Midwest Pipeline',
-    model: 'LSP 3040G (Stick)',
-    serialNumber: 'LT-10244',
-    station: 'B4',
-    dateStarted: Date.now() - 86400000 * 3,
-    currentPhase: 'trim',
-    history: [{ phase: 'trim', enteredAt: Date.now() - 86400000 * 3 }]
-  },
-  {
-    id: '5',
-    name: 'City Water Dept',
-    model: 'LRE 0214',
-    serialNumber: 'LT-10567',
-    station: 'B1',
-    dateStarted: Date.now() - 86400000 * 1,
-    currentPhase: 'paint',
-    history: [{ phase: 'paint', enteredAt: Date.now() - 86400000 * 1 }]
-  },
-  {
-    id: '6',
-    name: 'Telecom Builders',
-    model: 'LRS 0320',
-    serialNumber: 'LT-10902',
-    station: 'B2',
-    dateStarted: Date.now() - 3600000 * 12,
-    currentPhase: 'shipping',
-    history: [{ phase: 'shipping', enteredAt: Date.now() - 3600000 * 12 }]
-  }
-];
+import { supabase } from './lib/supabase';
 
-function Dashboard({ trailers, setTrailers, updateTrailer }: { 
+function Dashboard({ trailers, setTrailers, updateTrailer, isConnected }: { 
   trailers: Trailer[], 
   setTrailers: React.Dispatch<React.SetStateAction<Trailer[]>>,
-  updateTrailer: (id: string, updates: Partial<Trailer>) => void 
+  updateTrailer: (id: string, updates: Partial<Trailer>) => void,
+  isConnected: boolean
 }) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -325,7 +263,19 @@ function Dashboard({ trailers, setTrailers, updateTrailer }: {
           </div>
         </div>
 
-        <div className="header-right" style={{ gap: '0.5rem' }}>
+        <div className="header-right" style={{ gap: '1.5rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: '#f1f5f9', padding: '0.4rem 0.75rem', borderRadius: '20px', border: '1px solid #e2e8f0' }}>
+            <div style={{ 
+              width: '8px', 
+              height: '8px', 
+              borderRadius: '50%', 
+              background: isConnected ? '#22c55e' : '#ef4444',
+              boxShadow: isConnected ? '0 0 8px #22c55e' : 'none'
+            }} />
+            <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              {isConnected ? 'Live Sync' : 'Offline'}
+            </span>
+          </div>
           <button className="btn btn-secondary" onClick={() => navigate('/stations')}>
             <MapPin size={16} /> Bays
           </button>
@@ -650,25 +600,102 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   );
 }
 
-function App() {
-  const [trailers, setTrailers] = useState<Trailer[]>(() => {
-    const saved = localStorage.getItem('lane-trailers-v2');
-    return saved ? JSON.parse(saved) : INITIAL_TRAILERS;
-  });
 
-  const updateTrailer = (id: string, updates: Partial<Trailer>) => {
-    setTrailers(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t));
-  };
-  
+function App() {
+  const [trailers, setTrailers] = useState<Trailer[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isConnected, setIsConnected] = useState(false);
+
+  // Fetch initial data
   useEffect(() => {
-    localStorage.setItem('lane-trailers-v2', JSON.stringify(trailers));
-  }, [trailers]);
+    const fetchTrailers = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('trailers')
+          .select('*')
+          .order('dateStarted', { ascending: false });
+        
+        if (error) throw error;
+        if (data) setTrailers(data);
+        setIsConnected(true);
+      } catch (err) {
+        console.error('Initial fetch failed:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTrailers();
+
+    // Subscribe to real-time changes
+    const channel = supabase
+      .channel('schema-db-changes')
+      .on(
+        'postgres_changes' as any,
+        {
+          event: '*',
+          schema: 'public',
+          table: 'trailers',
+        },
+        (payload: any) => {
+          console.log('Change received!', payload);
+          if (payload.eventType === 'INSERT') {
+            setTrailers(prev => {
+              if (prev.find(t => t.id === payload.new.id)) return prev;
+              return [payload.new as Trailer, ...prev];
+            });
+          } else if (payload.eventType === 'UPDATE') {
+            setTrailers(prev => prev.map(t => t.id === payload.new.id ? payload.new as Trailer : t));
+          } else if (payload.eventType === 'DELETE') {
+            setTrailers(prev => prev.filter(t => t.id === payload.old.id));
+          }
+        }
+      )
+      .subscribe((status) => {
+        setIsConnected(status === 'SUBSCRIBED');
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  const updateTrailer = async (id: string, updates: Partial<Trailer>) => {
+    // Optimistic update
+    setTrailers(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t));
+
+    const { error } = await supabase
+      .from('trailers')
+      .update(updates)
+      .eq('id', id);
+    
+    if (error) {
+      console.error('Error updating trailer:', error);
+      // Optional: Rollback on error
+    }
+  };
+
+  const addTrailer = async (newTrailer: Trailer) => {
+    const { error } = await supabase
+      .from('trailers')
+      .insert([newTrailer]);
+    
+    if (error) console.error('Error adding trailer:', error);
+  };
+
+  if (loading) {
+    return (
+      <div style={{ height: '100vh', width: '100vw', background: '#09090b', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
+        <div className="loading-spinner"></div>
+      </div>
+    );
+  }
 
   return (
     <AuthGate>
       <Routes>
-        <Route path="/" element={<Dashboard trailers={trailers} setTrailers={setTrailers} updateTrailer={updateTrailer} />} />
-        <Route path="/backlog" element={<BacklogView trailers={trailers} onAddTrailer={(t) => setTrailers(prev => [t, ...prev])} onUpdateTrailer={updateTrailer} />} />
+        <Route path="/" element={<Dashboard trailers={trailers} setTrailers={setTrailers} updateTrailer={updateTrailer} isConnected={isConnected} />} />
+        <Route path="/backlog" element={<BacklogView trailers={trailers} onAddTrailer={addTrailer} onUpdateTrailer={updateTrailer} />} />
         <Route path="/stations" element={<StationView trailers={trailers} onUpdateTrailer={updateTrailer} />} />
         <Route path="/tv" element={<TVView trailers={trailers} />} />
         <Route path="/tv/station1" element={<TVView trailers={trailers} monitorMode="station1" />} />
