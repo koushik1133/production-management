@@ -259,78 +259,66 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
 
   return (
     <div className="app-container">
-      <header className="header" style={{ padding: '0.75rem 1.5rem', height: 'auto', minHeight: '64px' }}>
+      <header className="main-header">
         <div className="header-left">
-          <Link to="/" style={{ display: 'flex', alignItems: 'center' }}>
-            <img src={logo} alt="Lane Trailers" style={{ height: '32px' }} />
+          <Link to="/" className="header-logo-link">
+            <img src={logo} alt="Lane Trailers" className="header-logo-img" />
           </Link>
-          <div style={{ marginLeft: '1.5rem', display: 'flex', flexDirection: 'column', borderLeft: '1px solid #e2e8f0', paddingLeft: '1.5rem' }}>
-            <div style={{ fontSize: '0.9rem', fontWeight: 800, color: '#0f172a' }}>{format(currentTime, 'EEEE, MMMM d')}</div>
-            <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b', letterSpacing: '0.05em' }}>{format(currentTime, 'hh:mm:ss a')} <span style={{ opacity: 0.5 }}>• LIVE</span></div>
+          <div className="header-clock-section">
+            <div className="header-date">{format(currentTime, 'EEEE, MMMM d')}</div>
+            <div className="header-time-live">{format(currentTime, 'hh:mm:ss a')} <span>• LIVE</span></div>
           </div>
           
-          <div className="search-bar" style={{ marginLeft: '2rem' }}>
+          <div className="header-search-container">
             <Search size={16} color="var(--text-muted)" />
             <input type="text" placeholder="Search serial or customer..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
           </div>
 
-          <div style={{ display: 'flex', gap: '0.5rem', marginLeft: '1.5rem' }}>
-            <button className="btn btn-secondary btn-icon" onClick={() => scrollBoard('left')} style={{ padding: '0.4rem', borderRadius: '8px' }}>
+          <div className="header-nav-scroll">
+            <button className="btn btn-secondary btn-icon" onClick={() => scrollBoard('left')}>
               <ChevronLeft size={20} />
             </button>
-            <button className="btn btn-secondary btn-icon" onClick={() => scrollBoard('right')} style={{ padding: '0.4rem', borderRadius: '8px' }}>
+            <button className="btn btn-secondary btn-icon" onClick={() => scrollBoard('right')}>
               <ChevronRight size={20} />
             </button>
           </div>
         </div>
 
-        <div className="header-right" style={{ gap: '1.5rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: '#f1f5f9', padding: '0.4rem 0.75rem', borderRadius: '20px', border: '1px solid #e2e8f0' }}>
-            <div style={{ 
-              width: '8px', 
-              height: '8px', 
-              borderRadius: '50%', 
-              background: isConnected ? '#22c55e' : '#ef4444',
-              boxShadow: isConnected ? '0 0 8px #22c55e' : 'none'
-            }} />
-            <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              {isConnected ? 'Live Sync' : 'Offline'}
-            </span>
+        <div className="header-right">
+          <div className={`sync-indicator ${isConnected ? 'connected' : 'disconnected'}`}>
+             <div className="pulse-dot" />
+             <span className="sync-label">{isConnected ? 'LIVE SYNC' : 'OFFLINE'}</span>
           </div>
+          
           <button className="btn btn-secondary" onClick={() => navigate('/stations')}>
-            <MapPin size={16} /> Bays
+            <MapPin size={16} /> <span className="btn-text">Bays</span>
           </button>
           <button className="btn btn-secondary" onClick={() => navigate('/tv')}>
-            <Tv size={16} /> TV Mode
+            <Tv size={16} /> <span className="btn-text">TV Mode</span>
           </button>
-          <button className="btn btn-secondary" onClick={() => exportToCsv(trailers)} title="Export CSV">
+          <button className="btn btn-secondary btn-icon" onClick={() => exportToCsv(trailers)} title="Export CSV">
             <Download size={16} />
           </button>
-          <button className="btn btn-secondary" onClick={() => fileInputRef.current?.click()} title="Import CSV">
+          <button className="btn btn-secondary btn-icon" onClick={() => fileInputRef.current?.click()} title="Import CSV">
             <Upload size={16} />
           </button>
           <input type="file" ref={fileInputRef} style={{ display: 'none' }} accept=".csv" onChange={handleFileUpload} />
           
-          <div style={{ width: '1px', height: '24px', background: 'var(--border-default)', margin: '0 0.5rem' }} />
+          <div className="header-divider" />
           
           <button className="btn btn-primary" onClick={() => navigate('/backlog')}>
-             <Plus size={16} /> Backlog Registration
+             <Plus size={16} /> <span className="btn-text">Backlog Registration</span>
           </button>
           
-          <div style={{ width: '1px', height: '24px', background: 'var(--border-default)', margin: '0 0.5rem' }} />
+          <div className="header-divider" />
           
-          <button 
-            className="btn btn-secondary btn-icon" 
-            title="Production Archive" 
-            onClick={() => navigate('/archive')}
-            style={{ borderRadius: '12px' }}
-          >
+          <button className="btn btn-secondary btn-icon archive-btn" title="Production Archive" onClick={() => navigate('/archive')}>
             <Archive size={20} />
           </button>
         </div>
       </header>
 
-      <main className="main-content" ref={mainContentRef} style={{ paddingBottom: '80px' }}>
+      <main className="main-content" ref={mainContentRef}>
         <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd}>
           {PHASES.map((phase) => (
             <KanbanColumn 
@@ -351,41 +339,27 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
       </main>
 
       {/* Global Progress Strip */}
-      <div style={{ 
-        position: 'fixed', 
-        bottom: '40px', 
-        left: 0, 
-        right: 0, 
-        height: '40px', 
-        background: '#09090b', 
-        color: 'white', 
-        display: 'flex', 
-        alignItems: 'center', 
-        padding: '0 1.5rem',
-        fontSize: '0.875rem',
-        zIndex: 50,
-        boxShadow: '0 -4px 12px rgba(0,0,0,0.2)'
-      }}>
+      <div className="pipeline-workload-strip">
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <Clock size={16} color="#fbbf24" />
-          <span style={{ fontWeight: 600, color: '#fbbf24' }}>TOTAL PIPELINE WORKLOAD:</span>
-          <span style={{ fontSize: '1.1rem', fontWeight: 800 }}>{totalWorkRemaining} HOURS REMAINING</span>
+          <Clock size={16} className="clock-icon" />
+          <span className="strip-label">TOTAL PIPELINE WORKLOAD:</span>
+          <span className="strip-value">{Math.round(totalWorkRemaining)} HOURS REMAINING</span>
         </div>
         <div style={{ flex: 1 }} />
-        <div style={{ display: 'flex', gap: '2rem', opacity: 0.8 }}>
+        <div className="strip-stats">
           <span>Active Units: {trailers.filter(t => t.currentPhase !== 'shipping').length}</span>
           <span>Avg Hours/Unit: {trailers.length > 0 ? Math.round(totalWorkRemaining / trailers.length) : 0}h</span>
         </div>
       </div>
 
-      <footer style={{ height: '40px', padding: '0 1.5rem', background: '#f8fafc', borderTop: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', fontSize: '0.8rem', color: '#64748b', position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 100 }}>
-        <div style={{ display: 'flex', gap: '1.5rem' }}>
-          <span><span style={{ color: '#ef4444', fontWeight: 700 }}>●</span> Bottleneck Delay</span>
-          <span><Crown size={12} fill="#ef4444" stroke="#ef4444" /> High Priority</span>
+      <footer className="dashboard-footer">
+        <div className="footer-legend">
+          <span><span className="dot delay">●</span> Bottleneck Delay</span>
+          <span><Crown size={12} className="priority-icon" /> High Priority</span>
           <span>Total Pipeline Units: {trailers.length}</span>
         </div>
         <span style={{ flex: 1 }}></span>
-        <button className="btn btn-secondary" style={{ padding: '0.2rem 0.6rem', fontSize: '0.75rem' }} onClick={() => setIsStatsModalOpen(true)}>
+        <button className="btn btn-secondary stats-btn" onClick={() => setIsStatsModalOpen(true)}>
           <BarChart3 size={14} /> Production Stats
         </button>
       </footer>
@@ -540,72 +514,36 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   if (isAuthenticated) return <>{children}</>;
 
   return (
-    <div style={{ 
-      height: '100vh', 
-      width: '100vw', 
-      background: '#09090b', 
-      display: 'flex', 
-      flexDirection: 'column', 
-      alignItems: 'center', 
-      justifyContent: 'center',
-      color: 'white'
-    }}>
-      <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
-        <img src={logo} alt="Lane Trailers" style={{ height: '48px', marginBottom: '1.5rem' }} />
-        <h1 style={{ fontSize: '1.5rem', fontWeight: 800, letterSpacing: '-0.02em', color: '#fafafa' }}>Production Security</h1>
-        <p style={{ color: '#a1a1aa', fontSize: '0.9rem' }}>Please enter your access PIN to continue.</p>
+    <div className="auth-gate-container">
+      <div className="auth-gate-header">
+        <img src={logo} alt="Lane Trailers" className="auth-gate-logo" />
+        <h1 className="auth-gate-title">Production Security</h1>
+        <p className="auth-gate-subtitle">Please enter your access PIN to continue.</p>
       </div>
 
-      <div style={{ display: 'flex', gap: '1rem', marginBottom: '3rem' }}>
+      <div className="pin-indicator-row">
         {[0, 1, 2, 3].map(i => (
-          <div key={i} style={{ 
-            width: '20px', 
-            height: '20px', 
-            borderRadius: '50%', 
-            background: pin.length > i ? '#3b82f6' : '#27272a',
-            border: error ? '2px solid #ef4444' : '2px solid transparent',
-            transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-            boxShadow: pin.length > i ? '0 0 15px rgba(59, 130, 246, 0.5)' : 'none'
-          }} />
+          <div key={i} className={`pin-dot ${pin.length > i ? 'active' : ''} ${error ? 'error' : ''}`} />
         ))}
       </div>
 
-      <div style={{ 
-        display: 'grid', 
-        gridTemplateColumns: 'repeat(3, 1fr)', 
-        gap: '1rem',
-        width: '100%',
-        maxWidth: '300px'
-      }}>
+      <div className="keypad-grid">
         {['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', '⌫'].map((btn, i) => {
           if (btn === '') return <div key={i} />;
           return (
             <button
               key={i}
+              className="keypad-button"
               onClick={() => {
                 if (btn === '⌫') setPin(prev => prev.slice(0, -1));
                 else handlePinEntry(btn);
               }}
-              style={{
-                height: '70px',
-                borderRadius: '16px',
-                background: '#18181b',
-                border: '1px solid #27272a',
-                color: 'white',
-                fontSize: '1.5rem',
-                fontWeight: 600,
-                cursor: 'pointer',
-                transition: 'all 0.1s',
-              }}
-              onMouseDown={(e) => e.currentTarget.style.background = '#27272a'}
-              onMouseUp={(e) => e.currentTarget.style.background = '#18181b'}
             >
               {btn}
             </button>
           )
         })}
       </div>
-
       {error && (
         <p style={{ marginTop: '2rem', color: '#ef4444', fontWeight: 600, animation: 'shake 0.4s' }}>Incorrect PIN. Please try again.</p>
       )}

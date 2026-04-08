@@ -4,7 +4,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { Clock, Hash, MapPin, Calendar, Crown, StickyNote, Truck } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import type { Trailer, StationId } from '../types';
-import { STATIONS, PHASE_METADATA } from '../types';
+import { STATIONS, PHASE_METADATA, MODEL_TARGET_HOURS } from '../types';
 
 interface Props {
   trailer: Trailer;
@@ -48,9 +48,13 @@ export const TrailerCard: React.FC<Props> = ({
   const currentLog = trailer.history.find(h => h.phase === trailer.currentPhase && !h.exitedAt);
   const timeInPhase = currentLog ? formatDistanceToNow(currentLog.enteredAt) : '0m';
 
-  // Bottleneck Detection: More than targetHours
+  // Bottleneck Detection: Model-Specific Target
   const hoursRemaining = currentLog ? (Date.now() - currentLog.enteredAt) / (1000 * 60 * 60) : 0;
-  const targetHours = PHASE_METADATA[trailer.currentPhase].defaultTargetHours;
+  
+  // FIXED: Look up target hours for this specific MODEL and PHASE
+  const targetHours = MODEL_TARGET_HOURS[trailer.model]?.[trailer.currentPhase] 
+    || PHASE_METADATA[trailer.currentPhase].defaultTargetHours;
+    
   const isBottleneck = hoursRemaining > targetHours;
 
   const handleStationChange = (e: React.ChangeEvent<HTMLSelectElement>) => {

@@ -82,18 +82,18 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
   };
 
   return (
-    <div className="backlog-page" style={{ padding: '2rem 3rem', maxWidth: '1600px', margin: '0 auto', background: '#f8fafc', minHeight: '100vh' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2.5rem' }}>
-        <div>
-          <h1 style={{ fontSize: '2.25rem', fontWeight: 900, letterSpacing: '-0.04em', color: '#0f172a' }}>Backlog Manager</h1>
-          <p style={{ color: '#64748b', fontSize: '1.1rem', marginTop: '0.25rem' }}>Management of units awaiting production slot assignment.</p>
+    <div className="backlog-page-wrapper">
+      <div className="backlog-header-section">
+        <div className="backlog-title-group">
+          <h1 className="backlog-page-title">Backlog Manager</h1>
+          <p className="backlog-page-subtitle">Management of units awaiting production slot assignment.</p>
         </div>
-        <button className="btn btn-secondary" style={{ padding: '0.75rem 1.25rem' }} onClick={() => navigate('/')}>
-          <LayoutGrid size={20} /> Open Kanban View
+        <button className="btn btn-secondary backlog-nav-btn" onClick={() => navigate('/')}>
+          <LayoutGrid size={20} /> <span className="btn-text">Open Kanban View</span>
         </button>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(400px, 1fr) 2fr', gap: '3rem', alignItems: 'start' }}>
+      <div className="backlog-grid-layout">
         {/* Registration Section */}
         <div style={{ position: 'sticky', top: '2rem' }}>
           <h2 style={{ fontSize: '1rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#94a3b8', marginBottom: '1.5rem' }}>Registration Form</h2>
