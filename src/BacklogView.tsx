@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LayoutGrid, ArrowRight, Clock } from 'lucide-react';
+import { LayoutGrid, ArrowRight, Clock, Trash2, ArrowLeft, Search, Check, X, Plus, Calendar } from 'lucide-react';
 import { MODEL_CATEGORIES, MODEL_TARGET_HOURS } from './types';
 import type { Trailer, StationId } from './types';
+import { addHours, format } from 'date-fns';
 
 interface Props {
   onAddTrailer: (trailer: Trailer) => void;
@@ -13,11 +14,24 @@ interface Props {
 export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, trailers }) => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
-  const backlogTrailers = trailers.filter(t => t.currentPhase === 'backlog' && (
+
+  const activeFloorTrailers = trailers.filter(t => !t.isArchived && t.currentPhase !== 'backlog');
+  const factoryWorkloadHours = activeFloorTrailers.reduce((sum, t) => {
+    const hours = MODEL_TARGET_HOURS[t.model];
+    if (!hours) return sum;
+    return sum + (hours[t.currentPhase] || 0);
+  }, 0);
+
+  const BAYS_COUNT = 4;
+  const activeFloorDelayHours = factoryWorkloadHours / BAYS_COUNT;
+
+  const backlogTrailers = trailers
+    .filter(t => !t.isArchived && t.currentPhase === 'backlog')
+    .filter(t => 
       t.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
       t.serialNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
       t.model.toLowerCase().includes(searchQuery.toLowerCase())
-  ));
+    );
 
   const handleTogglePart = (trailer: Trailer, partKey: keyof NonNullable<Trailer['partsStatus']>) => {
     const currentStatus = trailer.partsStatus || { tyres: false, steel: false, parts: false };
@@ -153,50 +167,104 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
           </div>
           
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            {backlogTrailers.length > 0 ? backlogTrailers.map(t => (
-              <div key={t.id} style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.25rem', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', alignItems: 'center', gap: '1.5rem' }}>
-                <div>
-                  <div style={{ fontWeight: 800, fontSize: '1rem', color: '#0f172a' }}>{t.model}</div>
-                  <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>{t.serialNumber} • {t.name}</div>
-                </div>
-                <div style={{ display: 'flex', gap: '0.4rem' }}>
-                  {t.partsStatus && Object.entries(t.partsStatus).map(([key, val]) => (
-                    <div 
-                      key={key} 
-                      onClick={() => handleTogglePart(t, key as any)}
-                      style={{ 
-                        padding: '0.4rem 0.75rem', 
-                        borderRadius: '6px', 
-                        background: val ? '#dcfce7' : '#fee2e2', 
-                        color: val ? '#166534' : '#991b1b', 
-                        fontSize: '0.7rem', 
-                        fontWeight: 800, 
-                        textTransform: 'uppercase', 
-                        border: `1px solid ${val ? '#22c55e' : '#ef4444'}`,
-                        cursor: 'pointer',
-                        transition: 'all 0.15s ease',
-                        userSelect: 'none',
-                        minWidth: '70px',
-                        textAlign: 'center'
-                      }}
-                    >
-                      {key}
-                    </div>
-                  ))}
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#64748b' }}>
-                  <Clock size={14} />
-                  <span style={{ fontSize: '0.875rem', fontWeight: 700 }}>{Object.entries(MODEL_TARGET_HOURS[t.model] || {}).reduce((a, [p, h]) => p !== 'shipping' ? a + h : a, 0)}h build </span>
-                </div>
+                {backlogTrailers.length > 0 ? (() => {
+                  let cumulativeBacklogHours = 0;
+                  return backlogTrailers.map(t => {
+                    const modelHours = MODEL_TARGET_HOURS[t.model] || {};
+                    const totalBuildHours = Object.entries(modelHours).reduce((a, [p, h]) => (p !== 'shipping' && p !== 'backlog') ? a + (h as number) : a, 0);
+                    
+                    // Estimate = (Active Floor Delay) + (Hours of units ahead in backlog / 4 bays)
+                    const estimateHours = activeFloorDelayHours + (cumulativeBacklogHours / BAYS_COUNT);
+                    const estimatedDate = addHours(new Date(), estimateHours);
+                    
+                    // Add current unit's hours for the NEXT unit's calculation
+                    cumulativeBacklogHours += totalBuildHours;
+
+                    return (
+                      <div key={t.id} style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.25rem', display: 'grid', gridTemplateColumns: '1.2fr 1.2fr 1fr 1.2fr 48px', alignItems: 'center', gap: '1rem' }}>
+                        <div>
+                          <div style={{ fontWeight: 800, fontSize: '0.95rem', color: '#0f172a' }}>{t.model}</div>
+                          <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>{t.serialNumber} • {t.name}</div>
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '0.3rem' }}>
+                          {t.partsStatus && Object.entries(t.partsStatus).map(([key, val]) => (
+                            <div 
+                              key={key} 
+                              onClick={() => handleTogglePart(t, key as any)}
+                              style={{ 
+                                padding: '0.3rem 0.6rem', 
+                                borderRadius: '6px', 
+                                background: val ? '#dcfce7' : '#fee2e2', 
+                                color: val ? '#166534' : '#991b1b', 
+                                fontSize: '0.65rem', 
+                                fontWeight: 800, 
+                                textTransform: 'uppercase', 
+                                border: `1px solid ${val ? '#22c55e' : '#ef4444'}`,
+                                cursor: 'pointer',
+                                transition: 'all 0.15s ease',
+                                userSelect: 'none',
+                                minWidth: '60px',
+                                textAlign: 'center'
+                              }}
+                            >
+                              {key}
+                            </div>
+                          ))}
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#64748b' }}>
+                          <Clock size={14} />
+                          <span style={{ fontSize: '0.8rem', fontWeight: 700 }}>{totalBuildHours}h Build</span>
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', padding: '0.5rem', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#3b82f6' }}>
+                            <Calendar size={12} />
+                            <span style={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Est. Start Date</span>
+                          </div>
+                          <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#1e293b' }}>
+                            {format(estimatedDate, 'MMM d, h:mm a')}
+                          </div>
+                        </div>
+
+                        <button 
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (window.confirm(`Are you sure you want to remove ${t.serialNumber} from backlog? It will be moved to history.`)) {
+                              onUpdateTrailer(t.id, { isArchived: true, archivedAt: Date.now(), isDeleted: true });
+                            }
+                          }}
+                          style={{ 
+                            width: '36px', 
+                            height: '36px', 
+                            borderRadius: '10px', 
+                            border: '1px solid #fee2e2', 
+                            background: '#fff', 
+                            color: '#ef4444', 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'center',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s ease',
+                          }}
+                          onMouseOver={(e) => { e.currentTarget.style.background = '#fef2f2'; e.currentTarget.style.borderColor = '#fca5a5'; }}
+                          onMouseOut={(e) => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.borderColor = '#fee2e2'; }}
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    );
+                  });
+                })() : (
+                  <div style={{ padding: '4rem', textAlign: 'center', background: 'white', borderRadius: '12px', border: '2px dashed #e2e8f0', color: '#94a3b8' }}>
+                    No units found in backlog matching your filters.
+                  </div>
+                )}
               </div>
-            )) : (
-              <div style={{ padding: '4rem', textAlign: 'center', background: 'white', borderRadius: '12px', border: '2px dashed #e2e8f0', color: '#94a3b8' }}>
-                No units found in backlog matching your filters.
-              </div>
-            )}
+            </div>
           </div>
         </div>
-      </div>
-    </div>
-  );
-};
+      );
+    };
