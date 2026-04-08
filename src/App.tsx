@@ -51,7 +51,7 @@ import {
 } from './types';
 
 import { exportToCsv, parseCsv } from './utils/CsvUtils';
-import logo from './assets/logo.png';
+import logo from './assets/logo.jpeg';
 import './App.css';
 
 const INITIAL_TRAILERS: Trailer[] = [
@@ -541,6 +541,115 @@ function Dashboard({ trailers, setTrailers, updateTrailer }: {
   );
 }
 
+function AuthGate({ children }: { children: React.ReactNode }) {
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    return localStorage.getItem('lane-trailers-auth') === 'true';
+  });
+  const [pin, setPin] = useState('');
+  const [error, setError] = useState(false);
+  const CORRECT_PIN = '1234'; // Default PIN
+
+  const handlePinEntry = (digit: string) => {
+    setError(false);
+    if (pin.length < 4) {
+      const newPin = pin + digit;
+      setPin(newPin);
+      if (newPin.length === 4) {
+        if (newPin === CORRECT_PIN) {
+          localStorage.setItem('lane-trailers-auth', 'true');
+          setIsAuthenticated(true);
+        } else {
+          setError(true);
+          setTimeout(() => setPin(''), 500);
+        }
+      }
+    }
+  };
+
+  if (isAuthenticated) return <>{children}</>;
+
+  return (
+    <div style={{ 
+      height: '100vh', 
+      width: '100vw', 
+      background: '#09090b', 
+      display: 'flex', 
+      flexDirection: 'column', 
+      alignItems: 'center', 
+      justifyContent: 'center',
+      color: 'white'
+    }}>
+      <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
+        <img src={logo} alt="Lane Trailers" style={{ height: '48px', marginBottom: '1.5rem' }} />
+        <h1 style={{ fontSize: '1.5rem', fontWeight: 800, letterSpacing: '-0.02em', color: '#fafafa' }}>Production Security</h1>
+        <p style={{ color: '#a1a1aa', fontSize: '0.9rem' }}>Please enter your access PIN to continue.</p>
+      </div>
+
+      <div style={{ display: 'flex', gap: '1rem', marginBottom: '3rem' }}>
+        {[0, 1, 2, 3].map(i => (
+          <div key={i} style={{ 
+            width: '20px', 
+            height: '20px', 
+            borderRadius: '50%', 
+            background: pin.length > i ? '#3b82f6' : '#27272a',
+            border: error ? '2px solid #ef4444' : '2px solid transparent',
+            transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+            boxShadow: pin.length > i ? '0 0 15px rgba(59, 130, 246, 0.5)' : 'none'
+          }} />
+        ))}
+      </div>
+
+      <div style={{ 
+        display: 'grid', 
+        gridTemplateColumns: 'repeat(3, 1fr)', 
+        gap: '1rem',
+        width: '100%',
+        maxWidth: '300px'
+      }}>
+        {['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', '⌫'].map((btn, i) => {
+          if (btn === '') return <div key={i} />;
+          return (
+            <button
+              key={i}
+              onClick={() => {
+                if (btn === '⌫') setPin(prev => prev.slice(0, -1));
+                else handlePinEntry(btn);
+              }}
+              style={{
+                height: '70px',
+                borderRadius: '16px',
+                background: '#18181b',
+                border: '1px solid #27272a',
+                color: 'white',
+                fontSize: '1.5rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'all 0.1s',
+              }}
+              onMouseDown={(e) => e.currentTarget.style.background = '#27272a'}
+              onMouseUp={(e) => e.currentTarget.style.background = '#18181b'}
+            >
+              {btn}
+            </button>
+          )
+        })}
+      </div>
+
+      {error && (
+        <p style={{ marginTop: '2rem', color: '#ef4444', fontWeight: 600, animation: 'shake 0.4s' }}>Incorrect PIN. Please try again.</p>
+      )}
+
+      <style>{`
+        @keyframes shake {
+          0%, 100% { transform: translateX(0); }
+          25% { transform: translateX(-5px); }
+          75% { transform: translateX(5px); }
+        }
+      `}</style>
+    </div>
+  );
+}
+
 function App() {
   const [trailers, setTrailers] = useState<Trailer[]>(() => {
     const saved = localStorage.getItem('lane-trailers-v2');
@@ -556,15 +665,17 @@ function App() {
   }, [trailers]);
 
   return (
-    <Routes>
-      <Route path="/" element={<Dashboard trailers={trailers} setTrailers={setTrailers} updateTrailer={updateTrailer} />} />
-      <Route path="/backlog" element={<BacklogView trailers={trailers} onAddTrailer={(t) => setTrailers(prev => [t, ...prev])} onUpdateTrailer={updateTrailer} />} />
-      <Route path="/stations" element={<StationView trailers={trailers} onUpdateTrailer={updateTrailer} />} />
-      <Route path="/tv" element={<TVView trailers={trailers} />} />
-      <Route path="/tv/station1" element={<TVView trailers={trailers} monitorMode="station1" />} />
-      <Route path="/tv/station2" element={<TVView trailers={trailers} monitorMode="station2" />} />
-      <Route path="/archive" element={<ArchiveView trailers={trailers} onUpdateTrailer={updateTrailer} />} />
-    </Routes>
+    <AuthGate>
+      <Routes>
+        <Route path="/" element={<Dashboard trailers={trailers} setTrailers={setTrailers} updateTrailer={updateTrailer} />} />
+        <Route path="/backlog" element={<BacklogView trailers={trailers} onAddTrailer={(t) => setTrailers(prev => [t, ...prev])} onUpdateTrailer={updateTrailer} />} />
+        <Route path="/stations" element={<StationView trailers={trailers} onUpdateTrailer={updateTrailer} />} />
+        <Route path="/tv" element={<TVView trailers={trailers} />} />
+        <Route path="/tv/station1" element={<TVView trailers={trailers} monitorMode="station1" />} />
+        <Route path="/tv/station2" element={<TVView trailers={trailers} monitorMode="station2" />} />
+        <Route path="/archive" element={<ArchiveView trailers={trailers} onUpdateTrailer={updateTrailer} />} />
+      </Routes>
+    </AuthGate>
   );
 }
 
