@@ -111,6 +111,27 @@ export const TrailerCard: React.FC<Props> = ({
               <option value="None">Off</option>
             </select>
           </div>
+
+          <div className="bay-selector-pill manual-timer">
+            <Clock size={12} className="bay-icon" />
+            <span className="bay-label">LOG</span>
+            <input 
+              type="number"
+              placeholder="Hrs"
+              className="manual-hours-input"
+              value={currentLog?.manualHours || ''}
+              onChange={(e) => {
+                const val = parseFloat(e.target.value);
+                const updatedHistory = trailer.history.map(h => 
+                  h.phase === trailer.currentPhase && !h.exitedAt 
+                    ? { ...h, manualHours: isNaN(val) ? undefined : val } 
+                    : h
+                );
+                onUpdateTrailer?.(trailer.id, { history: updatedHistory });
+              }}
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
         </div>
 
         <div className="card-meta-item">

@@ -9,6 +9,7 @@ export interface TimeLog {
   enteredAt: number;
   exitedAt?: number;
   duration?: number;
+  manualHours?: number;
 }
 
 export interface PartsStatus {
