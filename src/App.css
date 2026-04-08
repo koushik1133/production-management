@@ -638,15 +638,27 @@
   .main-content {
     flex-direction: column;
     padding: 1rem;
-    padding-bottom: 120px;
+    padding-bottom: 120px; /* Space for the bottom pill/strip */
+    overflow-y: auto;
+    overflow-x: hidden;
   }
 
   .kanban-column {
     min-width: 100%;
     max-width: 100%;
     height: auto;
-    min-height: 200px;
-    max-height: 600px;
+    max-height: none; /* Expand naturally on mobile */
+    margin-bottom: 2rem;
+  }
+
+  .kanban-column .column-header {
+    position: sticky;
+    top: 60px; /* Below main header */
+    z-index: 10;
+    background: var(--bg-surface);
+    padding: 1rem 0;
+    margin-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border-default);
   }
 
   /* Keypad responsiveness */
