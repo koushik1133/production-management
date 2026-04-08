@@ -56,11 +56,12 @@ import './App.css';
 
 import { supabase } from './lib/supabase';
 
-function Dashboard({ trailers, setTrailers, updateTrailer, isConnected }: { 
+function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrailer }: { 
   trailers: Trailer[], 
   setTrailers: React.Dispatch<React.SetStateAction<Trailer[]>>,
   updateTrailer: (id: string, updates: Partial<Trailer>) => void,
-  isConnected: boolean
+  isConnected: boolean,
+  addTrailer: (trailer: Trailer) => Promise<void>
 }) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -174,26 +175,40 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected }: {
   const [pendingShippingTrailer, setPendingShippingTrailer] = useState<Trailer | null>(null);
   const [shippingForm, setShippingForm] = useState({ invoiceNumber: '', vinDate: '' });
 
-  const handleDragEnd = (event: DragEndEvent) => {
-    const activeId = event.active.id as string;
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    const activeId = active.id as string;
     const trailer = trailers.find(t => t.id === activeId);
     
-    // If moved to TRIM from something else, prompt for data
-    if (trailer && trailer.currentPhase === 'trim' && dragStartPhase !== 'trim') {
-      setPendingShippingTrailer(trailer);
+    if (trailer) {
+      // Prompt for shipping data if newly moved to shipping
+      if (trailer.currentPhase === 'shipping' && dragStartPhase !== 'shipping') {
+        setPendingShippingTrailer(trailer);
+      }
+      
+      // SYNC FINAL STATE TO SUPABASE
+      // This is the "Spontaneous" update for other devices
+      const { error } = await supabase
+        .from('trailers')
+        .update({
+          currentPhase: trailer.currentPhase,
+          history: trailer.history
+        })
+        .eq('id', trailer.id);
+        
+      if (error) console.error('Error syncing drag movement:', error);
     }
     
     setActiveId(null);
     setDragStartPhase(null);
   };
 
-  const handleShipSubmit = (e: React.FormEvent) => {
+  const handleShipSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!pendingShippingTrailer) return;
     
-    updateTrailer(pendingShippingTrailer.id, {
+    await updateTrailer(pendingShippingTrailer.id, {
       ...shippingForm,
-      // No longer archiving here, just adding the data
     });
     setPendingShippingTrailer(null);
     setShippingForm({ invoiceNumber: '', vinDate: '' });
@@ -203,15 +218,20 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected }: {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       const text = event.target?.result as string;
       const imported = parseCsv(text) as Trailer[];
-      setTrailers(prev => [...prev, ...imported]);
+      
+      const { error } = await supabase
+        .from('trailers')
+        .insert(imported);
+      
+      if (error) console.error('Error importing CSV:', error);
     };
     reader.readAsText(file);
   };
 
-  const handleAddTrailer = (e: React.FormEvent) => {
+  const handleAddTrailer = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTrailerData.model) {
       alert("Missing Required Field: Please select an Official Model.");
@@ -228,7 +248,8 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected }: {
       currentPhase: 'backlog',
       history: [{ phase: 'backlog', enteredAt: Date.now() }],
     };
-    setTrailers(prev => [newTrailer, ...prev]);
+    
+    await addTrailer(newTrailer);
     setIsAddModalOpen(false);
     setNewTrailerData({ name: '', model: '', station: 'B1', isPriority: false });
   };
@@ -694,7 +715,7 @@ function App() {
   return (
     <AuthGate>
       <Routes>
-        <Route path="/" element={<Dashboard trailers={trailers} setTrailers={setTrailers} updateTrailer={updateTrailer} isConnected={isConnected} />} />
+        <Route path="/" element={<Dashboard trailers={trailers} setTrailers={setTrailers} updateTrailer={updateTrailer} isConnected={isConnected} addTrailer={addTrailer} />} />
         <Route path="/backlog" element={<BacklogView trailers={trailers} onAddTrailer={addTrailer} onUpdateTrailer={updateTrailer} />} />
         <Route path="/stations" element={<StationView trailers={trailers} onUpdateTrailer={updateTrailer} />} />
         <Route path="/tv" element={<TVView trailers={trailers} />} />
