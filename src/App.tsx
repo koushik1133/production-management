@@ -176,7 +176,7 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
   const [shippingForm, setShippingForm] = useState({ invoiceNumber: '', vinDate: '' });
 
   const handleDragEnd = async (event: DragEndEvent) => {
-    const { active, over } = event;
+    const { active } = event;
     const activeId = active.id as string;
     const trailer = trailers.find(t => t.id === activeId);
     
