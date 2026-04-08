@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Clock, Calendar, Truck, Search, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Clock, Calendar, Truck, Search, ChevronRight, Trash2 } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import type { Trailer } from './types';
 import { TrailerDetailsModal } from './components/TrailerDetailsModal';
@@ -54,10 +54,15 @@ export const ArchiveView: React.FC<Props> = ({ trailers, onUpdateTrailer }) => {
         <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
             <div>
-              <p style={{ color: '#64748b', fontWeight: 600 }}>A historical record of all shipped units and their production performance.</p>
+              <p style={{ color: '#64748b', fontWeight: 600 }}>A historical record of all units (Shipped & Removed) and their production performance.</p>
             </div>
-            <div style={{ background: '#f1f5f9', padding: '0.5rem 1rem', borderRadius: '10px', fontSize: '0.875rem', fontWeight: 700, color: '#475569' }}>
-              {archivedTrailers.length} Shipped Units
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <div style={{ background: '#dcfce7', padding: '0.5rem 1rem', borderRadius: '10px', fontSize: '0.875rem', fontWeight: 700, color: '#166534' }}>
+                {archivedTrailers.filter(t => !t.isDeleted).length} Shipped
+              </div>
+              <div style={{ background: '#fee2e2', padding: '0.5rem 1rem', borderRadius: '10px', fontSize: '0.875rem', fontWeight: 700, color: '#991b1b' }}>
+                {archivedTrailers.filter(t => t.isDeleted).length} Removed
+              </div>
             </div>
           </div>
 
@@ -77,6 +82,7 @@ export const ArchiveView: React.FC<Props> = ({ trailers, onUpdateTrailer }) => {
                   gap: '2rem',
                   cursor: 'pointer',
                   transition: 'all 0.2s',
+                  opacity: t.isDeleted ? 0.75 : 1
                 }}
                 className="archive-card"
               >
@@ -94,17 +100,17 @@ export const ArchiveView: React.FC<Props> = ({ trailers, onUpdateTrailer }) => {
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', color: '#64748b' }}>
-                  <Truck size={18} />
+                  {t.isDeleted ? <Trash2 size={18} color="#ef4444" /> : <Truck size={18} />}
                   <div>
-                    <div style={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Shipped</div>
-                    <div style={{ fontSize: '0.875rem', fontWeight: 700, color: '#10b981' }}>{t.archivedAt ? format(t.archivedAt, 'MMM d, yyyy') : 'N/A'}</div>
+                    <div style={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t.isDeleted ? 'Removed' : 'Shipped'}</div>
+                    <div style={{ fontSize: '0.875rem', fontWeight: 700, color: t.isDeleted ? '#ef4444' : '#10b981' }}>{t.archivedAt ? format(t.archivedAt, 'MMM d, yyyy') : 'N/A'}</div>
                   </div>
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', color: '#64748b' }}>
                   <Clock size={18} />
                   <div>
-                    <div style={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Production</div>
+                    <div style={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Pipeline Time</div>
                     <div style={{ fontSize: '0.875rem', fontWeight: 700, color: '#1e293b' }}>
                       {t.archivedAt ? formatDistanceToNow(t.dateStarted) : 'N/A'}
                     </div>

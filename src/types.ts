@@ -32,6 +32,7 @@ export interface Trailer {
   partsStatus?: PartsStatus;
   isArchived?: boolean;
   archivedAt?: number;
+  isDeleted?: boolean;
 }
 
 export const STATIONS: StationId[] = ['B1', 'B2', 'B3', 'B4'];
