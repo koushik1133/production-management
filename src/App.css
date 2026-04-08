@@ -1269,3 +1269,36 @@
   -webkit-appearance: none;
   margin: 0;
 }
+
+/* Bay Header Manual Hours Styling */
+.bay-time-input {
+  width: 90px;
+  height: 28px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 0 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: #0f172a;
+  outline: none;
+  transition: all 0.2s;
+}
+
+.bay-time-input:focus {
+  border-color: var(--accent);
+  background: white;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.bay-time-input::placeholder {
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+/* Hide Spinners for Clean UI */
+.bay-time-input::-webkit-outer-spin-button,
+.bay-time-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
