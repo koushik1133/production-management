@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Clock, Calendar, Truck, Search, ChevronRight, Trash2 } from 'lucide-react';
+import { ArrowLeft, Clock, Truck, Search, ChevronRight } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import type { Trailer } from './types';
 import { TrailerDetailsModal } from './components/TrailerDetailsModal';
@@ -87,30 +87,38 @@ export const ArchiveView: React.FC<Props> = ({ trailers, onUpdateTrailer }) => {
                 className="archive-card"
               >
                 <div>
-                  <div style={{ fontWeight: 800, fontSize: '1.125rem', color: '#0f172a', marginBottom: '0.25rem' }}>{t.model}</div>
-                  <div style={{ fontSize: '0.875rem', color: '#64748b', fontWeight: 600 }}>{t.serialNumber} • {t.name}</div>
+                  <div style={{ fontWeight: 800, fontSize: '1.25rem', color: '#0f172a', marginBottom: '0.25rem' }}>{t.model}</div>
+                  <div style={{ fontSize: '0.9rem', color: '#64748b', fontWeight: 600 }}>{t.name}</div>
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', color: '#64748b' }}>
-                  <Calendar size={18} />
-                  <div>
-                    <div style={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Started</div>
-                    <div style={{ fontSize: '0.875rem', fontWeight: 700, color: '#1e293b' }}>{format(t.dateStarted, 'MMM d, yyyy')}</div>
+                {/* Documentation Column */}
+                <div style={{ padding: '0.75rem', background: t.isDeleted ? '#f8fafc' : '#f0fdf4', borderRadius: '12px', border: `1px solid ${t.isDeleted ? '#e2e8f0' : '#dcfce7'}` }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <div style={{ fontSize: '0.7rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>Serial: <span style={{ color: '#0f172a' }}>{t.serialNumber}</span></div>
+                    {!t.isDeleted && (
+                      <>
+                        <div style={{ fontSize: '0.7rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>Invoice: <span style={{ color: '#16a34a' }}>{t.invoiceNumber || '---'}</span></div>
+                        <div style={{ fontSize: '0.7rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>VIN Date: <span style={{ color: '#16a34a' }}>{t.vinDate ? format(new Date(t.vinDate), 'MMM d, yyyy') : '---'}</span></div>
+                      </>
+                    )}
+                    {t.isDeleted && <div style={{ fontSize: '0.7rem', fontWeight: 900, color: '#ef4444' }}>REMOVED FROM BACKLOG</div>}
                   </div>
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', color: '#64748b' }}>
-                  {t.isDeleted ? <Trash2 size={18} color="#ef4444" /> : <Truck size={18} />}
+                  <div style={{ width: '2px', height: '30px', background: '#e2e8f0' }} />
                   <div>
-                    <div style={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t.isDeleted ? 'Removed' : 'Shipped'}</div>
-                    <div style={{ fontSize: '0.875rem', fontWeight: 700, color: t.isDeleted ? '#ef4444' : '#10b981' }}>{t.archivedAt ? format(t.archivedAt, 'MMM d, yyyy') : 'N/A'}</div>
+                    <div style={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Timeline</div>
+                    <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#1e293b' }}>
+                      {format(t.dateStarted, 'MMM d')} → {t.archivedAt ? format(t.archivedAt, 'MMM d') : 'N/A'}
+                    </div>
                   </div>
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', color: '#64748b' }}>
                   <Clock size={18} />
                   <div>
-                    <div style={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Pipeline Time</div>
+                    <div style={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Duration</div>
                     <div style={{ fontSize: '0.875rem', fontWeight: 700, color: '#1e293b' }}>
                       {t.archivedAt ? formatDistanceToNow(t.dateStarted) : 'N/A'}
                     </div>

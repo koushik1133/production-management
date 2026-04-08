@@ -10,6 +10,7 @@ interface Props {
   trailer: Trailer;
   onUpdateTrailer?: (id: string, updates: Partial<Trailer>) => void;
   onCardClick?: () => void;
+  onShipRequest?: (trailer: Trailer) => void;
   hideCustomerName?: boolean;
   hideShipButton?: boolean;
 }
@@ -18,6 +19,7 @@ export const TrailerCard: React.FC<Props> = ({
   trailer, 
   onUpdateTrailer, 
   onCardClick,
+  onShipRequest,
   hideCustomerName,
   hideShipButton 
 }) => {
@@ -112,6 +114,34 @@ export const TrailerCard: React.FC<Props> = ({
           <span>Started {format(trailer.dateStarted, 'MMM d, yyyy')}</span>
         </div>
       </div>
+      
+      {trailer.notes && (
+        <div style={{ 
+          marginTop: '0.25rem', 
+          padding: '0.5rem 0.75rem', 
+          background: '#f8fafc', 
+          borderRadius: '8px', 
+          border: '1px solid #f1f5f9',
+          display: 'flex',
+          gap: '0.5rem',
+          alignItems: 'start'
+        }}>
+          <StickyNote size={14} style={{ color: '#64748b', marginTop: '2px', flexShrink: 0 }} />
+          <p style={{ 
+            fontSize: '0.75rem', 
+            color: '#475569', 
+            margin: 0, 
+            lineHeight: '1.4', 
+            fontStyle: 'italic',
+            display: '-webkit-box',
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden'
+          }}>
+            {trailer.notes}
+          </p>
+        </div>
+      )}
 
       <div className="card-footer">
         <div className="card-meta-item">
@@ -120,9 +150,6 @@ export const TrailerCard: React.FC<Props> = ({
         </div>
         
         <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
-          {trailer.notes && (
-            <StickyNote size={14} style={{ color: 'var(--text-muted)' }} />
-          )}
           {trailer.finishingType && (
             <span className="badge-finishing" data-type={trailer.finishingType}>
               {trailer.finishingType}
@@ -138,7 +165,8 @@ export const TrailerCard: React.FC<Props> = ({
             style={{ width: '100%', gap: '0.75rem', background: '#10b981' }} 
             onClick={(e) => {
               e.stopPropagation();
-              onUpdateTrailer?.(trailer.id, { isArchived: true, archivedAt: Date.now() });
+              if (onShipRequest) onShipRequest(trailer);
+              else onUpdateTrailer?.(trailer.id, { isArchived: true, archivedAt: Date.now() });
             }}
           >
             <Truck size={16} /> Mark as Shipped

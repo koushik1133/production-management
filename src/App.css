@@ -73,9 +73,25 @@
   flex: 1;
   display: flex;
   overflow-x: auto;
-  overflow-y: hidden;
+  overflow-y: auto;
   padding: 1.5rem 1.5rem 100px 1.5rem; /* Increased bottom padding for the strip */
   gap: 1.25rem;
+  scrollbar-width: auto; /* Ensure it's not hidden */
+  scrollbar-color: var(--accent) transparent;
+}
+
+.main-content::-webkit-scrollbar {
+  height: 12px;
+}
+
+.main-content::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border: 3px solid var(--bg-main);
+  border-radius: 999px;
+}
+
+.main-content::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
 }
 
 /* Kanban Columns */

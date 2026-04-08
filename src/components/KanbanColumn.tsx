@@ -10,10 +10,11 @@ interface Props {
   trailers: Trailer[];
   onCardClick?: (trailer: Trailer) => void;
   onUpdateTrailer?: (id: string, updates: Partial<Trailer>) => void;
+  onShipRequest?: (trailer: Trailer) => void;
   totalHours?: number;
 }
 
-export const KanbanColumn: React.FC<Props> = ({ id, title, trailers, onCardClick, onUpdateTrailer, totalHours }) => {
+export const KanbanColumn: React.FC<Props> = ({ id, title, trailers, onCardClick, onUpdateTrailer, onShipRequest, totalHours }) => {
   const { setNodeRef } = useDroppable({
     id,
   });
@@ -34,6 +35,7 @@ export const KanbanColumn: React.FC<Props> = ({ id, title, trailers, onCardClick
               key={trailer.id} 
               trailer={trailer} 
               onUpdateTrailer={onUpdateTrailer}
+              onShipRequest={onShipRequest}
               onCardClick={() => onCardClick?.(trailer)}
             />
           ))}

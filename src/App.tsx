@@ -12,7 +12,8 @@ import {
 } from '@dnd-kit/core';
 import type {
   DragStartEvent,
-  DragOverEvent
+  DragOverEvent,
+  DragEndEvent
 } from '@dnd-kit/core';
 import {
   sortableKeyboardCoordinates,
@@ -37,7 +38,9 @@ import {
   Clock,
   Archive,
   Crown,
-  BarChart3
+  BarChart3,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 
 import type { Trailer, PhaseId, StationId } from './types';
@@ -137,6 +140,14 @@ function Dashboard({ trailers, setTrailers, updateTrailer }: {
 
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const mainContentRef = useRef<HTMLDivElement>(null);
+
+  const scrollBoard = (direction: 'left' | 'right') => {
+    if (mainContentRef.current) {
+      const amount = 400;
+      mainContentRef.current.scrollBy({ left: direction === 'left' ? -amount : amount, behavior: 'smooth' });
+    }
+  };
 
   const [newTrailerData, setNewTrailerData] = useState({
     name: '',
@@ -180,8 +191,12 @@ function Dashboard({ trailers, setTrailers, updateTrailer }: {
     return sum + remainingForThisTrailer;
   }, 0);
 
+  const [dragStartPhase, setDragStartPhase] = useState<PhaseId | null>(null);
+
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(event.active.id as string);
+    const trailer = trailers.find(t => t.id === event.active.id);
+    if (trailer) setDragStartPhase(trailer.currentPhase);
   };
 
   const handleDragOver = (event: DragOverEvent) => {
@@ -218,7 +233,33 @@ function Dashboard({ trailers, setTrailers, updateTrailer }: {
     }
   };
 
-  const handleDragEnd = () => setActiveId(null);
+  const [pendingShippingTrailer, setPendingShippingTrailer] = useState<Trailer | null>(null);
+  const [shippingForm, setShippingForm] = useState({ invoiceNumber: '', vinDate: '' });
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const activeId = event.active.id as string;
+    const trailer = trailers.find(t => t.id === activeId);
+    
+    // If moved to TRIM from something else, prompt for data
+    if (trailer && trailer.currentPhase === 'trim' && dragStartPhase !== 'trim') {
+      setPendingShippingTrailer(trailer);
+    }
+    
+    setActiveId(null);
+    setDragStartPhase(null);
+  };
+
+  const handleShipSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!pendingShippingTrailer) return;
+    
+    updateTrailer(pendingShippingTrailer.id, {
+      ...shippingForm,
+      // No longer archiving here, just adding the data
+    });
+    setPendingShippingTrailer(null);
+    setShippingForm({ invoiceNumber: '', vinDate: '' });
+  };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -273,6 +314,15 @@ function Dashboard({ trailers, setTrailers, updateTrailer }: {
             <Search size={16} color="var(--text-muted)" />
             <input type="text" placeholder="Search serial or customer..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
           </div>
+
+          <div style={{ display: 'flex', gap: '0.5rem', marginLeft: '1.5rem' }}>
+            <button className="btn btn-secondary btn-icon" onClick={() => scrollBoard('left')} style={{ padding: '0.4rem', borderRadius: '8px' }}>
+              <ChevronLeft size={20} />
+            </button>
+            <button className="btn btn-secondary btn-icon" onClick={() => scrollBoard('right')} style={{ padding: '0.4rem', borderRadius: '8px' }}>
+              <ChevronRight size={20} />
+            </button>
+          </div>
         </div>
 
         <div className="header-right" style={{ gap: '0.5rem' }}>
@@ -309,7 +359,7 @@ function Dashboard({ trailers, setTrailers, updateTrailer }: {
         </div>
       </header>
 
-      <main className="main-content" style={{ paddingBottom: '80px' }}>
+      <main className="main-content" ref={mainContentRef} style={{ paddingBottom: '80px' }}>
         <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd}>
           {PHASES.map((phase) => (
             <KanbanColumn 
@@ -318,6 +368,7 @@ function Dashboard({ trailers, setTrailers, updateTrailer }: {
               title={phase.title} 
               trailers={filteredTrailers.filter(t => t.currentPhase === phase.id)} 
               onUpdateTrailer={updateTrailer} 
+              onShipRequest={(t) => setPendingShippingTrailer(t)}
               onCardClick={(t) => setSelectedTrailerId(t.id)}
               totalHours={getPhaseHours(phase.id)}
             />
@@ -386,6 +437,37 @@ function Dashboard({ trailers, setTrailers, updateTrailer }: {
       </Modal>
 
       {selectedTrailer && <TrailerDetailsModal trailer={selectedTrailer} isOpen={true} onClose={() => setSelectedTrailerId(null)} onUpdate={updateTrailer} />}
+      
+      <Modal isOpen={!!pendingShippingTrailer} onClose={() => setPendingShippingTrailer(null)} title="Dispatch Data Entry (Trim Phase)">
+        <form onSubmit={handleShipSubmit}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', padding: '1rem 0' }}>
+             <div className="form-group">
+              <label>Invoice Number</label>
+              <input 
+                type="text" 
+                required
+                placeholder="e.g. INV-99012"
+                value={shippingForm.invoiceNumber}
+                onChange={e => setShippingForm(prev => ({ ...prev, invoiceNumber: e.target.value }))}
+              />
+            </div>
+            <div className="form-group">
+              <label>VIN Date</label>
+              <input 
+                type="date" 
+                required
+                value={shippingForm.vinDate}
+                onChange={e => setShippingForm(prev => ({ ...prev, vinDate: e.target.value }))}
+              />
+            </div>
+          </div>
+          <div className="form-footer">
+            <button type="button" className="btn btn-secondary" onClick={() => setPendingShippingTrailer(null)}>Dismiss</button>
+            <button type="submit" className="btn btn-primary" style={{ background: '#3b82f6' }}>Save Dispatch Info</button>
+          </div>
+        </form>
+      </Modal>
+
       <Modal isOpen={isRecapModalOpen} onClose={() => setIsRecapModalOpen(false)} title="Weekly Recap"><p>Recap calculation logic update to include paint/outsource splitted phases.</p></Modal>
       <Modal isOpen={isStatsModalOpen} onClose={() => setIsStatsModalOpen(false)} title="Production Analytics Dashboard">
         <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', padding: '1rem 0' }}>
