@@ -33,6 +33,8 @@ export interface Trailer {
   isArchived?: boolean;
   archivedAt?: number;
   isDeleted?: boolean;
+  invoiceNumber?: string;
+  vinDate?: string;
 }
 
 export const STATIONS: StationId[] = ['B1', 'B2', 'B3', 'B4'];

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LayoutGrid, ArrowRight, Clock, Trash2, ArrowLeft, Search, Check, X, Plus, Calendar } from 'lucide-react';
+import { LayoutGrid, ArrowRight, Clock, Trash2, Calendar } from 'lucide-react';
 import { MODEL_CATEGORIES, MODEL_TARGET_HOURS } from './types';
 import type { Trailer, StationId } from './types';
 import { addHours, format } from 'date-fns';
@@ -14,6 +14,7 @@ interface Props {
 export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, trailers }) => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
+  const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
 
   const activeFloorTrailers = trailers.filter(t => !t.isArchived && t.currentPhase !== 'backlog');
   const factoryWorkloadHours = activeFloorTrailers.reduce((sum, t) => {
@@ -46,6 +47,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
   const [formData, setFormData] = useState({
     name: '',
     model: '',
+    serialNumber: '',
     station: 'B1' as StationId,
     isPriority: false,
     partsStatus: {
@@ -66,7 +68,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
       id: Math.random().toString(36).substr(2, 9),
       name: formData.name || '---',
       model: formData.model,
-      serialNumber: `LT-${Math.floor(10000 + Math.random() * 90000)}`,
+      serialNumber: formData.serialNumber || `LT-${Math.floor(10000 + Math.random() * 90000)}`,
       station: formData.station,
       isPriority: formData.isPriority,
       dateStarted: Date.now(),
@@ -76,7 +78,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
     };
 
     onAddTrailer(newTrailer);
-    setFormData({ name: '', model: '', station: 'B1', isPriority: false, partsStatus: { tyres: false, steel: false, parts: false } });
+    setFormData({ name: '', model: '', serialNumber: '', station: 'B1', isPriority: false, partsStatus: { tyres: false, steel: false, parts: false } });
   };
 
   return (
@@ -97,6 +99,18 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
           <h2 style={{ fontSize: '1rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#94a3b8', marginBottom: '1.5rem' }}>Registration Form</h2>
           <section className="registration-card" style={{ background: 'white', padding: '2rem', borderRadius: 'var(--radius-lg)', border: '1px solid #e2e8f0', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}>
             <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+              <div className="form-group">
+                <label className="form-label">Serial Number *</label>
+                <input 
+                  type="text" 
+                  className="form-input" 
+                  required
+                  value={formData.serialNumber} 
+                  onChange={e => setFormData({...formData, serialNumber: e.target.value})} 
+                  placeholder="e.g. LT-12345" 
+                />
+              </div>
+
               <div className="form-group">
                 <label className="form-label">Customer / Purchase Order</label>
                 <input type="text" className="form-input" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} placeholder="e.g. Stock" />
@@ -218,42 +232,62 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
                           <span style={{ fontSize: '0.8rem', fontWeight: 700 }}>{totalBuildHours}h Build</span>
                         </div>
 
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', padding: '0.5rem', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#3b82f6' }}>
-                            <Calendar size={12} />
-                            <span style={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Est. Start Date</span>
+                        {confirmingDeleteId === t.id ? (
+                          <div style={{ gridColumn: '4 / 6', display: 'flex', gap: '0.5rem', background: '#fee2e2', padding: '0.5rem', borderRadius: '8px', border: '1px solid #ef4444' }}>
+                            <button 
+                              onClick={() => {
+                                onUpdateTrailer(t.id, { isArchived: true, archivedAt: Date.now(), isDeleted: true });
+                                setConfirmingDeleteId(null);
+                              }}
+                              style={{ flex: 1, padding: '0.4rem', background: '#ef4444', color: 'white', border: 'none', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 800, cursor: 'pointer' }}
+                            >
+                              CONFIRM
+                            </button>
+                            <button 
+                              onClick={() => setConfirmingDeleteId(null)}
+                              style={{ flex: 1, padding: '0.4rem', background: 'white', color: '#64748b', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 800, cursor: 'pointer' }}
+                            >
+                              CANCEL
+                            </button>
                           </div>
-                          <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#1e293b' }}>
-                            {format(estimatedDate, 'MMM d, h:mm a')}
-                          </div>
-                        </div>
+                        ) : (
+                          <>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', padding: '0.5rem', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#3b82f6' }}>
+                                <Calendar size={12} />
+                                <span style={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Est. Start Date</span>
+                              </div>
+                              <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#1e293b' }}>
+                                {format(estimatedDate, 'MMM d, h:mm a')}
+                              </div>
+                            </div>
 
-                        <button 
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (window.confirm(`Are you sure you want to remove ${t.serialNumber} from backlog? It will be moved to history.`)) {
-                              onUpdateTrailer(t.id, { isArchived: true, archivedAt: Date.now(), isDeleted: true });
-                            }
-                          }}
-                          style={{ 
-                            width: '36px', 
-                            height: '36px', 
-                            borderRadius: '10px', 
-                            border: '1px solid #fee2e2', 
-                            background: '#fff', 
-                            color: '#ef4444', 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            justifyContent: 'center',
-                            cursor: 'pointer',
-                            transition: 'all 0.2s ease',
-                          }}
-                          onMouseOver={(e) => { e.currentTarget.style.background = '#fef2f2'; e.currentTarget.style.borderColor = '#fca5a5'; }}
-                          onMouseOut={(e) => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.borderColor = '#fee2e2'; }}
-                        >
-                          <Trash2 size={16} />
-                        </button>
+                            <button 
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setConfirmingDeleteId(t.id);
+                              }}
+                              style={{ 
+                                width: '36px', 
+                                height: '36px', 
+                                borderRadius: '10px', 
+                                border: '1px solid #fee2e2', 
+                                background: '#fff', 
+                                color: '#ef4444', 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                justifyContent: 'center',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s ease',
+                              }}
+                              onMouseOver={(e) => { e.currentTarget.style.background = '#fef2f2'; e.currentTarget.style.borderColor = '#fca5a5'; }}
+                              onMouseOut={(e) => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.borderColor = '#fee2e2'; }}
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </>
+                        )}
                       </div>
                     );
                   });
