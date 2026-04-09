@@ -231,8 +231,12 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
     const trailer = trailers.find(t => t.id === activeId);
     
     if (trailer) {
-      // Prompt for VIN/Invoice when moving from Paint or Outsource into Trim
+      // Prompt for VIN/Invoice when entering Trim from Paint/Outsource
       if (trailer.currentPhase === 'trim' && (dragStartPhase === 'paint' || dragStartPhase === 'outsource')) {
+        setPendingShippingTrailer(trailer);
+      }
+      // Fallback: Also prompt when entering Shipping from Trim if data was dismissed earlier
+      if (trailer.currentPhase === 'shipping' && dragStartPhase === 'trim' && (!trailer.vinDate || !trailer.invoiceNumber)) {
         setPendingShippingTrailer(trailer);
       }
       
@@ -497,32 +501,61 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
 
       {selectedTrailer && <TrailerDetailsModal trailer={selectedTrailer} isOpen={true} onClose={() => setSelectedTrailerId(null)} onUpdate={updateTrailer} />}
       
-      <Modal isOpen={!!pendingShippingTrailer} onClose={() => setPendingShippingTrailer(null)} title="Trim Entry — VIN & Invoice">
+      <Modal isOpen={!!pendingShippingTrailer} onClose={() => setPendingShippingTrailer(null)} title="VIN & Invoice Entry">
         <form onSubmit={handleShipSubmit}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', padding: '1rem 0' }}>
-             <div className="form-group">
-              <label>Invoice Number</label>
+          {/* Unit Info Banner */}
+          {pendingShippingTrailer && (
+            <div style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              padding: '0.75rem 1rem', background: '#f8fafc', borderRadius: '10px',
+              border: '1px solid #e2e8f0', marginBottom: '1.5rem'
+            }}>
+              <div>
+                <div style={{ fontSize: '0.7rem', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Unit</div>
+                <div style={{ fontSize: '0.95rem', fontWeight: 800, color: '#0f172a' }}>{pendingShippingTrailer.model}</div>
+              </div>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: '0.7rem', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Serial</div>
+                <div style={{ fontSize: '0.95rem', fontWeight: 800, color: '#0f172a' }}>{pendingShippingTrailer.serialNumber}</div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: '0.7rem', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Phase</div>
+                <div style={{ fontSize: '0.95rem', fontWeight: 800, color: '#3b82f6' }}>{pendingShippingTrailer.currentPhase.charAt(0).toUpperCase() + pendingShippingTrailer.currentPhase.slice(1)}</div>
+              </div>
+            </div>
+          )}
+
+          {/* Form Fields */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
+            <div className="form-group" style={{ margin: 0 }}>
+              <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.4rem' }}>Invoice Number *</label>
               <input 
                 type="text" 
+                className="form-input"
                 required
                 placeholder="e.g. INV-99012"
+                style={{ padding: '0.6rem 0.75rem', borderRadius: '8px', border: '1.5px solid #e2e8f0', fontSize: '0.9rem', fontWeight: 600 }}
                 value={shippingForm.invoiceNumber}
                 onChange={e => setShippingForm(prev => ({ ...prev, invoiceNumber: e.target.value }))}
               />
             </div>
-            <div className="form-group">
-              <label>VIN Date</label>
+            <div className="form-group" style={{ margin: 0 }}>
+              <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.4rem' }}>VIN Date *</label>
               <input 
                 type="date" 
+                className="form-input"
                 required
+                style={{ padding: '0.6rem 0.75rem', borderRadius: '8px', border: '1.5px solid #e2e8f0', fontSize: '0.9rem', fontWeight: 600 }}
                 value={shippingForm.vinDate}
                 onChange={e => setShippingForm(prev => ({ ...prev, vinDate: e.target.value }))}
               />
             </div>
           </div>
-          <div className="form-footer">
-            <button type="button" className="btn btn-secondary" onClick={() => setPendingShippingTrailer(null)}>Dismiss</button>
-            <button type="submit" className="btn btn-primary" style={{ background: '#3b82f6' }}>Save Dispatch Info</button>
+
+          {/* Action Buttons */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid #f1f5f9' }}>
+            <button type="button" className="btn btn-secondary" style={{ borderRadius: '8px', padding: '0.5rem 1.25rem', fontSize: '0.85rem' }} onClick={() => setPendingShippingTrailer(null)}>Skip for Now</button>
+            <button type="submit" className="btn btn-primary" style={{ background: '#3b82f6', borderRadius: '8px', padding: '0.5rem 1.5rem', fontSize: '0.85rem', fontWeight: 700 }}>Save</button>
           </div>
         </form>
       </Modal>
