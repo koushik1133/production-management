@@ -27,6 +27,7 @@ import { BacklogView } from './BacklogView';
 import TVView from './TVView';
 import StationView from './StationView';
 import { ArchiveView } from './ArchiveView';
+import { ScheduleView } from './ScheduleView';
 
 import { 
   Search, 
@@ -40,7 +41,8 @@ import {
   Crown,
   BarChart3,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Calendar
 } from 'lucide-react';
 
 import type { Trailer, PhaseId, StationId } from './types';
@@ -318,6 +320,10 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
           <input type="file" ref={fileInputRef} style={{ display: 'none' }} accept=".csv" onChange={handleFileUpload} />
           
           <div className="header-divider" />
+          
+          <button className="btn btn-secondary" onClick={() => navigate('/schedule')}>
+             <Calendar size={16} /> <span className="btn-text">Schedule</span>
+          </button>
           
           <button className="btn btn-primary" onClick={() => navigate('/backlog')}>
              <Plus size={16} /> <span className="btn-text">Backlog Registration</span>
@@ -661,10 +667,33 @@ function App() {
     // Optimistic update
     setTrailers(prev => [newTrailer, ...prev]);
 
+    // Clean up empty strings for date fields to prevent DB errors
+    const payload = { ...newTrailer };
+    if (!payload.expectedDueDate) delete payload.expectedDueDate;
+    if (!payload.promisedShippingDate) delete payload.promisedShippingDate;
+
     const { error } = await supabase
       .from('trailers')
-      .insert([newTrailer]);
+      .insert([payload]);
     
+    // SELF-HEALING: If columns are missing in DB, try again without them
+    if (error && error.message.includes('expectedDueDate')) {
+      console.warn('New columns missing in DB, attempting fallback registration...');
+      const fallbackPayload = { ...payload };
+      delete fallbackPayload.expectedDueDate;
+      delete fallbackPayload.promisedShippingDate;
+
+      const { error: fallbackError } = await supabase
+        .from('trailers')
+        .insert([fallbackPayload]);
+      
+      if (fallbackError) {
+        console.error('Registration totally failed:', fallbackError);
+        setTrailers(prev => prev.filter(t => t.id !== newTrailer.id));
+      }
+      return;
+    }
+
     if (error) {
       console.error('Error adding trailer:', error);
       // Rollback on error
@@ -690,6 +719,7 @@ function App() {
         <Route path="/tv/station1" element={<TVView trailers={trailers} monitorMode="station1" />} />
         <Route path="/tv/station2" element={<TVView trailers={trailers} monitorMode="station2" />} />
         <Route path="/archive" element={<ArchiveView trailers={trailers} onUpdateTrailer={updateTrailer} />} />
+        <Route path="/schedule" element={<ScheduleView trailers={trailers} />} />
       </Routes>
     </AuthGate>
   );

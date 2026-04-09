@@ -71,17 +71,20 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
       name: formData.name || '---',
       model: formData.model,
       serialNumber: formData.serialNumber || `LT-${Math.floor(10000 + Math.random() * 90000)}`,
-      station: formData.station,
       isPriority: formData.isPriority,
       dateStarted: Date.now(),
       currentPhase: 'backlog',
       history: [{ phase: 'backlog', enteredAt: Date.now() }],
       partsStatus: formData.partsStatus,
       expectedDueDate: formData.expectedDueDate,
-      promisedShippingDate: formData.promisedShippingDate
+      promisedShippingDate: formData.promisedShippingDate,
+      isArchived: false,
+      isDeleted: false,
+      station: 'None'
     };
 
     onAddTrailer(newTrailer);
+    
     setFormData({ 
       name: '', 
       model: '', 
@@ -110,28 +113,44 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
         {/* Registration Section */}
         <div style={{ position: 'sticky', top: '2rem' }}>
           <h2 style={{ fontSize: '1rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#94a3b8', marginBottom: '1.5rem' }}>Registration Form</h2>
-          <section className="registration-card" style={{ background: 'white', padding: '2rem', borderRadius: 'var(--radius-lg)', border: '1px solid #e2e8f0', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}>
-            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-              <div className="form-group">
-                <label className="form-label">Serial Number *</label>
-                <input 
-                  type="text" 
-                  className="form-input" 
+          <section className="registration-card" style={{ background: 'white', padding: '1.5rem', borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
+            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: '1rem' }}>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ fontSize: '0.65rem' }}>Serial Number *</label>
+                  <input 
+                    type="text" 
+                    className="form-input" 
+                    required
+                    style={{ height: '38px', fontSize: '0.9rem' }}
+                    value={formData.serialNumber} 
+                    onChange={e => setFormData({...formData, serialNumber: e.target.value})} 
+                    placeholder="LT-XXXXX" 
+                  />
+                </div>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ fontSize: '0.65rem' }}>Customer / PO</label>
+                  <input 
+                    type="text" 
+                    className="form-input" 
+                    style={{ height: '38px', fontSize: '0.9rem' }}
+                    value={formData.name} 
+                    onChange={e => setFormData({...formData, name: e.target.value})} 
+                    placeholder="e.g. Stock" 
+                  />
+                </div>
+              </div>
+
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label" style={{ fontSize: '0.65rem' }}>Official Trailer Model *</label>
+                <select 
+                  className="form-select" 
+                  style={{ height: '42px', fontSize: '0.9rem', fontWeight: 700 }}
+                  value={formData.model} 
+                  onChange={e => setFormData({...formData, model: e.target.value})} 
                   required
-                  value={formData.serialNumber} 
-                  onChange={e => setFormData({...formData, serialNumber: e.target.value})} 
-                  placeholder="e.g. LT-12345" 
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Customer / Purchase Order</label>
-                <input type="text" className="form-input" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} placeholder="e.g. Stock" />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Official Lane Model *</label>
-                <select className="form-select" value={formData.model} onChange={e => setFormData({...formData, model: e.target.value})} required>
+                >
                   <option value="">Select Trailer Model...</option>
                   {MODEL_CATEGORIES.map(cat => (
                     <optgroup key={cat.name} label={cat.name}>
@@ -141,44 +160,55 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
                 </select>
               </div>
 
-              <div style={{ padding: '1.5rem', background: '#f8fafc', borderRadius: 'var(--radius-md)', border: '1px solid #e2e8f0' }}>
-                <label className="form-label" style={{ marginBottom: '1rem' }}>Timeline Planning</label>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                  <div className="form-group">
-                    <label className="form-label">Expected Due Date</label>
-                    <input 
-                      type="date" 
-                      className="form-input" 
-                      value={formData.expectedDueDate} 
-                      onChange={e => setFormData({...formData, expectedDueDate: e.target.value})} 
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Promised Shipping Date</label>
-                    <input 
-                      type="date" 
-                      className="form-input" 
-                      value={formData.promisedShippingDate} 
-                      onChange={e => setFormData({...formData, promisedShippingDate: e.target.value})} 
-                    />
-                  </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', padding: '1.25rem', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ fontSize: '0.65rem', color: '#1e40af' }}>Expected Due Date</label>
+                  <input 
+                    type="date" 
+                    className="form-input" 
+                    style={{ height: '38px', fontSize: '0.85rem' }}
+                    value={formData.expectedDueDate} 
+                    onChange={e => setFormData({...formData, expectedDueDate: e.target.value})} 
+                  />
+                </div>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ fontSize: '0.65rem', color: '#1e40af' }}>Promised Shipping</label>
+                  <input 
+                    type="date" 
+                    className="form-input" 
+                    style={{ height: '38px', fontSize: '0.85rem' }}
+                    value={formData.promisedShippingDate} 
+                    onChange={e => setFormData({...formData, promisedShippingDate: e.target.value})} 
+                  />
                 </div>
               </div>
 
-              <div style={{ padding: '1.5rem', background: '#f8fafc', borderRadius: 'var(--radius-md)', border: '1px solid #e2e8f0' }}>
-                <label className="form-label" style={{ marginBottom: '1rem' }}>Parts Readiness</label>
+              <div style={{ padding: '1.25rem', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                  <label className="form-label" style={{ fontSize: '0.65rem', color: '#166534', margin: 0 }}>Parts Readiness</label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <input 
+                      type="checkbox" 
+                      id="priority-check"
+                      checked={formData.isPriority} 
+                      onChange={e => setFormData({...formData, isPriority: e.target.checked})}
+                      style={{ width: '16px', height: '16px' }}
+                    />
+                    <label htmlFor="priority-check" style={{ fontSize: '0.7rem', fontWeight: 800, color: '#be123c', cursor: 'pointer' }}>HIGH PRIORITY</label>
+                  </div>
+                </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem' }}>
                   {Object.entries(formData.partsStatus).map(([key, val]) => (
-                    <label key={key} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', padding: '1rem 0.5rem', background: val ? '#dcfce7' : 'white', borderRadius: '8px', border: `1px solid ${val ? '#22c55e' : '#e2e8f0'}`, transition: 'all 0.2s' }}>
-                      <input type="checkbox" checked={val} onChange={e => setFormData({...formData, partsStatus: {...formData.partsStatus, [key]: e.target.checked}})} style={{ width: '18px', height: '18px' }} />
-                      <span style={{ fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase' }}>{key}</span>
+                    <label key={key} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', padding: '0.75rem 0.4rem', background: val ? '#dcfce7' : 'white', borderRadius: '10px', border: `1px solid ${val ? '#22c55e' : '#e2e8f0'}`, transition: 'all 0.2s' }}>
+                      <input type="checkbox" checked={val} onChange={e => setFormData({...formData, partsStatus: {...formData.partsStatus, [key]: e.target.checked}})} style={{ width: '16px', height: '16px' }} />
+                      <span style={{ fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', color: val ? '#166534' : '#64748b' }}>{key}</span>
                     </label>
                   ))}
                 </div>
               </div>
 
-              <button type="submit" className="btn btn-primary" style={{ height: '4rem', fontSize: '1.1rem' }}>
-                Register New Unit <ArrowRight size={20} />
+              <button type="submit" className="btn btn-primary" style={{ height: '3.5rem', fontSize: '1rem', borderRadius: '12px' }}>
+                Confirm Registration <ArrowRight size={18} />
               </button>
             </form>
 
