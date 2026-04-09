@@ -208,11 +208,12 @@ const TVView: React.FC<Props> = ({ trailers, monitorMode: initialMode = 'all' })
                 target="_blank" 
                 rel="noopener noreferrer"
                 style={{ 
-                  fontSize: '1rem', 
-                  fontWeight: 800, 
-                  color: '#3b82f6', 
+                  fontSize: '1.1rem', 
+                  fontWeight: 900, 
+                  color: isDarkMode ? '#60a5fa' : '#2563eb', 
                   textDecoration: 'underline',
-                  display: 'inline-block' 
+                  display: 'inline-block',
+                  wordBreak: 'break-all'
                 }}
               >
                 {window.location.origin}/tv
