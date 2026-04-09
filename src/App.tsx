@@ -401,11 +401,11 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
       <div className="pipeline-workload-strip" style={{ position: 'fixed', bottom: '40px', left: 0, right: 0, height: '50px', borderTop: '2px solid #fbbf24', display: 'flex', alignItems: 'center' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <Clock size={20} style={{ color: '#fbbf24' }} />
-          <span className="strip-label" style={{ fontSize: '0.8rem', letterSpacing: '0.05em' }}>TOTAL PRODUCTION TIME:</span>
-          <span className="strip-value" style={{ color: '#fbbf24', fontSize: '1.25rem' }}>{Math.round(totalProductionTime)} HOURS</span>
+          <span className="strip-label" style={{ fontSize: '0.8rem', letterSpacing: '0.05em' }}>WORKLOAD REMAINING:</span>
+          <span className="strip-value" style={{ color: '#fbbf24', fontSize: '1.25rem' }}>{Math.round(totalWorkRemaining)} HOURS</span>
           <div style={{ width: '1px', height: '24px', background: 'rgba(255,255,255,0.2)', margin: '0 1rem' }} />
-          <span className="strip-label">WORKLOAD REMAINING:</span>
-          <span className="strip-value" style={{ color: '#fff' }}>{Math.round(totalWorkRemaining)}h</span>
+          <span className="strip-label">TOTAL PLAN CAPACITY:</span>
+          <span className="strip-value" style={{ color: '#fff' }}>{Math.round(totalProductionTime)}h</span>
         </div>
         <div style={{ flex: 1 }} />
         <div className="strip-stats">
