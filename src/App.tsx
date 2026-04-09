@@ -7,6 +7,7 @@ import {
   closestCorners,
   KeyboardSensor,
   PointerSensor,
+  TouchSensor,
   useSensor,
   useSensors,
 } from '@dnd-kit/core';
@@ -111,7 +112,13 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
   });
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(PointerSensor, { activationConstraint: { distance: 10 } }),
+    useSensor(TouchSensor, { 
+      activationConstraint: { 
+        delay: 250, 
+        tolerance: 5 
+      } 
+    }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
@@ -276,36 +283,47 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
     reader.readAsText(file);
   };
 
+  const [isAdding, setIsAdding] = useState(false);
+
   const handleAddTrailer = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTrailerData.model) {
       alert("Missing Required Field: Please select an Official Model.");
       return;
     }
-    const newTrailer: Trailer = {
-      id: Math.random().toString(36).substr(2, 9),
-      name: newTrailerData.name,
-      model: newTrailerData.model,
-      serialNumber: `LT-${Math.floor(10000 + Math.random() * 90000)}`,
-      station: newTrailerData.station,
-      isPriority: newTrailerData.isPriority,
-      dateStarted: Date.now(),
-      currentPhase: 'backlog',
-      history: [{ phase: 'backlog', enteredAt: Date.now() }],
-      expectedDueDate: newTrailerData.expectedDueDate,
-      promisedShippingDate: newTrailerData.promisedShippingDate
-    };
     
-    await addTrailer(newTrailer);
-    setIsAddModalOpen(false);
-    setNewTrailerData({ 
-      name: '', 
-      model: '', 
-      station: 'B1', 
-      isPriority: false,
-      expectedDueDate: '',
-      promisedShippingDate: ''
-    });
+    setIsAdding(true);
+    try {
+      const newId = Math.random().toString(36).substr(2, 9);
+      const newTrailer: Trailer = {
+        id: newId,
+        name: newTrailerData.name || '---',
+        model: newTrailerData.model,
+        serialNumber: `LT-${Math.floor(10000 + Math.random() * 90000)}`,
+        station: newTrailerData.station,
+        isPriority: newTrailerData.isPriority,
+        dateStarted: Date.now(),
+        currentPhase: 'backlog',
+        history: [{ phase: 'backlog', enteredAt: Date.now() }],
+        expectedDueDate: newTrailerData.expectedDueDate,
+        promisedShippingDate: newTrailerData.promisedShippingDate
+      };
+      
+      await addTrailer(newTrailer);
+      setIsAddModalOpen(false);
+      setNewTrailerData({ 
+        name: '', 
+        model: '', 
+        station: 'B1', 
+        isPriority: false,
+        expectedDueDate: '',
+        promisedShippingDate: ''
+      });
+    } catch (err: any) {
+      alert("Error during registration process: " + err.message);
+    } finally {
+      setIsAdding(false);
+    }
   };
 
   const selectedTrailer = trailers.find(t => t.id === selectedTrailerId);
@@ -349,6 +367,9 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
           </button>
           <button className="btn btn-secondary" onClick={() => navigate('/tv')}>
             <Tv size={16} /> <span className="btn-text">TV Mode</span>
+          </button>
+          <button className="btn btn-primary" onClick={() => setIsAddModalOpen(true)}>
+            <Plus size={16} /> <span className="btn-text">Add Unit</span>
           </button>
           <button className="btn btn-secondary btn-icon" onClick={() => exportToCsv(trailers)} title="Export CSV">
             <Download size={16} />
@@ -449,7 +470,29 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
               <input type="date" className="form-input" value={newTrailerData.promisedShippingDate} onChange={e => setNewTrailerData({...newTrailerData, promisedShippingDate: e.target.value})} />
             </div>
           </div>
-          <div className="form-footer"><button type="button" className="btn btn-secondary" onClick={() => setIsAddModalOpen(false)}>Cancel</button><button type="submit" className="btn btn-primary">Add to Backlog</button></div>
+          <div className="form-group" style={{ marginTop: '1rem', display: 'flex', alignItems: 'center', gap: '0.75rem', background: '#fff1f2', padding: '0.85rem', borderRadius: '12px', border: '1px solid #fecdd3' }}>
+            <input 
+              type="checkbox" 
+              id="quick-priority" 
+              checked={newTrailerData.isPriority} 
+              onChange={e => setNewTrailerData({...newTrailerData, isPriority: e.target.checked})}
+              style={{ width: '20px', height: '20px' }}
+            />
+            <label htmlFor="quick-priority" style={{ fontSize: '0.85rem', fontWeight: 800, color: '#be123c', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <Crown size={16} /> HIGH PRIORITY UNIT
+            </label>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '0.75rem', marginTop: '1.5rem' }}>
+            <button 
+              type="submit" 
+              className="btn btn-primary" 
+              disabled={isAdding}
+              style={{ height: '3.5rem', fontSize: '1.1rem', opacity: isAdding ? 0.7 : 1 }}
+            >
+              {isAdding ? 'Registering Unit...' : 'Add to Backlog'}
+            </button>
+            <button type="button" className="btn btn-secondary" onClick={() => setIsAddModalOpen(false)}>Cancel</button>
+          </div>
         </form>
       </Modal>
 
@@ -731,14 +774,16 @@ function App() {
         .insert([fallbackPayload]);
       
       if (fallbackError) {
-        console.error('Registration totally failed:', fallbackError);
+        alert("Registration Failed: " + fallbackError.message);
         setTrailers(prev => prev.filter(t => t.id !== newTrailer.id));
+      } else {
+        alert("Unit Registered (Fallback Mode: Dates excluded). Please update DB schema.");
       }
       return;
     }
 
     if (error) {
-      console.error('Error adding trailer:', error);
+      alert("Error adding trailer: " + error.message);
       // Rollback on error
       setTrailers(prev => prev.filter(t => t.id !== newTrailer.id));
     }
