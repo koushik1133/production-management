@@ -74,7 +74,7 @@ export const TrailerCard: React.FC<Props> = React.memo(({
         (cardRef as any).current = node;
       }}
       style={style}
-      className={`trailer-card ${isBottleneck ? 'is-bottleneck' : ''} ${isHighlighted ? 'is-highlighted' : ''}`}
+      className={`trailer-card ${isDragging ? 'is-dragging' : ''} ${isBottleneck ? 'is-bottleneck' : ''} ${isHighlighted ? 'is-highlighted' : ''}`}
       {...attributes}
       {...listeners}
       onClick={() => onCardClick?.()}

@@ -142,7 +142,7 @@ const StationView: React.FC<Props> = ({ trailers, onUpdateTrailer, onUpdateTrail
               onCardClick={(t) => setSelectedTrailerId(t.id)}
             />
           ))}
-          <DragOverlay>
+          <DragOverlay className="drag-overlay-active">
             {activeTrailer ? <TrailerCard trailer={activeTrailer} /> : null}
           </DragOverlay>
         </DndContext>
