@@ -117,6 +117,13 @@ export const TrailerCard: React.FC<Props> = ({
           <Calendar className="card-meta-icon" />
           <span>Started {format(trailer.dateStarted, 'MMM d, yyyy')}</span>
         </div>
+
+        <div className="card-meta-item" style={{ color: trailer.expectedDueDate ? '#b91c1c' : '#94a3b8' }}>
+          <Calendar className="card-meta-icon" style={{ opacity: 0.7 }} />
+          <span style={{ fontWeight: 700 }}>
+            Due: {trailer.expectedDueDate ? format(new Date(trailer.expectedDueDate + 'T12:00:00'), 'MMM d') : '--'}
+          </span>
+        </div>
       </div>
       
       {trailer.notes && (

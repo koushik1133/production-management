@@ -17,7 +17,9 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
     name: trailer.name,
     model: trailer.model,
     serialNumber: trailer.serialNumber,
-    partsStatus: trailer.partsStatus || { steel: false, tyres: false, parts: false }
+    partsStatus: trailer.partsStatus || { steel: false, tyres: false, parts: false },
+    expectedDueDate: trailer.expectedDueDate || '',
+    expectedShippingDate: trailer.expectedShippingDate || ''
   });
   const [localNotes, setLocalNotes] = React.useState(trailer.notes || '');
 
@@ -107,11 +109,42 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                   onChange={e => setEditForm({...editForm, model: e.target.value})}
                 />
              </div>
+             <div className="form-group">
+                <label className="form-label">Expected Due Date</label>
+                <input 
+                  type="date"
+                  className="form-input" 
+                  value={editForm.expectedDueDate} 
+                  onChange={e => setEditForm({...editForm, expectedDueDate: e.target.value})}
+                />
+             </div>
+             <div className="form-group">
+                <label className="form-label">Expected Shipping Date</label>
+                <input 
+                  type="date"
+                  className="form-input" 
+                  value={editForm.expectedShippingDate} 
+                  onChange={e => setEditForm({...editForm, expectedShippingDate: e.target.value})}
+                />
+             </div>
           </div>
         ) : (
-          <div style={{ marginBottom: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
-            <span style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)' }}>{trailer.name}</span>
-            <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>SN: {trailer.serialNumber}</span>
+          <div style={{ marginBottom: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+              <span style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)' }}>{trailer.name}</span>
+              <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>SN: {trailer.serialNumber}</span>
+            </div>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', padding: '1rem', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+              <div>
+                <span style={{ fontSize: '0.65rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>Expected Due</span>
+                <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#0f172a' }}>{trailer.expectedDueDate ? format(new Date(trailer.expectedDueDate + 'T12:00:00'), 'MMM d, yyyy') : 'NOT SET'}</span>
+              </div>
+              <div>
+                <span style={{ fontSize: '0.65rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>Shipping Date</span>
+                <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#0f172a' }}>{trailer.expectedShippingDate ? format(new Date(trailer.expectedShippingDate + 'T12:00:00'), 'MMM d, yyyy') : 'NOT SET'}</span>
+              </div>
+            </div>
           </div>
         )}
 
