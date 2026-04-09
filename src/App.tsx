@@ -133,12 +133,24 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
 
   // Calculate Global Work Remaining
   const totalWorkRemaining = trailers.reduce((sum, t) => {
+    // If unit is in shipping or archived, it has 0 work remaining
+    if (t.currentPhase === 'shipping' || t.isArchived) return sum;
+
     const phaseIndex = PHASES.findIndex(p => p.id === t.currentPhase);
-    if (phaseIndex === -1 || t.currentPhase === 'shipping') return sum;
+    if (phaseIndex === -1) return sum;
     
-    // Sum target hours for current phase AND all subsequent phases EXCEPT backlog & shipping
+    // Sum target hours for current phase AND all subsequent phases
     const remainingForThisTrailer = PHASES.slice(phaseIndex).reduce((pSum, p) => {
+      // 1. Skip backlog and shipping as they are not build work
       if (p.id === 'backlog' || p.id === 'shipping') return pSum;
+
+      // 2. Logic for Finishing (Paint vs Outsource)
+      // If we know the type, skip the other one. 
+      // If we DON'T know yet (unit in backlog/build), assume Paint by default to avoid double counting
+      if (t.finishingType === 'Paint' && p.id === 'outsource') return pSum;
+      if (t.finishingType === 'Outsource' && p.id === 'paint') return pSum;
+      if (!t.finishingType && p.id === 'outsource') return pSum; // Default assumption
+
       return pSum + (MODEL_TARGET_HOURS[t.model]?.[p.id] || 0);
     }, 0);
     
