@@ -157,10 +157,19 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
     return sum + remainingForThisTrailer;
   }, 0);
 
-  const totalLoggedHours = useMemo(() => {
-    return trailers.reduce((total, trailer) => {
-      const trailerManualHours = trailer.history.reduce((sum, h) => sum + (h.phaseManualHours || 0), 0);
-      return total + trailerManualHours;
+  const totalProductionTime = useMemo(() => {
+    return trailers.reduce((total, t) => {
+      if (t.isArchived || t.currentPhase === 'shipping') return total;
+      
+      const trailerTotalHours = PHASES.reduce((pSum, p) => {
+        if (p.id === 'backlog' || p.id === 'shipping') return pSum;
+        if (t.finishingType === 'Paint' && p.id === 'outsource') return pSum;
+        if (t.finishingType === 'Outsource' && p.id === 'paint') return pSum;
+        if (!t.finishingType && p.id === 'outsource') return pSum;
+        return pSum + (MODEL_TARGET_HOURS[t.model]?.[p.id] || 0);
+      }, 0);
+      
+      return total + trailerTotalHours;
     }, 0);
   }, [trailers]);
 
@@ -393,7 +402,7 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <Clock size={20} style={{ color: '#fbbf24' }} />
           <span className="strip-label" style={{ fontSize: '0.8rem', letterSpacing: '0.05em' }}>TOTAL PRODUCTION TIME:</span>
-          <span className="strip-value" style={{ color: '#fbbf24', fontSize: '1.25rem' }}>{Math.round(totalLoggedHours)} HOURS</span>
+          <span className="strip-value" style={{ color: '#fbbf24', fontSize: '1.25rem' }}>{Math.round(totalProductionTime)} HOURS</span>
           <div style={{ width: '1px', height: '24px', background: 'rgba(255,255,255,0.2)', margin: '0 1rem' }} />
           <span className="strip-label">WORKLOAD REMAINING:</span>
           <span className="strip-value" style={{ color: '#fff' }}>{Math.round(totalWorkRemaining)}h</span>
@@ -401,7 +410,7 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
         <div style={{ flex: 1 }} />
         <div className="strip-stats">
           <span>Active Units: {trailers.filter(t => t.currentPhase !== 'shipping').length}</span>
-          <span>Shop Capacity: {trailers.length > 0 ? Math.round((totalWorkRemaining + totalLoggedHours) / Math.max(trailers.length, 1)) : 0}h/unit</span>
+          <span>Shop Capacity: {trailers.length > 0 ? Math.round(totalProductionTime / Math.max(trailers.length, 1)) : 0}h/unit</span>
         </div>
       </div>
 
