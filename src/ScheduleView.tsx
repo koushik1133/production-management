@@ -97,7 +97,7 @@ export const ScheduleView: React.FC<Props> = ({ trailers }) => {
                     <span style={{ fontSize: '0.75rem', fontWeight: 700 }}>Bay: {trailer.station}</span>
                   </div>
                   <button 
-                    onClick={() => navigate('/')} 
+                    onClick={() => navigate(`/?highlight=${trailer.id}`)} 
                     style={{ background: 'none', border: 'none', color: 'var(--accent)', fontSize: '0.75rem', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
                   >
                     View on Board <ChevronRight size={14} />

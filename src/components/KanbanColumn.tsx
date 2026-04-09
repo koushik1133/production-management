@@ -12,9 +12,10 @@ interface Props {
   onUpdateTrailer?: (id: string, updates: Partial<Trailer>) => void;
   onShipRequest?: (trailer: Trailer) => void;
   totalHours?: number;
+  highlightedId?: string | null;
 }
 
-export const KanbanColumn: React.FC<Props> = React.memo(({ id, title, trailers, onCardClick, onUpdateTrailer, onShipRequest, totalHours }) => {
+export const KanbanColumn: React.FC<Props> = React.memo(({ id, title, trailers, onCardClick, onUpdateTrailer, onShipRequest, totalHours, highlightedId }) => {
   const { setNodeRef } = useDroppable({
     id,
   });
@@ -61,6 +62,7 @@ export const KanbanColumn: React.FC<Props> = React.memo(({ id, title, trailers, 
               onUpdateTrailer={onUpdateTrailer}
               onShipRequest={onShipRequest}
               onCardClick={() => onCardClick?.(trailer)}
+              isHighlighted={trailer.id === highlightedId}
             />
           ))}
         </SortableContext>
