@@ -65,9 +65,18 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
   isConnected: boolean,
   addTrailer: (trailer: Trailer) => Promise<void>
 }) {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const highlightedTrailerId = searchParams.get('highlight');
   const [activeId, setActiveId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (highlightedTrailerId) {
+      const timer = setTimeout(() => {
+        setSearchParams({});
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [highlightedTrailerId, setSearchParams]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isStatsModalOpen, setIsStatsModalOpen] = useState(false);
