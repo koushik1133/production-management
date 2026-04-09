@@ -15,7 +15,7 @@ interface Props {
   hideShipButton?: boolean;
 }
 
-export const TrailerCard: React.FC<Props> = ({ 
+export const TrailerCard: React.FC<Props> = React.memo(({ 
   trailer, 
   onUpdateTrailer, 
   onCardClick,
@@ -199,4 +199,4 @@ export const TrailerCard: React.FC<Props> = ({
       )}
     </div>
   );
-};
+});

@@ -14,7 +14,7 @@ interface Props {
   totalHours?: number;
 }
 
-export const KanbanColumn: React.FC<Props> = ({ id, title, trailers, onCardClick, onUpdateTrailer, onShipRequest, totalHours }) => {
+export const KanbanColumn: React.FC<Props> = React.memo(({ id, title, trailers, onCardClick, onUpdateTrailer, onShipRequest, totalHours }) => {
   const { setNodeRef } = useDroppable({
     id,
   });
@@ -73,4 +73,4 @@ export const KanbanColumn: React.FC<Props> = ({ id, title, trailers, onCardClick
       )}
     </div>
   );
-};
+});
