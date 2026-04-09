@@ -14,6 +14,10 @@ interface Props {
 export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose, onUpdate }) => {
   const [localNotes, setLocalNotes] = React.useState(trailer.notes || '');
 
+  React.useEffect(() => {
+    setLocalNotes(trailer.notes || '');
+  }, [trailer.id, trailer.notes]);
+
   const formatLogDuration = (ms: number) => {
     const totalMinutes = Math.floor(ms / (1000 * 60));
     const hours = Math.floor(totalMinutes / 60);

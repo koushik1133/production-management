@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Clock, Truck, Search, ChevronRight } from 'lucide-react';
-import { formatDistanceToNow, format } from 'date-fns';
+import { formatDistance, format } from 'date-fns';
 import type { Trailer } from './types';
 import { TrailerDetailsModal } from './components/TrailerDetailsModal';
 
@@ -109,9 +109,9 @@ export const ArchiveView: React.FC<Props> = ({ trailers, onUpdateTrailer }) => {
                 <div className="archive-card-duration">
                   <Clock size={16} />
                   <div>
-                    <div className="archive-badge-label">Duration</div>
+                    <div className="archive-badge-label">Total Lead Time</div>
                     <div className="archive-badge-value">
-                      {t.archivedAt ? formatDistanceToNow(t.dateStarted) : 'N/A'}
+                      {t.archivedAt ? formatDistance(t.dateStarted, t.archivedAt) : 'N/A'}
                     </div>
                   </div>
                 </div>
