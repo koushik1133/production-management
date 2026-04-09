@@ -248,7 +248,9 @@ const TVView: React.FC<Props> = ({ trailers, monitorMode: initialMode = 'all' })
           overflowX: 'auto', 
           overflowY: 'hidden',
           display: 'flex',
-          justifyContent: window.innerWidth < 1024 ? 'flex-start' : (filteredPhases.length <= 3 ? 'center' : 'flex-start'),
+          justifyContent: window.innerWidth < 1024 
+            ? 'flex-start' 
+            : (monitorMode !== 'all' || filteredPhases.length <= 3 ? 'center' : 'flex-start'),
           alignItems: 'stretch'
         }}
       >
