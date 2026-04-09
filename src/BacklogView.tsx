@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LayoutGrid, ArrowRight, Clock, Trash2, Calendar } from 'lucide-react';
-import { MODEL_CATEGORIES, MODEL_TARGET_HOURS, PHASE_METADATA } from './types';
+import { MODEL_CATEGORIES, MODEL_TARGET_HOURS } from './types';
 import type { Trailer, StationId } from './types';
 import { addHours, format } from 'date-fns';
 
@@ -18,10 +18,9 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
 
   const activeFloorTrailers = trailers.filter(t => !t.isArchived && t.currentPhase !== 'backlog');
   const factoryWorkloadHours = activeFloorTrailers.reduce((sum, t) => {
-    const target = MODEL_TARGET_HOURS[t.model]?.[t.currentPhase]
-      ?? PHASE_METADATA[t.currentPhase]?.defaultTargetHours
-      ?? 0;
-    return sum + target;
+    const hours = MODEL_TARGET_HOURS[t.model];
+    if (!hours) return sum;
+    return sum + (hours[t.currentPhase] || 0);
   }, 0);
 
   const BAYS_COUNT = 4;
@@ -59,14 +58,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
   });
 
   const selectedModelHours = formData.model ? MODEL_TARGET_HOURS[formData.model] : null;
-  const totalHours = (() => {
-    if (selectedModelHours) {
-      return Object.entries(selectedModelHours).reduce((a, [p, h]) => p !== 'shipping' ? a + h : a, 0);
-    }
-    // Fallback to summing all default phase hours except shipping
-    return Object.entries(PHASE_METADATA).reduce((a, [p, meta]) => 
-      (p !== 'shipping' && p !== 'backlog') ? a + meta.defaultTargetHours : a, 0);
-  })();
+  const totalHours = selectedModelHours ? Object.entries(selectedModelHours).reduce((a, [p, h]) => p !== 'shipping' ? a + h : a, 0) : 0;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -192,11 +184,8 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
                 {backlogTrailers.length > 0 ? (() => {
                   let cumulativeBacklogHours = 0;
                   return backlogTrailers.map(t => {
-                    const modelHours = MODEL_TARGET_HOURS[t.model];
-                    const totalBuildHours = modelHours 
-                      ? Object.entries(modelHours).reduce((a, [p, h]) => (p !== 'shipping' && p !== 'backlog') ? a + (h as number) : a, 0)
-                      : Object.entries(PHASE_METADATA).reduce((a, [p, meta]) => 
-                          (p !== 'shipping' && p !== 'backlog') ? a + meta.defaultTargetHours : a, 0);
+                    const modelHours = MODEL_TARGET_HOURS[t.model] || {};
+                    const totalBuildHours = Object.entries(modelHours).reduce((a, [p, h]) => (p !== 'shipping' && p !== 'backlog') ? a + (h as number) : a, 0);
                     
                     // Estimate = (Active Floor Delay) + (Hours of units ahead in backlog / 4 bays)
                     const estimateHours = activeFloorDelayHours + (cumulativeBacklogHours / BAYS_COUNT);
