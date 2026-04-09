@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Clock, Hash, MapPin, Calendar, Crown, StickyNote, Truck } from 'lucide-react';
@@ -13,6 +13,7 @@ interface Props {
   onShipRequest?: (trailer: Trailer) => void;
   hideCustomerName?: boolean;
   hideShipButton?: boolean;
+  isHighlighted?: boolean;
 }
 
 export const TrailerCard: React.FC<Props> = React.memo(({ 
@@ -21,8 +22,10 @@ export const TrailerCard: React.FC<Props> = React.memo(({
   onCardClick,
   onShipRequest,
   hideCustomerName,
-  hideShipButton 
+  hideShipButton,
+  isHighlighted
 }) => {
+  const cardRef = useRef<HTMLDivElement>(null);
   const {
     attributes,
     listeners,
@@ -38,6 +41,12 @@ export const TrailerCard: React.FC<Props> = React.memo(({
     }
   });
 
+  useEffect(() => {
+    if (isHighlighted && cardRef.current) {
+      cardRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [isHighlighted]);
+
   const style = {
     transition,
     transform: CSS.Transform.toString(transform),
@@ -48,13 +57,9 @@ export const TrailerCard: React.FC<Props> = React.memo(({
   const currentLog = trailer.history.find(h => h.phase === trailer.currentPhase && !h.exitedAt);
   const timeInPhase = currentLog ? formatDistanceToNow(currentLog.enteredAt) : '0m';
 
-  // Bottleneck Detection: Model-Specific Target
   const hoursRemaining = currentLog ? (Date.now() - currentLog.enteredAt) / (1000 * 60 * 60) : 0;
-  
-  // FIXED: Look up target hours for this specific MODEL and PHASE
   const targetHours = MODEL_TARGET_HOURS[trailer.model]?.[trailer.currentPhase] 
     || PHASE_METADATA[trailer.currentPhase].defaultTargetHours;
-    
   const isBottleneck = hoursRemaining > targetHours;
 
   const handleStationChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -64,9 +69,12 @@ export const TrailerCard: React.FC<Props> = React.memo(({
 
   return (
     <div
-      ref={setNodeRef}
+      ref={(node) => {
+        setNodeRef(node);
+        (cardRef as any).current = node;
+      }}
       style={style}
-      className={`trailer-card ${isBottleneck ? 'is-bottleneck' : ''}`}
+      className={`trailer-card ${isBottleneck ? 'is-bottleneck' : ''} ${isHighlighted ? 'is-highlighted' : ''}`}
       {...attributes}
       {...listeners}
       onClick={() => onCardClick?.()}
@@ -95,7 +103,7 @@ export const TrailerCard: React.FC<Props> = React.memo(({
             gap: '2px',
             flexShrink: 0
           }}>
-            <span style={{ fontSize: '0.6rem', fontWeight: 800, color: trailer.isPriority ? '#be123c' : '#3b82f6', textTransform: 'uppercase' }}>Due Date</span>
+            <span style={{ fontSize: '0.65rem', fontWeight: 800, color: trailer.isPriority ? '#be123c' : '#3b82f6', textTransform: 'uppercase' }}>Due Date</span>
             <span style={{ fontSize: '0.8rem', fontWeight: 900, color: trailer.isPriority ? '#e11d48' : '#1d4ed8' }}>
               {format(new Date(trailer.expectedDueDate + 'T12:00:00'), 'MMM d')}
             </span>
@@ -136,7 +144,6 @@ export const TrailerCard: React.FC<Props> = React.memo(({
           <Calendar className="card-meta-icon" />
           <span>Started {format(trailer.dateStarted, 'MMM d, yyyy')}</span>
         </div>
-
       </div>
       
       {trailer.notes && (

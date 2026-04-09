@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { Routes, Route, useNavigate, Link } from 'react-router-dom';
+import { Routes, Route, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { format } from 'date-fns';
 import {
   DndContext,
@@ -65,6 +65,8 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
   isConnected: boolean,
   addTrailer: (trailer: Trailer) => Promise<void>
 }) {
+  const [searchParams] = useSearchParams();
+  const highlightedTrailerId = searchParams.get('highlight');
   const [activeId, setActiveId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -349,6 +351,7 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
               onShipRequest={(t) => setPendingShippingTrailer(t)}
               onCardClick={(t) => setSelectedTrailerId(t.id)}
               totalHours={getPhaseHours(phase.id)}
+              highlightedId={highlightedTrailerId}
             />
           ))}
           <DragOverlay>
