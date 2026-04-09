@@ -231,8 +231,8 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
     const trailer = trailers.find(t => t.id === activeId);
     
     if (trailer) {
-      // Prompt for VIN/Invoice when entering Trim from Paint/Outsource
-      if (trailer.currentPhase === 'trim' && (dragStartPhase === 'paint' || dragStartPhase === 'outsource')) {
+      // Prompt for VIN/Invoice when entering Trim from Paint/Outsource (only if not already filled)
+      if (trailer.currentPhase === 'trim' && (dragStartPhase === 'paint' || dragStartPhase === 'outsource') && (!trailer.vinDate || !trailer.invoiceNumber)) {
         setPendingShippingTrailer(trailer);
       }
       // Fallback: Also prompt when entering Shipping from Trim if data was dismissed earlier
