@@ -145,6 +145,13 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
     return sum + remainingForThisTrailer;
   }, 0);
 
+  const totalLoggedHours = useMemo(() => {
+    return trailers.reduce((total, trailer) => {
+      const trailerManualHours = trailer.history.reduce((sum, h) => sum + (h.phaseManualHours || 0), 0);
+      return total + trailerManualHours;
+    }, 0);
+  }, [trailers]);
+
   const [dragStartPhase, setDragStartPhase] = useState<PhaseId | null>(null);
 
   const handleDragStart = (event: DragStartEvent) => {
@@ -373,13 +380,16 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
       <div className="pipeline-workload-strip">
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <Clock size={16} className="clock-icon" />
-          <span className="strip-label">TOTAL PIPELINE WORKLOAD:</span>
+          <span className="strip-label">LOGGED PRODUCTION:</span>
+          <span className="strip-value" style={{ color: '#10b981' }}>{Math.round(totalLoggedHours)} HOURS</span>
+          <div style={{ width: '1px', height: '16px', background: 'rgba(255,255,255,0.2)', margin: '0 0.5rem' }} />
+          <span className="strip-label">PIPELINE WORKLOAD:</span>
           <span className="strip-value">{Math.round(totalWorkRemaining)} HOURS REMAINING</span>
         </div>
         <div style={{ flex: 1 }} />
         <div className="strip-stats">
           <span>Active Units: {trailers.filter(t => t.currentPhase !== 'shipping').length}</span>
-          <span>Avg Hours/Unit: {trailers.length > 0 ? Math.round(totalWorkRemaining / trailers.length) : 0}h</span>
+          <span>Shop Capacity: {trailers.length > 0 ? Math.round((totalWorkRemaining + totalLoggedHours) / Math.max(trailers.length, 1)) : 0}h/unit</span>
         </div>
       </div>
 
