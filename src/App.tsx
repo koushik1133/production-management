@@ -261,10 +261,18 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
     e.preventDefault();
     if (!pendingShippingTrailer) return;
     
-    await updateTrailer(pendingShippingTrailer.id, {
+    const updates: Partial<Trailer> = {
       invoiceNumber: shippingForm.invoiceNumber,
       vinDate: shippingForm.vinDate
-    });
+    };
+    
+    // If the trailer is in shipping, also archive it
+    if (pendingShippingTrailer.currentPhase === 'shipping') {
+      updates.isArchived = true;
+      updates.archivedAt = Date.now();
+    }
+    
+    await updateTrailer(pendingShippingTrailer.id, updates);
     setPendingShippingTrailer(null);
     setShippingForm({ invoiceNumber: '', vinDate: '' });
   };
