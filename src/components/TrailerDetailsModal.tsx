@@ -65,12 +65,19 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
             <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>PRODUCTION UNIT DATA</span>
           </div>
           {!trailer.isArchived && (
-            <button 
-              className={`btn btn-sm ${isEditing ? 'btn-danger' : 'btn-secondary'}`}
-              onClick={() => setIsEditing(!isEditing)}
-            >
-              {isEditing ? 'Cancel Edits' : 'Edit Unit Info'}
-            </button>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              {isEditing && (
+                <button className="btn btn-primary" onClick={handleSaveAll} style={{ background: '#2563eb' }}>
+                  Save Changes
+                </button>
+              )}
+              <button 
+                className={`btn btn-sm ${isEditing ? 'btn-danger' : 'btn-secondary'}`}
+                onClick={() => setIsEditing(!isEditing)}
+              >
+                {isEditing ? 'Cancel Edits' : 'Edit Unit Info'}
+              </button>
+            </div>
           )}
         </div>
 
