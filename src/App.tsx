@@ -103,7 +103,6 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
   };
 
   const [newTrailerData, setNewTrailerData] = useState({
-    serialNumber: '',
     name: '',
     model: '',
     station: 'B1' as StationId,
@@ -288,8 +287,8 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
 
   const handleAddTrailer = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newTrailerData.model || !newTrailerData.serialNumber) {
-      alert("Missing Required Fields: Please enter Serial Number and select a Model.");
+    if (!newTrailerData.model) {
+      alert("Missing Required Field: Please select an Official Model.");
       return;
     }
     
@@ -300,9 +299,7 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
         id: newId,
         name: newTrailerData.name || '---',
         model: newTrailerData.model,
-        serialNumber: newTrailerData.serialNumber.startsWith('LT-') 
-          ? newTrailerData.serialNumber 
-          : `LT-${newTrailerData.serialNumber}`,
+        serialNumber: `LT-${Math.floor(10000 + Math.random() * 90000)}`,
         station: newTrailerData.station,
         isPriority: newTrailerData.isPriority,
         dateStarted: Date.now(),
@@ -315,7 +312,6 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
       await addTrailer(newTrailer);
       setIsAddModalOpen(false);
       setNewTrailerData({ 
-        serialNumber: '',
         name: '', 
         model: '', 
         station: 'B1', 
@@ -453,22 +449,9 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
 
       <Modal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} title="Quick Unit Registration">
         <form onSubmit={handleAddTrailer}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-            <div className="form-group">
-              <label className="form-label">Serial Number *</label>
-              <input 
-                type="text" 
-                className="form-input" 
-                value={newTrailerData.serialNumber} 
-                onChange={e => setNewTrailerData({...newTrailerData, serialNumber: e.target.value.toUpperCase()})} 
-                placeholder="e.g. 54321" 
-                required 
-              />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Customer / PO</label>
-              <input type="text" className="form-input" value={newTrailerData.name} onChange={e => setNewTrailerData({...newTrailerData, name: e.target.value})} placeholder="e.g. Stock Unit" />
-            </div>
+          <div className="form-group">
+            <label className="form-label">Customer / Purchase Order</label>
+            <input type="text" className="form-input" value={newTrailerData.name} onChange={e => setNewTrailerData({...newTrailerData, name: e.target.value})} placeholder="e.g. Stock Unit" />
           </div>
           <div className="form-group">
             <label className="form-label">Official Lane Model *</label>
