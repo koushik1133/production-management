@@ -231,8 +231,8 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
     const trailer = trailers.find(t => t.id === activeId);
     
     if (trailer) {
-      // Prompt for shipping data if newly moved to shipping
-      if (trailer.currentPhase === 'shipping' && dragStartPhase !== 'shipping') {
+      // Prompt for VIN/Invoice when moving from Paint or Outsource into Trim
+      if (trailer.currentPhase === 'trim' && (dragStartPhase === 'paint' || dragStartPhase === 'outsource')) {
         setPendingShippingTrailer(trailer);
       }
       
@@ -258,9 +258,8 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
     if (!pendingShippingTrailer) return;
     
     await updateTrailer(pendingShippingTrailer.id, {
-      ...shippingForm,
-      isArchived: true,
-      archivedAt: Date.now()
+      invoiceNumber: shippingForm.invoiceNumber,
+      vinDate: shippingForm.vinDate
     });
     setPendingShippingTrailer(null);
     setShippingForm({ invoiceNumber: '', vinDate: '' });
@@ -498,7 +497,7 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
 
       {selectedTrailer && <TrailerDetailsModal trailer={selectedTrailer} isOpen={true} onClose={() => setSelectedTrailerId(null)} onUpdate={updateTrailer} />}
       
-      <Modal isOpen={!!pendingShippingTrailer} onClose={() => setPendingShippingTrailer(null)} title="Dispatch Data Entry (Trim Phase)">
+      <Modal isOpen={!!pendingShippingTrailer} onClose={() => setPendingShippingTrailer(null)} title="Trim Entry — VIN & Invoice">
         <form onSubmit={handleShipSubmit}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', padding: '1rem 0' }}>
              <div className="form-group">
