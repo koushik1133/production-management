@@ -44,8 +44,8 @@ const TVView: React.FC<Props> = ({ trailers, monitorMode: initialMode = 'all' })
   
   const filteredTrailers = trailers.filter(t => !t.isArchived);
   const filteredPhases = PHASES.filter(p => {
-    if (monitorMode === 'station1') return ['prefab', 'build'].includes(p.id);
-    if (monitorMode === 'station2') return ['paint', 'outsource', 'trim'].includes(p.id);
+    if (monitorMode === 'station1') return ['backlog', 'prefab', 'build'].includes(p.id);
+    if (monitorMode === 'station2') return ['paint', 'outsource', 'trim', 'shipping'].includes(p.id);
     // 'All' view now shows every phase in the production lifecycle
     return true;
   });
