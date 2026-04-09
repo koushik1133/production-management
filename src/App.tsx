@@ -60,13 +60,14 @@ import './App.css';
 
 import { supabase } from './lib/supabase';
 
-function Dashboard({ trailers, setTrailers, updateTrailer, updateTrailersBatch, isConnected, addTrailer }: { 
+function Dashboard({ trailers, setTrailers, updateTrailer, updateTrailersBatch, isConnected, addTrailer, onDragChange }: { 
   trailers: Trailer[], 
   setTrailers: React.Dispatch<React.SetStateAction<Trailer[]>>,
   updateTrailer: (id: string, updates: Partial<Trailer>) => void,
   updateTrailersBatch: (updates: (Partial<Trailer> & { id: string })[]) => Promise<void>,
   isConnected: boolean,
-  addTrailer: (trailer: Trailer) => Promise<void>
+  addTrailer: (trailer: Trailer) => Promise<void>,
+  onDragChange?: (id: string | null) => void
 }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const highlightedTrailerId = searchParams.get('highlight');
@@ -189,8 +190,10 @@ function Dashboard({ trailers, setTrailers, updateTrailer, updateTrailersBatch, 
   const [dragStartPhase, setDragStartPhase] = useState<PhaseId | null>(null);
 
   const handleDragStart = (event: DragStartEvent) => {
-    setActiveId(event.active.id as string);
-    const trailer = trailers.find(t => t.id === event.active.id);
+    const draggingId = event.active.id as string;
+    setActiveId(draggingId);
+    onDragChange?.(draggingId);
+    const trailer = trailers.find(t => t.id === draggingId);
     if (trailer) setDragStartPhase(trailer.currentPhase);
   };
 
@@ -240,6 +243,7 @@ function Dashboard({ trailers, setTrailers, updateTrailer, updateTrailersBatch, 
     const { active, over } = event;
     setActiveId(null);
     setDragStartPhase(null);
+    onDragChange?.(null);
 
     if (!over) return;
 
@@ -728,6 +732,7 @@ function App() {
   const [trailers, setTrailers] = useState<Trailer[]>([]);
   const [loading, setLoading] = useState(true);
   const [isConnected, setIsConnected] = useState(false);
+  const [globalActiveId, setGlobalActiveId] = useState<string | null>(null);
 
   // Fetch initial data
   useEffect(() => {
@@ -768,7 +773,11 @@ function App() {
               return [payload.new as Trailer, ...prev];
             });
           } else if (payload.eventType === 'UPDATE') {
-            setTrailers(prev => prev.map(t => t.id === payload.new.id ? payload.new as Trailer : t));
+            const updated = payload.new as Trailer;
+            // DONT update if we are currently dragging this specific trailer locally
+            if (globalActiveId === updated.id) return;
+            
+            setTrailers(prev => prev.map(t => t.id === updated.id ? updated : t));
           } else if (payload.eventType === 'DELETE') {
             setTrailers(prev => prev.filter(t => t.id === payload.old.id));
           }
@@ -870,9 +879,9 @@ function App() {
   return (
     <AuthGate>
       <Routes>
-        <Route path="/" element={<Dashboard trailers={trailers} setTrailers={setTrailers} updateTrailer={updateTrailer} updateTrailersBatch={updateTrailersBatch} isConnected={isConnected} addTrailer={addTrailer} />} />
+        <Route path="/" element={<Dashboard trailers={trailers} setTrailers={setTrailers} updateTrailer={updateTrailer} updateTrailersBatch={updateTrailersBatch} isConnected={isConnected} addTrailer={addTrailer} onDragChange={setGlobalActiveId} />} />
         <Route path="/backlog" element={<BacklogView trailers={trailers} onAddTrailer={addTrailer} onUpdateTrailer={updateTrailer} />} />
-        <Route path="/stations" element={<StationView trailers={trailers} onUpdateTrailer={updateTrailer} onUpdateTrailersBatch={updateTrailersBatch} />} />
+        <Route path="/stations" element={<StationView trailers={trailers} onUpdateTrailer={updateTrailer} onUpdateTrailersBatch={updateTrailersBatch} onDragChange={setGlobalActiveId} />} />
         <Route path="/tv" element={<TVView trailers={trailers} />} />
         <Route path="/tv/station1" element={<TVView trailers={trailers} monitorMode="station1" />} />
         <Route path="/tv/station2" element={<TVView trailers={trailers} monitorMode="station2" />} />

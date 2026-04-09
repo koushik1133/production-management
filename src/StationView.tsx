@@ -22,9 +22,10 @@ interface Props {
   trailers: Trailer[];
   onUpdateTrailer: (id: string, updates: Partial<Trailer>) => void;
   onUpdateTrailersBatch?: (updates: (Partial<Trailer> & { id: string })[]) => Promise<void>;
+  onDragChange?: (id: string | null) => void;
 }
 
-const StationView: React.FC<Props> = ({ trailers, onUpdateTrailer, onUpdateTrailersBatch }) => {
+const StationView: React.FC<Props> = ({ trailers, onUpdateTrailer, onUpdateTrailersBatch, onDragChange }) => {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [selectedTrailerId, setSelectedTrailerId] = useState<string | null>(null);
 
@@ -34,7 +35,9 @@ const StationView: React.FC<Props> = ({ trailers, onUpdateTrailer, onUpdateTrail
   );
 
   const handleDragStart = (event: DragStartEvent) => {
-    setActiveId(event.active.id as string);
+    const draggingId = event.active.id as string;
+    setActiveId(draggingId);
+    onDragChange?.(draggingId);
   };
 
   const handleDragOver = (event: DragOverEvent) => {
@@ -61,6 +64,7 @@ const StationView: React.FC<Props> = ({ trailers, onUpdateTrailer, onUpdateTrail
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
     setActiveId(null);
+    onDragChange?.(null);
     if (!over) return;
 
     const activeId = active.id as string;
