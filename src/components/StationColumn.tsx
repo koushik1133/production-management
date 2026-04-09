@@ -28,13 +28,13 @@ export const StationColumn: React.FC<Props> = ({ id, trailers, onUpdateTrailer, 
                 type="number" 
                 placeholder="Logged Hrs" 
                 className="bay-time-input"
-                value={trailers[0].history.find(h => h.phase === trailers[0].currentPhase && !h.exitedAt)?.manualHours || ''}
+                value={trailers[0].history.find(h => h.phase === trailers[0].currentPhase && !h.exitedAt)?.bayManualHours || ''}
                 onChange={(e) => {
                   const val = parseFloat(e.target.value);
                   const trailer = trailers[0];
                   const updatedHistory = trailer.history.map(h => 
                     h.phase === trailer.currentPhase && !h.exitedAt 
-                      ? { ...h, manualHours: isNaN(val) ? undefined : val } 
+                      ? { ...h, bayManualHours: isNaN(val) ? undefined : val } 
                       : h
                   );
                   onUpdateTrailer?.(trailer.id, { history: updatedHistory });
