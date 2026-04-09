@@ -417,7 +417,15 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
               title={phase.title} 
               trailers={filteredTrailers.filter(t => t.currentPhase === phase.id)} 
               onUpdateTrailer={updateTrailer} 
-              onShipRequest={(t) => setPendingShippingTrailer(t)}
+              onShipRequest={(t) => {
+                if (t.vinDate && t.invoiceNumber) {
+                  // Data already collected — archive directly
+                  updateTrailer(t.id, { isArchived: true, archivedAt: Date.now() });
+                } else {
+                  // Data missing — open popup (mandatory at shipping)
+                  setPendingShippingTrailer(t);
+                }
+              }}
               onCardClick={(t) => setSelectedTrailerId(t.id)}
               totalHours={getPhaseHours(phase.id)}
               highlightedId={highlightedTrailerId}
