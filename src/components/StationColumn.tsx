@@ -12,12 +12,12 @@ interface Props {
 }
 
 export const StationColumn: React.FC<Props> = ({ id, trailers, onUpdateTrailer, onCardClick }) => {
-  const { setNodeRef } = useDroppable({
+  const { setNodeRef, isOver } = useDroppable({
     id,
   });
 
   return (
-    <div className="kanban-column" ref={setNodeRef} style={{ background: '#f8fafc' }}>
+    <div className={`kanban-column ${isOver ? 'is-over' : ''}`} ref={setNodeRef} style={{ background: '#f8fafc' }}>
       <div className="column-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <span className="column-title" style={{ color: 'var(--accent)', fontWeight: 800 }}>BAY {id}</span>
