@@ -94,7 +94,7 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
     station: 'B1' as StationId,
     isPriority: false,
     expectedDueDate: '',
-    promisedDeliveryDate: ''
+    promisedShippingDate: ''
   });
 
   const sensors = useSensors(
@@ -252,7 +252,7 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
       currentPhase: 'backlog',
       history: [{ phase: 'backlog', enteredAt: Date.now() }],
       expectedDueDate: newTrailerData.expectedDueDate,
-      promisedDeliveryDate: newTrailerData.promisedDeliveryDate
+      promisedShippingDate: newTrailerData.promisedShippingDate
     };
     
     await addTrailer(newTrailer);
@@ -263,7 +263,7 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
       station: 'B1', 
       isPriority: false,
       expectedDueDate: '',
-      promisedDeliveryDate: ''
+      promisedShippingDate: ''
     });
   };
 
@@ -396,8 +396,8 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
               <input type="date" className="form-input" value={newTrailerData.expectedDueDate} onChange={e => setNewTrailerData({...newTrailerData, expectedDueDate: e.target.value})} />
             </div>
             <div className="form-group">
-              <label className="form-label">Promised Delivery Date</label>
-              <input type="date" className="form-input" value={newTrailerData.promisedDeliveryDate} onChange={e => setNewTrailerData({...newTrailerData, promisedDeliveryDate: e.target.value})} />
+              <label className="form-label">Promised Shipping Date</label>
+              <input type="date" className="form-input" value={newTrailerData.promisedShippingDate} onChange={e => setNewTrailerData({...newTrailerData, promisedShippingDate: e.target.value})} />
             </div>
           </div>
           <div className="form-footer"><button type="button" className="btn btn-secondary" onClick={() => setIsAddModalOpen(false)}>Cancel</button><button type="submit" className="btn btn-primary">Add to Backlog</button></div>
@@ -658,11 +658,18 @@ function App() {
   };
 
   const addTrailer = async (newTrailer: Trailer) => {
+    // Optimistic update
+    setTrailers(prev => [newTrailer, ...prev]);
+
     const { error } = await supabase
       .from('trailers')
       .insert([newTrailer]);
     
-    if (error) console.error('Error adding trailer:', error);
+    if (error) {
+      console.error('Error adding trailer:', error);
+      // Rollback on error
+      setTrailers(prev => prev.filter(t => t.id !== newTrailer.id));
+    }
   };
 
   if (loading) {

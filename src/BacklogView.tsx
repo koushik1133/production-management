@@ -56,7 +56,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
       parts: false
     },
     expectedDueDate: '',
-    promisedDeliveryDate: ''
+    promisedShippingDate: ''
   });
 
   const selectedModelHours = formData.model ? MODEL_TARGET_HOURS[formData.model] : null;
@@ -78,7 +78,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
       history: [{ phase: 'backlog', enteredAt: Date.now() }],
       partsStatus: formData.partsStatus,
       expectedDueDate: formData.expectedDueDate,
-      promisedDeliveryDate: formData.promisedDeliveryDate
+      promisedShippingDate: formData.promisedShippingDate
     };
 
     onAddTrailer(newTrailer);
@@ -90,7 +90,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
       isPriority: false, 
       partsStatus: { tyres: false, steel: false, parts: false },
       expectedDueDate: '',
-      promisedDeliveryDate: ''
+      promisedShippingDate: ''
     });
   };
 
@@ -154,12 +154,12 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
                     />
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Promised Delivery Date</label>
+                    <label className="form-label">Promised Shipping Date</label>
                     <input 
                       type="date" 
                       className="form-input" 
-                      value={formData.promisedDeliveryDate} 
-                      onChange={e => setFormData({...formData, promisedDeliveryDate: e.target.value})} 
+                      value={formData.promisedShippingDate} 
+                      onChange={e => setFormData({...formData, promisedShippingDate: e.target.value})} 
                     />
                   </div>
                 </div>

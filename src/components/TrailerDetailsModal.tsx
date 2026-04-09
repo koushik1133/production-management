@@ -1,7 +1,8 @@
 import React from 'react';
-import { formatDistanceToNow, format } from 'date-fns';
-import { History, FileText, Send, Crown } from 'lucide-react';
+import { formatDistanceToNow, format, differenceInCalendarDays, subDays } from 'date-fns';
+import { History, FileText, Send, Crown, Calculator, CalendarClock } from 'lucide-react';
 import type { Trailer } from '../types';
+import { MODEL_TARGET_HOURS, PHASES } from '../types';
 import { Modal } from './Modal';
 
 interface Props {
@@ -19,7 +20,7 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
     serialNumber: trailer.serialNumber,
     partsStatus: trailer.partsStatus || { steel: false, tyres: false, parts: false },
     expectedDueDate: trailer.expectedDueDate || '',
-    promisedDeliveryDate: trailer.promisedDeliveryDate || ''
+    promisedShippingDate: trailer.promisedShippingDate || ''
   });
   const [localNotes, setLocalNotes] = React.useState(trailer.notes || '');
 
@@ -119,12 +120,12 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                 />
              </div>
              <div className="form-group">
-                <label className="form-label">Promised Delivery Date</label>
+                <label className="form-label">Promised Shipping Date</label>
                 <input 
                   type="date"
                   className="form-input" 
-                  value={editForm.promisedDeliveryDate} 
-                  onChange={e => setEditForm({...editForm, promisedDeliveryDate: e.target.value})}
+                  value={editForm.promisedShippingDate} 
+                  onChange={e => setEditForm({...editForm, promisedShippingDate: e.target.value})}
                 />
              </div>
           </div>
@@ -141,12 +142,68 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                 <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#0f172a' }}>{trailer.expectedDueDate ? format(new Date(trailer.expectedDueDate + 'T12:00:00'), 'MMM d, yyyy') : 'NOT SET'}</span>
               </div>
               <div>
-                <span style={{ fontSize: '0.65rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>Promised Delivery Date</span>
-                <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#0f172a' }}>{trailer.promisedDeliveryDate ? format(new Date(trailer.promisedDeliveryDate + 'T12:00:00'), 'MMM d, yyyy') : 'NOT SET'}</span>
+                <span style={{ fontSize: '0.65rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>Promised Shipping Date</span>
+                <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#0f172a' }}>{trailer.promisedShippingDate ? format(new Date(trailer.promisedShippingDate + 'T12:00:00'), 'MMM d, yyyy') : 'NOT SET'}</span>
               </div>
             </div>
           </div>
         )}
+
+        {/* Smart Production Planner Section */}
+        {trailer.expectedDueDate && trailer.promisedShippingDate && !trailer.isArchived && (() => {
+          const today = new Date();
+          const promised = new Date(trailer.promisedShippingDate + 'T12:00:00');
+          const shopDeadline = subDays(promised, 2);
+          const daysToDeadline = differenceInCalendarDays(shopDeadline, today);
+          const gapBetweenDueAndPromised = differenceInCalendarDays(promised, new Date(trailer.expectedDueDate + 'T12:00:00'));
+
+          // Calculate remaining hours
+          const phaseIndex = PHASES.findIndex(p => p.id === trailer.currentPhase);
+          const remainingHours = PHASES.slice(phaseIndex).reduce((sum, p) => {
+            if (p.id === 'shipping') return sum;
+            return sum + (MODEL_TARGET_HOURS[trailer.model]?.[p.id] || 0);
+          }, 0);
+
+          const hoursPerDay = daysToDeadline > 0 ? (remainingHours / daysToDeadline).toFixed(1) : remainingHours.toFixed(1);
+
+          return (
+            <div style={{ marginTop: '1.5rem', marginBottom: '2rem', padding: '1.25rem', background: '#f0f9ff', borderRadius: '16px', border: '1px solid #bae6fd' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem' }}>
+                <Calculator size={18} color="#0369a1" />
+                <span style={{ fontSize: '0.85rem', fontWeight: 800, color: '#0369a1', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Smart Production Planner</span>
+              </div>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem' }}>
+                <div style={{ background: 'white', padding: '1rem', borderRadius: '12px', border: '1px solid #e0f2fe' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#0284c7', marginBottom: '0.25rem' }}>
+                    <CalendarClock size={14} />
+                    <span style={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase' }}>Shop floor deadline</span>
+                  </div>
+                  <div style={{ fontSize: '1.1rem', fontWeight: 900, color: '#0c4a6e' }}>{format(shopDeadline, 'MMM d')}</div>
+                  <div style={{ fontSize: '0.7rem', color: '#0369a1', fontWeight: 600 }}>2-day buffer included</div>
+                </div>
+
+                <div style={{ background: '#0369a1', padding: '1rem', borderRadius: '12px', color: 'white' }}>
+                  <span style={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', display: 'block', marginBottom: '0.25rem', opacity: 0.8 }}>Required Velocity</span>
+                  <div style={{ fontSize: '1.1rem', fontWeight: 900 }}>{hoursPerDay}h / Day</div>
+                  <div style={{ fontSize: '0.7rem', fontWeight: 600, opacity: 0.9 }}>To hit {remainingHours}h total</div>
+                </div>
+              </div>
+
+              <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem', background: 'rgba(255,255,255,0.5)', borderRadius: '10px' }}>
+                <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#0369a1' }}>
+                  Timeline Buffer: 
+                  <span style={{ color: gapBetweenDueAndPromised < 3 ? '#b91c1c' : '#0369a1', marginLeft: '0.5rem' }}>
+                    {gapBetweenDueAndPromised} Days Gap
+                  </span>
+                </span>
+                <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#0369a1' }}>
+                  Work Days Left: {Math.max(0, daysToDeadline)}
+                </span>
+              </div>
+            </div>
+          );
+        })()}
 
         <div className="section-title">
           <span>Parts Readiness Status</span>
