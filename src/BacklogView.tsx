@@ -54,7 +54,9 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
       tyres: false,
       steel: false,
       parts: false
-    }
+    },
+    expectedDueDate: '',
+    expectedShippingDate: ''
   });
 
   const selectedModelHours = formData.model ? MODEL_TARGET_HOURS[formData.model] : null;
@@ -74,11 +76,22 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
       dateStarted: Date.now(),
       currentPhase: 'backlog',
       history: [{ phase: 'backlog', enteredAt: Date.now() }],
-      partsStatus: formData.partsStatus
+      partsStatus: formData.partsStatus,
+      expectedDueDate: formData.expectedDueDate,
+      expectedShippingDate: formData.expectedShippingDate
     };
 
     onAddTrailer(newTrailer);
-    setFormData({ name: '', model: '', serialNumber: '', station: 'B1', isPriority: false, partsStatus: { tyres: false, steel: false, parts: false } });
+    setFormData({ 
+      name: '', 
+      model: '', 
+      serialNumber: '', 
+      station: 'B1', 
+      isPriority: false, 
+      partsStatus: { tyres: false, steel: false, parts: false },
+      expectedDueDate: '',
+      expectedShippingDate: ''
+    });
   };
 
   return (
@@ -126,6 +139,30 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
                     </optgroup>
                   ))}
                 </select>
+              </div>
+
+              <div style={{ padding: '1.5rem', background: '#f8fafc', borderRadius: 'var(--radius-md)', border: '1px solid #e2e8f0' }}>
+                <label className="form-label" style={{ marginBottom: '1rem' }}>Timeline Planning</label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                  <div className="form-group">
+                    <label className="form-label">Expected Due Date</label>
+                    <input 
+                      type="date" 
+                      className="form-input" 
+                      value={formData.expectedDueDate} 
+                      onChange={e => setFormData({...formData, expectedDueDate: e.target.value})} 
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Shipping Date</label>
+                    <input 
+                      type="date" 
+                      className="form-input" 
+                      value={formData.expectedShippingDate} 
+                      onChange={e => setFormData({...formData, expectedShippingDate: e.target.value})} 
+                    />
+                  </div>
+                </div>
               </div>
 
               <div style={{ padding: '1.5rem', background: '#f8fafc', borderRadius: 'var(--radius-md)', border: '1px solid #e2e8f0' }}>

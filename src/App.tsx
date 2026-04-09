@@ -92,7 +92,9 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
     name: '',
     model: '',
     station: 'B1' as StationId,
-    isPriority: false
+    isPriority: false,
+    expectedDueDate: '',
+    expectedShippingDate: ''
   });
 
   const sensors = useSensors(
@@ -249,11 +251,20 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
       dateStarted: Date.now(),
       currentPhase: 'backlog',
       history: [{ phase: 'backlog', enteredAt: Date.now() }],
+      expectedDueDate: newTrailerData.expectedDueDate,
+      expectedShippingDate: newTrailerData.expectedShippingDate
     };
     
     await addTrailer(newTrailer);
     setIsAddModalOpen(false);
-    setNewTrailerData({ name: '', model: '', station: 'B1', isPriority: false });
+    setNewTrailerData({ 
+      name: '', 
+      model: '', 
+      station: 'B1', 
+      isPriority: false,
+      expectedDueDate: '',
+      expectedShippingDate: ''
+    });
   };
 
   const selectedTrailer = trailers.find(t => t.id === selectedTrailerId);
@@ -378,6 +389,16 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
               <option value="">Select Model...</option>
               {MODEL_CATEGORIES.map(cat => <optgroup key={cat.name} label={cat.name}>{cat.models.map(m => <option key={m} value={m}>{m}</option>)}</optgroup>)}
             </select>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
+            <div className="form-group">
+              <label className="form-label">Expected Due Date</label>
+              <input type="date" className="form-input" value={newTrailerData.expectedDueDate} onChange={e => setNewTrailerData({...newTrailerData, expectedDueDate: e.target.value})} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Shipping Date</label>
+              <input type="date" className="form-input" value={newTrailerData.expectedShippingDate} onChange={e => setNewTrailerData({...newTrailerData, expectedShippingDate: e.target.value})} />
+            </div>
           </div>
           <div className="form-footer"><button type="button" className="btn btn-secondary" onClick={() => setIsAddModalOpen(false)}>Cancel</button><button type="submit" className="btn btn-primary">Add to Backlog</button></div>
         </form>
