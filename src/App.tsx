@@ -461,7 +461,7 @@ function Dashboard({ trailers, setTrailers, updateTrailer, updateTrailersBatch, 
               highlightedId={highlightedTrailerId}
             />
           ))}
-          <DragOverlay>
+          <DragOverlay className="drag-overlay-active">
             {activeTrailer ? <TrailerCard trailer={activeTrailer} /> : null}
           </DragOverlay>
         </DndContext>
