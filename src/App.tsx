@@ -224,12 +224,23 @@ function Dashboard({ trailers, setTrailers, updateTrailer, updateTrailersBatch, 
             updatedHistory[currentLogIndex] = { ...prevLog, exitedAt: now, duration: now - prevLog.enteredAt };
           }
           updatedHistory.push({ phase: overPhase as PhaseId, enteredAt: now });
-          
-          // When moving to new phase, put at bottom first
+          // When moving to new phase, calculate a position that makes it look right in the UI
           const othersInTarget = prev.filter(ot => ot.currentPhase === overPhase && !ot.isArchived);
-          const maxPos = othersInTarget.reduce((max, ot) => Math.max(max, ot.position ?? 0), -1);
           
-          return { ...t, currentPhase: overPhase as PhaseId, history: updatedHistory, position: maxPos + 1 };
+          let newPos: number;
+          const overTrailer = othersInTarget.find(ot => ot.id === overId);
+          
+          if (overTrailer) {
+            // Find its visual index and put it just before or after?
+            // For over-unit drag, we'll put it just above it for immediate feedback
+            newPos = (overTrailer.position ?? 0) - 0.5;
+          } else {
+            // Over column header or empty space
+            const maxPos = othersInTarget.reduce((max, ot) => Math.max(max, ot.position ?? 0), -1);
+            newPos = maxPos + 1;
+          }
+          
+          return { ...t, currentPhase: overPhase as PhaseId, history: updatedHistory, position: newPos };
         }
         return t;
       }));
@@ -258,9 +269,12 @@ function Dashboard({ trailers, setTrailers, updateTrailer, updateTrailersBatch, 
     const targetPhase = isOverColumn ? (overId as PhaseId) : overTrailer?.currentPhase;
 
     if (!targetPhase) return;
+    
+    // 1. Check if phase changed compared to when we started dragging
+    const phaseChanged = activeTrailer.currentPhase !== dragStartPhase;
 
-    // 1. REORDERING within same phase
-    if (activeTrailer.currentPhase === targetPhase && activeId !== overId && overTrailer) {
+    // 2. REORDERING logic (Handles both same-phase and cross-phase landing)
+    if (activeId !== overId && overTrailer) {
       const currentInPhase = trailers
         .filter(t => t.currentPhase === targetPhase && !t.isArchived)
         .sort((a, b) => 
@@ -278,19 +292,23 @@ function Dashboard({ trailers, setTrailers, updateTrailer, updateTrailersBatch, 
         // Update DB positions for all trailers in this phase
         const updates = reordered.map((t, idx) => ({
           id: t.id,
-          position: idx
+          position: idx,
+          // Important: If this is the active unit and phase changed, include those updates too
+          ...(t.id === activeId && phaseChanged ? { 
+            currentPhase: activeTrailer.currentPhase, 
+            history: activeTrailer.history 
+          } : {})
         }));
 
         await updateTrailersBatch(updates);
       }
     } 
-    // 2. MOVEMENT to new phase (already handled visually in DragOver, just sync here)
-    else {
+    // 3. Simple MOVEMENT to empty phase or column header
+    else if (phaseChanged) {
       if (targetPhase === 'shipping' && dragStartPhase !== 'shipping') {
         setPendingShippingTrailer(activeTrailer);
       }
       
-      // Get max position in target column to put at end
       const targetInPhase = trailers.filter(t => t.currentPhase === targetPhase && !t.isArchived);
       const maxPos = targetInPhase.reduce((max, t) => Math.max(max, t.position ?? 0), -1);
 
