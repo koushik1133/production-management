@@ -46,7 +46,6 @@ import {
 import type { Trailer, PhaseId, StationId } from './types';
 import { 
   PHASES, 
-  PHASE_METADATA,
   MODEL_CATEGORIES, 
   MODEL_TARGET_HOURS 
 } from './types';
@@ -114,12 +113,7 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
     if (phaseId === 'shipping') return 0; // Exclude shipping hours
     return trailers
       .filter(t => t.currentPhase === phaseId)
-      .reduce((sum, t) => {
-        const target = MODEL_TARGET_HOURS[t.model]?.[phaseId] 
-          ?? PHASE_METADATA[phaseId]?.defaultTargetHours 
-          ?? 0;
-        return sum + target;
-      }, 0);
+      .reduce((sum, t) => sum + (MODEL_TARGET_HOURS[t.model]?.[phaseId] || 0), 0);
   };
 
   // Calculate Global Work Remaining
@@ -130,10 +124,7 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
     // Sum target hours for current phase AND all subsequent phases EXCEPT backlog & shipping
     const remainingForThisTrailer = PHASES.slice(phaseIndex).reduce((pSum, p) => {
       if (p.id === 'backlog' || p.id === 'shipping') return pSum;
-      const target = MODEL_TARGET_HOURS[t.model]?.[p.id] 
-        ?? PHASE_METADATA[p.id]?.defaultTargetHours 
-        ?? 0;
-      return pSum + target;
+      return pSum + (MODEL_TARGET_HOURS[t.model]?.[p.id] || 0);
     }, 0);
     
     return sum + remainingForThisTrailer;
@@ -164,9 +155,20 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
     }
 
     if (overPhase && activeTrailer.currentPhase !== overPhase) {
-      setTrailers(prev => prev.map(t => 
-        t.id === activeId ? { ...t, currentPhase: overPhase as PhaseId } : t
-      ));
+      setTrailers(prev => prev.map(t => {
+        if (t.id === activeId) {
+          const now = Date.now();
+          const updatedHistory = [...t.history];
+          const currentLogIndex = updatedHistory.findIndex(h => h.phase === t.currentPhase && !h.exitedAt);
+          if (currentLogIndex !== -1) {
+            const prevLog = updatedHistory[currentLogIndex];
+            updatedHistory[currentLogIndex] = { ...prevLog, exitedAt: now, duration: now - prevLog.enteredAt };
+          }
+          updatedHistory.push({ phase: overPhase as PhaseId, enteredAt: now });
+          return { ...t, currentPhase: overPhase as PhaseId, history: updatedHistory };
+        }
+        return t;
+      }));
     }
   };
 
@@ -176,34 +178,25 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active } = event;
     const activeId = active.id as string;
-    
-    // Find the LATEST trailer state (after dragOver might have moved it)
     const trailer = trailers.find(t => t.id === activeId);
     
-    if (trailer && dragStartPhase !== trailer.currentPhase) {
-      const now = Date.now();
-      const updatedHistory = [...trailer.history];
-      
-      // 1. Close the previous phase
-      const currentLogIndex = updatedHistory.findIndex(h => h.phase === dragStartPhase && !h.exitedAt);
-      if (currentLogIndex !== -1) {
-        const prevLog = updatedHistory[currentLogIndex];
-        updatedHistory[currentLogIndex] = { ...prevLog, exitedAt: now, duration: now - prevLog.enteredAt };
-      }
-      
-      // 2. Open the new phase
-      updatedHistory.push({ phase: trailer.currentPhase, enteredAt: now });
-      
-      // SYNC FINAL STATE TO SUPABASE
-      await updateTrailer(trailer.id, {
-        currentPhase: trailer.currentPhase,
-        history: updatedHistory
-      });
-
+    if (trailer) {
       // Prompt for shipping data if newly moved to shipping
-      if (trailer.currentPhase === 'shipping') {
+      if (trailer.currentPhase === 'shipping' && dragStartPhase !== 'shipping') {
         setPendingShippingTrailer(trailer);
       }
+      
+      // SYNC FINAL STATE TO SUPABASE
+      // This is the "Spontaneous" update for other devices
+      const { error } = await supabase
+        .from('trailers')
+        .update({
+          currentPhase: trailer.currentPhase,
+          history: trailer.history
+        })
+        .eq('id', trailer.id);
+        
+      if (error) console.error('Error syncing drag movement:', error);
     }
     
     setActiveId(null);
@@ -501,7 +494,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   });
   const [pin, setPin] = useState('');
   const [error, setError] = useState(false);
-  const CORRECT_PIN = import.meta.env.VITE_APP_PIN || '1234';
+  const CORRECT_PIN = '1234'; // Default PIN
 
   const handlePinEntry = (digit: string) => {
     setError(false);
