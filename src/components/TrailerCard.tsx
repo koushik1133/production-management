@@ -75,13 +75,32 @@ export const TrailerCard: React.FC<Props> = ({
         <Crown className="priority-badge" size={18} fill="#ef4444" stroke="#ef4444" />
       )}
       
-      <div className="card-header-row">
-        <div className="card-title">
-          <span className="card-model">{trailer.model}</span>
+      <div className="card-header-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
+        <div className="card-title" style={{ flex: 1, minWidth: 0 }}>
+          <span className="card-model" style={{ display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{trailer.model}</span>
           {!hideCustomerName && (
-            <span className="card-customer">{trailer.name}</span>
+            <span className="card-customer" style={{ display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{trailer.name}</span>
           )}
         </div>
+        {trailer.expectedDueDate && (
+          <div style={{ 
+            marginLeft: '0.75rem',
+            padding: '0.4rem 0.6rem', 
+            background: trailer.isPriority ? '#fff1f2' : '#eff6ff', 
+            borderRadius: '8px', 
+            border: `1px solid ${trailer.isPriority ? '#fecdd3' : '#dbeafe'}`,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'flex-end',
+            gap: '2px',
+            flexShrink: 0
+          }}>
+            <span style={{ fontSize: '0.6rem', fontWeight: 800, color: trailer.isPriority ? '#be123c' : '#3b82f6', textTransform: 'uppercase' }}>Due Date</span>
+            <span style={{ fontSize: '0.8rem', fontWeight: 900, color: trailer.isPriority ? '#e11d48' : '#1d4ed8' }}>
+              {format(new Date(trailer.expectedDueDate + 'T12:00:00'), 'MMM d')}
+            </span>
+          </div>
+        )}
       </div>
       
       <div className="card-meta">
@@ -118,12 +137,6 @@ export const TrailerCard: React.FC<Props> = ({
           <span>Started {format(trailer.dateStarted, 'MMM d, yyyy')}</span>
         </div>
 
-        <div className="card-meta-item" style={{ color: trailer.expectedDueDate ? '#b91c1c' : '#94a3b8' }}>
-          <Calendar className="card-meta-icon" style={{ opacity: 0.7 }} />
-          <span style={{ fontWeight: 700 }}>
-            Due: {trailer.expectedDueDate ? format(new Date(trailer.expectedDueDate + 'T12:00:00'), 'MMM d') : '--'}
-          </span>
-        </div>
       </div>
       
       {trailer.notes && (
