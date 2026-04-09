@@ -73,7 +73,7 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
     if (highlightedTrailerId) {
       const timer = setTimeout(() => {
         setSearchParams({});
-      }, 5000);
+      }, 2500);
       return () => clearTimeout(timer);
     }
   }, [highlightedTrailerId, setSearchParams]);
