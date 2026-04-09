@@ -201,7 +201,7 @@ const TVView: React.FC<Props> = ({ trailers, monitorMode: initialMode = 'all' })
               textAlign: 'center'
             }}>
               <a 
-                href={window.location.origin + "/tv"} 
+                href="https://koushik1133.github.io/production-management/tv" 
                 target="_blank" 
                 rel="noopener noreferrer"
                 style={{ 
@@ -212,7 +212,7 @@ const TVView: React.FC<Props> = ({ trailers, monitorMode: initialMode = 'all' })
                   wordBreak: 'break-all'
                 }}
               >
-                {window.location.origin}/tv
+                https://koushik1133.github.io/production-management/tv
               </a>
             </div>
             
@@ -221,7 +221,7 @@ const TVView: React.FC<Props> = ({ trailers, monitorMode: initialMode = 'all' })
                 className="btn btn-primary" 
                 style={{ flex: 1, padding: '0.75rem', fontSize: '0.85rem' }}
                 onClick={() => {
-                  navigator.clipboard.writeText(window.location.origin + "/tv");
+                  navigator.clipboard.writeText("https://koushik1133.github.io/production-management/tv");
                   alert("Link copied to clipboard!");
                 }}
               >
