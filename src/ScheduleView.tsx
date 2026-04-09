@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { format, isToday, isBefore, addDays, parseISO, startOfDay } from 'date-fns';
+import { format, isToday, isBefore, startOfDay } from 'date-fns';
 import { Calendar, ChevronRight, MapPin, Clock, AlertTriangle, CheckCircle2, LayoutDashboard, Archive, Plus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import type { Trailer } from './types';
