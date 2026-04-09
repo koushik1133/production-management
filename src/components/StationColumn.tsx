@@ -9,41 +9,38 @@ interface Props {
   trailers: Trailer[];
   onUpdateTrailer?: (id: string, updates: Partial<Trailer>) => void;
   onCardClick?: (trailer: Trailer) => void;
+  totalHours?: number;
 }
 
-export const StationColumn: React.FC<Props> = ({ id, trailers, onUpdateTrailer, onCardClick }) => {
+export const StationColumn: React.FC<Props> = ({ id, trailers, onUpdateTrailer, onCardClick, totalHours }) => {
   const { setNodeRef } = useDroppable({
     id,
   });
 
   return (
     <div className="kanban-column" ref={setNodeRef} style={{ background: '#f8fafc' }}>
-      <div className="column-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+      <div className="column-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem 1rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <span className="column-title" style={{ color: 'var(--accent)', fontWeight: 800 }}>BAY {id}</span>
-          
-          {trailers.length > 0 && (
-            <div className="bay-header-input-wrapper">
-              <input 
-                type="number" 
-                placeholder="Logged Hrs" 
-                className="bay-time-input"
-                value={trailers[0].history.find(h => h.phase === trailers[0].currentPhase && !h.exitedAt)?.bayManualHours || ''}
-                onChange={(e) => {
-                  const val = parseFloat(e.target.value);
-                  const trailer = trailers[0];
-                  const updatedHistory = trailer.history.map(h => 
-                    h.phase === trailer.currentPhase && !h.exitedAt 
-                      ? { ...h, bayManualHours: isNaN(val) ? undefined : val } 
-                      : h
-                  );
-                  onUpdateTrailer?.(trailer.id, { history: updatedHistory });
-                }}
-              />
+          {totalHours !== undefined && (
+            <div style={{ 
+              background: '#fef3c7', 
+              color: '#92400e', 
+              padding: '0.2rem 0.6rem', 
+              borderRadius: '6px', 
+              fontSize: '0.7rem', 
+              fontWeight: 800,
+              border: '1px solid #fde68a',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.3rem'
+            }}>
+              <span style={{ opacity: 0.7 }}>WORKLOAD:</span>
+              <span>{Math.round(totalHours)}h</span>
             </div>
           )}
         </div>
-        <span className="column-count" style={{ fontSize: '0.75rem', fontWeight: 600 }}>{trailers.length} units</span>
+        <span className="column-count" style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>{trailers.length} units</span>
       </div>
       <div className="cards-container">
         <SortableContext

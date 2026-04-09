@@ -13,7 +13,7 @@ import {
 import type { DragStartEvent, DragOverEvent } from '@dnd-kit/core';
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import type { Trailer, StationId } from './types';
-import { STATIONS } from './types';
+import { STATIONS, PHASES, PHASE_METADATA, MODEL_TARGET_HOURS } from './types';
 import { TrailerCard } from './components/TrailerCard';
 import { StationColumn } from './components/StationColumn';
 import { TrailerDetailsModal } from './components/TrailerDetailsModal';
@@ -62,6 +62,28 @@ const StationView: React.FC<Props> = ({ trailers, onUpdateTrailer }) => {
   const selectedTrailer = trailers.find(t => t.id === selectedTrailerId);
   const activeTrailer = activeId ? trailers.find(t => t.id === activeId) : null;
 
+  const getStationWorkload = (stationId: StationId) => {
+    const stationTrailers = trailers.filter(t => t.station === stationId && !t.isArchived);
+    return stationTrailers.reduce((sum, t) => {
+      // Logic from App.tsx for workload remaining
+      const fromPhaseIndex = PHASES.findIndex(p => p.id === t.currentPhase);
+      if (fromPhaseIndex === -1) return sum;
+      
+      const remainingPhases = PHASES.slice(fromPhaseIndex);
+      const trailerWork = remainingPhases.reduce((pSum, phase) => {
+        // Handle Paint vs Outsource logic
+        if (phase.id === 'paint' && t.finishingType === 'Outsource') return pSum;
+        if (phase.id === 'outsource' && t.finishingType === 'Paint') return pSum;
+        
+        const target = MODEL_TARGET_HOURS[t.model]?.[phase.id] 
+          || PHASE_METADATA[phase.id].defaultTargetHours;
+        return pSum + target;
+      }, 0);
+      
+      return sum + trailerWork;
+    }, 0);
+  };
+
   return (
     <div className="app-container">
       <header className="header">
@@ -92,6 +114,7 @@ const StationView: React.FC<Props> = ({ trailers, onUpdateTrailer }) => {
               trailers={trailers.filter(t => t.station === station && !t.isArchived)} 
               onUpdateTrailer={onUpdateTrailer} 
               onCardClick={(t) => setSelectedTrailerId(t.id)}
+              totalHours={getStationWorkload(station)}
             />
           ))}
           <DragOverlay>
