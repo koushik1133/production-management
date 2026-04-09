@@ -21,8 +21,32 @@ export const KanbanColumn: React.FC<Props> = ({ id, title, trailers, onCardClick
 
   return (
     <div className="kanban-column" ref={setNodeRef}>
-      <div className="column-header">
-        <span className="column-title">{title}</span>
+      <div className="column-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <span className="column-title" style={{ fontSize: '0.9rem' }}>{title}</span>
+          {trailers.length > 0 && id !== 'shipping' && (
+            <div className="bay-header-input-wrapper">
+              <input 
+                type="number" 
+                placeholder="Log Hrs" 
+                className="bay-time-input"
+                style={{ width: '60px', height: '24px', fontSize: '0.65rem' }}
+                value={trailers[0].history.find(h => h.phase === id && !h.exitedAt)?.manualHours || ''}
+                onChange={(e) => {
+                  const val = parseFloat(e.target.value);
+                  const trailer = trailers[0];
+                  const updatedHistory = trailer.history.map(h => 
+                    h.phase === id && !h.exitedAt 
+                      ? { ...h, manualHours: isNaN(val) ? undefined : val } 
+                      : h
+                  );
+                  onUpdateTrailer?.(trailer.id, { history: updatedHistory });
+                }}
+                onClick={(e) => e.stopPropagation()}
+              />
+            </div>
+          )}
+        </div>
         <span className="column-count">{trailers.length}</span>
       </div>
       <div className="cards-container">
