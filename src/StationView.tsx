@@ -57,19 +57,7 @@ const StationView: React.FC<Props> = ({ trailers, onUpdateTrailer, onUpdateTrail
     }
 
     if (overStation && activeTrailer.station !== overStation) {
-      // Find trailers in target station
-      const othersInStation = trailers.filter(t => t.station === overStation && !t.isArchived);
-      const overTrailer = othersInStation.find(ot => ot.id === overId);
-      
-      let newPos: number;
-      if (overTrailer) {
-        newPos = (overTrailer.position ?? 0) - 0.5;
-      } else {
-        const maxPos = othersInStation.reduce((max, ot) => Math.max(max, ot.position ?? 0), -1);
-        newPos = maxPos + 1;
-      }
-
-      onUpdateTrailer(activeId, { station: overStation, position: newPos });
+      onUpdateTrailer(activeId, { station: overStation });
     }
   };
 
