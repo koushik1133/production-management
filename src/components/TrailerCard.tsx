@@ -74,15 +74,11 @@ export const TrailerCard: React.FC<Props> = React.memo(({
         (cardRef as any).current = node;
       }}
       style={style}
-      className={`trailer-card ${isDragging ? 'is-dragging' : ''} ${isBottleneck ? 'is-bottleneck' : ''} ${isHighlighted ? 'is-highlighted' : ''}`}
+      className={`trailer-card ${isBottleneck ? 'is-bottleneck' : ''} ${isHighlighted ? 'is-highlighted' : ''}`}
       {...attributes}
       {...listeners}
       onClick={() => onCardClick?.()}
     >
-      {trailer.isPriority && (
-        <Crown className="priority-badge" size={18} fill="#ef4444" stroke="#ef4444" />
-      )}
-      
       <div className="card-header-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
         <div className="card-title" style={{ flex: 1, minWidth: 0 }}>
           <span className="card-model" style={{ display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{trailer.model}</span>
@@ -98,14 +94,18 @@ export const TrailerCard: React.FC<Props> = React.memo(({
             borderRadius: '8px', 
             border: `1px solid ${trailer.isPriority ? '#fecdd3' : '#dbeafe'}`,
             display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'flex-end',
-            gap: '2px',
-            flexShrink: 0
+            alignItems: 'center',
+            gap: '0.4rem'
           }}>
-            <span style={{ fontSize: '0.65rem', fontWeight: 800, color: trailer.isPriority ? '#be123c' : '#3b82f6', textTransform: 'uppercase' }}>Due Date</span>
-            <span style={{ fontSize: '0.8rem', fontWeight: 900, color: trailer.isPriority ? '#e11d48' : '#1d4ed8' }}>
-              {format(new Date(trailer.expectedDueDate + 'T12:00:00'), 'MMM d')}
+            {trailer.isPriority && <Crown size={14} fill="#ef4444" color="#ef4444" />}
+            <Calendar size={12} color={trailer.isPriority ? '#be123c' : '#2563eb'} />
+            <span style={{ 
+              fontSize: '0.75rem', 
+              fontWeight: 700, 
+              color: trailer.isPriority ? '#be123c' : '#2563eb',
+              whiteSpace: 'nowrap'
+            }}>
+              {format(new Date(trailer.expectedDueDate), 'MMM d')}
             </span>
           </div>
         )}

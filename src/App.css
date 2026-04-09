@@ -107,14 +107,6 @@
   height: calc(100vh - 200px); /* Account for manifold strip, global header, and footer */
   flex-shrink: 0;
   box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
-  transition: all 0.2s ease;
-  border: 1px solid transparent;
-}
-
-.kanban-column.is-over {
-  background-color: #ebf5ff;
-  border-color: rgba(59, 130, 246, 0.4);
-  box-shadow: inset 0 2px 8px rgba(59, 130, 246, 0.1), 0 0 15px rgba(59, 130, 246, 0.1);
 }
 
 .column-footer {
@@ -203,29 +195,15 @@
   overflow: hidden;
 }
 
-/* Lifted style for the card in DragOverlay */
-.drag-overlay-active .trailer-card {
-  transform: rotate(2deg) scale(1.05);
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
+.trailer-card:active {
   cursor: grabbing;
-  opacity: 1 !important;
-  border-color: var(--accent);
 }
 
-.trailer-card.is-dragging {
-  opacity: 0.5;
-  transform: scale(0.98);
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-  border: 1px dashed var(--border-focus);
-}
-
-.sortable-placeholder {
-  height: 120px;
-  background: rgba(59, 130, 246, 0.05);
-  border: 2px dashed rgba(59, 130, 246, 0.3);
-  border-radius: var(--radius-md);
-  margin-bottom: 0.75rem;
-  animation: fadeIn 0.15s ease-out;
+.trailer-card.is-highlighted {
+  border: 2.5px solid #3b82f6;
+  box-shadow: 0 0 15px rgba(59, 130, 246, 0.4);
+  animation: pulseHighlight 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  z-index: 50;
 }
 
 @keyframes pulseHighlight {
@@ -613,14 +591,7 @@
   100% { opacity: 1; }
 }
 
-.priority-badge {
-  position: absolute;
-  top: 1.25rem;
-  right: 1.25rem;
-  width: 20px;
-  height: 20px;
-  color: #ef4444;
-}
+
 
 .btn-danger {
   color: #b91c1c;

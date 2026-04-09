@@ -18,7 +18,6 @@ import type {
 } from '@dnd-kit/core';
 import {
   sortableKeyboardCoordinates,
-  arrayMove,
 } from '@dnd-kit/sortable';
 
 import { KanbanColumn } from './components/KanbanColumn';
@@ -60,14 +59,12 @@ import './App.css';
 
 import { supabase } from './lib/supabase';
 
-function Dashboard({ trailers, setTrailers, updateTrailer, updateTrailersBatch, isConnected, addTrailer, onDragChange }: { 
+function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrailer }: { 
   trailers: Trailer[], 
   setTrailers: React.Dispatch<React.SetStateAction<Trailer[]>>,
   updateTrailer: (id: string, updates: Partial<Trailer>) => void,
-  updateTrailersBatch: (updates: (Partial<Trailer> & { id: string })[]) => Promise<void>,
   isConnected: boolean,
-  addTrailer: (trailer: Trailer) => Promise<void>,
-  onDragChange?: (id: string | null) => void
+  addTrailer: (trailer: Trailer) => Promise<void>
 }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const highlightedTrailerId = searchParams.get('highlight');
@@ -130,11 +127,7 @@ function Dashboard({ trailers, setTrailers, updateTrailer, updateTrailersBatch, 
       t.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
       t.serialNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
       t.model.toLowerCase().includes(searchQuery.toLowerCase())
-    )).sort((a, b) => 
-      (a.position ?? 0) - (b.position ?? 0) || 
-      a.dateStarted - b.dateStarted || 
-      a.id.localeCompare(b.id)
-    );
+    ));
   }, [trailers, searchQuery]);
 
   // Calculate Column Totals
@@ -190,10 +183,8 @@ function Dashboard({ trailers, setTrailers, updateTrailer, updateTrailersBatch, 
   const [dragStartPhase, setDragStartPhase] = useState<PhaseId | null>(null);
 
   const handleDragStart = (event: DragStartEvent) => {
-    const draggingId = event.active.id as string;
-    setActiveId(draggingId);
-    onDragChange?.(draggingId);
-    const trailer = trailers.find(t => t.id === draggingId);
+    setActiveId(event.active.id as string);
+    const trailer = trailers.find(t => t.id === event.active.id);
     if (trailer) setDragStartPhase(trailer.currentPhase);
   };
 
@@ -224,12 +215,7 @@ function Dashboard({ trailers, setTrailers, updateTrailer, updateTrailersBatch, 
             updatedHistory[currentLogIndex] = { ...prevLog, exitedAt: now, duration: now - prevLog.enteredAt };
           }
           updatedHistory.push({ phase: overPhase as PhaseId, enteredAt: now });
-          
-          // When moving to new phase, put at bottom first
-          const othersInTarget = prev.filter(ot => ot.currentPhase === overPhase && !ot.isArchived);
-          const maxPos = othersInTarget.reduce((max, ot) => Math.max(max, ot.position ?? 0), -1);
-          
-          return { ...t, currentPhase: overPhase as PhaseId, history: updatedHistory, position: maxPos + 1 };
+          return { ...t, currentPhase: overPhase as PhaseId, history: updatedHistory };
         }
         return t;
       }));
@@ -240,66 +226,31 @@ function Dashboard({ trailers, setTrailers, updateTrailer, updateTrailersBatch, 
   const [shippingForm, setShippingForm] = useState({ invoiceNumber: '', vinDate: '' });
 
   const handleDragEnd = async (event: DragEndEvent) => {
-    const { active, over } = event;
-    setActiveId(null);
-    setDragStartPhase(null);
-    onDragChange?.(null);
-
-    if (!over) return;
-
+    const { active } = event;
     const activeId = active.id as string;
-    const overId = over.id as string;
-
-    const activeTrailer = trailers.find(t => t.id === activeId);
-    if (!activeTrailer) return;
-
-    const overTrailer = trailers.find(t => t.id === overId);
-    const isOverColumn = PHASES.some(p => p.id === overId);
-    const targetPhase = isOverColumn ? (overId as PhaseId) : overTrailer?.currentPhase;
-
-    if (!targetPhase) return;
-
-    // 1. REORDERING within same phase
-    if (activeTrailer.currentPhase === targetPhase && activeId !== overId && overTrailer) {
-      const currentInPhase = trailers
-        .filter(t => t.currentPhase === targetPhase && !t.isArchived)
-        .sort((a, b) => 
-          (a.position ?? 0) - (b.position ?? 0) || 
-          a.dateStarted - b.dateStarted || 
-          a.id.localeCompare(b.id)
-        );
-        
-      const oldIndex = currentInPhase.findIndex(t => t.id === activeId);
-      const newIndex = currentInPhase.findIndex(t => t.id === overId);
-
-      if (oldIndex !== -1 && newIndex !== -1) {
-        const reordered = arrayMove(currentInPhase, oldIndex, newIndex);
-        
-        // Update DB positions for all trailers in this phase
-        const updates = reordered.map((t, idx) => ({
-          id: t.id,
-          position: idx
-        }));
-
-        await updateTrailersBatch(updates);
-      }
-    } 
-    // 2. MOVEMENT to new phase (already handled visually in DragOver, just sync here)
-    else {
-      if (targetPhase === 'shipping' && dragStartPhase !== 'shipping') {
-        setPendingShippingTrailer(activeTrailer);
+    const trailer = trailers.find(t => t.id === activeId);
+    
+    if (trailer) {
+      // Prompt for shipping data if newly moved to shipping
+      if (trailer.currentPhase === 'shipping' && dragStartPhase !== 'shipping') {
+        setPendingShippingTrailer(trailer);
       }
       
-      // Get max position in target column to put at end
-      const targetInPhase = trailers.filter(t => t.currentPhase === targetPhase && !t.isArchived);
-      const maxPos = targetInPhase.reduce((max, t) => Math.max(max, t.position ?? 0), -1);
-
-      await updateTrailer(activeTrailer.id, {
-        currentPhase: activeTrailer.currentPhase,
-        history: activeTrailer.history,
-        position: maxPos + 1
-      });
+      // SYNC FINAL STATE TO SUPABASE
+      // This is the "Spontaneous" update for other devices
+      const { error } = await supabase
+        .from('trailers')
+        .update({
+          currentPhase: trailer.currentPhase,
+          history: trailer.history
+        })
+        .eq('id', trailer.id);
+        
+      if (error) console.error('Error syncing drag movement:', error);
     }
+    
+    setActiveId(null);
+    setDragStartPhase(null);
   };
 
   const handleShipSubmit = async (e: React.FormEvent) => {
@@ -343,9 +294,6 @@ function Dashboard({ trailers, setTrailers, updateTrailer, updateTrailersBatch, 
     
     setIsAdding(true);
     try {
-      const backlogTrailers = trailers.filter(t => t.currentPhase === 'backlog' && !t.isArchived);
-      const maxPos = backlogTrailers.reduce((max, t) => Math.max(max, t.position ?? 0), -1);
-      
       const newId = Math.random().toString(36).substr(2, 9);
       const newTrailer: Trailer = {
         id: newId,
@@ -358,8 +306,7 @@ function Dashboard({ trailers, setTrailers, updateTrailer, updateTrailersBatch, 
         currentPhase: 'backlog',
         history: [{ phase: 'backlog', enteredAt: Date.now() }],
         expectedDueDate: newTrailerData.expectedDueDate,
-        promisedShippingDate: newTrailerData.promisedShippingDate,
-        position: maxPos + 1
+        promisedShippingDate: newTrailerData.promisedShippingDate
       };
       
       await addTrailer(newTrailer);
@@ -465,7 +412,7 @@ function Dashboard({ trailers, setTrailers, updateTrailer, updateTrailersBatch, 
               highlightedId={highlightedTrailerId}
             />
           ))}
-          <DragOverlay className="drag-overlay-active">
+          <DragOverlay>
             {activeTrailer ? <TrailerCard trailer={activeTrailer} /> : null}
           </DragOverlay>
         </DndContext>
@@ -732,7 +679,6 @@ function App() {
   const [trailers, setTrailers] = useState<Trailer[]>([]);
   const [loading, setLoading] = useState(true);
   const [isConnected, setIsConnected] = useState(false);
-  const [globalActiveId, setGlobalActiveId] = useState<string | null>(null);
 
   // Fetch initial data
   useEffect(() => {
@@ -773,11 +719,7 @@ function App() {
               return [payload.new as Trailer, ...prev];
             });
           } else if (payload.eventType === 'UPDATE') {
-            const updated = payload.new as Trailer;
-            // DONT update if we are currently dragging this specific trailer locally
-            if (globalActiveId === updated.id) return;
-            
-            setTrailers(prev => prev.map(t => t.id === updated.id ? updated : t));
+            setTrailers(prev => prev.map(t => t.id === payload.new.id ? payload.new as Trailer : t));
           } else if (payload.eventType === 'DELETE') {
             setTrailers(prev => prev.filter(t => t.id === payload.old.id));
           }
@@ -804,27 +746,6 @@ function App() {
     if (error) {
       console.error('Error updating trailer:', error);
       // Optional: Rollback on error
-    }
-  };
-
-  const updateTrailersBatch = async (updates: (Partial<Trailer> & { id: string })[]) => {
-    // Optimistic update
-    setTrailers(prev => {
-      const newTrailers = [...prev];
-      updates.forEach(u => {
-        const idx = newTrailers.findIndex(t => t.id === u.id);
-        if (idx !== -1) newTrailers[idx] = { ...newTrailers[idx], ...u };
-      });
-      return newTrailers;
-    });
-
-    const { error } = await supabase
-      .from('trailers')
-      .upsert(updates);
-    
-    if (error) {
-      console.error('Batch update error:', error);
-      alert('Error saving new priority order: ' + error.message + '\n\nPlease ensure the "position" column (type: double precision or int) exists in your "trailers" table.');
     }
   };
 
@@ -879,9 +800,9 @@ function App() {
   return (
     <AuthGate>
       <Routes>
-        <Route path="/" element={<Dashboard trailers={trailers} setTrailers={setTrailers} updateTrailer={updateTrailer} updateTrailersBatch={updateTrailersBatch} isConnected={isConnected} addTrailer={addTrailer} onDragChange={setGlobalActiveId} />} />
+        <Route path="/" element={<Dashboard trailers={trailers} setTrailers={setTrailers} updateTrailer={updateTrailer} isConnected={isConnected} addTrailer={addTrailer} />} />
         <Route path="/backlog" element={<BacklogView trailers={trailers} onAddTrailer={addTrailer} onUpdateTrailer={updateTrailer} />} />
-        <Route path="/stations" element={<StationView trailers={trailers} onUpdateTrailer={updateTrailer} onUpdateTrailersBatch={updateTrailersBatch} onDragChange={setGlobalActiveId} />} />
+        <Route path="/stations" element={<StationView trailers={trailers} onUpdateTrailer={updateTrailer} />} />
         <Route path="/tv" element={<TVView trailers={trailers} />} />
         <Route path="/tv/station1" element={<TVView trailers={trailers} monitorMode="station1" />} />
         <Route path="/tv/station2" element={<TVView trailers={trailers} monitorMode="station2" />} />

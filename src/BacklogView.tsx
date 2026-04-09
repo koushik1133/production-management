@@ -32,8 +32,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
       t.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
       t.serialNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
       t.model.toLowerCase().includes(searchQuery.toLowerCase())
-    )
-    .sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+    );
 
   const handleTogglePart = (trailer: Trailer, partKey: keyof NonNullable<Trailer['partsStatus']>) => {
     const currentStatus = trailer.partsStatus || { tyres: false, steel: false, parts: false };
@@ -67,9 +66,6 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
     e.preventDefault();
     if (!formData.model) return;
 
-    const currentBacklog = trailers.filter(t => t.currentPhase === 'backlog' && !t.isArchived);
-    const maxPos = currentBacklog.reduce((max, t) => Math.max(max, t.position ?? 0), -1);
-
     const newTrailer: Trailer = {
       id: Math.random().toString(36).substr(2, 9),
       name: formData.name || '---',
@@ -84,8 +80,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
       promisedShippingDate: formData.promisedShippingDate,
       isArchived: false,
       isDeleted: false,
-      station: 'None',
-      position: maxPos + 1
+      station: 'None'
     };
 
     onAddTrailer(newTrailer);
