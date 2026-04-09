@@ -77,7 +77,7 @@ const StationView: React.FC<Props> = ({ trailers, onUpdateTrailer }) => {
         </div>
       </header>
 
-      <main className="main-content">
+      <main className="main-content" style={{ justifyContent: 'center' }}>
         <DndContext 
           sensors={sensors} 
           collisionDetection={closestCorners} 
@@ -89,7 +89,7 @@ const StationView: React.FC<Props> = ({ trailers, onUpdateTrailer }) => {
             <StationColumn 
               key={station} 
               id={station} 
-              trailers={trailers.filter(t => t.station === station)} 
+              trailers={trailers.filter(t => !t.isArchived && t.station === station)} 
               onUpdateTrailer={onUpdateTrailer} 
               onCardClick={(t) => setSelectedTrailerId(t.id)}
             />

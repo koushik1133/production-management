@@ -1302,3 +1302,45 @@
   -webkit-appearance: none;
   margin: 0;
 }
+
+/* TV View Responsive Styles */
+.tv-main-content {
+  padding: 2rem;
+  gap: 2rem;
+}
+
+.tv-column {
+  min-width: 420px;
+  padding: 1.25rem;
+}
+
+@media (max-width: 1024px) {
+  .tv-main-content {
+    justify-content: flex-start !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .tv-main-content {
+    padding: 1rem;
+    gap: 1rem;
+  }
+
+  .tv-column {
+    min-width: calc(100vw - 2rem);
+    padding: 1rem;
+  }
+}
+
+/* Production Bay Page Styles */
+.production-bay {
+  background-color: #f8fafc !important;
+  border: 1.5px solid #e2e8f0 !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+  transition: all 0.2s ease;
+}
+
+.production-bay:hover {
+  border-color: #cbd5e1 !important;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
+}

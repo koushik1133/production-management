@@ -17,7 +17,7 @@ export const StationColumn: React.FC<Props> = ({ id, trailers, onUpdateTrailer, 
   });
 
   return (
-    <div className="kanban-column" ref={setNodeRef} style={{ background: '#f8fafc' }}>
+    <div className="kanban-column production-bay" ref={setNodeRef}>
       <div className="column-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <span className="column-title" style={{ color: 'var(--accent)', fontWeight: 800 }}>BAY {id}</span>

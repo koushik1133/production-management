@@ -163,7 +163,13 @@ const TVView: React.FC<Props> = ({ trailers, monitorMode: initialMode = 'all' })
           <button 
             className="btn btn-secondary" 
             onClick={() => setIsCastModalOpen(true)}
-            style={{ padding: '0.4rem', borderRadius: '8px', color: isDarkMode ? 'white' : '#1e293b' }}
+            style={{ 
+              padding: '0.4rem', 
+              borderRadius: '8px', 
+              color: isDarkMode ? 'white' : '#1e293b',
+              borderColor: isDarkMode ? '#3f3f46' : '#e2e8f0',
+              background: isDarkMode ? 'transparent' : 'white'
+            }}
           >
             <Share2 size={18} />
           </button>
@@ -184,13 +190,11 @@ const TVView: React.FC<Props> = ({ trailers, monitorMode: initialMode = 'all' })
         className="main-content tv-main-content" 
         ref={scrollRef} 
         style={{ 
-          padding: window.innerWidth < 768 ? '1rem' : '2rem', 
-          gap: window.innerWidth < 768 ? '1rem' : '2rem', 
           flex: 1, 
           overflowX: 'auto', 
           overflowY: 'hidden',
           display: 'flex',
-          justifyContent: window.innerWidth < 1024 ? 'flex-start' : (filteredPhases.length <= 3 ? 'center' : 'flex-start'),
+          justifyContent: filteredPhases.length <= 3 ? 'center' : 'flex-start',
           alignItems: 'stretch'
         }}
       >
@@ -200,12 +204,10 @@ const TVView: React.FC<Props> = ({ trailers, monitorMode: initialMode = 'all' })
             className="tv-column" 
             style={{ 
               ...themeStyles.column, 
-              minWidth: window.innerWidth < 768 ? 'calc(100vw - 2rem)' : '420px', 
               height: '100%', 
               flexShrink: 0,
               display: 'flex',
               flexDirection: 'column',
-              padding: '1.25rem',
               borderRadius: '20px',
               boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
             }}
@@ -223,7 +225,7 @@ const TVView: React.FC<Props> = ({ trailers, monitorMode: initialMode = 'all' })
                   <TrailerCard key={trailer.id} trailer={trailer} hideCustomerName={true} hideShipButton={true} />
                 ))}
               {filteredTrailers.filter(t => t.currentPhase === phase.id).length === 0 && (
-                <div style={{ padding: '2rem', textAlign: 'center', color: themeStyles.textMuted, fontSize: '0.8rem', fontStyle: 'italic', border: '1px dashed #cbd5e1', borderRadius: '12px' }}>
+                <div style={{ padding: '2rem', textAlign: 'center', color: themeStyles.textMuted, fontSize: '0.8rem', fontStyle: 'italic', border: '1px solid #cbd5e1', borderRadius: '12px' }}>
                   No units in this stage
                 </div>
               )}
