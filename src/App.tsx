@@ -404,8 +404,8 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
           <span className="strip-label" style={{ fontSize: '0.8rem', letterSpacing: '0.05em' }}>WORKLOAD REMAINING:</span>
           <span className="strip-value" style={{ color: '#fbbf24', fontSize: '1.25rem' }}>{Math.round(totalWorkRemaining)} HOURS</span>
           <div style={{ width: '1px', height: '24px', background: 'rgba(255,255,255,0.2)', margin: '0 1rem' }} />
-          <span className="strip-label">TOTAL PLAN CAPACITY:</span>
-          <span className="strip-value" style={{ color: '#fff' }}>{Math.round(totalProductionTime)}h</span>
+          <span className="strip-label">PRODUCTION RUNWAY:</span>
+          <span className="strip-value" style={{ color: '#fff' }}>~20 WEEKS</span>
         </div>
         <div style={{ flex: 1 }} />
         <div className="strip-stats">
