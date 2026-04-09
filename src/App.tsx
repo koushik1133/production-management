@@ -18,6 +18,7 @@ import type {
 } from '@dnd-kit/core';
 import {
   sortableKeyboardCoordinates,
+  arrayMove,
 } from '@dnd-kit/sortable';
 
 import { KanbanColumn } from './components/KanbanColumn';
@@ -59,10 +60,11 @@ import './App.css';
 
 import { supabase } from './lib/supabase';
 
-function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrailer }: { 
+function Dashboard({ trailers, setTrailers, updateTrailer, updateTrailersBatch, isConnected, addTrailer }: { 
   trailers: Trailer[], 
   setTrailers: React.Dispatch<React.SetStateAction<Trailer[]>>,
   updateTrailer: (id: string, updates: Partial<Trailer>) => void,
+  updateTrailersBatch: (updates: (Partial<Trailer> & { id: string })[]) => Promise<void>,
   isConnected: boolean,
   addTrailer: (trailer: Trailer) => Promise<void>
 }) {
@@ -127,7 +129,7 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
       t.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
       t.serialNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
       t.model.toLowerCase().includes(searchQuery.toLowerCase())
-    ));
+    )).sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
   }, [trailers, searchQuery]);
 
   // Calculate Column Totals
@@ -226,31 +228,61 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
   const [shippingForm, setShippingForm] = useState({ invoiceNumber: '', vinDate: '' });
 
   const handleDragEnd = async (event: DragEndEvent) => {
-    const { active } = event;
-    const activeId = active.id as string;
-    const trailer = trailers.find(t => t.id === activeId);
-    
-    if (trailer) {
-      // Prompt for shipping data if newly moved to shipping
-      if (trailer.currentPhase === 'shipping' && dragStartPhase !== 'shipping') {
-        setPendingShippingTrailer(trailer);
-      }
-      
-      // SYNC FINAL STATE TO SUPABASE
-      // This is the "Spontaneous" update for other devices
-      const { error } = await supabase
-        .from('trailers')
-        .update({
-          currentPhase: trailer.currentPhase,
-          history: trailer.history
-        })
-        .eq('id', trailer.id);
-        
-      if (error) console.error('Error syncing drag movement:', error);
-    }
-    
+    const { active, over } = event;
     setActiveId(null);
     setDragStartPhase(null);
+
+    if (!over) return;
+
+    const activeId = active.id as string;
+    const overId = over.id as string;
+
+    const activeTrailer = trailers.find(t => t.id === activeId);
+    if (!activeTrailer) return;
+
+    const overTrailer = trailers.find(t => t.id === overId);
+    const isOverColumn = PHASES.some(p => p.id === overId);
+    const targetPhase = isOverColumn ? (overId as PhaseId) : overTrailer?.currentPhase;
+
+    if (!targetPhase) return;
+
+    // 1. REORDERING within same phase
+    if (activeTrailer.currentPhase === targetPhase && activeId !== overId && overTrailer) {
+      const currentInPhase = trailers
+        .filter(t => t.currentPhase === targetPhase && !t.isArchived)
+        .sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+        
+      const oldIndex = currentInPhase.findIndex(t => t.id === activeId);
+      const newIndex = currentInPhase.findIndex(t => t.id === overId);
+
+      if (oldIndex !== -1 && newIndex !== -1) {
+        const reordered = arrayMove(currentInPhase, oldIndex, newIndex);
+        
+        // Update DB positions for all trailers in this phase
+        const updates = reordered.map((t, idx) => ({
+          id: t.id,
+          position: idx
+        }));
+
+        await updateTrailersBatch(updates);
+      }
+    } 
+    // 2. MOVEMENT to new phase (already handled visually in DragOver, just sync here)
+    else {
+      if (targetPhase === 'shipping' && dragStartPhase !== 'shipping') {
+        setPendingShippingTrailer(activeTrailer);
+      }
+      
+      // Get max position in target column to put at end
+      const targetInPhase = trailers.filter(t => t.currentPhase === targetPhase && !t.isArchived);
+      const maxPos = targetInPhase.reduce((max, t) => Math.max(max, t.position ?? 0), -1);
+
+      await updateTrailer(activeTrailer.id, {
+        currentPhase: activeTrailer.currentPhase,
+        history: activeTrailer.history,
+        position: maxPos + 1
+      });
+    }
   };
 
   const handleShipSubmit = async (e: React.FormEvent) => {
@@ -294,6 +326,9 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
     
     setIsAdding(true);
     try {
+      const backlogTrailers = trailers.filter(t => t.currentPhase === 'backlog' && !t.isArchived);
+      const maxPos = backlogTrailers.reduce((max, t) => Math.max(max, t.position ?? 0), -1);
+      
       const newId = Math.random().toString(36).substr(2, 9);
       const newTrailer: Trailer = {
         id: newId,
@@ -306,7 +341,8 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
         currentPhase: 'backlog',
         history: [{ phase: 'backlog', enteredAt: Date.now() }],
         expectedDueDate: newTrailerData.expectedDueDate,
-        promisedShippingDate: newTrailerData.promisedShippingDate
+        promisedShippingDate: newTrailerData.promisedShippingDate,
+        position: maxPos + 1
       };
       
       await addTrailer(newTrailer);
@@ -749,6 +785,24 @@ function App() {
     }
   };
 
+  const updateTrailersBatch = async (updates: (Partial<Trailer> & { id: string })[]) => {
+    // Optimistic update
+    setTrailers(prev => {
+      const newTrailers = [...prev];
+      updates.forEach(u => {
+        const idx = newTrailers.findIndex(t => t.id === u.id);
+        if (idx !== -1) newTrailers[idx] = { ...newTrailers[idx], ...u };
+      });
+      return newTrailers;
+    });
+
+    const { error } = await supabase
+      .from('trailers')
+      .upsert(updates);
+    
+    if (error) console.error('Error batch updating trailers:', error);
+  };
+
   const addTrailer = async (newTrailer: Trailer) => {
     // Optimistic update
     setTrailers(prev => [newTrailer, ...prev]);
@@ -800,9 +854,9 @@ function App() {
   return (
     <AuthGate>
       <Routes>
-        <Route path="/" element={<Dashboard trailers={trailers} setTrailers={setTrailers} updateTrailer={updateTrailer} isConnected={isConnected} addTrailer={addTrailer} />} />
+        <Route path="/" element={<Dashboard trailers={trailers} setTrailers={setTrailers} updateTrailer={updateTrailer} updateTrailersBatch={updateTrailersBatch} isConnected={isConnected} addTrailer={addTrailer} />} />
         <Route path="/backlog" element={<BacklogView trailers={trailers} onAddTrailer={addTrailer} onUpdateTrailer={updateTrailer} />} />
-        <Route path="/stations" element={<StationView trailers={trailers} onUpdateTrailer={updateTrailer} />} />
+        <Route path="/stations" element={<StationView trailers={trailers} onUpdateTrailer={updateTrailer} onUpdateTrailersBatch={updateTrailersBatch} />} />
         <Route path="/tv" element={<TVView trailers={trailers} />} />
         <Route path="/tv/station1" element={<TVView trailers={trailers} monitorMode="station1" />} />
         <Route path="/tv/station2" element={<TVView trailers={trailers} monitorMode="station2" />} />

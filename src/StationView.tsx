@@ -11,7 +11,7 @@ import {
   useSensors,
 } from '@dnd-kit/core';
 import type { DragStartEvent, DragOverEvent } from '@dnd-kit/core';
-import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
+import { sortableKeyboardCoordinates, arrayMove } from '@dnd-kit/sortable';
 import type { Trailer, StationId } from './types';
 import { STATIONS } from './types';
 import { TrailerCard } from './components/TrailerCard';
@@ -21,9 +21,10 @@ import { TrailerDetailsModal } from './components/TrailerDetailsModal';
 interface Props {
   trailers: Trailer[];
   onUpdateTrailer: (id: string, updates: Partial<Trailer>) => void;
+  onUpdateTrailersBatch?: (updates: (Partial<Trailer> & { id: string })[]) => Promise<void>;
 }
 
-const StationView: React.FC<Props> = ({ trailers, onUpdateTrailer }) => {
+const StationView: React.FC<Props> = ({ trailers, onUpdateTrailer, onUpdateTrailersBatch }) => {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [selectedTrailerId, setSelectedTrailerId] = useState<string | null>(null);
 
@@ -57,7 +58,43 @@ const StationView: React.FC<Props> = ({ trailers, onUpdateTrailer }) => {
     }
   };
 
-  const handleDragEnd = () => setActiveId(null);
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveId(null);
+    if (!over) return;
+
+    const activeId = active.id as string;
+    const overId = over.id as string;
+
+    const activeTrailer = trailers.find(t => t.id === activeId);
+    if (!activeTrailer) return;
+
+    const overTrailer = trailers.find(t => t.id === overId);
+    const isOverStation = STATIONS.some(s => s === overId);
+    const targetStation = isOverStation ? (overId as StationId) : overTrailer?.station;
+
+    if (!targetStation) return;
+
+    // REORDERING within same station
+    if (activeTrailer.station === targetStation && activeId !== overId && overTrailer) {
+      const currentInStation = trailers
+        .filter(t => t.station === targetStation && !t.isArchived)
+        .sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+        
+      const oldIndex = currentInStation.findIndex(t => t.id === activeId);
+      const newIndex = currentInStation.findIndex(t => t.id === overId);
+
+      if (oldIndex !== -1 && newIndex !== -1) {
+        const reordered = arrayMove(currentInStation, oldIndex, newIndex);
+        const updates = reordered.map((t, idx) => ({
+          id: t.id,
+          position: idx
+        }));
+
+        await onUpdateTrailersBatch?.(updates);
+      }
+    }
+  };
   
   const selectedTrailer = trailers.find(t => t.id === selectedTrailerId);
   const activeTrailer = activeId ? trailers.find(t => t.id === activeId) : null;
@@ -89,7 +126,10 @@ const StationView: React.FC<Props> = ({ trailers, onUpdateTrailer }) => {
             <StationColumn 
               key={station} 
               id={station} 
-              trailers={trailers.filter(t => t.station === station && !t.isArchived)} 
+              trailers={trailers
+                .filter(t => t.station === station && !t.isArchived)
+                .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
+              } 
               onUpdateTrailer={onUpdateTrailer} 
               onCardClick={(t) => setSelectedTrailerId(t.id)}
             />
