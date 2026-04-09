@@ -38,7 +38,7 @@ export interface Trailer {
   invoiceNumber?: string;
   vinDate?: string;
   expectedDueDate?: string;
-  expectedShippingDate?: string;
+  promisedDeliveryDate?: string;
 }
 
 export const STATIONS: StationId[] = ['B1', 'B2', 'B3', 'B4'];

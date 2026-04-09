@@ -19,7 +19,7 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
     serialNumber: trailer.serialNumber,
     partsStatus: trailer.partsStatus || { steel: false, tyres: false, parts: false },
     expectedDueDate: trailer.expectedDueDate || '',
-    expectedShippingDate: trailer.expectedShippingDate || ''
+    promisedDeliveryDate: trailer.promisedDeliveryDate || ''
   });
   const [localNotes, setLocalNotes] = React.useState(trailer.notes || '');
 
@@ -119,12 +119,12 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                 />
              </div>
              <div className="form-group">
-                <label className="form-label">Expected Shipping Date</label>
+                <label className="form-label">Promised Delivery Date</label>
                 <input 
                   type="date"
                   className="form-input" 
-                  value={editForm.expectedShippingDate} 
-                  onChange={e => setEditForm({...editForm, expectedShippingDate: e.target.value})}
+                  value={editForm.promisedDeliveryDate} 
+                  onChange={e => setEditForm({...editForm, promisedDeliveryDate: e.target.value})}
                 />
              </div>
           </div>
@@ -141,8 +141,8 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                 <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#0f172a' }}>{trailer.expectedDueDate ? format(new Date(trailer.expectedDueDate + 'T12:00:00'), 'MMM d, yyyy') : 'NOT SET'}</span>
               </div>
               <div>
-                <span style={{ fontSize: '0.65rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>Shipping Date</span>
-                <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#0f172a' }}>{trailer.expectedShippingDate ? format(new Date(trailer.expectedShippingDate + 'T12:00:00'), 'MMM d, yyyy') : 'NOT SET'}</span>
+                <span style={{ fontSize: '0.65rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>Promised Delivery Date</span>
+                <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#0f172a' }}>{trailer.promisedDeliveryDate ? format(new Date(trailer.promisedDeliveryDate + 'T12:00:00'), 'MMM d, yyyy') : 'NOT SET'}</span>
               </div>
             </div>
           </div>

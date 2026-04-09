@@ -94,7 +94,7 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
     station: 'B1' as StationId,
     isPriority: false,
     expectedDueDate: '',
-    expectedShippingDate: ''
+    promisedDeliveryDate: ''
   });
 
   const sensors = useSensors(
@@ -252,7 +252,7 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
       currentPhase: 'backlog',
       history: [{ phase: 'backlog', enteredAt: Date.now() }],
       expectedDueDate: newTrailerData.expectedDueDate,
-      expectedShippingDate: newTrailerData.expectedShippingDate
+      promisedDeliveryDate: newTrailerData.promisedDeliveryDate
     };
     
     await addTrailer(newTrailer);
@@ -263,7 +263,7 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
       station: 'B1', 
       isPriority: false,
       expectedDueDate: '',
-      expectedShippingDate: ''
+      promisedDeliveryDate: ''
     });
   };
 
@@ -396,8 +396,8 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
               <input type="date" className="form-input" value={newTrailerData.expectedDueDate} onChange={e => setNewTrailerData({...newTrailerData, expectedDueDate: e.target.value})} />
             </div>
             <div className="form-group">
-              <label className="form-label">Shipping Date</label>
-              <input type="date" className="form-input" value={newTrailerData.expectedShippingDate} onChange={e => setNewTrailerData({...newTrailerData, expectedShippingDate: e.target.value})} />
+              <label className="form-label">Promised Delivery Date</label>
+              <input type="date" className="form-input" value={newTrailerData.promisedDeliveryDate} onChange={e => setNewTrailerData({...newTrailerData, promisedDeliveryDate: e.target.value})} />
             </div>
           </div>
           <div className="form-footer"><button type="button" className="btn btn-secondary" onClick={() => setIsAddModalOpen(false)}>Cancel</button><button type="submit" className="btn btn-primary">Add to Backlog</button></div>
