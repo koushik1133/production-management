@@ -16,12 +16,12 @@ interface Props {
 }
 
 export const KanbanColumn: React.FC<Props> = React.memo(({ id, title, trailers, onCardClick, onUpdateTrailer, onShipRequest, totalHours, highlightedId }) => {
-  const { setNodeRef, isOver } = useDroppable({
+  const { setNodeRef } = useDroppable({
     id,
   });
 
   return (
-    <div className={`kanban-column ${isOver ? 'is-over' : ''}`} ref={setNodeRef}>
+    <div className="kanban-column" ref={setNodeRef}>
       <div className="column-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <span className="column-title" style={{ fontSize: '0.9rem' }}>{title}</span>
@@ -32,11 +32,11 @@ export const KanbanColumn: React.FC<Props> = React.memo(({ id, title, trailers, 
                 placeholder="Log Hrs" 
                 className="bay-time-input"
                 style={{ width: '60px', height: '24px', fontSize: '0.65rem' }}
-                value={(trailers[0].history || []).find(h => h.phase === id && !h.exitedAt)?.phaseManualHours || ''}
+                value={trailers[0].history.find(h => h.phase === id && !h.exitedAt)?.phaseManualHours || ''}
                 onChange={(e) => {
                   const val = parseFloat(e.target.value);
                   const trailer = trailers[0];
-                  const updatedHistory = (trailer.history || []).map(h => 
+                  const updatedHistory = trailer.history.map(h => 
                     h.phase === id && !h.exitedAt 
                       ? { ...h, phaseManualHours: isNaN(val) ? undefined : val } 
                       : h

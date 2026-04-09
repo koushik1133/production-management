@@ -39,7 +39,6 @@ export interface Trailer {
   vinDate?: string;
   expectedDueDate?: string;
   promisedShippingDate?: string;
-  position?: number;
 }
 
 export const STATIONS: StationId[] = ['B1', 'B2', 'B3', 'B4'];

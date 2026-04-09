@@ -10,8 +10,8 @@ import {
   useSensor,
   useSensors,
 } from '@dnd-kit/core';
-import type { DragStartEvent, DragOverEvent, DragEndEvent } from '@dnd-kit/core';
-import { sortableKeyboardCoordinates, arrayMove } from '@dnd-kit/sortable';
+import type { DragStartEvent, DragOverEvent } from '@dnd-kit/core';
+import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import type { Trailer, StationId } from './types';
 import { STATIONS } from './types';
 import { TrailerCard } from './components/TrailerCard';
@@ -21,11 +21,9 @@ import { TrailerDetailsModal } from './components/TrailerDetailsModal';
 interface Props {
   trailers: Trailer[];
   onUpdateTrailer: (id: string, updates: Partial<Trailer>) => void;
-  onUpdateTrailersBatch?: (updates: (Partial<Trailer> & { id: string })[]) => Promise<void>;
-  onDragChange?: (id: string | null) => void;
 }
 
-const StationView: React.FC<Props> = ({ trailers, onUpdateTrailer, onUpdateTrailersBatch, onDragChange }) => {
+const StationView: React.FC<Props> = ({ trailers, onUpdateTrailer }) => {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [selectedTrailerId, setSelectedTrailerId] = useState<string | null>(null);
 
@@ -35,9 +33,7 @@ const StationView: React.FC<Props> = ({ trailers, onUpdateTrailer, onUpdateTrail
   );
 
   const handleDragStart = (event: DragStartEvent) => {
-    const draggingId = event.active.id as string;
-    setActiveId(draggingId);
-    onDragChange?.(draggingId);
+    setActiveId(event.active.id as string);
   };
 
   const handleDragOver = (event: DragOverEvent) => {
@@ -61,48 +57,7 @@ const StationView: React.FC<Props> = ({ trailers, onUpdateTrailer, onUpdateTrail
     }
   };
 
-  const handleDragEnd = async (event: DragEndEvent) => {
-    const { active, over } = event;
-    setActiveId(null);
-    onDragChange?.(null);
-    if (!over) return;
-
-    const activeId = active.id as string;
-    const overId = over.id as string;
-
-    const activeTrailer = trailers.find(t => t.id === activeId);
-    if (!activeTrailer) return;
-
-    const overTrailer = trailers.find(t => t.id === overId);
-    const isOverStation = STATIONS.some(s => s === overId);
-    const targetStation = isOverStation ? (overId as StationId) : overTrailer?.station;
-
-    if (!targetStation) return;
-
-    // REORDERING within same station
-    if (activeTrailer.station === targetStation && activeId !== overId && overTrailer) {
-      const currentInStation = trailers
-        .filter(t => t.station === targetStation && !t.isArchived)
-        .sort((a, b) => 
-          (a.position ?? 0) - (b.position ?? 0) || 
-          a.dateStarted - b.dateStarted || 
-          a.id.localeCompare(b.id)
-        );
-        
-      const oldIndex = currentInStation.findIndex(t => t.id === activeId);
-      const newIndex = currentInStation.findIndex(t => t.id === overId);
-
-      if (oldIndex !== -1 && newIndex !== -1) {
-        const reordered = arrayMove(currentInStation, oldIndex, newIndex);
-        const updates = reordered.map((t, idx) => ({
-          id: t.id,
-          position: idx
-        }));
-
-        await onUpdateTrailersBatch?.(updates);
-      }
-    }
-  };
+  const handleDragEnd = () => setActiveId(null);
   
   const selectedTrailer = trailers.find(t => t.id === selectedTrailerId);
   const activeTrailer = activeId ? trailers.find(t => t.id === activeId) : null;
@@ -134,19 +89,12 @@ const StationView: React.FC<Props> = ({ trailers, onUpdateTrailer, onUpdateTrail
             <StationColumn 
               key={station} 
               id={station} 
-              trailers={trailers
-                .filter(t => t.station === station && !t.isArchived)
-                .sort((a, b) => 
-                  (a.position ?? 0) - (b.position ?? 0) || 
-                  a.dateStarted - b.dateStarted || 
-                  a.id.localeCompare(b.id)
-                )
-              } 
+              trailers={trailers.filter(t => t.station === station && !t.isArchived)} 
               onUpdateTrailer={onUpdateTrailer} 
               onCardClick={(t) => setSelectedTrailerId(t.id)}
             />
           ))}
-          <DragOverlay className="drag-overlay-active">
+          <DragOverlay>
             {activeTrailer ? <TrailerCard trailer={activeTrailer} /> : null}
           </DragOverlay>
         </DndContext>
