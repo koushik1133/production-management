@@ -179,28 +179,24 @@ const TVView: React.FC<Props> = ({ trailers, monitorMode: initialMode = 'all' })
         </div>
       </header>
 
-      <Modal isOpen={isCastModalOpen} onClose={() => setIsCastModalOpen(false)} title="Monitor Setup">
+      <Modal isOpen={isCastModalOpen} onClose={() => setIsCastModalOpen(false)} title="Monitor Setup" darkMode={isDarkMode}>
          <div style={{ 
            display: 'flex', 
            flexDirection: 'column', 
-           gap: '1.5rem', 
-           padding: '1.25rem',
-           background: isDarkMode ? '#18181b' : '#ffffff',
-           color: isDarkMode ? '#fafafa' : '#0f172a',
-           borderRadius: '0 0 16px 16px'
+           gap: '1.25rem', 
+           padding: '1.5rem',
          }}>
-            <p style={{ fontSize: '0.95rem', color: isDarkMode ? '#a1a1aa' : '#64748b', fontWeight: 500 }}>
+            <p style={{ fontSize: '0.9rem', color: isDarkMode ? '#a1a1aa' : '#64748b', fontWeight: 500, lineHeight: 1.5 }}>
               Connect your shop floor displays to this live production stream. 
               Open this link on any Smart TV or Tablet:
             </p>
             
             <div style={{ 
-              background: isDarkMode ? '#09090b' : '#f8fafc', 
-              padding: '1.25rem', 
+              background: isDarkMode ? 'rgba(0,0,0,0.3)' : '#f8fafc', 
+              padding: '1rem', 
               borderRadius: '12px', 
-              border: '1.5px solid',
+              border: '1px solid',
               borderColor: isDarkMode ? '#27272a' : '#e2e8f0',
-              wordBreak: 'break-all',
               textAlign: 'center'
             }}>
               <a 
@@ -208,11 +204,10 @@ const TVView: React.FC<Props> = ({ trailers, monitorMode: initialMode = 'all' })
                 target="_blank" 
                 rel="noopener noreferrer"
                 style={{ 
-                  fontSize: '1.1rem', 
+                  fontSize: '1rem', 
                   fontWeight: 900, 
                   color: isDarkMode ? '#60a5fa' : '#2563eb', 
                   textDecoration: 'underline',
-                  display: 'inline-block',
                   wordBreak: 'break-all'
                 }}
               >
@@ -220,23 +215,23 @@ const TVView: React.FC<Props> = ({ trailers, monitorMode: initialMode = 'all' })
               </a>
             </div>
             
-            <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
+            <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
               <button 
                 className="btn btn-primary" 
-                style={{ flex: 1, padding: '1rem', fontSize: '1rem' }}
+                style={{ flex: 1, padding: '0.75rem', fontSize: '0.85rem' }}
                 onClick={() => {
                   navigator.clipboard.writeText(window.location.origin + "/tv");
                   alert("Link copied to clipboard!");
                 }}
               >
-                Copy Connection Link
+                Copy Link
               </button>
               <button 
                 className="btn btn-secondary" 
-                style={{ flex: 1, padding: '1rem', fontSize: '1rem' }}
+                style={{ flex: 1, padding: '0.75rem', fontSize: '0.85rem' }}
                 onClick={() => setIsCastModalOpen(false)}
               >
-                Close
+                Dismiss
               </button>
             </div>
          </div>
