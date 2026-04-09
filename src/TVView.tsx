@@ -44,9 +44,10 @@ const TVView: React.FC<Props> = ({ trailers, monitorMode: initialMode = 'all' })
   
   const filteredTrailers = trailers.filter(t => !t.isArchived);
   const filteredPhases = PHASES.filter(p => {
-    if (monitorMode === 'station1') return ['backlog', 'prefab', 'build'].includes(p.id);
-    if (monitorMode === 'station2') return ['paint', 'outsource', 'trim', 'shipping'].includes(p.id);
-    return true;
+    if (monitorMode === 'station1') return ['prefab', 'build'].includes(p.id);
+    if (monitorMode === 'station2') return ['paint', 'outsource', 'trim'].includes(p.id);
+    // Standard 'All' view excludes backlog and shipping
+    return p.id !== 'backlog' && p.id !== 'shipping';
   });
 
   const monitorTitle = monitorMode === 'station1' ? 'Station 1 Progress' : monitorMode === 'station2' ? 'Station 2 Progress' : 'Live Production Stream';
