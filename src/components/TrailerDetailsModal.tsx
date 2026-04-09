@@ -284,7 +284,7 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
           <span>Unit Production History</span>
         </div>
         <div className="audit-log">
-          {trailer.history.slice().reverse().map((log, idx) => (
+          {(trailer.history || []).slice().reverse().map((log, idx) => (
             <div key={idx} className="audit-item">
               <div className="audit-dot" />
               <div className="audit-content">

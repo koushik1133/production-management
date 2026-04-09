@@ -32,11 +32,12 @@ export const KanbanColumn: React.FC<Props> = React.memo(({ id, title, trailers, 
                 placeholder="Log Hrs" 
                 className="bay-time-input"
                 style={{ width: '60px', height: '24px', fontSize: '0.65rem' }}
-                value={trailers[0].history.find(h => h.phase === id && !h.exitedAt)?.phaseManualHours || ''}
+                value={trailers[0]?.history?.find(h => h.phase === id && !h.exitedAt)?.phaseManualHours || ''}
                 onChange={(e) => {
                   const val = parseFloat(e.target.value);
                   const trailer = trailers[0];
-                  const updatedHistory = trailer.history.map(h => 
+                  if (!trailer) return;
+                  const updatedHistory = (trailer.history || []).map(h => 
                     h.phase === id && !h.exitedAt 
                       ? { ...h, phaseManualHours: isNaN(val) ? undefined : val } 
                       : h
