@@ -10,7 +10,7 @@ import {
   useSensor,
   useSensors,
 } from '@dnd-kit/core';
-import type { DragStartEvent, DragOverEvent } from '@dnd-kit/core';
+import type { DragStartEvent, DragOverEvent, DragEndEvent } from '@dnd-kit/core';
 import { sortableKeyboardCoordinates, arrayMove } from '@dnd-kit/sortable';
 import type { Trailer, StationId } from './types';
 import { STATIONS } from './types';
@@ -79,7 +79,11 @@ const StationView: React.FC<Props> = ({ trailers, onUpdateTrailer, onUpdateTrail
     if (activeTrailer.station === targetStation && activeId !== overId && overTrailer) {
       const currentInStation = trailers
         .filter(t => t.station === targetStation && !t.isArchived)
-        .sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+        .sort((a, b) => 
+          (a.position ?? 0) - (b.position ?? 0) || 
+          a.dateStarted - b.dateStarted || 
+          a.id.localeCompare(b.id)
+        );
         
       const oldIndex = currentInStation.findIndex(t => t.id === activeId);
       const newIndex = currentInStation.findIndex(t => t.id === overId);
@@ -128,7 +132,11 @@ const StationView: React.FC<Props> = ({ trailers, onUpdateTrailer, onUpdateTrail
               id={station} 
               trailers={trailers
                 .filter(t => t.station === station && !t.isArchived)
-                .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
+                .sort((a, b) => 
+                  (a.position ?? 0) - (b.position ?? 0) || 
+                  a.dateStarted - b.dateStarted || 
+                  a.id.localeCompare(b.id)
+                )
               } 
               onUpdateTrailer={onUpdateTrailer} 
               onCardClick={(t) => setSelectedTrailerId(t.id)}

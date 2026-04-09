@@ -129,7 +129,11 @@ function Dashboard({ trailers, setTrailers, updateTrailer, updateTrailersBatch, 
       t.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
       t.serialNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
       t.model.toLowerCase().includes(searchQuery.toLowerCase())
-    )).sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+    )).sort((a, b) => 
+      (a.position ?? 0) - (b.position ?? 0) || 
+      a.dateStarted - b.dateStarted || 
+      a.id.localeCompare(b.id)
+    );
   }, [trailers, searchQuery]);
 
   // Calculate Column Totals
@@ -217,7 +221,12 @@ function Dashboard({ trailers, setTrailers, updateTrailer, updateTrailersBatch, 
             updatedHistory[currentLogIndex] = { ...prevLog, exitedAt: now, duration: now - prevLog.enteredAt };
           }
           updatedHistory.push({ phase: overPhase as PhaseId, enteredAt: now });
-          return { ...t, currentPhase: overPhase as PhaseId, history: updatedHistory };
+          
+          // When moving to new phase, put at bottom first
+          const othersInTarget = prev.filter(ot => ot.currentPhase === overPhase && !ot.isArchived);
+          const maxPos = othersInTarget.reduce((max, ot) => Math.max(max, ot.position ?? 0), -1);
+          
+          return { ...t, currentPhase: overPhase as PhaseId, history: updatedHistory, position: maxPos + 1 };
         }
         return t;
       }));
@@ -250,7 +259,11 @@ function Dashboard({ trailers, setTrailers, updateTrailer, updateTrailersBatch, 
     if (activeTrailer.currentPhase === targetPhase && activeId !== overId && overTrailer) {
       const currentInPhase = trailers
         .filter(t => t.currentPhase === targetPhase && !t.isArchived)
-        .sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+        .sort((a, b) => 
+          (a.position ?? 0) - (b.position ?? 0) || 
+          a.dateStarted - b.dateStarted || 
+          a.id.localeCompare(b.id)
+        );
         
       const oldIndex = currentInPhase.findIndex(t => t.id === activeId);
       const newIndex = currentInPhase.findIndex(t => t.id === overId);
@@ -800,7 +813,10 @@ function App() {
       .from('trailers')
       .upsert(updates);
     
-    if (error) console.error('Error batch updating trailers:', error);
+    if (error) {
+      console.error('Batch update error:', error);
+      alert('Error saving new priority order: ' + error.message + '\n\nPlease ensure the "position" column (type: double precision or int) exists in your "trailers" table.');
+    }
   };
 
   const addTrailer = async (newTrailer: Trailer) => {
