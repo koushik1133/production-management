@@ -180,12 +180,64 @@ const TVView: React.FC<Props> = ({ trailers, monitorMode: initialMode = 'all' })
       </header>
 
       <Modal isOpen={isCastModalOpen} onClose={() => setIsCastModalOpen(false)} title="Monitor Setup">
-         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', padding: '1rem' }}>
-            <p style={{ fontSize: '0.9rem', color: '#64748b' }}>Connect your shop floor displays to this live production stream.</p>
-            <div style={{ background: '#f1f5f9', padding: '1rem', borderRadius: '8px', wordBreak: 'break-all' }}>
-              <code style={{ fontSize: '0.8rem', fontWeight: 700 }}>{window.location.href}</code>
+         <div style={{ 
+           display: 'flex', 
+           flexDirection: 'column', 
+           gap: '1.5rem', 
+           padding: '1.25rem',
+           background: isDarkMode ? '#18181b' : '#ffffff',
+           color: isDarkMode ? '#fafafa' : '#0f172a',
+           borderRadius: '0 0 16px 16px'
+         }}>
+            <p style={{ fontSize: '0.95rem', color: isDarkMode ? '#a1a1aa' : '#64748b', fontWeight: 500 }}>
+              Connect your shop floor displays to this live production stream. 
+              Open this link on any Smart TV or Tablet:
+            </p>
+            
+            <div style={{ 
+              background: isDarkMode ? '#09090b' : '#f8fafc', 
+              padding: '1.25rem', 
+              borderRadius: '12px', 
+              border: '1.5px solid',
+              borderColor: isDarkMode ? '#27272a' : '#e2e8f0',
+              wordBreak: 'break-all',
+              textAlign: 'center'
+            }}>
+              <a 
+                href={window.location.origin + "/tv"} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                style={{ 
+                  fontSize: '1rem', 
+                  fontWeight: 800, 
+                  color: '#3b82f6', 
+                  textDecoration: 'underline',
+                  display: 'inline-block' 
+                }}
+              >
+                {window.location.origin}/tv
+              </a>
             </div>
-            <button className="btn btn-primary" onClick={() => setIsCastModalOpen(false)}>Close</button>
+            
+            <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
+              <button 
+                className="btn btn-primary" 
+                style={{ flex: 1, padding: '1rem', fontSize: '1rem' }}
+                onClick={() => {
+                  navigator.clipboard.writeText(window.location.origin + "/tv");
+                  alert("Link copied to clipboard!");
+                }}
+              >
+                Copy Connection Link
+              </button>
+              <button 
+                className="btn btn-secondary" 
+                style={{ flex: 1, padding: '1rem', fontSize: '1rem' }}
+                onClick={() => setIsCastModalOpen(false)}
+              >
+                Close
+              </button>
+            </div>
          </div>
       </Modal>
 
