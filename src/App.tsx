@@ -554,7 +554,9 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
 
           {/* Action Buttons */}
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid #f1f5f9' }}>
-            <button type="button" className="btn btn-secondary" style={{ borderRadius: '8px', padding: '0.5rem 1.25rem', fontSize: '0.85rem' }} onClick={() => setPendingShippingTrailer(null)}>Skip for Now</button>
+            {pendingShippingTrailer?.currentPhase !== 'shipping' && (
+              <button type="button" className="btn btn-secondary" style={{ borderRadius: '8px', padding: '0.5rem 1.25rem', fontSize: '0.85rem' }} onClick={() => setPendingShippingTrailer(null)}>Skip for Now</button>
+            )}
             <button type="submit" className="btn btn-primary" style={{ background: '#3b82f6', borderRadius: '8px', padding: '0.5rem 1.5rem', fontSize: '0.85rem', fontWeight: 700 }}>Save</button>
           </div>
         </form>
