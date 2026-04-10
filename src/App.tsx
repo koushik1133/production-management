@@ -538,7 +538,7 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
         </form>
       </Modal>
 
-      {selectedTrailer && <TrailerDetailsModal trailer={selectedTrailer} isOpen={true} onClose={() => setSelectedTrailerId(null)} onUpdate={updateTrailer} />}
+      {selectedTrailer && <TrailerDetailsModal trailer={selectedTrailer} isOpen={true} onClose={() => setSelectedTrailerId(null)} onUpdate={updateTrailer} allTrailers={trailers} />}
       
       <Modal isOpen={!!pendingShippingTrailer} onClose={() => setPendingShippingTrailer(null)} title="VIN & Invoice Entry">
         <form onSubmit={handleShipSubmit}>

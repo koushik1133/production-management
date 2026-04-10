@@ -2,7 +2,7 @@ import React from 'react';
 import { formatDistanceToNow, format, differenceInCalendarDays, subDays } from 'date-fns';
 import { History, FileText, Send, Crown, Calculator, CalendarClock } from 'lucide-react';
 import type { Trailer } from '../types';
-import { MODEL_TARGET_HOURS, PHASES } from '../types';
+import { MODEL_TARGET_HOURS, PHASES, BAY_WEEKLY_HOURS } from '../types';
 import { Modal } from './Modal';
 
 interface Props {
@@ -10,9 +10,10 @@ interface Props {
   isOpen: boolean;
   onClose: () => void;
   onUpdate: (id: string, updates: Partial<Trailer>) => void;
+  allTrailers?: Trailer[];
 }
 
-export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose, onUpdate }) => {
+export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose, onUpdate, allTrailers = [] }) => {
   const [isEditing, setIsEditing] = React.useState(false);
   const [editForm, setEditForm] = React.useState({
     name: trailer.name,
@@ -147,7 +148,7 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
               </div>
             </div>
 
-            {/* Auto-calculated Estimated Completion based on remaining hours */}
+            {/* Auto-calculated Estimated Completion based on bay-specific capacity */}
             {!trailer.isArchived && (() => {
               const phaseIndex = PHASES.findIndex(p => p.id === trailer.currentPhase);
               if (phaseIndex === -1) return null;
@@ -158,12 +159,14 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                 if (!trailer.finishingType && p.id === 'outsource') return sum;
                 return sum + (MODEL_TARGET_HOURS[trailer.model]?.[p.id] || 0);
               }, 0);
-
               if (remainingHours === 0) return null;
 
-              // 9.5h/day, 4 work days/week → 1 work day = 7/4 calendar days
-              const workDays = remainingHours / 9.5;
-              const calendarDays = Math.ceil(workDays * (7 / 4));
+              // Bay-specific capacity divided by number of active trailers in that bay
+              const bayWeeklyHours = BAY_WEEKLY_HOURS[trailer.station] ?? 40;
+              const trailersInBay = allTrailers.filter(t => t.station === trailer.station && !t.isArchived).length || 1;
+              const thisTrailerWeeklyHours = bayWeeklyHours / trailersInBay;
+              const weeksNeeded = remainingHours / thisTrailerWeeklyHours;
+              const calendarDays = Math.ceil(weeksNeeded * 7);
               const estDate = new Date();
               estDate.setDate(estDate.getDate() + calendarDays);
 
@@ -200,7 +203,7 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                       {remainingHours}h
                     </span>
                     <span style={{ display: 'block', fontSize: '0.65rem', fontWeight: 600, color: isLate ? '#b45309' : '#0369a1', marginTop: '2px' }}>
-                      ~{workDays.toFixed(1)} work days
+                      {thisTrailerWeeklyHours.toFixed(0)}h/wk ({trailersInBay} unit{trailersInBay > 1 ? 's' : ''} in {trailer.station})
                     </span>
                   </div>
                 </div>
