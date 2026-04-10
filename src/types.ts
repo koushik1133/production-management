@@ -43,6 +43,13 @@ export interface Trailer {
 
 export const STATIONS: StationId[] = ['B1', 'B2', 'B3', 'B4'];
 
+export const BAY_WEEKLY_HOURS: Partial<Record<StationId, number>> = {
+  B1: 40,
+  B2: 80,
+  B3: 80,
+  B4: 40,
+};
+
 export const PHASE_METADATA: Record<PhaseId, { title: string; defaultTargetHours: number }> = {
   backlog: { title: 'Backlog', defaultTargetHours: 72 },
   prefab: { title: 'Prefab', defaultTargetHours: 24 },
