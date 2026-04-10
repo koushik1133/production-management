@@ -146,6 +146,25 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                 <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#0f172a' }}>{trailer.promisedShippingDate ? format(new Date(trailer.promisedShippingDate + 'T12:00:00'), 'MMM d, yyyy') : 'NOT SET'}</span>
               </div>
             </div>
+
+            {/* VIN & Invoice — shown when data has been collected */}
+            {(trailer.vinDate || trailer.invoiceNumber) && (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', padding: '1rem', background: '#f0fdf4', borderRadius: '12px', border: '1px solid #bbf7d0' }}>
+                <div>
+                  <span style={{ fontSize: '0.65rem', fontWeight: 800, color: '#15803d', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>VIN Date</span>
+                  <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#14532d' }}>
+                    {trailer.vinDate ? format(new Date(trailer.vinDate + 'T12:00:00'), 'MMM d, yyyy') : '—'}
+                  </span>
+                </div>
+                <div>
+                  <span style={{ fontSize: '0.65rem', fontWeight: 800, color: '#15803d', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>Invoice Number</span>
+                  <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#14532d' }}>
+                    {trailer.invoiceNumber || '—'}
+                  </span>
+                </div>
+              </div>
+            )}
+
           </div>
         )}
 
