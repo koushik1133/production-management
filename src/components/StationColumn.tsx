@@ -9,9 +9,10 @@ interface Props {
   trailers: Trailer[];
   onUpdateTrailer?: (id: string, updates: Partial<Trailer>) => void;
   onCardClick?: (trailer: Trailer) => void;
+  totalHours?: number;
 }
 
-export const StationColumn: React.FC<Props> = ({ id, trailers, onUpdateTrailer, onCardClick }) => {
+export const StationColumn: React.FC<Props> = ({ id, trailers, onUpdateTrailer, onCardClick, totalHours }) => {
   const { setNodeRef } = useDroppable({
     id,
   });
@@ -43,7 +44,7 @@ export const StationColumn: React.FC<Props> = ({ id, trailers, onUpdateTrailer, 
             </div>
           )}
         </div>
-        <span className="column-count" style={{ fontSize: '0.75rem', fontWeight: 600 }}>{trailers.length} units</span>
+        <span className="column-count" style={{ fontSize: '0.75rem', fontWeight: 600 }}>{trailers.length} units{totalHours ? ` · ${totalHours.toFixed(0)}h` : ''}</span>
       </div>
       <div className="cards-container">
         <SortableContext
