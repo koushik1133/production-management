@@ -147,6 +147,66 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
               </div>
             </div>
 
+            {/* Auto-calculated Estimated Completion based on remaining hours */}
+            {!trailer.isArchived && (() => {
+              const phaseIndex = PHASES.findIndex(p => p.id === trailer.currentPhase);
+              if (phaseIndex === -1) return null;
+              const remainingHours = PHASES.slice(phaseIndex).reduce((sum, p) => {
+                if (p.id === 'shipping') return sum;
+                if (trailer.finishingType === 'Paint' && p.id === 'outsource') return sum;
+                if (trailer.finishingType === 'Outsource' && p.id === 'paint') return sum;
+                if (!trailer.finishingType && p.id === 'outsource') return sum;
+                return sum + (MODEL_TARGET_HOURS[trailer.model]?.[p.id] || 0);
+              }, 0);
+
+              if (remainingHours === 0) return null;
+
+              // 9.5h/day, 4 work days/week → 1 work day = 7/4 calendar days
+              const workDays = remainingHours / 9.5;
+              const calendarDays = Math.ceil(workDays * (7 / 4));
+              const estDate = new Date();
+              estDate.setDate(estDate.getDate() + calendarDays);
+
+              const isLate = trailer.expectedDueDate
+                ? estDate > new Date(trailer.expectedDueDate + 'T12:00:00')
+                : false;
+
+              return (
+                <div style={{
+                  display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem',
+                  padding: '1rem',
+                  background: isLate ? '#fffbeb' : '#f0f9ff',
+                  borderRadius: '12px',
+                  border: `1px solid ${isLate ? '#fde68a' : '#bae6fd'}`
+                }}>
+                  <div>
+                    <span style={{ fontSize: '0.65rem', fontWeight: 800, color: isLate ? '#92400e' : '#0369a1', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>
+                      Est. Completion
+                    </span>
+                    <span style={{ fontSize: '0.95rem', fontWeight: 800, color: isLate ? '#78350f' : '#0c4a6e' }}>
+                      {format(estDate, 'MMM d, yyyy')}
+                    </span>
+                    {isLate && (
+                      <span style={{ display: 'block', fontSize: '0.65rem', fontWeight: 700, color: '#b45309', marginTop: '2px' }}>
+                        ⚠ Exceeds due date
+                      </span>
+                    )}
+                  </div>
+                  <div>
+                    <span style={{ fontSize: '0.65rem', fontWeight: 800, color: isLate ? '#92400e' : '#0369a1', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>
+                      Hours Remaining
+                    </span>
+                    <span style={{ fontSize: '0.95rem', fontWeight: 800, color: isLate ? '#78350f' : '#0c4a6e' }}>
+                      {remainingHours}h
+                    </span>
+                    <span style={{ display: 'block', fontSize: '0.65rem', fontWeight: 600, color: isLate ? '#b45309' : '#0369a1', marginTop: '2px' }}>
+                      ~{workDays.toFixed(1)} work days
+                    </span>
+                  </div>
+                </div>
+              );
+            })()}
+
             {/* VIN & Invoice — shown when data has been collected */}
             {(trailer.vinDate || trailer.invoiceNumber) && (
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', padding: '1rem', background: '#f0fdf4', borderRadius: '12px', border: '1px solid #bbf7d0' }}>
