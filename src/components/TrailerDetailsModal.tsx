@@ -148,77 +148,90 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
               </div>
             </div>
 
-            {/* Auto-calculated Completion Range based on bay-specific capacity */}
+            {/* Sequential Queue Completion Range */}
             {!trailer.isArchived && (() => {
-              const phaseIndex = PHASES.findIndex(p => p.id === trailer.currentPhase);
-              if (phaseIndex === -1) return null;
-              const remainingHours = PHASES.slice(phaseIndex).reduce((sum, p) => {
-                if (p.id === 'shipping') return sum;
-                if (trailer.finishingType === 'Paint' && p.id === 'outsource') return sum;
-                if (trailer.finishingType === 'Outsource' && p.id === 'paint') return sum;
-                if (!trailer.finishingType && p.id === 'outsource') return sum;
-                return sum + (MODEL_TARGET_HOURS[trailer.model]?.[p.id] || 0);
-              }, 0);
-              if (remainingHours === 0) return null;
+              // Helper: get remaining build hours for any trailer
+              const getHours = (t: Trailer) => {
+                const idx = PHASES.findIndex(p => p.id === t.currentPhase);
+                if (idx === -1) return 0;
+                return PHASES.slice(idx).reduce((sum, p) => {
+                  if (p.id === 'shipping') return sum;
+                  if (t.finishingType === 'Paint' && p.id === 'outsource') return sum;
+                  if (t.finishingType === 'Outsource' && p.id === 'paint') return sum;
+                  if (!t.finishingType && p.id === 'outsource') return sum;
+                  return sum + (MODEL_TARGET_HOURS[t.model]?.[p.id] || 0);
+                }, 0);
+              };
+
+              const myHours = getHours(trailer);
+              if (myHours === 0) return null;
+
+              // Sort all active bay-mates by dateStarted (oldest first = they go first)
+              const bayQueue = allTrailers
+                .filter(t => t.station === trailer.station && !t.isArchived && t.currentPhase !== 'shipping')
+                .sort((a, b) => a.dateStarted - b.dateStarted);
+
+              const myIndex = bayQueue.findIndex(t => t.id === trailer.id);
+              const trailersAhead = myIndex > 0 ? bayQueue.slice(0, myIndex) : [];
+              const hoursAhead = trailersAhead.reduce((sum, t) => sum + getHours(t), 0);
+              const totalHours = hoursAhead + myHours; // hours until this trailer is done
 
               const bayWeeklyHours = BAY_WEEKLY_HOURS[trailer.station] ?? 40;
-              const trailersInBay = allTrailers.filter(t => t.station === trailer.station && !t.isArchived).length || 1;
 
-              // Earliest: current occupancy (best case)
-              const earlyWeeklyHours = bayWeeklyHours / trailersInBay;
-              const earlyDays = Math.ceil((remainingHours / earlyWeeklyHours) * 7);
-              const earlyDate = new Date();
-              earlyDate.setDate(earlyDate.getDate() + earlyDays);
+              // Best (100% efficiency): all hours / full bay capacity
+              const bestDays = Math.ceil((totalHours / bayWeeklyHours) * 7);
+              const bestDate = new Date();
+              bestDate.setDate(bestDate.getDate() + bestDays);
 
-              // Latest: one more trailer joins the bay (realistic future load)
-              const lateWeeklyHours = bayWeeklyHours / (trailersInBay + 1);
-              const lateDays = Math.ceil((remainingHours / lateWeeklyHours) * 7);
-              const lateDate = new Date();
-              lateDate.setDate(lateDate.getDate() + lateDays);
+              // Worst (80% efficiency): ×1.25 multiplier
+              const worstDays = Math.ceil(bestDays * 1.25);
+              const worstDate = new Date();
+              worstDate.setDate(worstDate.getDate() + worstDays);
 
               const dueDate = trailer.expectedDueDate ? new Date(trailer.expectedDueDate + 'T12:00:00') : null;
-              const earlyLate = dueDate ? earlyDate > dueDate : false;
-              const lateLate  = dueDate ? lateDate  > dueDate : false;
+              const bestLate  = dueDate ? bestDate  > dueDate : false;
+              const worstLate = dueDate ? worstDate > dueDate : false;
 
-              // Color: red if even best case misses, amber if only worst case misses, blue if fine
-              const bgColor    = earlyLate ? '#fff1f2' : lateLate ? '#fffbeb' : '#f0f9ff';
-              const borderColor= earlyLate ? '#fecdd3' : lateLate ? '#fde68a' : '#bae6fd';
-              const textColor  = earlyLate ? '#9f1239' : lateLate ? '#78350f' : '#0c4a6e';
-              const labelColor = earlyLate ? '#be123c' : lateLate ? '#92400e' : '#0369a1';
+              const bgColor     = bestLate ? '#fff1f2' : worstLate ? '#fffbeb' : '#f0f9ff';
+              const borderColor = bestLate ? '#fecdd3' : worstLate ? '#fde68a' : '#bae6fd';
+              const textColor   = bestLate ? '#9f1239' : worstLate ? '#78350f' : '#0c4a6e';
+              const labelColor  = bestLate ? '#be123c' : worstLate ? '#92400e' : '#0369a1';
 
               return (
                 <div style={{ padding: '1rem', background: bgColor, borderRadius: '12px', border: `1px solid ${borderColor}` }}>
-                  {/* Header row */}
+                  {/* Header */}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
                     <span style={{ fontSize: '0.65rem', fontWeight: 800, color: labelColor, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                       Est. Completion Range
                     </span>
                     <span style={{ fontSize: '0.65rem', fontWeight: 700, color: labelColor, background: 'rgba(255,255,255,0.6)', padding: '2px 8px', borderRadius: '99px' }}>
-                      {remainingHours}h remaining · {trailer.station}
+                      {myIndex >= 0 ? `#${myIndex + 1} in ${trailer.station} queue` : trailer.station} · {myHours}h
                     </span>
                   </div>
 
                   {/* Date range */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.6rem' }}>
-                    <span style={{ fontSize: '1rem', fontWeight: 900, color: textColor }}>{format(earlyDate, 'MMM d')}</span>
+                    <span style={{ fontSize: '1rem', fontWeight: 900, color: textColor }}>{format(bestDate, 'MMM d')}</span>
                     <span style={{ fontSize: '0.75rem', color: labelColor, fontWeight: 700 }}>→</span>
-                    <span style={{ fontSize: '1rem', fontWeight: 900, color: textColor }}>{format(lateDate, 'MMM d, yyyy')}</span>
+                    <span style={{ fontSize: '1rem', fontWeight: 900, color: textColor }}>{format(worstDate, 'MMM d, yyyy')}</span>
                   </div>
 
-                  {/* Sub-labels */}
+                  {/* Context */}
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
                     <div style={{ fontSize: '0.65rem', fontWeight: 600, color: labelColor }}>
-                      ✓ Best: {earlyWeeklyHours.toFixed(0)}h/wk ({trailersInBay} unit{trailersInBay > 1 ? 's' : ''} now)
+                      ✓ Best: 100% efficiency
+                      {hoursAhead > 0 && <span style={{ display: 'block', opacity: 0.8 }}>{hoursAhead}h ahead + {myHours}h mine</span>}
                     </div>
                     <div style={{ fontSize: '0.65rem', fontWeight: 600, color: labelColor }}>
-                      ⏳ If +1 trailer: {lateWeeklyHours.toFixed(0)}h/wk
+                      ⏳ Worst: 80% efficiency
+                      <span style={{ display: 'block', opacity: 0.8 }}>{bayWeeklyHours}h/wk bay capacity</span>
                     </div>
                   </div>
 
                   {/* Warning */}
-                  {(earlyLate || lateLate) && (
-                    <div style={{ marginTop: '0.6rem', padding: '0.4rem 0.6rem', background: 'rgba(255,255,255,0.5)', borderRadius: '8px', fontSize: '0.65rem', fontWeight: 700, color: earlyLate ? '#9f1239' : '#b45309' }}>
-                      {earlyLate ? '🔴 Even best-case exceeds expected due date' : '🟡 Worst-case exceeds expected due date'}
+                  {(bestLate || worstLate) && (
+                    <div style={{ marginTop: '0.6rem', padding: '0.4rem 0.6rem', background: 'rgba(255,255,255,0.5)', borderRadius: '8px', fontSize: '0.65rem', fontWeight: 700, color: bestLate ? '#9f1239' : '#b45309' }}>
+                      {bestLate ? '🔴 Even best-case exceeds expected due date' : '🟡 Worst-case may exceed expected due date'}
                     </div>
                   )}
                 </div>
