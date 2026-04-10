@@ -148,7 +148,7 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
               </div>
             </div>
 
-            {/* Auto-calculated Estimated Completion based on bay-specific capacity */}
+            {/* Auto-calculated Completion Range based on bay-specific capacity */}
             {!trailer.isArchived && (() => {
               const phaseIndex = PHASES.findIndex(p => p.id === trailer.currentPhase);
               if (phaseIndex === -1) return null;
@@ -161,51 +161,66 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
               }, 0);
               if (remainingHours === 0) return null;
 
-              // Bay-specific capacity divided by number of active trailers in that bay
               const bayWeeklyHours = BAY_WEEKLY_HOURS[trailer.station] ?? 40;
               const trailersInBay = allTrailers.filter(t => t.station === trailer.station && !t.isArchived).length || 1;
-              const thisTrailerWeeklyHours = bayWeeklyHours / trailersInBay;
-              const weeksNeeded = remainingHours / thisTrailerWeeklyHours;
-              const calendarDays = Math.ceil(weeksNeeded * 7);
-              const estDate = new Date();
-              estDate.setDate(estDate.getDate() + calendarDays);
 
-              const isLate = trailer.expectedDueDate
-                ? estDate > new Date(trailer.expectedDueDate + 'T12:00:00')
-                : false;
+              // Earliest: current occupancy (best case)
+              const earlyWeeklyHours = bayWeeklyHours / trailersInBay;
+              const earlyDays = Math.ceil((remainingHours / earlyWeeklyHours) * 7);
+              const earlyDate = new Date();
+              earlyDate.setDate(earlyDate.getDate() + earlyDays);
+
+              // Latest: one more trailer joins the bay (realistic future load)
+              const lateWeeklyHours = bayWeeklyHours / (trailersInBay + 1);
+              const lateDays = Math.ceil((remainingHours / lateWeeklyHours) * 7);
+              const lateDate = new Date();
+              lateDate.setDate(lateDate.getDate() + lateDays);
+
+              const dueDate = trailer.expectedDueDate ? new Date(trailer.expectedDueDate + 'T12:00:00') : null;
+              const earlyLate = dueDate ? earlyDate > dueDate : false;
+              const lateLate  = dueDate ? lateDate  > dueDate : false;
+
+              // Color: red if even best case misses, amber if only worst case misses, blue if fine
+              const bgColor    = earlyLate ? '#fff1f2' : lateLate ? '#fffbeb' : '#f0f9ff';
+              const borderColor= earlyLate ? '#fecdd3' : lateLate ? '#fde68a' : '#bae6fd';
+              const textColor  = earlyLate ? '#9f1239' : lateLate ? '#78350f' : '#0c4a6e';
+              const labelColor = earlyLate ? '#be123c' : lateLate ? '#92400e' : '#0369a1';
 
               return (
-                <div style={{
-                  display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem',
-                  padding: '1rem',
-                  background: isLate ? '#fffbeb' : '#f0f9ff',
-                  borderRadius: '12px',
-                  border: `1px solid ${isLate ? '#fde68a' : '#bae6fd'}`
-                }}>
-                  <div>
-                    <span style={{ fontSize: '0.65rem', fontWeight: 800, color: isLate ? '#92400e' : '#0369a1', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>
-                      Est. Completion
+                <div style={{ padding: '1rem', background: bgColor, borderRadius: '12px', border: `1px solid ${borderColor}` }}>
+                  {/* Header row */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                    <span style={{ fontSize: '0.65rem', fontWeight: 800, color: labelColor, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      Est. Completion Range
                     </span>
-                    <span style={{ fontSize: '0.95rem', fontWeight: 800, color: isLate ? '#78350f' : '#0c4a6e' }}>
-                      {format(estDate, 'MMM d, yyyy')}
-                    </span>
-                    {isLate && (
-                      <span style={{ display: 'block', fontSize: '0.65rem', fontWeight: 700, color: '#b45309', marginTop: '2px' }}>
-                        ⚠ Exceeds due date
-                      </span>
-                    )}
-                  </div>
-                  <div>
-                    <span style={{ fontSize: '0.65rem', fontWeight: 800, color: isLate ? '#92400e' : '#0369a1', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>
-                      Hours Remaining
-                    </span>
-                    <span style={{ fontSize: '0.95rem', fontWeight: 800, color: isLate ? '#78350f' : '#0c4a6e' }}>
-                      {remainingHours}h
-                    </span>
-                    <span style={{ display: 'block', fontSize: '0.65rem', fontWeight: 600, color: isLate ? '#b45309' : '#0369a1', marginTop: '2px' }}>
-                      {thisTrailerWeeklyHours.toFixed(0)}h/wk ({trailersInBay} unit{trailersInBay > 1 ? 's' : ''} in {trailer.station})
+                    <span style={{ fontSize: '0.65rem', fontWeight: 700, color: labelColor, background: 'rgba(255,255,255,0.6)', padding: '2px 8px', borderRadius: '99px' }}>
+                      {remainingHours}h remaining · {trailer.station}
                     </span>
                   </div>
+
+                  {/* Date range */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.6rem' }}>
+                    <span style={{ fontSize: '1rem', fontWeight: 900, color: textColor }}>{format(earlyDate, 'MMM d')}</span>
+                    <span style={{ fontSize: '0.75rem', color: labelColor, fontWeight: 700 }}>→</span>
+                    <span style={{ fontSize: '1rem', fontWeight: 900, color: textColor }}>{format(lateDate, 'MMM d, yyyy')}</span>
+                  </div>
+
+                  {/* Sub-labels */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                    <div style={{ fontSize: '0.65rem', fontWeight: 600, color: labelColor }}>
+                      ✓ Best: {earlyWeeklyHours.toFixed(0)}h/wk ({trailersInBay} unit{trailersInBay > 1 ? 's' : ''} now)
+                    </div>
+                    <div style={{ fontSize: '0.65rem', fontWeight: 600, color: labelColor }}>
+                      ⏳ If +1 trailer: {lateWeeklyHours.toFixed(0)}h/wk
+                    </div>
+                  </div>
+
+                  {/* Warning */}
+                  {(earlyLate || lateLate) && (
+                    <div style={{ marginTop: '0.6rem', padding: '0.4rem 0.6rem', background: 'rgba(255,255,255,0.5)', borderRadius: '8px', fontSize: '0.65rem', fontWeight: 700, color: earlyLate ? '#9f1239' : '#b45309' }}>
+                      {earlyLate ? '🔴 Even best-case exceeds expected due date' : '🟡 Worst-case exceeds expected due date'}
+                    </div>
+                  )}
                 </div>
               );
             })()}
