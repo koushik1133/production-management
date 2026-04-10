@@ -103,6 +103,7 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
   };
 
   const [newTrailerData, setNewTrailerData] = useState({
+    serialNumber: '',
     name: '',
     model: '',
     station: 'B1' as StationId,
@@ -310,7 +311,9 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
         id: newId,
         name: newTrailerData.name || '---',
         model: newTrailerData.model,
-        serialNumber: `LT-${Math.floor(10000 + Math.random() * 90000)}`,
+        serialNumber: newTrailerData.serialNumber
+          ? (newTrailerData.serialNumber.toUpperCase().startsWith('LT-') ? newTrailerData.serialNumber.toUpperCase() : `LT-${newTrailerData.serialNumber.toUpperCase()}`)
+          : `LT-${Math.floor(10000 + Math.random() * 90000)}`,
         station: newTrailerData.station,
         isPriority: newTrailerData.isPriority,
         dateStarted: Date.now(),
@@ -323,6 +326,7 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
       await addTrailer(newTrailer);
       setIsAddModalOpen(false);
       setNewTrailerData({ 
+        serialNumber: '',
         name: '', 
         model: '', 
         station: 'B1', 
@@ -468,6 +472,25 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
 
       <Modal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} title="Quick Unit Registration">
         <form onSubmit={handleAddTrailer}>
+
+          {/* Serial Number — top of form, prominent */}
+          <div style={{ marginBottom: '1.25rem' }}>
+            <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.4rem', display: 'block' }}>Serial Number</label>
+            <div style={{ display: 'flex', alignItems: 'center', border: '2px solid #e2e8f0', borderRadius: '10px', overflow: 'hidden', background: '#fff', transition: 'border-color 0.2s' }}
+              onFocusCapture={e => (e.currentTarget.style.borderColor = 'var(--accent)')}
+              onBlurCapture={e => (e.currentTarget.style.borderColor = '#e2e8f0')}
+            >
+              <span style={{ padding: '0 0.75rem', fontSize: '0.9rem', fontWeight: 800, color: '#94a3b8', background: '#f8fafc', borderRight: '2px solid #e2e8f0', height: '100%', display: 'flex', alignItems: 'center', whiteSpace: 'nowrap' }}>LT-</span>
+              <input
+                type="text"
+                style={{ border: 'none', outline: 'none', padding: '0.65rem 0.75rem', fontSize: '0.95rem', fontWeight: 700, width: '100%', background: 'transparent', letterSpacing: '0.05em' }}
+                placeholder="e.g. 54321"
+                value={newTrailerData.serialNumber}
+                onChange={e => setNewTrailerData({...newTrailerData, serialNumber: e.target.value.toUpperCase()})}
+              />
+            </div>
+          </div>
+
           <div className="form-group">
             <label className="form-label">Customer / Purchase Order</label>
             <input type="text" className="form-input" value={newTrailerData.name} onChange={e => setNewTrailerData({...newTrailerData, name: e.target.value})} placeholder="e.g. Stock Unit" />
