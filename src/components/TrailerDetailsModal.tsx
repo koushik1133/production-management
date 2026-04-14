@@ -149,7 +149,7 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
             </div>
 
             {/* Sequential Queue Completion Range */}
-            {!trailer.isArchived && (() => {
+            {!trailer.isArchived && trailer.station !== 'None' && (() => {
               // Helper: get remaining build hours for any trailer
               const getHours = (t: Trailer) => {
                 const idx = PHASES.findIndex(p => p.id === t.currentPhase);
