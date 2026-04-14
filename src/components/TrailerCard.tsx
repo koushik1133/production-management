@@ -4,7 +4,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { Clock, Hash, MapPin, Calendar, Crown, StickyNote, Truck } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import type { Trailer, StationId } from '../types';
-import { STATIONS, PHASE_METADATA, MODEL_TARGET_HOURS } from '../types';
+import { STATIONS, PHASE_METADATA, MODEL_TARGET_HOURS, PHASES } from '../types';
 
 interface Props {
   trailer: Trailer;
@@ -175,9 +175,26 @@ export const TrailerCard: React.FC<Props> = React.memo(({
       )}
 
       <div className="card-footer">
-        <div className="card-meta-item">
-          <Clock className="card-meta-icon" style={{ color: isBottleneck ? 'white' : 'var(--accent)' }} />
-          <span className={`card-time ${isBottleneck ? 'bottleneck-active' : ''}`}>{timeInPhase}</span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem' }}>
+          <div className="card-meta-item">
+            <Clock className="card-meta-icon" style={{ color: isBottleneck ? 'white' : 'var(--accent)', width: '12px', height: '12px' }} />
+            <span className={`card-time ${isBottleneck ? 'bottleneck-active' : ''}`} style={{ fontSize: '0.65rem' }}>{timeInPhase} (Stage: {Math.round(targetHours)}h)</span>
+          </div>
+          <div className="card-meta-item">
+            <Hash className="card-meta-icon" style={{ color: isBottleneck ? 'white' : '#0ea5e9', width: '12px', height: '12px' }} />
+            <span style={{ fontSize: '0.65rem', color: isBottleneck ? 'white' : 'var(--text-secondary)' }}>Pipeline: {Math.round(
+              (() => {
+                let pipe = Math.max(0, targetHours - (currentLog?.bayManualHours || currentLog?.phaseManualHours || 0));
+                const pIdx = PHASES.findIndex(p => p.id === trailer.currentPhase);
+                if (pIdx !== -1) {
+                  PHASES.slice(pIdx + 1).forEach(f => {
+                    if (f.id !== 'shipping') pipe += (MODEL_TARGET_HOURS[trailer.model]?.[f.id] || 0);
+                  });
+                }
+                return pipe;
+              })()
+            )}h</span>
+          </div>
         </div>
         
         <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>

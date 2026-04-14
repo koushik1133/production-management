@@ -64,29 +64,38 @@ const StationView: React.FC<Props> = ({ trailers, onUpdateTrailer }) => {
 
   const getStationWorkload = (stationId: StationId) => {
     const stationTrailers = trailers.filter(t => t.station === stationId && !t.isArchived);
-    return stationTrailers.reduce((sum, t) => {
+    return stationTrailers.reduce((acc, t) => {
       const fromPhaseIndex = PHASES.findIndex(p => p.id === t.currentPhase);
-      if (fromPhaseIndex === -1) return sum;
+      if (fromPhaseIndex === -1) return acc;
+      
       const remainingPhases = PHASES.slice(fromPhaseIndex);
-      const trailerWork = remainingPhases.reduce((pSum, phase) => {
-        if (phase.id === 'paint' && t.finishingType === 'Outsource') return pSum;
-        if (phase.id === 'outsource' && t.finishingType === 'Paint') return pSum;
-        if (!t.finishingType && phase.id === 'outsource') return pSum;
+      let stageRem = 0;
+      let pipelineRem = 0;
+
+      remainingPhases.forEach((phase) => {
+        if (phase.id === 'paint' && t.finishingType === 'Outsource') return;
+        if (phase.id === 'outsource' && t.finishingType === 'Paint') return;
+        if (!t.finishingType && phase.id === 'outsource') return;
 
         const target = MODEL_TARGET_HOURS[t.model]?.[phase.id]
           || PHASE_METADATA[phase.id].defaultTargetHours;
 
-        // Subtract hours already logged in the current phase
+        let res = target;
         if (phase.id === t.currentPhase) {
           const currentLog = t.history.find(h => h.phase === t.currentPhase && !h.exitedAt);
           const loggedInCurrent = (currentLog?.bayManualHours || currentLog?.phaseManualHours || 0);
-          return pSum + Math.max(0, target - loggedInCurrent);
+          res = Math.max(0, target - loggedInCurrent);
+          stageRem = res;
         }
 
-        return pSum + target;
-      }, 0);
-      return sum + trailerWork;
-    }, 0);
+        pipelineRem += res;
+      });
+
+      return {
+        stage: acc.stage + stageRem,
+        pipeline: acc.pipeline + pipelineRem
+      };
+    }, { stage: 0, pipeline: 0 });
   };
 
   return (
@@ -119,7 +128,7 @@ const StationView: React.FC<Props> = ({ trailers, onUpdateTrailer }) => {
               trailers={trailers.filter(t => t.station === station && !t.isArchived)} 
               onUpdateTrailer={onUpdateTrailer} 
               onCardClick={(t) => setSelectedTrailerId(t.id)}
-              totalHours={getStationWorkload(station)}
+              workload={getStationWorkload(station)}
             />
           ))}
           <DragOverlay>

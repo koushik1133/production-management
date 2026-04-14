@@ -9,10 +9,10 @@ interface Props {
   trailers: Trailer[];
   onUpdateTrailer?: (id: string, updates: Partial<Trailer>) => void;
   onCardClick?: (trailer: Trailer) => void;
-  totalHours?: number;
+  workload?: { stage: number; pipeline: number };
 }
 
-export const StationColumn: React.FC<Props> = ({ id, trailers, onUpdateTrailer, onCardClick, totalHours }) => {
+export const StationColumn: React.FC<Props> = ({ id, trailers, onUpdateTrailer, onCardClick, workload }) => {
   const { setNodeRef } = useDroppable({
     id,
   });
@@ -61,18 +61,24 @@ export const StationColumn: React.FC<Props> = ({ id, trailers, onUpdateTrailer, 
           ))}
         </SortableContext>
       </div>
-      {totalHours !== undefined && (
+      {workload !== undefined && (
         <div className="column-footer" style={{ 
           marginTop: 'auto', 
           padding: '1rem', 
           borderTop: '2px solid var(--accent)', 
           background: 'rgba(56, 189, 248, 0.05)',
           display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center'
+          flexDirection: 'column',
+          gap: '0.5rem'
         }}>
-          <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--accent)', letterSpacing: '0.05em' }}>TOTAL BAY WORKLOAD:</span>
-          <span style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--accent)' }}>{totalHours.toFixed(0)}h</span>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--accent)', letterSpacing: '0.05em' }}>STAGE LOAD:</span>
+            <span style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--accent)' }}>{Math.round(workload.stage)}h</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.65rem', fontWeight: 700, color: '#0ea5e9', letterSpacing: '0.05em' }}>PIPELINE TOTAL:</span>
+            <span style={{ fontSize: '1rem', fontWeight: 800, color: '#0ea5e9' }}>{Math.round(workload.pipeline)}h</span>
+          </div>
         </div>
       )}
     </div>
