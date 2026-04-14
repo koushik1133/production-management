@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import type { StationId, Trailer } from '../types';
@@ -9,13 +9,26 @@ interface Props {
   trailers: Trailer[];
   onUpdateTrailer?: (id: string, updates: Partial<Trailer>) => void;
   onCardClick?: (trailer: Trailer) => void;
-  workload?: { stage: number; pipeline: number };
+  workload?: { stage: number; pipeline: number; leadTime: number };
+  capacity?: number;
+  onUpdateCapacity?: (capacity: number) => void;
 }
 
-export const StationColumn: React.FC<Props> = ({ id, trailers, onUpdateTrailer, onCardClick, workload }) => {
+export const StationColumn: React.FC<Props> = ({ id, trailers, onUpdateTrailer, onCardClick, workload, capacity, onUpdateCapacity }) => {
   const { setNodeRef } = useDroppable({
     id,
   });
+
+  const [localCapacity, setLocalCapacity] = useState<string>(capacity?.toString() || '');
+
+  useEffect(() => {
+    setLocalCapacity(capacity?.toString() || '');
+  }, [capacity]);
+
+  const handleCapacitySubmit = () => {
+    const val = parseFloat(localCapacity);
+    onUpdateCapacity?.(isNaN(val) ? 0 : val);
+  };
 
   return (
     <div className="kanban-column" ref={setNodeRef}>
@@ -23,26 +36,24 @@ export const StationColumn: React.FC<Props> = ({ id, trailers, onUpdateTrailer, 
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <span className="column-title" style={{ color: 'var(--accent)', fontWeight: 800 }}>BAY {id}</span>
           
-          {trailers.length > 0 && (
-            <div className="bay-header-input-wrapper">
-              <input 
-                type="number" 
-                placeholder="Logged Hrs" 
-                className="bay-time-input"
-                value={trailers[0].history.find(h => h.phase === trailers[0].currentPhase && !h.exitedAt)?.bayManualHours || ''}
-                onChange={(e) => {
-                  const val = parseFloat(e.target.value);
-                  const trailer = trailers[0];
-                  const updatedHistory = trailer.history.map(h => 
-                    h.phase === trailer.currentPhase && !h.exitedAt 
-                      ? { ...h, bayManualHours: isNaN(val) ? undefined : val } 
-                      : h
-                  );
-                  onUpdateTrailer?.(trailer.id, { history: updatedHistory });
-                }}
-              />
-            </div>
-          )}
+          <div className="bay-header-input-wrapper" title="Bay Output (Target Hours/Week)">
+            <input 
+              type="number" 
+              placeholder="Log Hrs" 
+              className="bay-time-input"
+              style={{ width: '60px', height: '24px', fontSize: '0.65rem' }}
+              value={localCapacity}
+              onChange={(e) => setLocalCapacity(e.target.value)}
+              onBlur={handleCapacitySubmit}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  handleCapacitySubmit();
+                  (e.target as HTMLInputElement).blur();
+                }
+              }}
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
         </div>
         <span className="column-count" style={{ fontSize: '0.75rem', fontWeight: 600 }}>{trailers.length} units</span>
       </div>
@@ -75,9 +86,9 @@ export const StationColumn: React.FC<Props> = ({ id, trailers, onUpdateTrailer, 
             <span style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--accent)', letterSpacing: '0.05em' }}>STAGE LOAD:</span>
             <span style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--accent)' }}>{Math.round(workload.stage)}h</span>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.65rem', fontWeight: 700, color: '#0ea5e9', letterSpacing: '0.05em' }}>PIPELINE TOTAL:</span>
-            <span style={{ fontSize: '1rem', fontWeight: 800, color: '#0ea5e9' }}>{Math.round(workload.pipeline)}h</span>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.25rem', paddingTop: '0.5rem', borderTop: '1px dashed rgba(56, 189, 248, 0.2)' }}>
+            <span style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '0.05em' }}>EST. LEAD TIME:</span>
+            <span style={{ fontSize: '1rem', fontWeight: 900, color: 'var(--text-primary)' }}>{workload.leadTime.toFixed(1)} <span style={{ fontSize: '0.7rem' }}>Weeks</span></span>
           </div>
         </div>
       )}

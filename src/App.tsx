@@ -51,7 +51,8 @@ import {
   PHASES, 
   MODEL_CATEGORIES, 
   MODEL_TARGET_HOURS,
-  BAY_WEEKLY_HOURS 
+  BAY_WEEKLY_HOURS,
+  DEFAULT_BAY_CAPACITIES
 } from './types';
 
 import { exportToCsv, parseCsv } from './utils/CsvUtils';
@@ -112,6 +113,7 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
     expectedDueDate: '',
     promisedShippingDate: ''
   });
+
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 10 } }),
@@ -795,6 +797,15 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [isConnected, setIsConnected] = useState(false);
 
+  const [bayCapacities, setBayCapacities] = useState<Record<StationId, number>>(() => {
+    const saved = localStorage.getItem('bay_capacities');
+    return saved ? JSON.parse(saved) : DEFAULT_BAY_CAPACITIES;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('bay_capacities', JSON.stringify(bayCapacities));
+  }, [bayCapacities]);
+
   // Fetch initial data
   useEffect(() => {
     const fetchTrailers = async () => {
@@ -917,7 +928,7 @@ function App() {
       <Routes>
         <Route path="/" element={<Dashboard trailers={trailers} setTrailers={setTrailers} updateTrailer={updateTrailer} isConnected={isConnected} addTrailer={addTrailer} />} />
         <Route path="/backlog" element={<BacklogView trailers={trailers} onAddTrailer={addTrailer} onUpdateTrailer={updateTrailer} />} />
-        <Route path="/stations" element={<StationView trailers={trailers} onUpdateTrailer={updateTrailer} />} />
+        <Route path="/stations" element={<StationView trailers={trailers} onUpdateTrailer={updateTrailer} bayCapacities={bayCapacities} onUpdateCapacity={(id, cap) => setBayCapacities(prev => ({ ...prev, [id]: cap }))} />} />
         <Route path="/tv" element={<TVView trailers={trailers} />} />
         <Route path="/tv/station1" element={<TVView trailers={trailers} monitorMode="station1" />} />
         <Route path="/tv/station2" element={<TVView trailers={trailers} monitorMode="station2" />} />

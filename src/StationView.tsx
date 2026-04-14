@@ -21,9 +21,11 @@ import { TrailerDetailsModal } from './components/TrailerDetailsModal';
 interface Props {
   trailers: Trailer[];
   onUpdateTrailer: (id: string, updates: Partial<Trailer>) => void;
+  bayCapacities: Record<StationId, number>;
+  onUpdateCapacity: (id: StationId, capacity: number) => void;
 }
 
-const StationView: React.FC<Props> = ({ trailers, onUpdateTrailer }) => {
+const StationView: React.FC<Props> = ({ trailers, onUpdateTrailer, bayCapacities, onUpdateCapacity }) => {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [selectedTrailerId, setSelectedTrailerId] = useState<string | null>(null);
 
@@ -62,9 +64,9 @@ const StationView: React.FC<Props> = ({ trailers, onUpdateTrailer }) => {
   const selectedTrailer = trailers.find(t => t.id === selectedTrailerId);
   const activeTrailer = activeId ? trailers.find(t => t.id === activeId) : null;
 
-  const getStationWorkload = (stationId: StationId) => {
+  const getStationWorkloadData = (stationId: StationId) => {
     const stationTrailers = trailers.filter(t => t.station === stationId && !t.isArchived);
-    return stationTrailers.reduce((acc, t) => {
+    const totals = stationTrailers.reduce((acc, t) => {
       const fromPhaseIndex = PHASES.findIndex(p => p.id === t.currentPhase);
       if (fromPhaseIndex === -1) return acc;
       
@@ -96,6 +98,15 @@ const StationView: React.FC<Props> = ({ trailers, onUpdateTrailer }) => {
         pipeline: acc.pipeline + pipelineRem
       };
     }, { stage: 0, pipeline: 0 });
+
+    const capacity = bayCapacities[stationId] || 40;
+    const leadTime = capacity > 0 ? totals.pipeline / capacity : 0;
+
+    return {
+      ...totals,
+      leadTime,
+      capacity
+    };
   };
 
   return (
@@ -121,16 +132,21 @@ const StationView: React.FC<Props> = ({ trailers, onUpdateTrailer }) => {
           onDragOver={handleDragOver} 
           onDragEnd={handleDragEnd}
         >
-          {STATIONS.map((station) => (
-            <StationColumn 
-              key={station} 
-              id={station} 
-              trailers={trailers.filter(t => t.station === station && !t.isArchived)} 
-              onUpdateTrailer={onUpdateTrailer} 
-              onCardClick={(t) => setSelectedTrailerId(t.id)}
-              workload={getStationWorkload(station)}
-            />
-          ))}
+          {STATIONS.map((station) => {
+            const workloadData = getStationWorkloadData(station);
+            return (
+              <StationColumn 
+                key={station} 
+                id={station} 
+                trailers={trailers.filter(t => t.station === station && !t.isArchived)} 
+                onUpdateTrailer={onUpdateTrailer} 
+                onCardClick={(t) => setSelectedTrailerId(t.id)}
+                workload={workloadData}
+                capacity={workloadData.capacity}
+                onUpdateCapacity={(cap) => onUpdateCapacity(station, cap)}
+              />
+            );
+          })}
           <DragOverlay>
             {activeTrailer ? <TrailerCard trailer={activeTrailer} /> : null}
           </DragOverlay>

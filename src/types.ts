@@ -135,12 +135,18 @@ MODEL_CATEGORIES.forEach(cat => {
        targetHours.build *= 1.5;
        targetHours.prefab *= 1.5;
     }
-
     // Assign BACKLOG as the sum of all subsequent production phases
     targetHours.backlog = targetHours.prefab + targetHours.build + targetHours.paint + targetHours.trim + targetHours.shipping;
-
     MODEL_TARGET_HOURS[model] = targetHours;
   });
 });
 
 export const ALL_MODELS = MODEL_CATEGORIES.flatMap(cat => cat.models);
+
+export const DEFAULT_BAY_CAPACITIES: Record<string, number> = {
+  'B1': 40,
+  'B2': 80,
+  'B3': 80,
+  'B4': 40,
+  'None': 0,
+};
