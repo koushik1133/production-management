@@ -134,10 +134,15 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
 
   // Calculate Column Totals
   const getPhaseHours = (phaseId: PhaseId) => {
-    if (phaseId === 'shipping') return 0; // Exclude shipping hours
+    if (phaseId === 'shipping') return 0;
     return trailers
-      .filter(t => t.currentPhase === phaseId)
-      .reduce((sum, t) => sum + (MODEL_TARGET_HOURS[t.model]?.[phaseId] || 0), 0);
+      .filter(t => t.currentPhase === phaseId && !t.isArchived)
+      .reduce((sum, t) => {
+        const target = (MODEL_TARGET_HOURS[t.model]?.[phaseId] || 0);
+        const currentLog = t.history.find(h => h.phase === t.currentPhase && !h.exitedAt);
+        const loggedInCurrent = (currentLog?.bayManualHours || currentLog?.phaseManualHours || 0);
+        return sum + Math.max(0, target - loggedInCurrent);
+      }, 0);
   };
 
   // Calculate Global Work Remaining
