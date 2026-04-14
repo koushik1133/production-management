@@ -50,7 +50,8 @@ import type { Trailer, PhaseId, StationId } from './types';
 import { 
   PHASES, 
   MODEL_CATEGORIES, 
-  MODEL_TARGET_HOURS 
+  MODEL_TARGET_HOURS,
+  BAY_WEEKLY_HOURS 
 } from './types';
 
 import { exportToCsv, parseCsv } from './utils/CsvUtils';
@@ -164,6 +165,15 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
     
     return sum + remainingForThisTrailer;
   }, 0);
+
+  const totalShopCapacity = useMemo(() => {
+    return Object.values(BAY_WEEKLY_HOURS).reduce((sum, h) => sum + (h || 0), 0);
+  }, []);
+
+  const runwayWeeks = useMemo(() => {
+    if (totalShopCapacity === 0) return 0;
+    return totalWorkRemaining / totalShopCapacity;
+  }, [totalWorkRemaining, totalShopCapacity]);
 
   const totalProductionTime = useMemo(() => {
     return trailers.reduce((total, t) => {
@@ -449,7 +459,9 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
           <span className="strip-value" style={{ color: '#fbbf24', fontSize: '1.25rem' }}>{Math.round(totalWorkRemaining)} HOURS</span>
           <div style={{ width: '1px', height: '24px', background: 'rgba(255,255,255,0.2)', margin: '0 1rem' }} />
           <span className="strip-label">PRODUCTION RUNWAY:</span>
-          <span className="strip-value" style={{ color: '#fff' }}>~20 WEEKS</span>
+          <span className="strip-value" style={{ color: '#fff' }}>
+            ~{runwayWeeks < 1 ? '< 1' : Math.round(runwayWeeks)} WEEKS
+          </span>
         </div>
         <div style={{ flex: 1 }} />
         <div className="strip-stats">
