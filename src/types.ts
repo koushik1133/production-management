@@ -112,22 +112,34 @@ MODEL_CATEGORIES.forEach(cat => {
       return seed / 233280;
     };
 
-    const prefabHours = Math.floor(20 + rand() * 20); // 20-40 hours
-    MODEL_TARGET_HOURS[model] = {
-      backlog: prefabHours,
-      prefab: prefabHours,
-      build: Math.floor(80 + rand() * 80),    // 80-160 hours (Realistic for major build)
-      paint: Math.floor(20 + rand() * 20),    // 20-40 hours
+    // Calculate individual phase hours first
+    const prefab = Math.floor(20 + rand() * 20); // 20-40 hours
+    const build = Math.floor(80 + rand() * 80);  // 80-160 hours (Realistic for major build)
+    const paint = Math.floor(20 + rand() * 20);  // 20-40 hours
+    const trim = Math.floor(15 + rand() * 15);   // 15-30 hours
+    const shipping = Math.floor(8 + rand() * 8); // 8-16 hours
+
+    // Base target hours
+    const targetHours: Record<PhaseId, number> = {
+      backlog: 0, // Placeholder
+      prefab,
+      build,
+      paint,
       outsource: 0, 
-      trim: Math.floor(15 + rand() * 15),     // 15-30 hours
-      shipping: Math.floor(8 + rand() * 8),   // 8-16 hours
+      trim,
+      shipping,
     };
     
     // Boost hours for Goosenecks, specialties, or specialty trailers
     if (model.includes('Gooseneck') || model.includes('Specialty') || model.includes('Engineering') || model.includes('3547') || model.includes('4260')) {
-       MODEL_TARGET_HOURS[model].build *= 1.5;
-       MODEL_TARGET_HOURS[model].prefab *= 1.5;
+       targetHours.build *= 1.5;
+       targetHours.prefab *= 1.5;
     }
+
+    // Assign BACKLOG as the sum of all subsequent production phases
+    targetHours.backlog = targetHours.prefab + targetHours.build + targetHours.paint + targetHours.trim + targetHours.shipping;
+
+    MODEL_TARGET_HOURS[model] = targetHours;
   });
 });
 
