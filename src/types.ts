@@ -104,23 +104,29 @@ MODEL_CATEGORIES.forEach(cat => {
     for (let i = 0; i < model.length; i++) {
       seed = model.charCodeAt(i) + ((seed << 5) - seed);
     }
+    // Ensure seed is positive to avoid negative hours
+    seed = Math.abs(seed);
+
     const rand = () => {
       seed = (seed * 9301 + 49297) % 233280;
       return seed / 233280;
     };
 
-    const prefabHours = Math.floor(15 + rand() * 20);
+    const prefabHours = Math.floor(20 + rand() * 20); // 20-40 hours
     MODEL_TARGET_HOURS[model] = {
       backlog: prefabHours,
       prefab: prefabHours,
-      build: Math.floor(30 + rand() * 50),
-      paint: Math.floor(15 + rand() * 15),
+      build: Math.floor(80 + rand() * 80),    // 80-160 hours (Realistic for major build)
+      paint: Math.floor(20 + rand() * 20),    // 20-40 hours
       outsource: 0, 
-      trim: Math.floor(8 + rand() * 10),
-      shipping: Math.floor(4 + rand() * 10),
+      trim: Math.floor(15 + rand() * 15),     // 15-30 hours
+      shipping: Math.floor(8 + rand() * 8),   // 8-16 hours
     };
-    if (model.includes('Specialty') || model.includes('Engineering')) {
-       MODEL_TARGET_HOURS[model].build *= 2;
+    
+    // Boost hours for Goosenecks, specialties, or specialty trailers
+    if (model.includes('Gooseneck') || model.includes('Specialty') || model.includes('Engineering') || model.includes('3547') || model.includes('4260')) {
+       MODEL_TARGET_HOURS[model].build *= 1.5;
+       MODEL_TARGET_HOURS[model].prefab *= 1.5;
     }
   });
 });
