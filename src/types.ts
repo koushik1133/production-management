@@ -99,16 +99,25 @@ export const MODEL_CATEGORIES = [
 
 MODEL_CATEGORIES.forEach(cat => {
   cat.models.forEach(model => {
-    // Random but realistic hours
-    const prefabHours = Math.floor(15 + Math.random() * 20);
+    // Deterministic random generator seeded by the model name
+    let seed = 0;
+    for (let i = 0; i < model.length; i++) {
+      seed = model.charCodeAt(i) + ((seed << 5) - seed);
+    }
+    const rand = () => {
+      seed = (seed * 9301 + 49297) % 233280;
+      return seed / 233280;
+    };
+
+    const prefabHours = Math.floor(15 + rand() * 20);
     MODEL_TARGET_HOURS[model] = {
       backlog: prefabHours,
       prefab: prefabHours,
-      build: Math.floor(30 + Math.random() * 50),
-      paint: Math.floor(15 + Math.random() * 15),
+      build: Math.floor(30 + rand() * 50),
+      paint: Math.floor(15 + rand() * 15),
       outsource: 0, 
-      trim: Math.floor(8 + Math.random() * 10),
-      shipping: Math.floor(4 + Math.random() * 10),
+      trim: Math.floor(8 + rand() * 10),
+      shipping: Math.floor(4 + rand() * 10),
     };
     if (model.includes('Specialty') || model.includes('Engineering')) {
        MODEL_TARGET_HOURS[model].build *= 2;
