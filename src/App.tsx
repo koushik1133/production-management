@@ -154,13 +154,20 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
       if (p.id === 'backlog' || p.id === 'shipping') return pSum;
 
       // 2. Logic for Finishing (Paint vs Outsource)
-      // If we know the type, skip the other one. 
-      // If we DON'T know yet (unit in backlog/build), assume Paint by default to avoid double counting
       if (t.finishingType === 'Paint' && p.id === 'outsource') return pSum;
       if (t.finishingType === 'Outsource' && p.id === 'paint') return pSum;
-      if (!t.finishingType && p.id === 'outsource') return pSum; // Default assumption
+      if (!t.finishingType && p.id === 'outsource') return pSum;
 
-      return pSum + (MODEL_TARGET_HOURS[t.model]?.[p.id] || 0);
+      const target = (MODEL_TARGET_HOURS[t.model]?.[p.id] || 0);
+
+      // 3. Subtract hours already logged in the current phase
+      if (p.id === t.currentPhase) {
+        const currentLog = t.history.find(h => h.phase === t.currentPhase && !h.exitedAt);
+        const loggedInCurrent = (currentLog?.bayManualHours || currentLog?.phaseManualHours || 0);
+        return pSum + Math.max(0, target - loggedInCurrent);
+      }
+
+      return pSum + target;
     }, 0);
     
     return sum + remainingForThisTrailer;
@@ -465,8 +472,8 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
         </div>
         <div style={{ flex: 1 }} />
         <div className="strip-stats">
-          <span>Active Units: {trailers.filter(t => t.currentPhase !== 'shipping').length}</span>
-          <span>Shop Capacity: {trailers.length > 0 ? Math.round(totalProductionTime / Math.max(trailers.length, 1)) : 0}h/unit</span>
+          <span>Active Units: {trailers.filter(t => !t.isArchived && t.currentPhase !== 'shipping').length}</span>
+          <span>Avg. Build Content: {trailers.length > 0 ? Math.round(totalProductionTime / Math.max(trailers.length, 1)) : 0}h/unit</span>
         </div>
       </div>
 
