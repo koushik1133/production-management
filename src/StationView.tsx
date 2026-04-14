@@ -71,8 +71,18 @@ const StationView: React.FC<Props> = ({ trailers, onUpdateTrailer }) => {
       const trailerWork = remainingPhases.reduce((pSum, phase) => {
         if (phase.id === 'paint' && t.finishingType === 'Outsource') return pSum;
         if (phase.id === 'outsource' && t.finishingType === 'Paint') return pSum;
+        if (!t.finishingType && phase.id === 'outsource') return pSum;
+
         const target = MODEL_TARGET_HOURS[t.model]?.[phase.id]
           || PHASE_METADATA[phase.id].defaultTargetHours;
+
+        // Subtract hours already logged in the current phase
+        if (phase.id === t.currentPhase) {
+          const currentLog = t.history.find(h => h.phase === t.currentPhase && !h.exitedAt);
+          const loggedInCurrent = (currentLog?.bayManualHours || currentLog?.phaseManualHours || 0);
+          return pSum + Math.max(0, target - loggedInCurrent);
+        }
+
         return pSum + target;
       }, 0);
       return sum + trailerWork;
