@@ -132,17 +132,35 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
     ));
   }, [trailers, searchQuery]);
 
-  // Calculate Column Totals
-  const getPhaseHours = (phaseId: PhaseId) => {
-    if (phaseId === 'shipping') return 0;
+  // Calculate Column Totals (Stage vs Pipeline)
+  const getPhaseWorkload = (phaseId: PhaseId) => {
+    if (phaseId === 'shipping') return { stage: 0, pipeline: 0 };
+    
     return trailers
       .filter(t => t.currentPhase === phaseId && !t.isArchived)
-      .reduce((sum, t) => {
+      .reduce((acc, t) => {
+        // 1. Stage Work (current phase only)
         const target = (MODEL_TARGET_HOURS[t.model]?.[phaseId] || 0);
         const currentLog = t.history.find(h => h.phase === t.currentPhase && !h.exitedAt);
         const loggedInCurrent = (currentLog?.bayManualHours || currentLog?.phaseManualHours || 0);
-        return sum + Math.max(0, target - loggedInCurrent);
-      }, 0);
+        const stageRem = Math.max(0, target - loggedInCurrent);
+        
+        // 2. Pipeline Work (this phase + all future phases)
+        let pipelineRem = stageRem;
+        const phaseIdx = PHASES.findIndex(p => p.id === phaseId);
+        if (phaseIdx !== -1) {
+          PHASES.slice(phaseIdx + 1).forEach(futurePhase => {
+            if (futurePhase.id !== 'shipping') {
+              pipelineRem += (MODEL_TARGET_HOURS[t.model]?.[futurePhase.id] || 0);
+            }
+          });
+        }
+
+        return {
+          stage: acc.stage + stageRem,
+          pipeline: acc.pipeline + pipelineRem
+        };
+      }, { stage: 0, pipeline: 0 });
   };
 
   // Calculate Global Work Remaining
@@ -453,7 +471,7 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
                 }
               }}
               onCardClick={(t) => setSelectedTrailerId(t.id)}
-              totalHours={getPhaseHours(phase.id)}
+              workload={getPhaseWorkload(phase.id)}
               highlightedId={highlightedTrailerId}
             />
           ))}

@@ -11,11 +11,11 @@ interface Props {
   onCardClick?: (trailer: Trailer) => void;
   onUpdateTrailer?: (id: string, updates: Partial<Trailer>) => void;
   onShipRequest?: (trailer: Trailer) => void;
-  totalHours?: number;
+  workload?: { stage: number; pipeline: number };
   highlightedId?: string | null;
 }
 
-export const KanbanColumn: React.FC<Props> = React.memo(({ id, title, trailers, onCardClick, onUpdateTrailer, onShipRequest, totalHours, highlightedId }) => {
+export const KanbanColumn: React.FC<Props> = React.memo(({ id, title, trailers, onCardClick, onUpdateTrailer, onShipRequest, workload, highlightedId }) => {
   const { setNodeRef } = useDroppable({
     id,
   });
@@ -67,10 +67,16 @@ export const KanbanColumn: React.FC<Props> = React.memo(({ id, title, trailers, 
           ))}
         </SortableContext>
       </div>
-      {typeof totalHours === 'number' && (
-        <div className="column-footer" style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid rgba(0,0,0,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Work in {title}</span>
-          <span style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--accent)' }}>{totalHours}h</span>
+      {workload !== undefined && (
+        <div className="column-footer" style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.65rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Current Stage</span>
+            <span style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--accent)' }}>{Math.round(workload.stage)}h</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.65rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Pipeline Total</span>
+            <span style={{ fontSize: '0.875rem', fontWeight: 700, color: '#0ea5e9' }}>{Math.round(workload.pipeline)}h</span>
+          </div>
         </div>
       )}
     </div>
