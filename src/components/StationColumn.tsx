@@ -44,7 +44,7 @@ export const StationColumn: React.FC<Props> = ({ id, trailers, onUpdateTrailer, 
             </div>
           )}
         </div>
-        <span className="column-count" style={{ fontSize: '0.75rem', fontWeight: 600 }}>{trailers.length} units{totalHours ? ` · ${totalHours.toFixed(0)}h` : ''}</span>
+        <span className="column-count" style={{ fontSize: '0.75rem', fontWeight: 600 }}>{trailers.length} units</span>
       </div>
       <div className="cards-container">
         <SortableContext
@@ -61,6 +61,20 @@ export const StationColumn: React.FC<Props> = ({ id, trailers, onUpdateTrailer, 
           ))}
         </SortableContext>
       </div>
+      {totalHours !== undefined && (
+        <div className="column-footer" style={{ 
+          marginTop: 'auto', 
+          padding: '1rem', 
+          borderTop: '2px solid var(--accent)', 
+          background: 'rgba(56, 189, 248, 0.05)',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center'
+        }}>
+          <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--accent)', letterSpacing: '0.05em' }}>TOTAL BAY WORKLOAD:</span>
+          <span style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--accent)' }}>{totalHours.toFixed(0)}h</span>
+        </div>
+      )}
     </div>
   );
 };
