@@ -2,7 +2,7 @@ import React from 'react';
 import { formatDistanceToNow, format, differenceInCalendarDays, subDays } from 'date-fns';
 import { History, FileText, Send, Crown, Calculator, CalendarClock, Clock } from 'lucide-react';
 import type { Trailer } from '../types';
-import { MODEL_TARGET_HOURS, PHASES, BAY_WEEKLY_HOURS } from '../types';
+import { MODEL_TARGET_HOURS, BAY_WEEKLY_HOURS, calculateTrailerRemainingHours } from '../types';
 import { Modal } from './Modal';
 
 interface Props {
@@ -212,18 +212,7 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
 
             {/* Sequential Queue Completion Range */}
             {!trailer.isArchived && trailer.station !== 'None' && (() => {
-              // Helper: get remaining build hours for any trailer
-              const getHours = (t: Trailer) => {
-                const idx = PHASES.findIndex(p => p.id === t.currentPhase);
-                if (idx === -1) return 0;
-                return PHASES.slice(idx).reduce((sum, p) => {
-                  if (p.id === 'shipping') return sum;
-                  if (t.finishingType === 'Paint' && p.id === 'outsource') return sum;
-                  if (t.finishingType === 'Outsource' && p.id === 'paint') return sum;
-                  if (!t.finishingType && p.id === 'outsource') return sum;
-                  return sum + (MODEL_TARGET_HOURS[t.model]?.[p.id] || 0);
-                }, 0);
-              };
+              const getHours = (t: Trailer) => calculateTrailerRemainingHours(t);
 
               const myHours = getHours(trailer);
               if (myHours === 0) return null;
@@ -330,11 +319,7 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
           const gapBetweenDueAndPromised = differenceInCalendarDays(promised, new Date(trailer.expectedDueDate + 'T12:00:00'));
 
           // Calculate remaining hours
-          const phaseIndex = PHASES.findIndex(p => p.id === trailer.currentPhase);
-          const remainingHours = PHASES.slice(phaseIndex).reduce((sum, p) => {
-            if (p.id === 'shipping') return sum;
-            return sum + (MODEL_TARGET_HOURS[trailer.model]?.[p.id] || 0);
-          }, 0);
+          const remainingHours = calculateTrailerRemainingHours(trailer);
 
           const hoursPerDay = daysToDeadline > 0 ? (remainingHours / daysToDeadline).toFixed(1) : remainingHours.toFixed(1);
 

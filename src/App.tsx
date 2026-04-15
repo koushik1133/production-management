@@ -187,14 +187,6 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
       if (!t.finishingType && p.id === 'outsource') return pSum;
 
       const target = (MODEL_TARGET_HOURS[t.model]?.[p.id] || 0);
-
-      // 3. Subtract hours already logged in the current phase
-      if (p.id === t.currentPhase) {
-        const currentLog = t.history.find(h => h.phase === t.currentPhase && !h.exitedAt);
-        const loggedInCurrent = (currentLog?.bayManualHours || currentLog?.phaseManualHours || 0);
-        return pSum + Math.max(0, target - loggedInCurrent);
-      }
-
       return pSum + target;
     }, 0);
     
@@ -527,7 +519,7 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
         <div style={{ flex: 1 }} />
         <div className="strip-stats">
           <span>Active Units: {trailers.filter(t => !t.isArchived && t.currentPhase !== 'shipping').length}</span>
-          <span>Avg. Build Content: {trailers.length > 0 ? Math.round(totalProductionTime / Math.max(trailers.length, 1)) : 0}h/unit</span>
+          <span>Avg. Build Content: {trailers.filter(t => !t.isArchived && t.currentPhase !== 'shipping').length > 0 ? Math.round(totalProductionTime / Math.max(trailers.filter(t => !t.isArchived && t.currentPhase !== 'shipping').length, 1)) : 0}h/unit</span>
         </div>
       </div>
 
