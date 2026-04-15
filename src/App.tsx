@@ -51,8 +51,6 @@ import {
   PHASES, 
   MODEL_CATEGORIES, 
   MODEL_TARGET_HOURS,
-  BAY_WEEKLY_HOURS,
-  DEFAULT_BAY_CAPACITIES,
   STATIONS,
   PHASE_METADATA
 } from './types';
@@ -63,13 +61,12 @@ import './App.css';
 
 import { supabase } from './lib/supabase';
 
-function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrailer, bayCapacities, suggestedBay, runwayWeeks }: { 
+function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrailer, suggestedBay, runwayWeeks }: { 
   trailers: Trailer[], 
   setTrailers: React.Dispatch<React.SetStateAction<Trailer[]>>,
   updateTrailer: (id: string, updates: Partial<Trailer>) => void,
   isConnected: boolean,
   addTrailer: (trailer: Trailer) => Promise<void>,
-  bayCapacities: Record<StationId, number>,
   suggestedBay: StationId,
   runwayWeeks: number
 }) {
@@ -221,12 +218,8 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
     }, 0);
   }, [trailers]);
 
-  const [dragStartPhase, setDragStartPhase] = useState<PhaseId | null>(null);
-
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(event.active.id as string);
-    const trailer = trailers.find(t => t.id === event.active.id);
-    if (trailer) setDragStartPhase(trailer.currentPhase);
   };
 
   const handleDragOver = (event: DragOverEvent) => {
@@ -291,7 +284,6 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
     }
     
     setActiveId(null);
-    setDragStartPhase(null);
   };
 
   const handleShipSubmit = async (e: React.FormEvent) => {
@@ -808,7 +800,13 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [isConnected, setIsConnected] = useState(false);
 
-  const [bayCapacities, setBayCapacities] = useState<Record<StationId, number>>(DEFAULT_BAY_CAPACITIES);
+  const [bayCapacities, setBayCapacities] = useState<Record<StationId, number>>({
+    'B1': 40,
+    'B2': 80,
+    'B3': 80,
+    'B4': 40,
+    'None': 0
+  });
 
   // Fetch initial data
   useEffect(() => {
@@ -831,7 +829,13 @@ function App() {
         if (capError) {
           console.warn('bay_settings table might be missing, using defaults:', capError.message);
         } else if (capData) {
-          const caps: Record<string, number> = { ...DEFAULT_BAY_CAPACITIES };
+          const caps: Record<string, number> = { 
+            'B1': 40,
+            'B2': 80,
+            'B3': 80,
+            'B4': 40,
+            'None': 0
+          };
           capData.forEach((row: any) => {
             caps[row.id] = row.capacity;
           });
@@ -1042,7 +1046,7 @@ function App() {
   return (
     <AuthGate>
       <Routes>
-        <Route path="/" element={<Dashboard trailers={trailers} setTrailers={setTrailers} updateTrailer={updateTrailer} isConnected={isConnected} addTrailer={addTrailer} bayCapacities={bayCapacities} suggestedBay={suggestedBay} runwayWeeks={runwayWeeks} />} />
+        <Route path="/" element={<Dashboard trailers={trailers} setTrailers={setTrailers} updateTrailer={updateTrailer} isConnected={isConnected} addTrailer={addTrailer} suggestedBay={suggestedBay} runwayWeeks={runwayWeeks} />} />
         <Route path="/backlog" element={<BacklogView trailers={trailers} onAddTrailer={addTrailer} onUpdateTrailer={updateTrailer} suggestedBay={suggestedBay} />} />
         <Route path="/stations" element={<StationView trailers={trailers} onUpdateTrailer={updateTrailer} bayCapacities={bayCapacities} onUpdateCapacity={updateCapacity} />} />
         <Route path="/tv" element={<TVView trailers={trailers} />} />

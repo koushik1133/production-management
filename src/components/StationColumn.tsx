@@ -32,7 +32,33 @@ export const StationColumn: React.FC<Props> = ({ id, trailers, onUpdateTrailer, 
 
   return (
     <div className="kanban-column" ref={setNodeRef}>
-      <div className="column-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div className="column-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem 1rem' }}>
+        <div style={{ width: '40px' }}></div> {/* Spacer to help center the middle item */}
+        
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <span style={{ color: 'var(--accent)', fontWeight: 800, fontSize: '0.9rem', letterSpacing: '0.05em' }}>BAY</span>
+          <span style={{ 
+            border: '2px solid var(--accent)', 
+            background: '#fff', 
+            color: 'var(--accent)', 
+            padding: '4px 12px', 
+            borderRadius: '8px', 
+            fontWeight: 900, 
+            fontSize: '1rem',
+            lineHeight: 1,
+            boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+            textTransform: 'uppercase'
+          }}>{id}</span>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.1rem' }}>
+          <span style={{ fontSize: '0.6rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>Weekly Cap</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+            <input 
+              type="number" 
+              placeholder="Hrs/Wk" 
+              className="bay-time-input"
+              style={{ width: '48px', height: '24px', fontSize: '0.75rem', fontWeight: 700, textAlign: 'center', border: '1px solid #cbd5e1', borderRadius: '4px' }}
               value={localCapacity}
               onChange={(e) => setLocalCapacity(e.target.value)}
               onBlur={handleCapacitySubmit}
@@ -44,9 +70,9 @@ export const StationColumn: React.FC<Props> = ({ id, trailers, onUpdateTrailer, 
               }}
               onClick={(e) => e.stopPropagation()}
             />
+            <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#94a3b8' }}>{trailers.length}</span>
           </div>
         </div>
-        <span className="column-count" style={{ fontSize: '0.75rem', fontWeight: 600 }}>{trailers.length} units</span>
       </div>
       <div className="cards-container">
         <SortableContext
