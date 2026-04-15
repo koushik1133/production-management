@@ -64,7 +64,7 @@ export const TrailerCard: React.FC<Props> = React.memo(({
   const hoursRemaining = currentLog ? (Date.now() - currentLog.enteredAt) / (1000 * 60 * 60) : 0;
   const targetHours = MODEL_TARGET_HOURS[trailer.model]?.[trailer.currentPhase] 
     || PHASE_METADATA[trailer.currentPhase].defaultTargetHours;
-  const isBottleneck = hoursRemaining > targetHours;
+  const isBottleneck = trailer.currentPhase !== 'backlog' && hoursRemaining > targetHours;
 
   const timeToShipping = calculateTrailerRemainingHours(trailer);
 
