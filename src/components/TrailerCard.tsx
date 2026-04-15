@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Clock, Hash, MapPin, Calendar, Crown, StickyNote, Truck } from 'lucide-react';
+import { Clock, Hash, Calendar, Crown, StickyNote, Truck } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import type { Trailer, StationId } from '../types';
 import { STATIONS, PHASE_METADATA, MODEL_TARGET_HOURS, PHASES } from '../types';
@@ -63,11 +63,6 @@ export const TrailerCard: React.FC<Props> = React.memo(({
   const targetHours = MODEL_TARGET_HOURS[trailer.model]?.[trailer.currentPhase] 
     || PHASE_METADATA[trailer.currentPhase].defaultTargetHours;
   const isBottleneck = hoursRemaining > targetHours;
-
-  const handleStationChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    e.stopPropagation();
-    onUpdateTrailer?.(trailer.id, { station: e.target.value as StationId });
-  };
 
   return (
     <div

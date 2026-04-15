@@ -1,6 +1,6 @@
 import React from 'react';
 import { formatDistanceToNow, format, differenceInCalendarDays, subDays } from 'date-fns';
-import { History, FileText, Send, Crown, Calculator, CalendarClock, Clock, Hash } from 'lucide-react';
+import { History, FileText, Send, Crown, Calculator, CalendarClock, Clock } from 'lucide-react';
 import type { Trailer } from '../types';
 import { MODEL_TARGET_HOURS, PHASES, BAY_WEEKLY_HOURS } from '../types';
 import { Modal } from './Modal';
