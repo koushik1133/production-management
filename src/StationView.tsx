@@ -148,7 +148,7 @@ const StationView: React.FC<Props> = ({ trailers, setTrailers, onUpdateTrailer, 
   };
 
   return (
-    <div className="app-container">
+    <div className="app-container bay-page">
       <header className="header">
         <div className="header-left">
           <Link to="/" className="btn btn-secondary">
@@ -162,7 +162,7 @@ const StationView: React.FC<Props> = ({ trailers, setTrailers, onUpdateTrailer, 
         </div>
       </header>
 
-      <main className="main-content" style={{ justifyContent: 'center', paddingBottom: '1rem' }}>
+      <main className="main-content" style={{ justifyContent: 'center', alignItems: 'stretch' }}>
         <DndContext 
           sensors={sensors} 
           collisionDetection={closestCorners} 
