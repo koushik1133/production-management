@@ -159,7 +159,7 @@ export function calculateTrailerRemainingHours(trailer: Trailer): number {
   let total = 0;
 
   relevantPhases.forEach(pId => {
-    if (pId === 'shipping' && trailer.currentPhase !== 'shipping') return; // Usually don't show shipping hours until it is in shipping
+    if (pId === 'shipping' && trailer.currentPhase !== 'shipping') return;
     
     // Skip irrelevant finishing phase
     if (pId === 'paint' && trailer.finishingType === 'Outsource') return;
@@ -167,14 +167,7 @@ export function calculateTrailerRemainingHours(trailer: Trailer): number {
     if (!trailer.finishingType && pId === 'outsource') return;
 
     const target = MODEL_TARGET_HOURS[trailer.model]?.[pId] || PHASE_METADATA[pId].defaultTargetHours;
-
-    if (pId === trailer.currentPhase) {
-      const currentLog = trailer.history.find(h => h.phase === trailer.currentPhase && !h.exitedAt);
-      const loggedInCurrent = (currentLog?.bayManualHours || currentLog?.phaseManualHours || 0);
-      total += Math.max(0, target - loggedInCurrent);
-    } else {
-      total += target;
-    }
+    total += target;
   });
 
   return total;

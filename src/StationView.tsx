@@ -122,11 +122,8 @@ const StationView: React.FC<Props> = ({ trailers, setTrailers, onUpdateTrailer, 
       // We still want stage-only hours for some logic possibly, 
       // but for pipeline it's straightforward now.
       const currentPhaseTarget = MODEL_TARGET_HOURS[t.model]?.[t.currentPhase] || PHASE_METADATA[t.currentPhase].defaultTargetHours;
-      const curLog = t.history.find(h => h.phase === t.currentPhase && !h.exitedAt);
-      const stageRem = Math.max(0, currentPhaseTarget - (curLog?.bayManualHours || curLog?.phaseManualHours || 0));
-
       return {
-        stage: acc.stage + stageRem,
+        stage: acc.stage + currentPhaseTarget,
         pipeline: acc.pipeline + remainingHours
       };
     }, { stage: 0, pipeline: 0 });
