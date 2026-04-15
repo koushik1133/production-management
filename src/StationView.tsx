@@ -100,11 +100,17 @@ const StationView: React.FC<Props> = ({ trailers, onUpdateTrailer, bayCapacities
     }, { stage: 0, pipeline: 0 });
 
     const capacity = bayCapacities[stationId] || 40;
-    const leadTime = capacity > 0 ? totals.pipeline / capacity : 0;
+    const leadTimeWeeks = capacity > 0 ? totals.pipeline / capacity : 0;
+    const leadTimeDays = Math.round(leadTimeWeeks * 7);
+    
+    const leadTimeDisplay = leadTimeWeeks > 0 
+      ? `${leadTimeWeeks.toFixed(1)} Weeks (~${leadTimeDays} Days)`
+      : '0 Weeks';
 
     return {
       ...totals,
-      leadTime,
+      leadTime: leadTimeWeeks,
+      leadTimeDisplay,
       capacity
     };
   };

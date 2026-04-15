@@ -1,6 +1,6 @@
 import React from 'react';
 import { formatDistanceToNow, format, differenceInCalendarDays, subDays } from 'date-fns';
-import { History, FileText, Send, Crown, Calculator, CalendarClock } from 'lucide-react';
+import { History, FileText, Send, Crown, Calculator, CalendarClock, Clock, Hash } from 'lucide-react';
 import type { Trailer } from '../types';
 import { MODEL_TARGET_HOURS, PHASES, BAY_WEEKLY_HOURS } from '../types';
 import { Modal } from './Modal';
@@ -137,6 +137,35 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
               <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>SN: {trailer.serialNumber}</span>
             </div>
             
+            <div style={{ padding: '1rem', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <span style={{ fontSize: '0.65rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>Hours Logged (Current Stage)</span>
+                <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#0f172a' }}>{trailer.currentPhase.toUpperCase()}: {Math.round(MODEL_TARGET_HOURS[trailer.model]?.[trailer.currentPhase] || 0)}h target</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'white', padding: '0.4rem 0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
+                <Clock size={16} color="var(--accent)" />
+                <input 
+                  type="number"
+                  placeholder="0"
+                  style={{ width: '60px', border: 'none', background: 'transparent', fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)', outline: 'none', textAlign: 'center' }}
+                  value={(() => {
+                    const currentLog = trailer.history.find(h => h.phase === trailer.currentPhase && !h.exitedAt);
+                    return currentLog?.bayManualHours || currentLog?.phaseManualHours || '';
+                  })()}
+                  onChange={(e) => {
+                    const val = parseFloat(e.target.value);
+                    const updatedHistory = trailer.history.map(h => 
+                      h.phase === trailer.currentPhase && !h.exitedAt 
+                        ? { ...h, bayManualHours: isNaN(val) ? undefined : val, phaseManualHours: isNaN(val) ? undefined : val } 
+                        : h
+                    );
+                    onUpdate?.(trailer.id, { history: updatedHistory });
+                  }}
+                />
+                <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748b' }}>Hrs</span>
+              </div>
+            </div>
+
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', padding: '1rem', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
               <div>
                 <span style={{ fontSize: '0.65rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>Expected Due</span>

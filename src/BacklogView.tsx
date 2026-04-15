@@ -9,9 +9,10 @@ interface Props {
   onAddTrailer: (trailer: Trailer) => void;
   onUpdateTrailer: (id: string, updates: Partial<Trailer>) => void;
   trailers: Trailer[];
+  suggestedBay: StationId;
 }
 
-export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, trailers }) => {
+export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, trailers, suggestedBay }) => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
@@ -207,8 +208,23 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
                 </div>
               </div>
 
-              <button type="submit" className="btn btn-primary" style={{ height: '3.5rem', fontSize: '1rem', borderRadius: '12px' }}>
+              <button type="submit" className="btn btn-primary" style={{ height: '3.5rem', fontSize: '1rem', borderRadius: '12px', position: 'relative' }}>
                 Confirm Registration <ArrowRight size={18} />
+                <div style={{ 
+                  position: 'absolute', 
+                  top: '-12px', 
+                  right: '12px', 
+                  background: '#000', 
+                  color: '#fff', 
+                  padding: '2px 8px', 
+                  borderRadius: '6px', 
+                  fontSize: '0.65rem', 
+                  fontWeight: 900,
+                  border: '2px solid #fff',
+                  boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+                }}>
+                  RECOMMENDED: BAY {suggestedBay}
+                </div>
               </button>
             </form>
 
@@ -262,10 +278,13 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
                     cumulativeBacklogHours += totalBuildHours;
 
                     return (
-                      <div key={t.id} style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.25rem', display: 'grid', gridTemplateColumns: '1.2fr 1.2fr 1fr 1.2fr 48px', alignItems: 'center', gap: '1rem' }}>
+                      <div key={t.id} className="backlog-item-card">
                         <div>
                           <div style={{ fontWeight: 800, fontSize: '0.95rem', color: '#0f172a' }}>{t.model}</div>
-                          <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>{t.serialNumber} • {t.name}</div>
+                          <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            {t.serialNumber} • {t.name}
+                            <span style={{ background: '#000', color: '#fff', padding: '1px 5px', borderRadius: '4px', fontSize: '0.6rem', fontWeight: 900 }}>RECO: {suggestedBay}</span>
+                          </div>
                         </div>
 
                         <div style={{ display: 'flex', gap: '0.3rem' }}>
