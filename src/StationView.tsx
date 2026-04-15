@@ -11,21 +11,22 @@ import {
   useSensors,
 } from '@dnd-kit/core';
 import type { DragStartEvent, DragOverEvent } from '@dnd-kit/core';
-import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
+import { sortableKeyboardCoordinates, arrayMove } from '@dnd-kit/sortable';
 import type { Trailer, StationId } from './types';
-import { STATIONS, PHASES, PHASE_METADATA, MODEL_TARGET_HOURS } from './types';
+import { STATIONS, PHASE_METADATA, MODEL_TARGET_HOURS, calculateTrailerRemainingHours } from './types';
 import { TrailerCard } from './components/TrailerCard';
 import { StationColumn } from './components/StationColumn';
 import { TrailerDetailsModal } from './components/TrailerDetailsModal';
 
 interface Props {
   trailers: Trailer[];
+  setTrailers: React.Dispatch<React.SetStateAction<Trailer[]>>;
   onUpdateTrailer: (id: string, updates: Partial<Trailer>) => void;
   bayCapacities: Record<StationId, number>;
   onUpdateCapacity: (id: StationId, capacity: number) => void;
 }
 
-const StationView: React.FC<Props> = ({ trailers, onUpdateTrailer, bayCapacities, onUpdateCapacity }) => {
+const StationView: React.FC<Props> = ({ trailers, setTrailers, onUpdateTrailer, bayCapacities, onUpdateCapacity }) => {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [selectedTrailerId, setSelectedTrailerId] = useState<string | null>(null);
 
@@ -54,12 +55,61 @@ const StationView: React.FC<Props> = ({ trailers, onUpdateTrailer, bayCapacities
       if (overTrailer) overStation = overTrailer.station;
     }
 
-    if (overStation && activeTrailer.station !== overStation) {
-      onUpdateTrailer(activeId, { station: overStation });
+    if (overStation) {
+      if (activeTrailer.station !== overStation) {
+        setTrailers(prev => {
+          const activeIdx = prev.findIndex(t => t.id === activeId);
+          const overIdx = prev.findIndex(t => t.id === overId);
+          let newIdx;
+          if (isOverStation) newIdx = prev.length;
+          else newIdx = overIdx;
+
+          const updated = { ...activeTrailer, station: overStation };
+          const newTrailers = [...prev];
+          newTrailers.splice(activeIdx, 1);
+          newTrailers.splice(newIdx, 0, updated);
+          return newTrailers;
+        });
+      } else if (activeId !== overId) {
+        setTrailers(prev => {
+          const oldIndex = prev.findIndex(t => t.id === activeId);
+          const newIndex = prev.findIndex(t => t.id === overId);
+          return arrayMove(prev, oldIndex, newIndex);
+        });
+      }
     }
   };
 
-  const handleDragEnd = () => setActiveId(null);
+  const handleDragEnd = (event: any) => {
+    const { active, over } = event;
+    if (active && over) {
+      const activeId = active.id as string;
+      const trailer = trailers.find(t => t.id === activeId);
+      if (trailer) {
+        // Calculate new dateStarted for persistence in current sorted view
+        const columnTrailers = trailers.filter(t => t.station === trailer.station);
+        const indexInCol = columnTrailers.findIndex(t => t.id === activeId);
+        
+        let newDateStarted = trailer.dateStarted;
+        const above = columnTrailers[indexInCol - 1];
+        const below = columnTrailers[indexInCol + 1];
+
+        if (above && below) {
+          newDateStarted = (above.dateStarted + below.dateStarted) / 2;
+        } else if (above) {
+          newDateStarted = above.dateStarted - 1000;
+        } else if (below) {
+          newDateStarted = below.dateStarted + 1000;
+        }
+
+        onUpdateTrailer(activeId, { 
+          station: trailer.station,
+          dateStarted: newDateStarted 
+        });
+      }
+    }
+    setActiveId(null);
+  };
   
   const selectedTrailer = trailers.find(t => t.id === selectedTrailerId);
   const activeTrailer = activeId ? trailers.find(t => t.id === activeId) : null;
@@ -67,35 +117,17 @@ const StationView: React.FC<Props> = ({ trailers, onUpdateTrailer, bayCapacities
   const getStationWorkloadData = (stationId: StationId) => {
     const stationTrailers = trailers.filter(t => t.station === stationId && !t.isArchived);
     const totals = stationTrailers.reduce((acc, t) => {
-      const fromPhaseIndex = PHASES.findIndex(p => p.id === t.currentPhase);
-      if (fromPhaseIndex === -1) return acc;
+      const remainingHours = calculateTrailerRemainingHours(t);
       
-      const remainingPhases = PHASES.slice(fromPhaseIndex);
-      let stageRem = 0;
-      let pipelineRem = 0;
-
-      remainingPhases.forEach((phase) => {
-        if (phase.id === 'paint' && t.finishingType === 'Outsource') return;
-        if (phase.id === 'outsource' && t.finishingType === 'Paint') return;
-        if (!t.finishingType && phase.id === 'outsource') return;
-
-        const target = MODEL_TARGET_HOURS[t.model]?.[phase.id]
-          || PHASE_METADATA[phase.id].defaultTargetHours;
-
-        let res = target;
-        if (phase.id === t.currentPhase) {
-          const currentLog = t.history.find(h => h.phase === t.currentPhase && !h.exitedAt);
-          const loggedInCurrent = (currentLog?.bayManualHours || currentLog?.phaseManualHours || 0);
-          res = Math.max(0, target - loggedInCurrent);
-          stageRem = res;
-        }
-
-        pipelineRem += res;
-      });
+      // We still want stage-only hours for some logic possibly, 
+      // but for pipeline it's straightforward now.
+      const currentPhaseTarget = MODEL_TARGET_HOURS[t.model]?.[t.currentPhase] || PHASE_METADATA[t.currentPhase].defaultTargetHours;
+      const curLog = t.history.find(h => h.phase === t.currentPhase && !h.exitedAt);
+      const stageRem = Math.max(0, currentPhaseTarget - (curLog?.bayManualHours || curLog?.phaseManualHours || 0));
 
       return {
         stage: acc.stage + stageRem,
-        pipeline: acc.pipeline + pipelineRem
+        pipeline: acc.pipeline + remainingHours
       };
     }, { stage: 0, pipeline: 0 });
 
@@ -130,7 +162,7 @@ const StationView: React.FC<Props> = ({ trailers, onUpdateTrailer, bayCapacities
         </div>
       </header>
 
-      <main className="main-content">
+      <main className="main-content" style={{ justifyContent: 'center', paddingBottom: '1rem' }}>
         <DndContext 
           sensors={sensors} 
           collisionDetection={closestCorners} 

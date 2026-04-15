@@ -25,6 +25,18 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
   });
   const [localNotes, setLocalNotes] = React.useState(trailer.notes || '');
 
+  const phaseTimes = React.useMemo(() => {
+    return trailer.history.reduce((acc, log) => {
+      const duration = log.duration || (log.exitedAt ? log.exitedAt - log.enteredAt : Date.now() - log.enteredAt);
+      acc[log.phase] = (acc[log.phase] || 0) + duration;
+      return acc;
+    }, {} as Record<string, number>);
+  }, [trailer.history]);
+
+  const totalTimeMs = React.useMemo(() => 
+    Object.values(phaseTimes).reduce((sum, t) => sum + t, 0)
+  , [phaseTimes]);
+
   const formatLogDuration = (ms: number) => {
     const totalMinutes = Math.floor(ms / (1000 * 60));
     const hours = Math.floor(totalMinutes / 60);
@@ -172,8 +184,27 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                 <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#0f172a' }}>{trailer.expectedDueDate ? format(new Date(trailer.expectedDueDate + 'T12:00:00'), 'MMM d, yyyy') : 'NOT SET'}</span>
               </div>
               <div>
-                <span style={{ fontSize: '0.65rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>Promised Shipping Date</span>
+                <span style={{ fontSize: '0.65rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>Promised Shipping</span>
                 <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#0f172a' }}>{trailer.promisedShippingDate ? format(new Date(trailer.promisedShippingDate + 'T12:00:00'), 'MMM d, yyyy') : 'NOT SET'}</span>
+              </div>
+            </div>
+
+            {/* Production Time Summary - Simple & Short */}
+            <div style={{ padding: '1rem', background: '#f0fdfa', borderRadius: '12px', border: '1px solid #99f6e4' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <History size={14} color="#0d9488" />
+                  <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#0d9488', textTransform: 'uppercase' }}>Production Time Summary</span>
+                </div>
+                <span style={{ fontSize: '0.85rem', fontWeight: 800, color: '#0d9488' }}>Total: {formatLogDuration(totalTimeMs)}</span>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: '0.5rem' }}>
+                {Object.entries(phaseTimes).map(([phase, time]) => (
+                  <div key={phase} style={{ background: 'white', padding: '0.4rem 0.6rem', borderRadius: '8px', border: '1px solid #ccfbf1' }}>
+                    <div style={{ fontSize: '0.55rem', fontWeight: 800, color: '#5eead4', textTransform: 'uppercase', lineHeight: 1, marginBottom: '2px' }}>{phase}</div>
+                    <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#134e4a' }}>{formatLogDuration(time)}</div>
+                  </div>
+                ))}
               </div>
             </div>
 

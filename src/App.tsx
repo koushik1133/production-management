@@ -18,6 +18,7 @@ import type {
 } from '@dnd-kit/core';
 import {
   sortableKeyboardCoordinates,
+  arrayMove
 } from '@dnd-kit/sortable';
 
 import { KanbanColumn } from './components/KanbanColumn';
@@ -238,21 +239,43 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
       if (overTrailer) overPhase = overTrailer.currentPhase;
     }
 
-    if (overPhase && activeTrailer.currentPhase !== overPhase) {
-      setTrailers(prev => prev.map(t => {
-        if (t.id === activeId) {
+    if (overPhase) {
+      if (activeTrailer.currentPhase !== overPhase) {
+        setTrailers(prev => {
+          const activeIndex = prev.findIndex(t => t.id === activeId);
+          const overIndex = prev.findIndex(t => t.id === overId);
+          
+          let newIndex;
+          if (isOverColumn) {
+            newIndex = prev.length;
+          } else {
+            newIndex = overIndex;
+          }
+
           const now = Date.now();
-          const updatedHistory = [...t.history];
-          const currentLogIndex = updatedHistory.findIndex(h => h.phase === t.currentPhase && !h.exitedAt);
+          const updatedHistory = [...activeTrailer.history];
+          const currentLogIndex = updatedHistory.findIndex(h => h.phase === activeTrailer.currentPhase && !h.exitedAt);
           if (currentLogIndex !== -1) {
             const prevLog = updatedHistory[currentLogIndex];
             updatedHistory[currentLogIndex] = { ...prevLog, exitedAt: now, duration: now - prevLog.enteredAt };
           }
           updatedHistory.push({ phase: overPhase as PhaseId, enteredAt: now });
-          return { ...t, currentPhase: overPhase as PhaseId, history: updatedHistory };
-        }
-        return t;
-      }));
+
+          const updatedTrailer = { ...activeTrailer, currentPhase: overPhase as PhaseId, history: updatedHistory };
+          const newTrailers = [...prev];
+          newTrailers.splice(activeIndex, 1);
+          newTrailers.splice(newIndex, 0, updatedTrailer);
+          return newTrailers;
+        });
+      } else if (activeId !== overId) {
+        // Reorder within same column
+        setTrailers(prev => {
+          const oldIndex = prev.findIndex(t => t.id === activeId);
+          const newIndex = prev.findIndex(t => t.id === overId);
+          const moved = arrayMove(prev, oldIndex, newIndex);
+          return moved;
+        });
+      }
     }
   };
 
@@ -260,27 +283,47 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
   const [shippingForm, setShippingForm] = useState({ invoiceNumber: '', vinDate: '' });
 
   const handleDragEnd = async (event: DragEndEvent) => {
-    const { active } = event;
+    const { active, over } = event;
     const activeId = active.id as string;
     const trailer = trailers.find(t => t.id === activeId);
     
-    if (trailer) {
+    if (trailer && over) {
+      // 1. Interpolate dateStarted to persist manual order (Dashboard uses dateStarted DESC)
+      const columnTrailers = trailers.filter(t => t.currentPhase === trailer.currentPhase);
+      const indexInCol = columnTrailers.findIndex(t => t.id === activeId);
+      
+      let newDateStarted = trailer.dateStarted;
+      const above = columnTrailers[indexInCol - 1];
+      const below = columnTrailers[indexInCol + 1];
+
+      if (above && below) {
+        newDateStarted = (above.dateStarted + below.dateStarted) / 2;
+      } else if (above) {
+        newDateStarted = above.dateStarted - 1000;
+      } else if (below) {
+        newDateStarted = below.dateStarted + 1000;
+      }
+
       // ALWAYS prompt for VIN/Invoice when entering Shipping from ANY phrase (if data is missing)
       if (trailer.currentPhase === 'shipping' && (!trailer.vinDate || !trailer.invoiceNumber)) {
         setPendingShippingTrailer(trailer);
       }
       
       // SYNC FINAL STATE TO SUPABASE
-      // This is the "Spontaneous" update for other devices
       const { error } = await supabase
         .from('trailers')
         .update({
           currentPhase: trailer.currentPhase,
-          history: trailer.history
+          history: trailer.history,
+          dateStarted: newDateStarted
         })
         .eq('id', trailer.id);
         
       if (error) console.error('Error syncing drag movement:', error);
+      
+      if (newDateStarted !== trailer.dateStarted) {
+        setTrailers(prev => prev.map(t => t.id === activeId ? { ...t, dateStarted: newDateStarted } : t));
+      }
     }
     
     setActiveId(null);
@@ -1048,7 +1091,7 @@ function App() {
       <Routes>
         <Route path="/" element={<Dashboard trailers={trailers} setTrailers={setTrailers} updateTrailer={updateTrailer} isConnected={isConnected} addTrailer={addTrailer} suggestedBay={suggestedBay} runwayWeeks={runwayWeeks} />} />
         <Route path="/backlog" element={<BacklogView trailers={trailers} onAddTrailer={addTrailer} onUpdateTrailer={updateTrailer} suggestedBay={suggestedBay} />} />
-        <Route path="/stations" element={<StationView trailers={trailers} onUpdateTrailer={updateTrailer} bayCapacities={bayCapacities} onUpdateCapacity={updateCapacity} />} />
+        <Route path="/stations" element={<StationView trailers={trailers} setTrailers={setTrailers} onUpdateTrailer={updateTrailer} bayCapacities={bayCapacities} onUpdateCapacity={updateCapacity} />} />
         <Route path="/tv" element={<TVView trailers={trailers} />} />
         <Route path="/tv/station1" element={<TVView trailers={trailers} monitorMode="station1" />} />
         <Route path="/tv/station2" element={<TVView trailers={trailers} monitorMode="station2" />} />
