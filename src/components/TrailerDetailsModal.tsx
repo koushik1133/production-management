@@ -199,7 +199,9 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                 <span style={{ fontSize: '0.85rem', fontWeight: 800, color: '#0d9488' }}>Total: {formatLogDuration(totalTimeMs)}</span>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: '0.5rem' }}>
-                {Object.entries(phaseTimes).map(([phase, time]) => (
+                {Object.entries(phaseTimes)
+                  .filter(([phase]) => phase !== 'backlog')
+                  .map(([phase, time]) => (
                   <div key={phase} style={{ background: 'white', padding: '0.4rem 0.6rem', borderRadius: '8px', border: '1px solid #ccfbf1' }}>
                     <div style={{ fontSize: '0.55rem', fontWeight: 800, color: '#5eead4', textTransform: 'uppercase', lineHeight: 1, marginBottom: '2px' }}>{phase}</div>
                     <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#134e4a' }}>{formatLogDuration(time)}</div>

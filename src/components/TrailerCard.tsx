@@ -4,7 +4,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { Clock, Hash, Calendar, Crown, StickyNote, Truck, Layers } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import type { Trailer, StationId } from '../types';
-import { STATIONS, PHASE_METADATA, MODEL_TARGET_HOURS, PHASES, calculateTrailerRemainingHours } from '../types';
+import { STATIONS, PHASE_METADATA, MODEL_TARGET_HOURS, calculateTrailerRemainingHours } from '../types';
 
 interface Props {
   trailer: Trailer;
@@ -80,29 +80,6 @@ export const TrailerCard: React.FC<Props> = React.memo(({
       {...listeners}
       onClick={() => onCardClick?.()}
     >
-      {/* Time to Shipping Indicator */}
-      {trailer.currentPhase !== 'shipping' && (
-        <div style={{ 
-          position: 'absolute', 
-          top: '0.6rem', 
-          right: '0.6rem', 
-          display: 'flex', 
-          padding: '0.4rem 0.6rem', 
-          background: '#eff6ff', 
-          color: '#2563eb', 
-          borderRadius: '8px', 
-          fontSize: '0.7rem', 
-          fontWeight: 900, 
-          alignItems: 'center', 
-          gap: '0.3rem',
-          flexShrink: 0,
-          border: '1px solid #dbeafe',
-          zIndex: 5
-        }}>
-          <span style={{ fontSize: '0.65rem' }}>{Math.round(timeToShipping)}H TO SHIP</span>
-        </div>
-      )}
-
       <div className="card-header-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
         <div className="card-title" style={{ flex: 1, minWidth: 0 }}>
           <span className="card-model" style={{ 
@@ -122,29 +99,50 @@ export const TrailerCard: React.FC<Props> = React.memo(({
             }}>{trailer.name}</span>
           )}
         </div>
-        {trailer.expectedDueDate && (
-          <div style={{ 
-            marginLeft: '0.75rem',
-            padding: '0.4rem 0.6rem', 
-            background: trailer.isPriority ? '#fff1f2' : '#eff6ff', 
-            borderRadius: '8px', 
-            border: `1px solid ${trailer.isPriority ? '#fecdd3' : '#dbeafe'}`,
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.4rem'
-          }}>
-            {trailer.isPriority && <Crown size={14} fill="#ef4444" color="#ef4444" />}
-            <Calendar size={12} color={trailer.isPriority ? '#be123c' : '#2563eb'} />
-            <span style={{ 
-              fontSize: '0.75rem', 
-              fontWeight: 700, 
-              color: trailer.isPriority ? '#be123c' : '#2563eb',
+        
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.4rem', marginLeft: '0.75rem' }}>
+          {/* Time to Shipping Indicator */}
+          {trailer.currentPhase !== 'shipping' && (
+            <div style={{ 
+              display: 'flex', 
+              padding: '0.3rem 0.6rem', 
+              background: '#eff6ff', 
+              color: '#2563eb', 
+              borderRadius: '8px', 
+              fontSize: '0.7rem', 
+              fontWeight: 900, 
+              alignItems: 'center', 
+              gap: '0.3rem',
+              border: '1px solid #dbeafe',
               whiteSpace: 'nowrap'
             }}>
-              {format(new Date(trailer.expectedDueDate), 'MMM d')}
-            </span>
-          </div>
-        )}
+              <span style={{ fontSize: '0.6rem' }}>{Math.round(timeToShipping)}H TO SHIP</span>
+            </div>
+          )}
+
+          {trailer.expectedDueDate && (
+            <div style={{ 
+              padding: '0.3rem 0.6rem', 
+              background: trailer.isPriority ? '#fff1f2' : '#f8fafc', 
+              borderRadius: '8px', 
+              border: `1px solid ${trailer.isPriority ? '#fecdd3' : '#e2e8f0'}`,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+              whiteSpace: 'nowrap'
+            }}>
+              {trailer.isPriority && <Crown size={12} fill="#ef4444" color="#ef4444" />}
+              <Calendar size={12} color={trailer.isPriority ? '#be123c' : '#64748b'} />
+              <span style={{ 
+                fontSize: '0.75rem', 
+                fontWeight: 700, 
+                color: trailer.isPriority ? '#be123c' : '#64748b'
+              }}>
+                {format(new Date(trailer.expectedDueDate), 'MMM d')}
+              </span>
+            </div>
+          )}
+        </div>
       </div>
       
       <div className="card-meta">
@@ -251,18 +249,7 @@ export const TrailerCard: React.FC<Props> = React.memo(({
               </div>
               <div className="card-meta-item">
                 <Hash className="card-meta-icon" style={{ color: '#0ea5e9', width: '12px', height: '12px' }} />
-                <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>Pipeline: {Math.round(
-                  (() => {
-                    let pipe = Math.max(0, targetHours - (currentLog?.bayManualHours || currentLog?.phaseManualHours || 0));
-                    const pIdx = PHASES.findIndex(p => p.id === trailer.currentPhase);
-                    if (pIdx !== -1) {
-                      PHASES.slice(pIdx + 1).forEach(f => {
-                        if (f.id !== 'shipping') pipe += (MODEL_TARGET_HOURS[trailer.model]?.[f.id] || 0);
-                      });
-                    }
-                    return pipe;
-                  })()
-                )}h</span>
+                <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>Pipeline: {Math.round(calculateTrailerRemainingHours(trailer))}h</span>
               </div>
             </div>
           </div>
