@@ -52,7 +52,9 @@ import {
   MODEL_CATEGORIES, 
   MODEL_TARGET_HOURS,
   BAY_WEEKLY_HOURS,
-  DEFAULT_BAY_CAPACITIES
+  DEFAULT_BAY_CAPACITIES,
+  STATIONS,
+  PHASE_METADATA
 } from './types';
 
 import { exportToCsv, parseCsv } from './utils/CsvUtils';
@@ -61,12 +63,15 @@ import './App.css';
 
 import { supabase } from './lib/supabase';
 
-function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrailer }: { 
+function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrailer, bayCapacities, suggestedBay, runwayWeeks }: { 
   trailers: Trailer[], 
   setTrailers: React.Dispatch<React.SetStateAction<Trailer[]>>,
   updateTrailer: (id: string, updates: Partial<Trailer>) => void,
   isConnected: boolean,
-  addTrailer: (trailer: Trailer) => Promise<void>
+  addTrailer: (trailer: Trailer) => Promise<void>,
+  bayCapacities: Record<StationId, number>,
+  suggestedBay: StationId,
+  runwayWeeks: number
 }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const highlightedTrailerId = searchParams.get('highlight');
@@ -198,14 +203,7 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
     return sum + remainingForThisTrailer;
   }, 0);
 
-  const totalShopCapacity = useMemo(() => {
-    return Object.values(BAY_WEEKLY_HOURS).reduce((sum, h) => sum + (h || 0), 0);
-  }, []);
-
-  const runwayWeeks = useMemo(() => {
-    if (totalShopCapacity === 0) return 0;
-    return totalWorkRemaining / totalShopCapacity;
-  }, [totalWorkRemaining, totalShopCapacity]);
+  // Global Workload and Suggestions are now passed as props from App
 
   const totalProductionTime = useMemo(() => {
     return trailers.reduce((total, t) => {
@@ -274,12 +272,8 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
     const trailer = trailers.find(t => t.id === activeId);
     
     if (trailer) {
-      // Prompt for VIN/Invoice when entering Trim from Paint/Outsource (only if not already filled)
-      if (trailer.currentPhase === 'trim' && (dragStartPhase === 'paint' || dragStartPhase === 'outsource') && (!trailer.vinDate || !trailer.invoiceNumber)) {
-        setPendingShippingTrailer(trailer);
-      }
-      // Fallback: Also prompt when entering Shipping from Trim if data was dismissed earlier
-      if (trailer.currentPhase === 'shipping' && dragStartPhase === 'trim' && (!trailer.vinDate || !trailer.invoiceNumber)) {
+      // ALWAYS prompt for VIN/Invoice when entering Shipping from ANY phrase (if data is missing)
+      if (trailer.currentPhase === 'shipping' && (!trailer.vinDate || !trailer.invoiceNumber)) {
         setPendingShippingTrailer(trailer);
       }
       
@@ -309,11 +303,10 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
       vinDate: shippingForm.vinDate
     };
     
-    // If the trailer is in shipping, also archive it
-    if (pendingShippingTrailer.currentPhase === 'shipping') {
-      updates.isArchived = true;
-      updates.archivedAt = Date.now();
-    }
+    // Move to shipping is already in the 'trailers' state via handleDragOver,
+    // here we just add the details and archive it as it's the final stage.
+    updates.isArchived = true;
+    updates.archivedAt = Date.now();
     
     await updateTrailer(pendingShippingTrailer.id, updates);
     setPendingShippingTrailer(null);
@@ -371,7 +364,7 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
         serialNumber: '',
         name: '', 
         model: '', 
-        station: 'B1', 
+        station: suggestedBay, 
         isPriority: false,
         expectedDueDate: '',
         promisedShippingDate: ''
@@ -475,6 +468,7 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
               onCardClick={(t) => setSelectedTrailerId(t.id)}
               workload={getPhaseWorkload(phase.id)}
               highlightedId={highlightedTrailerId}
+              suggestedBay={suggestedBay}
             />
           ))}
           <DragOverlay>
@@ -573,9 +567,26 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
               type="submit" 
               className="btn btn-primary" 
               disabled={isAdding}
-              style={{ height: '3.5rem', fontSize: '1.1rem', opacity: isAdding ? 0.7 : 1 }}
+              style={{ height: '3.5rem', fontSize: '1.1rem', opacity: isAdding ? 0.7 : 1, position: 'relative' }}
             >
               {isAdding ? 'Registering Unit...' : 'Add to Backlog'}
+              {!isAdding && (
+                <div style={{ 
+                  position: 'absolute', 
+                  top: '-12px', 
+                  right: '12px', 
+                  background: '#000', 
+                  color: '#fff', 
+                  padding: '2px 8px', 
+                  borderRadius: '6px', 
+                  fontSize: '0.65rem', 
+                  fontWeight: 900,
+                  border: '2px solid #fff',
+                  boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+                }}>
+                  RECOMMENDED: BAY {suggestedBay}
+                </div>
+              )}
             </button>
             <button type="button" className="btn btn-secondary" onClick={() => setIsAddModalOpen(false)}>Cancel</button>
           </div>
@@ -797,26 +808,36 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [isConnected, setIsConnected] = useState(false);
 
-  const [bayCapacities, setBayCapacities] = useState<Record<StationId, number>>(() => {
-    const saved = localStorage.getItem('bay_capacities');
-    return saved ? JSON.parse(saved) : DEFAULT_BAY_CAPACITIES;
-  });
-
-  useEffect(() => {
-    localStorage.setItem('bay_capacities', JSON.stringify(bayCapacities));
-  }, [bayCapacities]);
+  const [bayCapacities, setBayCapacities] = useState<Record<StationId, number>>(DEFAULT_BAY_CAPACITIES);
 
   // Fetch initial data
   useEffect(() => {
-    const fetchTrailers = async () => {
+    const fetchInitialData = async () => {
       try {
-        const { data, error } = await supabase
+        // Fetch trailers
+        const { data: trailersData, error: trailersError } = await supabase
           .from('trailers')
           .select('*')
           .order('dateStarted', { ascending: false });
         
-        if (error) throw error;
-        if (data) setTrailers(data);
+        if (trailersError) throw trailersError;
+        if (trailersData) setTrailers(trailersData);
+
+        // Fetch bay capacities
+        const { data: capData, error: capError } = await supabase
+          .from('bay_settings')
+          .select('*');
+        
+        if (capError) {
+          console.warn('bay_settings table might be missing, using defaults:', capError.message);
+        } else if (capData) {
+          const caps: Record<string, number> = { ...DEFAULT_BAY_CAPACITIES };
+          capData.forEach((row: any) => {
+            caps[row.id] = row.capacity;
+          });
+          setBayCapacities(caps as Record<StationId, number>);
+        }
+
         setIsConnected(true);
       } catch (err) {
         console.error('Initial fetch failed:', err);
@@ -825,40 +846,71 @@ function App() {
       }
     };
 
-    fetchTrailers();
+    fetchInitialData();
 
-    // Subscribe to real-time changes
-    const channel = supabase
-      .channel('schema-db-changes')
+    // Subscribe to trailer changes
+    const trailerChannel = supabase
+      .channel('trailers-changes')
       .on(
         'postgres_changes' as any,
-        {
-          event: '*',
-          schema: 'public',
-          table: 'trailers',
-        },
+        { event: '*', schema: 'public', table: 'trailers' },
         (payload: any) => {
-          console.log('Change received!', payload);
+          console.log('Trailer Change received:', payload);
           if (payload.eventType === 'INSERT') {
-            setTrailers(prev => {
-              if (prev.find(t => t.id === payload.new.id)) return prev;
-              return [payload.new as Trailer, ...prev];
-            });
+            setTrailers(prev => prev.find(t => t.id === payload.new.id) ? prev : [payload.new as Trailer, ...prev]);
           } else if (payload.eventType === 'UPDATE') {
-            setTrailers(prev => prev.map(t => t.id === payload.new.id ? payload.new as Trailer : t));
+            setTrailers(prev => prev.map(t => 
+              t.id === payload.new.id 
+                ? { ...t, ...payload.new } as Trailer // SPREAD TO MERGE AND PREVENT STATE LOSS
+                : t
+            ));
           } else if (payload.eventType === 'DELETE') {
             setTrailers(prev => prev.filter(t => t.id === payload.old.id));
           }
         }
       )
       .subscribe((status) => {
-        setIsConnected(status === 'SUBSCRIBED');
+        console.log('Trailers Channel Status:', status);
+      });
+
+    // Subscribe to bay capacity changes
+    const capChannel = supabase
+      .channel('bay-settings-changes')
+      .on(
+        'postgres_changes' as any,
+        { event: '*', schema: 'public', table: 'bay_settings' },
+        (payload: any) => {
+          console.log('Bay Setting Change received:', payload);
+          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+            setBayCapacities(prev => ({
+              ...prev,
+              [payload.new.id]: payload.new.capacity
+            }));
+          }
+        }
+      )
+      .subscribe((status) => {
+        console.log('Bay Settings Channel Status:', status);
       });
 
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(trailerChannel);
+      supabase.removeChannel(capChannel);
     };
   }, []);
+
+  const updateCapacity = async (id: StationId, capacity: number) => {
+    // Optimistic update
+    setBayCapacities(prev => ({ ...prev, [id]: capacity }));
+
+    const { error } = await supabase
+      .from('bay_settings')
+      .upsert({ id, capacity });
+    
+    if (error) {
+      console.error('Error updating bay capacity:', error);
+    }
+  };
 
   const updateTrailer = async (id: string, updates: Partial<Trailer>) => {
     // Optimistic update
@@ -914,6 +966,70 @@ function App() {
       setTrailers(prev => prev.filter(t => t.id !== newTrailer.id));
     }
   };
+  
+  // Global workload calculation moved to App level for prop passing
+  const totalWorkRemaining = useMemo(() => {
+    return trailers.reduce((sum, t) => {
+      if (t.currentPhase === 'shipping' || t.isArchived) return sum;
+      const phaseIndex = PHASES.findIndex(p => p.id === t.currentPhase);
+      if (phaseIndex === -1) return sum;
+      
+      return sum + PHASES.slice(phaseIndex).reduce((pSum, p) => {
+        if (p.id === 'backlog' || p.id === 'shipping') return pSum;
+        if (t.finishingType === 'Paint' && p.id === 'outsource') return pSum;
+        if (t.finishingType === 'Outsource' && p.id === 'paint') return pSum;
+        if (!t.finishingType && p.id === 'outsource') return pSum;
+
+        const target = (MODEL_TARGET_HOURS[t.model]?.[p.id] || 0);
+        if (p.id === t.currentPhase) {
+          const currentLog = t.history.find(h => h.phase === t.currentPhase && !h.exitedAt);
+          const loggedInCurrent = (currentLog?.bayManualHours || currentLog?.phaseManualHours || 0);
+          return pSum + Math.max(0, target - loggedInCurrent);
+        }
+        return pSum + target;
+      }, 0);
+    }, 0);
+  }, [trailers]);
+
+  const totalShopCapacity = useMemo(() => {
+    return Object.values(bayCapacities).reduce((sum, h) => sum + (h || 0), 0);
+  }, [bayCapacities]);
+
+  const runwayWeeks = useMemo(() => {
+    if (totalShopCapacity === 0) return 0;
+    return totalWorkRemaining / totalShopCapacity;
+  }, [totalWorkRemaining, totalShopCapacity]);
+
+  const getSuggestedBay = () => {
+    let bestBay: StationId = 'B1';
+    let minTime = Infinity;
+
+    STATIONS.forEach(bayId => {
+      const stationTrailers = trailers.filter(t => t.station === bayId && !t.isArchived);
+      const pipe = stationTrailers.reduce((acc, t) => {
+        const fIdx = PHASES.findIndex(p => p.id === t.currentPhase);
+        if (fIdx === -1) return acc;
+        
+        return acc + PHASES.slice(fIdx).reduce((pAcc, p) => {
+          if (p.id === 'shipping' || (p.id === 'paint' && t.finishingType === 'Outsource') || (p.id === 'outsource' && t.finishingType === 'Paint') || (!t.finishingType && p.id === 'outsource')) return pAcc;
+          const target = MODEL_TARGET_HOURS[t.model]?.[p.id] || PHASE_METADATA[p.id].defaultTargetHours;
+          let res = target;
+          if (p.id === t.currentPhase) {
+            const cur = t.history.find(h => h.phase === t.currentPhase && !h.exitedAt);
+            res = Math.max(0, target - (cur?.bayManualHours || cur?.phaseManualHours || 0));
+          }
+          return pAcc + res;
+        }, 0);
+      }, 0);
+
+      const cap = bayCapacities[bayId] || 40;
+      const lt = cap > 0 ? pipe / cap : 0;
+      if (lt < minTime) { minTime = lt; bestBay = bayId; }
+    });
+    return bestBay;
+  };
+
+  const suggestedBay = useMemo(getSuggestedBay, [trailers, bayCapacities]);
 
   if (loading) {
     return (
@@ -926,9 +1042,9 @@ function App() {
   return (
     <AuthGate>
       <Routes>
-        <Route path="/" element={<Dashboard trailers={trailers} setTrailers={setTrailers} updateTrailer={updateTrailer} isConnected={isConnected} addTrailer={addTrailer} />} />
-        <Route path="/backlog" element={<BacklogView trailers={trailers} onAddTrailer={addTrailer} onUpdateTrailer={updateTrailer} />} />
-        <Route path="/stations" element={<StationView trailers={trailers} onUpdateTrailer={updateTrailer} bayCapacities={bayCapacities} onUpdateCapacity={(id, cap) => setBayCapacities(prev => ({ ...prev, [id]: cap }))} />} />
+        <Route path="/" element={<Dashboard trailers={trailers} setTrailers={setTrailers} updateTrailer={updateTrailer} isConnected={isConnected} addTrailer={addTrailer} bayCapacities={bayCapacities} suggestedBay={suggestedBay} runwayWeeks={runwayWeeks} />} />
+        <Route path="/backlog" element={<BacklogView trailers={trailers} onAddTrailer={addTrailer} onUpdateTrailer={updateTrailer} suggestedBay={suggestedBay} />} />
+        <Route path="/stations" element={<StationView trailers={trailers} onUpdateTrailer={updateTrailer} bayCapacities={bayCapacities} onUpdateCapacity={updateCapacity} />} />
         <Route path="/tv" element={<TVView trailers={trailers} />} />
         <Route path="/tv/station1" element={<TVView trailers={trailers} monitorMode="station1" />} />
         <Route path="/tv/station2" element={<TVView trailers={trailers} monitorMode="station2" />} />

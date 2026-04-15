@@ -14,6 +14,7 @@ interface Props {
   hideCustomerName?: boolean;
   hideShipButton?: boolean;
   isHighlighted?: boolean;
+  suggestedBay?: StationId;
 }
 
 export const TrailerCard: React.FC<Props> = React.memo(({ 
@@ -23,7 +24,8 @@ export const TrailerCard: React.FC<Props> = React.memo(({
   onShipRequest,
   hideCustomerName,
   hideShipButton,
-  isHighlighted
+  isHighlighted,
+  suggestedBay
 }) => {
   const cardRef = useRef<HTMLDivElement>(null);
   const {
@@ -81,9 +83,21 @@ export const TrailerCard: React.FC<Props> = React.memo(({
     >
       <div className="card-header-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
         <div className="card-title" style={{ flex: 1, minWidth: 0 }}>
-          <span className="card-model" style={{ display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{trailer.model}</span>
+          <span className="card-model" style={{ 
+            display: 'block', 
+            whiteSpace: 'nowrap', 
+            overflow: 'hidden', 
+            textOverflow: 'ellipsis',
+            fontSize: '0.95rem'
+          }}>{trailer.model}</span>
           {!hideCustomerName && (
-            <span className="card-customer" style={{ display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{trailer.name}</span>
+            <span className="card-customer" style={{ 
+              display: 'block', 
+              whiteSpace: 'nowrap', 
+              overflow: 'hidden', 
+              textOverflow: 'ellipsis',
+              fontSize: '0.75rem'
+            }}>{trailer.name}</span>
           )}
         </div>
         {trailer.expectedDueDate && (
@@ -115,6 +129,11 @@ export const TrailerCard: React.FC<Props> = React.memo(({
         <div className="card-meta-item">
           <Hash className="card-meta-icon" />
           <span>{trailer.serialNumber}</span>
+          {trailer.currentPhase === 'backlog' && trailer.station === 'None' && suggestedBay && (
+            <span className="reco-badge-tag" style={{ marginLeft: '0.5rem' }}>
+              RECO: {suggestedBay}
+            </span>
+          )}
         </div>
         
         <div 
@@ -123,26 +142,36 @@ export const TrailerCard: React.FC<Props> = React.memo(({
           onMouseDown={(e) => e.stopPropagation()}
           onPointerDown={(e) => e.stopPropagation()}
         >
-          <div className="bay-selector-pill">
-            <MapPin size={12} className="bay-icon" />
-            <span className="bay-label">BAY</span>
-            <select 
-              className="bay-select" 
-              value={trailer.station}
-              onChange={handleStationChange}
-              onClick={(e) => e.stopPropagation()}
-            >
-              {STATIONS.map(s => (
-                <option key={s} value={s}>{s}</option>
-              ))}
-              <option value="None">Off</option>
-            </select>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <span style={{ fontSize: '0.65rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Bay:</span>
+              <select 
+                className="bay-select"
+                style={{
+                  background: '#f8fafc',
+                  border: '1px solid #cbd5e1',
+                  borderRadius: '6px',
+                  fontSize: '0.75rem',
+                  fontWeight: 700,
+                  color: '#0f172a',
+                  padding: '2px 8px',
+                  cursor: 'pointer',
+                  outline: 'none'
+                }}
+                value={trailer.station}
+                onChange={(e) => onUpdateTrailer?.(trailer.id, { station: e.target.value as StationId })}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <option value="None">Off</option>
+                {STATIONS.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
           </div>
         </div>
 
         <div className="card-meta-item">
           <Calendar className="card-meta-icon" />
-          <span>Started {format(trailer.dateStarted, 'MMM d, yyyy')}</span>
+          <span>Started {format(trailer.dateStarted, 'MMM d')}</span>
         </div>
       </div>
       
@@ -175,27 +204,55 @@ export const TrailerCard: React.FC<Props> = React.memo(({
       )}
 
       <div className="card-footer">
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem' }}>
-          <div className="card-meta-item">
-            <Clock className="card-meta-icon" style={{ color: isBottleneck ? 'white' : 'var(--accent)', width: '12px', height: '12px' }} />
-            <span className={`card-time ${isBottleneck ? 'bottleneck-active' : ''}`} style={{ fontSize: '0.65rem' }}>{timeInPhase} (Stage: {Math.round(targetHours)}h)</span>
+          <div className="card-meta-item" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem' }}>
+              <div className="card-meta-item">
+                <Clock className="card-meta-icon" style={{ color: isBottleneck ? 'white' : 'var(--accent)', width: '12px', height: '12px' }} />
+                <span className={`card-time ${isBottleneck ? 'bottleneck-active' : ''}`} style={{ fontSize: '0.65rem' }}>{timeInPhase} (Stage: {Math.round(targetHours)}h)</span>
+              </div>
+              <div className="card-meta-item">
+                <Hash className="card-meta-icon" style={{ color: isBottleneck ? 'white' : '#0ea5e9', width: '12px', height: '12px' }} />
+                <span style={{ fontSize: '0.65rem', color: isBottleneck ? 'white' : 'var(--text-secondary)' }}>Pipeline: {Math.round(
+                  (() => {
+                    let pipe = Math.max(0, targetHours - (currentLog?.bayManualHours || currentLog?.phaseManualHours || 0));
+                    const pIdx = PHASES.findIndex(p => p.id === trailer.currentPhase);
+                    if (pIdx !== -1) {
+                      PHASES.slice(pIdx + 1).forEach(f => {
+                        if (f.id !== 'shipping') pipe += (MODEL_TARGET_HOURS[trailer.model]?.[f.id] || 0);
+                      });
+                    }
+                    return pipe;
+                  })()
+                )}h</span>
+              </div>
+            </div>
+            
+            {trailer.currentPhase !== 'shipping' && trailer.currentPhase !== 'backlog' && (
+              <div 
+                className="log-hours-pill" 
+                style={{ padding: '2px 6px', background: isBottleneck ? 'rgba(255,255,255,0.2)' : '#f1f5f9', borderRadius: '6px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '4px' }}
+                onClick={(e) => e.stopPropagation()}
+                onMouseDown={(e) => e.stopPropagation()}
+              >
+                <span style={{ fontSize: '0.55rem', fontWeight: 800, color: isBottleneck ? 'white' : '#64748b' }}>LOG:</span>
+                <input 
+                  type="number"
+                  placeholder="0"
+                  style={{ width: '32px', border: 'none', background: 'transparent', fontSize: '0.7rem', fontWeight: 700, color: isBottleneck ? 'white' : 'var(--text-primary)', padding: 0, outline: 'none', textAlign: 'center' }}
+                  value={currentLog?.bayManualHours || currentLog?.phaseManualHours || ''}
+                  onChange={(e) => {
+                    const val = parseFloat(e.target.value);
+                    const updatedHistory = trailer.history.map(h => 
+                      h.phase === trailer.currentPhase && !h.exitedAt 
+                        ? { ...h, bayManualHours: isNaN(val) ? undefined : val, phaseManualHours: isNaN(val) ? undefined : val } 
+                        : h
+                    );
+                    onUpdateTrailer?.(trailer.id, { history: updatedHistory });
+                  }}
+                />
+              </div>
+            )}
           </div>
-          <div className="card-meta-item">
-            <Hash className="card-meta-icon" style={{ color: isBottleneck ? 'white' : '#0ea5e9', width: '12px', height: '12px' }} />
-            <span style={{ fontSize: '0.65rem', color: isBottleneck ? 'white' : 'var(--text-secondary)' }}>Pipeline: {Math.round(
-              (() => {
-                let pipe = Math.max(0, targetHours - (currentLog?.bayManualHours || currentLog?.phaseManualHours || 0));
-                const pIdx = PHASES.findIndex(p => p.id === trailer.currentPhase);
-                if (pIdx !== -1) {
-                  PHASES.slice(pIdx + 1).forEach(f => {
-                    if (f.id !== 'shipping') pipe += (MODEL_TARGET_HOURS[trailer.model]?.[f.id] || 0);
-                  });
-                }
-                return pipe;
-              })()
-            )}h</span>
-          </div>
-        </div>
         
         <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
           {trailer.finishingType && (

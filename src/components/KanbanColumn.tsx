@@ -1,7 +1,7 @@
 import React from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import type { PhaseId, Trailer } from '../types';
+import type { PhaseId, Trailer, StationId } from '../types';
 import { TrailerCard } from './TrailerCard';
 
 interface Props {
@@ -13,9 +13,10 @@ interface Props {
   onShipRequest?: (trailer: Trailer) => void;
   workload?: { stage: number; pipeline: number };
   highlightedId?: string | null;
+  suggestedBay?: StationId;
 }
 
-export const KanbanColumn: React.FC<Props> = React.memo(({ id, title, trailers, onCardClick, onUpdateTrailer, onShipRequest, workload, highlightedId }) => {
+export const KanbanColumn: React.FC<Props> = React.memo(({ id, title, trailers, onCardClick, onUpdateTrailer, onShipRequest, workload, highlightedId, suggestedBay }) => {
   const { setNodeRef } = useDroppable({
     id,
   });
@@ -25,28 +26,6 @@ export const KanbanColumn: React.FC<Props> = React.memo(({ id, title, trailers, 
       <div className="column-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <span className="column-title" style={{ fontSize: '0.9rem' }}>{title}</span>
-          {trailers.length > 0 && id !== 'shipping' && (
-            <div className="bay-header-input-wrapper">
-              <input 
-                type="number" 
-                placeholder="Log Hrs" 
-                className="bay-time-input"
-                style={{ width: '60px', height: '24px', fontSize: '0.65rem' }}
-                value={trailers[0].history.find(h => h.phase === id && !h.exitedAt)?.phaseManualHours || ''}
-                onChange={(e) => {
-                  const val = parseFloat(e.target.value);
-                  const trailer = trailers[0];
-                  const updatedHistory = trailer.history.map(h => 
-                    h.phase === id && !h.exitedAt 
-                      ? { ...h, phaseManualHours: isNaN(val) ? undefined : val } 
-                      : h
-                  );
-                  onUpdateTrailer?.(trailer.id, { history: updatedHistory });
-                }}
-                onClick={(e) => e.stopPropagation()}
-              />
-            </div>
-          )}
         </div>
         <span className="column-count">{trailers.length}</span>
       </div>
@@ -63,6 +42,7 @@ export const KanbanColumn: React.FC<Props> = React.memo(({ id, title, trailers, 
               onShipRequest={onShipRequest}
               onCardClick={() => onCardClick?.(trailer)}
               isHighlighted={trailer.id === highlightedId}
+              suggestedBay={suggestedBay}
             />
           ))}
         </SortableContext>

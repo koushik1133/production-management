@@ -9,7 +9,7 @@ interface Props {
   trailers: Trailer[];
   onUpdateTrailer?: (id: string, updates: Partial<Trailer>) => void;
   onCardClick?: (trailer: Trailer) => void;
-  workload?: { stage: number; pipeline: number; leadTime: number };
+  workload?: { stage: number; pipeline: number; leadTime: number; leadTimeDisplay?: string };
   capacity?: number;
   onUpdateCapacity?: (capacity: number) => void;
 }
@@ -33,15 +33,6 @@ export const StationColumn: React.FC<Props> = ({ id, trailers, onUpdateTrailer, 
   return (
     <div className="kanban-column" ref={setNodeRef}>
       <div className="column-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <span className="column-title" style={{ color: 'var(--accent)', fontWeight: 800 }}>BAY {id}</span>
-          
-          <div className="bay-header-input-wrapper" title="Bay Output (Target Hours/Week)">
-            <input 
-              type="number" 
-              placeholder="Log Hrs" 
-              className="bay-time-input"
-              style={{ width: '60px', height: '24px', fontSize: '0.65rem' }}
               value={localCapacity}
               onChange={(e) => setLocalCapacity(e.target.value)}
               onBlur={handleCapacitySubmit}
@@ -88,7 +79,7 @@ export const StationColumn: React.FC<Props> = ({ id, trailers, onUpdateTrailer, 
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.25rem', paddingTop: '0.5rem', borderTop: '1px dashed rgba(56, 189, 248, 0.2)' }}>
             <span style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '0.05em' }}>EST. LEAD TIME:</span>
-            <span style={{ fontSize: '1rem', fontWeight: 900, color: 'var(--text-primary)' }}>{workload.leadTime.toFixed(1)} <span style={{ fontSize: '0.7rem' }}>Weeks</span></span>
+            <span style={{ fontSize: '0.9rem', fontWeight: 900, color: 'var(--text-primary)' }}>{workload.leadTimeDisplay || `${workload.leadTime.toFixed(1)} Weeks`}</span>
           </div>
         </div>
       )}
