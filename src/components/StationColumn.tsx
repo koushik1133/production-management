@@ -33,20 +33,18 @@ export const StationColumn: React.FC<Props> = ({ id, trailers, onUpdateTrailer, 
   return (
     <div className="kanban-column" ref={setNodeRef}>
       <div className="column-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem 1rem' }}>
-        <div style={{ width: '40px' }}></div> {/* Spacer to help center the middle item */}
-        
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <span style={{ color: 'var(--accent)', fontWeight: 800, fontSize: '0.9rem', letterSpacing: '0.05em' }}>BAY</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+          <span style={{ color: 'var(--accent)', fontWeight: 800, fontSize: '0.8rem', letterSpacing: '0.05em' }}>BAY</span>
           <span style={{ 
-            border: '2px solid var(--accent)', 
-            background: '#fff', 
-            color: 'var(--accent)', 
-            padding: '4px 12px', 
-            borderRadius: '8px', 
-            fontWeight: 900, 
-            fontSize: '1rem',
+            border: '1px solid #e2e8f0', 
+            background: '#f8fafc', 
+            color: '#0f172a', 
+            padding: '4px 10px', 
+            borderRadius: '6px', 
+            fontWeight: 800, 
+            fontSize: '0.8rem',
             lineHeight: 1,
-            boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+            boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
             textTransform: 'uppercase'
           }}>{id}</span>
         </div>
@@ -85,6 +83,7 @@ export const StationColumn: React.FC<Props> = ({ id, trailers, onUpdateTrailer, 
               trailer={trailer} 
               onUpdateTrailer={onUpdateTrailer}
               onCardClick={() => onCardClick?.(trailer)}
+              showPhaseBadge={true}
             />
           ))}
         </SortableContext>
@@ -101,7 +100,7 @@ export const StationColumn: React.FC<Props> = ({ id, trailers, onUpdateTrailer, 
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--accent)', letterSpacing: '0.05em' }}>STAGE LOAD:</span>
-            <span style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--accent)' }}>{Math.round(workload.stage)}h</span>
+            <span style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--accent)' }}>{Math.round(workload.pipeline)}h</span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.25rem', paddingTop: '0.5rem', borderTop: '1px dashed rgba(56, 189, 248, 0.2)' }}>
             <span style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '0.05em' }}>EST. LEAD TIME:</span>

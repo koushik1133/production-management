@@ -51,7 +51,7 @@ export const BAY_WEEKLY_HOURS: Partial<Record<StationId, number>> = {
 };
 
 export const PHASE_METADATA: Record<PhaseId, { title: string; defaultTargetHours: number }> = {
-  backlog: { title: 'Backlog', defaultTargetHours: 72 },
+  backlog: { title: 'Backlog', defaultTargetHours: 0 },
   prefab: { title: 'Prefab', defaultTargetHours: 24 },
   build: { title: 'Build', defaultTargetHours: 48 },
   paint: { title: 'Painting', defaultTargetHours: 24 },
@@ -99,45 +99,39 @@ export const MODEL_CATEGORIES = [
 
 MODEL_CATEGORIES.forEach(cat => {
   cat.models.forEach(model => {
-    // Deterministic random generator seeded by the model name
-    let seed = 0;
-    for (let i = 0; i < model.length; i++) {
-      seed = model.charCodeAt(i) + ((seed << 5) - seed);
+    // Standardized fixed values based on model categories
+    let baseHours: Record<PhaseId, number> = {
+      backlog: 0,
+      prefab: 24,
+      build: 80,
+      paint: 24,
+      outsource: 168,
+      trim: 24,
+      shipping: 24,
+    };
+
+    if (cat.name.includes('Reel Trailers')) {
+      baseHours = { ...baseHours, prefab: 30, build: 120, paint: 30, trim: 24, shipping: 16 };
+    } else if (cat.name.includes('Drone Trailers')) {
+      baseHours = { ...baseHours, prefab: 40, build: 160, paint: 40, trim: 30, shipping: 24 };
+    } else if (cat.name.includes('Pole Trailers')) {
+      baseHours = { ...baseHours, prefab: 35, build: 140, paint: 35, trim: 24, shipping: 20 };
+    } else if (cat.name.includes('Pipe Trailers')) {
+      baseHours = { ...baseHours, prefab: 28, build: 100, paint: 28, trim: 20, shipping: 16 };
+    } else if (cat.name.includes('Specialty')) {
+      baseHours = { ...baseHours, prefab: 50, build: 200, paint: 50, trim: 40, shipping: 32 };
     }
-    // Ensure seed is positive to avoid negative hours
-    seed = Math.abs(seed);
 
-    const rand = () => {
-      seed = (seed * 9301 + 49297) % 233280;
-      return seed / 233280;
-    };
+    // Boost for Goosenecks or heavy custom units
+    if (model.includes('Gooseneck') || model.includes('4260') || model.includes('5050')) {
+      baseHours.build *= 1.25;
+      baseHours.prefab *= 1.25;
+    }
 
-    // Calculate individual phase hours first
-    const prefab = Math.floor(20 + rand() * 20); // 20-40 hours
-    const build = Math.floor(80 + rand() * 80);  // 80-160 hours (Realistic for major build)
-    const paint = Math.floor(20 + rand() * 20);  // 20-40 hours
-    const trim = Math.floor(15 + rand() * 15);   // 15-30 hours
-    const shipping = Math.floor(8 + rand() * 8); // 8-16 hours
-
-    // Base target hours
-    const targetHours: Record<PhaseId, number> = {
-      backlog: 0, // Placeholder
-      prefab,
-      build,
-      paint,
-      outsource: 0, 
-      trim,
-      shipping,
-    };
+    // Backlog itself has 0 work-hours; production begins in Prefab
+    baseHours.backlog = 0;
     
-    // Boost hours for Goosenecks, specialties, or specialty trailers
-    if (model.includes('Gooseneck') || model.includes('Specialty') || model.includes('Engineering') || model.includes('3547') || model.includes('4260')) {
-       targetHours.build *= 1.5;
-       targetHours.prefab *= 1.5;
-    }
-    // Assign BACKLOG as the sum of all subsequent production phases
-    targetHours.backlog = targetHours.prefab + targetHours.build + targetHours.paint + targetHours.trim + targetHours.shipping;
-    MODEL_TARGET_HOURS[model] = targetHours;
+    MODEL_TARGET_HOURS[model] = baseHours;
   });
 });
 
@@ -150,3 +144,38 @@ export const DEFAULT_BAY_CAPACITIES: Record<string, number> = {
   'B4': 40,
   'None': 0,
 };
+
+/**
+ * Calculates the total remaining build hours for a trailer from its current phase to shipping.
+ * Accounts for finished types (Paint vs. Outsource) and current phase progress.
+ */
+export function calculateTrailerRemainingHours(trailer: Trailer): number {
+  const phaseOrder: PhaseId[] = ['backlog', 'prefab', 'build', 'paint', 'outsource', 'trim', 'shipping'];
+  const currentIndex = phaseOrder.indexOf(trailer.currentPhase);
+  if (currentIndex === -1) return 0;
+
+  // We stop at 'shipping' (meaning we include production work up to the point it ships)
+  const relevantPhases = phaseOrder.slice(currentIndex);
+  let total = 0;
+
+  relevantPhases.forEach(pId => {
+    if (pId === 'shipping' && trailer.currentPhase !== 'shipping') return; // Usually don't show shipping hours until it is in shipping
+    
+    // Skip irrelevant finishing phase
+    if (pId === 'paint' && trailer.finishingType === 'Outsource') return;
+    if (pId === 'outsource' && trailer.finishingType === 'Paint') return;
+    if (!trailer.finishingType && pId === 'outsource') return;
+
+    const target = MODEL_TARGET_HOURS[trailer.model]?.[pId] || PHASE_METADATA[pId].defaultTargetHours;
+
+    if (pId === trailer.currentPhase) {
+      const currentLog = trailer.history.find(h => h.phase === trailer.currentPhase && !h.exitedAt);
+      const loggedInCurrent = (currentLog?.bayManualHours || currentLog?.phaseManualHours || 0);
+      total += Math.max(0, target - loggedInCurrent);
+    } else {
+      total += target;
+    }
+  });
+
+  return total;
+}

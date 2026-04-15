@@ -75,9 +75,10 @@
   display: flex;
   overflow-x: auto;
   overflow-y: auto;
-  padding: 1.5rem 1.5rem 100px 1.5rem; /* Increased bottom padding for the strip */
+  padding: 1.5rem;
   gap: 1.25rem;
-  scrollbar-width: auto; /* Ensure it's not hidden */
+  justify-content: flex-start;
+  scrollbar-width: auto;
   scrollbar-color: var(--accent) transparent;
 }
 
@@ -596,10 +597,10 @@
   color: var(--text-secondary);
 }
 
-/* Bottleneck Highlight */
+/* Bottleneck Highlight - Removed Red, Using subtle blue if needed, but user wants clean blue theme */
 .trailer-card.is-bottleneck {
-  border: 1.5px solid #ef4444;
-  background-color: #fef2f2;
+  border: 1.5px solid #3b82f6;
+  background-color: #eff6ff;
 }
 
 .reco-badge-tag {
@@ -618,9 +619,8 @@
 }
 
 .trailer-card.is-bottleneck .card-time {
-  background-color: #ef4444;
+  background-color: #3b82f6;
   color: white;
-  animation: pulse 2s infinite ease-in-out;
 }
 
 @keyframes pulse {

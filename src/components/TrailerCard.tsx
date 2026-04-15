@@ -1,10 +1,10 @@
 import React, { useEffect, useRef } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Clock, Hash, Calendar, Crown, StickyNote, Truck } from 'lucide-react';
+import { Clock, Hash, Calendar, Crown, StickyNote, Truck, Layers } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import type { Trailer, StationId } from '../types';
-import { STATIONS, PHASE_METADATA, MODEL_TARGET_HOURS, PHASES } from '../types';
+import { STATIONS, PHASE_METADATA, MODEL_TARGET_HOURS, PHASES, calculateTrailerRemainingHours } from '../types';
 
 interface Props {
   trailer: Trailer;
@@ -15,6 +15,7 @@ interface Props {
   hideShipButton?: boolean;
   isHighlighted?: boolean;
   suggestedBay?: StationId;
+  showPhaseBadge?: boolean;
 }
 
 export const TrailerCard: React.FC<Props> = React.memo(({ 
@@ -25,7 +26,8 @@ export const TrailerCard: React.FC<Props> = React.memo(({
   hideCustomerName,
   hideShipButton,
   isHighlighted,
-  suggestedBay
+  suggestedBay,
+  showPhaseBadge
 }) => {
   const cardRef = useRef<HTMLDivElement>(null);
   const {
@@ -64,18 +66,43 @@ export const TrailerCard: React.FC<Props> = React.memo(({
     || PHASE_METADATA[trailer.currentPhase].defaultTargetHours;
   const isBottleneck = hoursRemaining > targetHours;
 
+  const timeToShipping = calculateTrailerRemainingHours(trailer);
+
   return (
     <div
       ref={(node) => {
         setNodeRef(node);
         (cardRef as any).current = node;
       }}
-      style={style}
+      style={{ ...style, position: 'relative' }}
       className={`trailer-card ${isBottleneck ? 'is-bottleneck' : ''} ${isHighlighted ? 'is-highlighted' : ''}`}
       {...attributes}
       {...listeners}
       onClick={() => onCardClick?.()}
     >
+      {/* Time to Shipping Indicator */}
+      {trailer.currentPhase !== 'shipping' && (
+        <div style={{ 
+          position: 'absolute', 
+          top: '0.6rem', 
+          right: '0.6rem', 
+          display: 'flex', 
+          padding: '0.4rem 0.6rem', 
+          background: '#eff6ff', 
+          color: '#2563eb', 
+          borderRadius: '8px', 
+          fontSize: '0.7rem', 
+          fontWeight: 900, 
+          alignItems: 'center', 
+          gap: '0.3rem',
+          flexShrink: 0,
+          border: '1px solid #dbeafe',
+          zIndex: 5
+        }}>
+          <span style={{ fontSize: '0.65rem' }}>{Math.round(timeToShipping)}H TO SHIP</span>
+        </div>
+      )}
+
       <div className="card-header-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
         <div className="card-title" style={{ flex: 1, minWidth: 0 }}>
           <span className="card-model" style={{ 
@@ -124,6 +151,25 @@ export const TrailerCard: React.FC<Props> = React.memo(({
         <div className="card-meta-item">
           <Hash className="card-meta-icon" />
           <span>{trailer.serialNumber}</span>
+          {showPhaseBadge && (
+             <div style={{
+               marginLeft: '0.5rem',
+               display: 'flex',
+               alignItems: 'center',
+               gap: '0.3rem',
+               background: '#f1f5f9',
+               color: '#475569',
+               padding: '2px 8px',
+               borderRadius: '4px',
+               fontSize: '0.65rem',
+               fontWeight: 800,
+               textTransform: 'uppercase',
+               border: '1px solid #e2e8f0'
+             }}>
+               <Layers size={10} color="#64748b" strokeWidth={3} />
+               {PHASE_METADATA[trailer.currentPhase].title}
+             </div>
+          )}
           {trailer.currentPhase === 'backlog' && trailer.station === 'None' && suggestedBay && (
             <span className="reco-badge-tag" style={{ marginLeft: '0.5rem' }}>
               RECO: {suggestedBay}
@@ -137,30 +183,28 @@ export const TrailerCard: React.FC<Props> = React.memo(({
           onMouseDown={(e) => e.stopPropagation()}
           onPointerDown={(e) => e.stopPropagation()}
         >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <span style={{ fontSize: '0.65rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Bay:</span>
-              <select 
-                className="bay-select"
-                style={{
-                  background: '#f8fafc',
-                  border: '1px solid #cbd5e1',
-                  borderRadius: '6px',
-                  fontSize: '0.75rem',
-                  fontWeight: 700,
-                  color: '#0f172a',
-                  padding: '2px 8px',
-                  cursor: 'pointer',
-                  outline: 'none'
-                }}
-                value={trailer.station}
-                onChange={(e) => onUpdateTrailer?.(trailer.id, { station: e.target.value as StationId })}
-                onClick={(e) => e.stopPropagation()}
-              >
-                <option value="None">Off</option>
-                {STATIONS.map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
-            </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+            <span style={{ fontSize: '0.6rem', fontWeight: 800, color: 'var(--accent)', textTransform: 'uppercase' }}>Bay</span>
+            <select 
+              className="bay-select"
+              style={{
+                background: '#f8fafc',
+                border: '1px solid #e2e8f0',
+                borderRadius: '6px',
+                fontSize: '0.75rem',
+                fontWeight: 700,
+                color: '#0f172a',
+                padding: '2px 8px',
+                cursor: 'pointer',
+                outline: 'none'
+              }}
+              value={trailer.station}
+              onChange={(e) => onUpdateTrailer?.(trailer.id, { station: e.target.value as StationId })}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <option value="None">Off</option>
+              {STATIONS.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
           </div>
         </div>
 
@@ -202,12 +246,12 @@ export const TrailerCard: React.FC<Props> = React.memo(({
           <div className="card-meta-item" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem' }}>
               <div className="card-meta-item">
-                <Clock className="card-meta-icon" style={{ color: isBottleneck ? 'white' : 'var(--accent)', width: '12px', height: '12px' }} />
-                <span className={`card-time ${isBottleneck ? 'bottleneck-active' : ''}`} style={{ fontSize: '0.65rem' }}>{timeInPhase} (Stage: {Math.round(targetHours)}h)</span>
+                <Clock className="card-meta-icon" style={{ color: 'var(--accent)', width: '12px', height: '12px' }} />
+                <span className="card-time" style={{ fontSize: '0.65rem' }}>{timeInPhase} (Stage: {Math.round(targetHours)}h)</span>
               </div>
               <div className="card-meta-item">
-                <Hash className="card-meta-icon" style={{ color: isBottleneck ? 'white' : '#0ea5e9', width: '12px', height: '12px' }} />
-                <span style={{ fontSize: '0.65rem', color: isBottleneck ? 'white' : 'var(--text-secondary)' }}>Pipeline: {Math.round(
+                <Hash className="card-meta-icon" style={{ color: '#0ea5e9', width: '12px', height: '12px' }} />
+                <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>Pipeline: {Math.round(
                   (() => {
                     let pipe = Math.max(0, targetHours - (currentLog?.bayManualHours || currentLog?.phaseManualHours || 0));
                     const pIdx = PHASES.findIndex(p => p.id === trailer.currentPhase);
@@ -221,32 +265,6 @@ export const TrailerCard: React.FC<Props> = React.memo(({
                 )}h</span>
               </div>
             </div>
-            
-            {trailer.currentPhase !== 'shipping' && trailer.currentPhase !== 'backlog' && (
-              <div 
-                className="log-hours-pill" 
-                style={{ padding: '2px 6px', background: isBottleneck ? 'rgba(255,255,255,0.2)' : '#f1f5f9', borderRadius: '6px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '4px' }}
-                onClick={(e) => e.stopPropagation()}
-                onMouseDown={(e) => e.stopPropagation()}
-              >
-                <span style={{ fontSize: '0.55rem', fontWeight: 800, color: isBottleneck ? 'white' : '#64748b' }}>LOG:</span>
-                <input 
-                  type="number"
-                  placeholder="0"
-                  style={{ width: '32px', border: 'none', background: 'transparent', fontSize: '0.7rem', fontWeight: 700, color: isBottleneck ? 'white' : 'var(--text-primary)', padding: 0, outline: 'none', textAlign: 'center' }}
-                  value={currentLog?.bayManualHours || currentLog?.phaseManualHours || ''}
-                  onChange={(e) => {
-                    const val = parseFloat(e.target.value);
-                    const updatedHistory = trailer.history.map(h => 
-                      h.phase === trailer.currentPhase && !h.exitedAt 
-                        ? { ...h, bayManualHours: isNaN(val) ? undefined : val, phaseManualHours: isNaN(val) ? undefined : val } 
-                        : h
-                    );
-                    onUpdateTrailer?.(trailer.id, { history: updatedHistory });
-                  }}
-                />
-              </div>
-            )}
           </div>
         
         <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
