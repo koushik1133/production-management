@@ -16,6 +16,7 @@ interface Props {
   isHighlighted?: boolean;
   suggestedBay?: StationId;
   showPhaseBadge?: boolean;
+  isTVMode?: boolean;
 }
 
 export const TrailerCard: React.FC<Props> = React.memo(({ 
@@ -27,7 +28,8 @@ export const TrailerCard: React.FC<Props> = React.memo(({
   hideShipButton,
   isHighlighted,
   suggestedBay,
-  showPhaseBadge
+  showPhaseBadge,
+  isTVMode
 }) => {
   const cardRef = useRef<HTMLDivElement>(null);
   const {
@@ -105,22 +107,22 @@ export const TrailerCard: React.FC<Props> = React.memo(({
           {trailer.currentPhase !== 'shipping' && (
             <div style={{ 
               display: 'flex', 
-              padding: '0.3rem 0.6rem', 
+              padding: isTVMode ? '0.2rem 0.4rem' : '0.3rem 0.6rem', 
               background: '#eff6ff', 
               color: '#2563eb', 
               borderRadius: '8px', 
-              fontSize: '0.7rem', 
+              fontSize: isTVMode ? '0.6rem' : '0.7rem', 
               fontWeight: 900, 
               alignItems: 'center', 
               gap: '0.3rem',
               border: '1px solid #dbeafe',
               whiteSpace: 'nowrap'
             }}>
-              <span style={{ fontSize: '0.6rem' }}>{Math.round(timeToShipping)}H TO SHIP</span>
+              <span style={{ fontSize: isTVMode ? '0.55rem' : '0.6rem' }}>{Math.round(timeToShipping)}H TO SHIP</span>
             </div>
           )}
 
-          {trailer.expectedDueDate && (
+          {trailer.expectedDueDate && !isTVMode && (
             <div style={{ 
               padding: '0.3rem 0.6rem', 
               background: trailer.isPriority ? '#fff1f2' : '#f8fafc', 
@@ -183,36 +185,52 @@ export const TrailerCard: React.FC<Props> = React.memo(({
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
             <span style={{ fontSize: '0.6rem', fontWeight: 800, color: 'var(--accent)', textTransform: 'uppercase' }}>Bay</span>
-            <select 
-              className="bay-select"
-              style={{
-                background: '#f8fafc',
-                border: '1px solid #e2e8f0',
-                borderRadius: '6px',
-                fontSize: '0.75rem',
-                fontWeight: 700,
+            {!isTVMode ? (
+              <select 
+                className="bay-select"
+                style={{
+                  background: '#f8fafc',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '6px',
+                  fontSize: '0.75rem',
+                  fontWeight: 700,
+                  color: '#0f172a',
+                  padding: '2px 8px',
+                  cursor: 'pointer',
+                  outline: 'none'
+                }}
+                value={trailer.station}
+                onChange={(e) => onUpdateTrailer?.(trailer.id, { station: e.target.value as StationId })}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <option value="None">Off</option>
+                {STATIONS.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+            ) : (
+              <span style={{ 
+                fontSize: '0.75rem', 
+                fontWeight: 800, 
                 color: '#0f172a',
+                background: '#f1f5f9',
                 padding: '2px 8px',
-                cursor: 'pointer',
-                outline: 'none'
-              }}
-              value={trailer.station}
-              onChange={(e) => onUpdateTrailer?.(trailer.id, { station: e.target.value as StationId })}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <option value="None">Off</option>
-              {STATIONS.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
+                borderRadius: '6px',
+                border: '1px solid #e2e8f0'
+              }}>
+                {trailer.station === 'None' ? 'Off' : trailer.station}
+              </span>
+            )}
           </div>
         </div>
 
-        <div className="card-meta-item">
-          <Calendar className="card-meta-icon" />
-          <span>Started {format(trailer.dateStarted, 'MMM d')}</span>
-        </div>
+        {!isTVMode && (
+          <div className="card-meta-item">
+            <Calendar className="card-meta-icon" />
+            <span>Started {format(trailer.dateStarted, 'MMM d')}</span>
+          </div>
+        )}
       </div>
       
-      {trailer.notes && (
+      {trailer.notes && !isTVMode && (
         <div style={{ 
           marginTop: '0.25rem', 
           padding: '0.5rem 0.75rem', 
@@ -240,28 +258,30 @@ export const TrailerCard: React.FC<Props> = React.memo(({
         </div>
       )}
 
-      <div className="card-footer">
-          <div className="card-meta-item" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem' }}>
-              <div className="card-meta-item">
-                <Clock className="card-meta-icon" style={{ color: 'var(--accent)', width: '12px', height: '12px' }} />
-                <span className="card-time" style={{ fontSize: '0.65rem' }}>{timeInPhase} (Stage: {Math.round(targetHours)}h)</span>
-              </div>
-              <div className="card-meta-item">
-                <Hash className="card-meta-icon" style={{ color: '#0ea5e9', width: '12px', height: '12px' }} />
-                <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>Pipeline: {Math.round(calculateTrailerRemainingHours(trailer))}h</span>
+      {!isTVMode && (
+        <div className="card-footer">
+            <div className="card-meta-item" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem' }}>
+                <div className="card-meta-item">
+                  <Clock className="card-meta-icon" style={{ color: 'var(--accent)', width: '12px', height: '12px' }} />
+                  <span className="card-time" style={{ fontSize: '0.65rem' }}>{timeInPhase} (Stage: {Math.round(targetHours)}h)</span>
+                </div>
+                <div className="card-meta-item">
+                  <Hash className="card-meta-icon" style={{ color: '#0ea5e9', width: '12px', height: '12px' }} />
+                  <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>Pipeline: {Math.round(calculateTrailerRemainingHours(trailer))}h</span>
+                </div>
               </div>
             </div>
+          
+          <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+            {trailer.finishingType && (
+              <span className="badge-finishing" data-type={trailer.finishingType}>
+                {trailer.finishingType}
+              </span>
+            )}
           </div>
-        
-        <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
-          {trailer.finishingType && (
-            <span className="badge-finishing" data-type={trailer.finishingType}>
-              {trailer.finishingType}
-            </span>
-          )}
         </div>
-      </div>
+      )}
 
       {trailer.currentPhase === 'shipping' && !hideShipButton && (
         <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid #f1f1f4' }}>

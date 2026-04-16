@@ -43,12 +43,24 @@ const TVView: React.FC<Props> = ({ trailers, monitorMode: initialMode = 'all' })
   };
   
   const filteredTrailers = trailers.filter(t => !t.isArchived);
-  const filteredPhases = PHASES.filter(p => {
-    if (monitorMode === 'station1') return ['backlog', 'prefab', 'build'].includes(p.id);
-    if (monitorMode === 'station2') return ['paint', 'outsource', 'trim', 'shipping'].includes(p.id);
-    // 'All' view now shows every phase in the production lifecycle
-    return true;
-  });
+  type Column = { id: string; title: string; type: 'phase' | 'station' };
+  
+  const columns: Column[] = (() => {
+    if (monitorMode === 'station1') {
+      return [
+        { id: 'prefab', title: 'Prefab', type: 'phase' },
+        { id: 'B1', title: 'Bay 1', type: 'station' },
+        { id: 'B2', title: 'Bay 2', type: 'station' },
+        { id: 'B3', title: 'Bay 3', type: 'station' },
+        { id: 'B4', title: 'Bay 4', type: 'station' },
+      ];
+    }
+    if (monitorMode === 'station2') {
+      return PHASES.filter(p => ['paint', 'outsource', 'trim', 'shipping'].includes(p.id))
+        .map(p => ({ id: p.id, title: p.title, type: 'phase' }));
+    }
+    return PHASES.map(p => ({ id: p.id, title: p.title, type: 'phase' }));
+  })();
 
   const monitorTitle = monitorMode === 'station1' ? 'Station 1 Progress' : monitorMode === 'station2' ? 'Station 2 Progress' : 'Live Production Stream';
 
@@ -250,46 +262,50 @@ const TVView: React.FC<Props> = ({ trailers, monitorMode: initialMode = 'all' })
           display: 'flex',
           justifyContent: window.innerWidth < 1024 
             ? 'flex-start' 
-            : (monitorMode !== 'all' || filteredPhases.length <= 3 ? 'center' : 'flex-start'),
+            : (monitorMode !== 'all' || columns.length <= 3 ? 'center' : 'flex-start'),
           alignItems: 'stretch'
         }}
       >
-        {filteredPhases.map((phase) => (
-          <div 
-            key={phase.id} 
-            className="tv-column" 
-            style={{ 
-              ...themeStyles.column, 
-              minWidth: window.innerWidth < 768 ? 'calc(100vw - 2rem)' : '420px', 
-              height: '100%', 
-              flexShrink: 0,
-              display: 'flex',
-              flexDirection: 'column',
-              padding: '1.25rem',
-              borderRadius: '20px',
-              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-            }}
-          >
-            <div className="column-header" style={{ marginBottom: '1.25rem', flexShrink: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span className="column-title" style={{ color: themeStyles.textMuted, fontSize: '1.1rem', fontWeight: 800 }}>{phase.title}</span>
-              <span className="column-count" style={{ background: isDarkMode ? '#27272a' : '#f1f5f9', color: isDarkMode ? 'white' : '#1e293b', fontSize: '1rem', padding: '0.2rem 0.6rem', borderRadius: '8px', fontWeight: 700 }}>
-                {filteredTrailers.filter(t => t.currentPhase === phase.id).length}
-              </span>
+        {columns.map((col) => {
+          const trailersInCol = col.type === 'phase' 
+            ? filteredTrailers.filter(t => t.currentPhase === col.id)
+            : filteredTrailers.filter(t => t.station === col.id);
+
+          return (
+            <div 
+              key={col.id} 
+              className="tv-column" 
+              style={{ 
+                ...themeStyles.column, 
+                minWidth: window.innerWidth < 1024 ? '350px' : (columns.length > 4 ? 'calc(20% - 1.6rem)' : '420px'),
+                flex: columns.length > 4 ? '1' : '0 0 auto',
+                height: '100%', 
+                display: 'flex',
+                flexDirection: 'column',
+                padding: '1.25rem',
+                borderRadius: '20px',
+                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+              }}
+            >
+              <div className="column-header" style={{ marginBottom: '1.25rem', flexShrink: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span className="column-title" style={{ color: themeStyles.textMuted, fontSize: '1.1rem', fontWeight: 800 }}>{col.title}</span>
+                <span className="column-count" style={{ background: isDarkMode ? '#27272a' : '#f1f5f9', color: isDarkMode ? 'white' : '#1e293b', fontSize: '1rem', padding: '0.2rem 0.6rem', borderRadius: '8px', fontWeight: 700 }}>
+                  {trailersInCol.length}
+                </span>
+              </div>
+              <div className="cards-container" style={{ overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                {trailersInCol.map(trailer => (
+                    <TrailerCard key={trailer.id} trailer={trailer} hideCustomerName={true} hideShipButton={true} isTVMode={true} />
+                  ))}
+                {trailersInCol.length === 0 && (
+                  <div style={{ padding: '2rem', textAlign: 'center', color: themeStyles.textMuted, fontSize: '0.8rem', fontStyle: 'italic', border: '1px dashed #cbd5e1', borderRadius: '12px' }}>
+                    No units in this stage
+                  </div>
+                )}
+              </div>
             </div>
-            <div className="cards-container" style={{ overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              {filteredTrailers
-                .filter(t => t.currentPhase === phase.id)
-                .map(trailer => (
-                  <TrailerCard key={trailer.id} trailer={trailer} hideCustomerName={true} hideShipButton={true} />
-                ))}
-              {filteredTrailers.filter(t => t.currentPhase === phase.id).length === 0 && (
-                <div style={{ padding: '2rem', textAlign: 'center', color: themeStyles.textMuted, fontSize: '0.8rem', fontStyle: 'italic', border: '1px dashed #cbd5e1', borderRadius: '12px' }}>
-                  No units in this stage
-                </div>
-              )}
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </main>
 
       <footer style={{ 

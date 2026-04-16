@@ -1,8 +1,8 @@
 import React from 'react';
 import { formatDistanceToNow, format, differenceInCalendarDays, subDays } from 'date-fns';
-import { History, FileText, Send, Crown, Calculator, CalendarClock, Clock } from 'lucide-react';
+import { History, FileText, Send, Crown, Calculator, CalendarClock } from 'lucide-react';
 import type { Trailer } from '../types';
-import { MODEL_TARGET_HOURS, BAY_WEEKLY_HOURS, calculateTrailerRemainingHours } from '../types';
+import { BAY_WEEKLY_HOURS, calculateTrailerRemainingHours, PHASES } from '../types';
 import { Modal } from './Modal';
 
 interface Props {
@@ -26,29 +26,54 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
   const [localNotes, setLocalNotes] = React.useState(trailer.notes || '');
 
   const phaseTimes = React.useMemo(() => {
-    return trailer.history.reduce((acc, log) => {
-      const duration = log.duration || (log.exitedAt ? log.exitedAt - log.enteredAt : Date.now() - log.enteredAt);
-      acc[log.phase] = (acc[log.phase] || 0) + duration;
-      return acc;
-    }, {} as Record<string, number>);
+    const result: Record<string, { h: number, m: number }> = {};
+    PHASES.forEach(p => {
+      const entries = trailer.history.filter(h => h.phase === p.id);
+      const manualHours = entries.reduce((sum, h) => sum + (h.phaseManualHours || h.bayManualHours || 0), 0);
+      const hasManual = entries.some(h => (h.phaseManualHours !== undefined || h.bayManualHours !== undefined));
+      
+      if (hasManual) {
+        const positiveManual = Math.max(0, manualHours);
+        result[p.id] = { 
+          h: Math.floor(positiveManual), 
+          m: Math.round((positiveManual % 1) * 60) 
+        };
+      } else {
+        const durationMs = Math.max(0, entries.reduce((sum, log) => {
+          return sum + (log.duration || (log.exitedAt ? log.exitedAt - log.enteredAt : Date.now() - log.enteredAt));
+        }, 0));
+        const totalMins = Math.floor(durationMs / (1000 * 60));
+        result[p.id] = { 
+          h: Math.floor(totalMins / 60), 
+          m: totalMins % 60 
+        };
+      }
+    });
+    return result;
   }, [trailer.history]);
 
-  const totalTimeMs = React.useMemo(() => 
-    Object.values(phaseTimes).reduce((sum, t) => sum + t, 0)
-  , [phaseTimes]);
+  const totalTimeDisplay = React.useMemo(() => {
+    const activePhases = PHASES.filter(p => !['backlog', 'shipping'].includes(p.id));
+    const totalMinutes = activePhases.reduce((sum, p) => {
+      const time = phaseTimes[p.id] || { h: 0, m: 0 };
+      return sum + (time.h * 60) + time.m;
+    }, 0);
+    const h = Math.floor(totalMinutes / 60);
+    const m = totalMinutes % 60;
+    return `${h}h ${m}m`;
+  }, [phaseTimes]);
 
   const formatLogDuration = (ms: number) => {
     const totalMinutes = Math.floor(ms / (1000 * 60));
     const hours = Math.floor(totalMinutes / 60);
     const mins = totalMinutes % 60;
-    
-    if (hours > 0) {
-      return `${hours}h ${mins}m`;
-    }
-    return `${mins}m`;
+    return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
   };
 
+  const isDuplicateSerial = allTrailers.some(t => t.serialNumber === editForm.serialNumber && t.id !== trailer.id);
+
   const handleSaveAll = () => {
+    if (isDuplicateSerial) return;
     onUpdate(trailer.id, { 
       ...editForm,
       notes: localNotes 
@@ -76,26 +101,6 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
       title={isEditing ? `Editing: ${trailer.serialNumber}` : `${trailer.serialNumber} • ${trailer.model}`}
     >
       <div className="details-container">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
-            <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>PRODUCTION UNIT DATA</span>
-          </div>
-          {!trailer.isArchived && (
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
-              {isEditing && (
-                <button className="btn btn-primary" onClick={handleSaveAll} style={{ background: '#2563eb' }}>
-                  Save Changes
-                </button>
-              )}
-              <button 
-                className={`btn btn-sm ${isEditing ? 'btn-danger' : 'btn-secondary'}`}
-                onClick={() => setIsEditing(!isEditing)}
-              >
-                {isEditing ? 'Cancel Edits' : 'Edit Unit Info'}
-              </button>
-            </div>
-          )}
-        </div>
 
         {isEditing ? (
           <div className="edit-form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '2rem' }}>
@@ -107,14 +112,23 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                   onChange={e => setEditForm({...editForm, name: e.target.value})}
                 />
              </div>
-             <div className="form-group">
-                <label className="form-label">Serial Number</label>
-                <input 
-                  className="form-input" 
-                  value={editForm.serialNumber} 
-                  onChange={e => setEditForm({...editForm, serialNumber: e.target.value})}
-                />
-             </div>
+              <div className="form-group">
+                 <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between' }}>
+                   <span>Serial Number</span>
+                   {isDuplicateSerial && (
+                     <span style={{ color: '#ef4444', fontSize: '0.7rem', fontWeight: 800 }}>ALREADY EXISTS!</span>
+                   )}
+                 </label>
+                 <input 
+                   className="form-input" 
+                   style={{ 
+                     borderColor: isDuplicateSerial ? '#fecdd3' : undefined,
+                     backgroundColor: isDuplicateSerial ? '#fff1f2' : undefined 
+                   }}
+                   value={editForm.serialNumber} 
+                   onChange={e => setEditForm({...editForm, serialNumber: e.target.value})}
+                 />
+              </div>
              <div className="form-group" style={{ gridColumn: 'span 2' }}>
                 <label className="form-label">Trailer Model</label>
                 <input 
@@ -144,40 +158,38 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
           </div>
         ) : (
           <div style={{ marginBottom: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
-              <span style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)' }}>{trailer.name}</span>
-              <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>SN: {trailer.serialNumber}</span>
-            </div>
-            
-            <div style={{ padding: '1rem', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <span style={{ fontSize: '0.65rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>Hours Logged (Current Stage)</span>
-                <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#0f172a' }}>{trailer.currentPhase.toUpperCase()}: {Math.round(MODEL_TARGET_HOURS[trailer.model]?.[trailer.currentPhase] || 0)}h target</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem' }}>
+                <span style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--text-primary)', lineHeight: 1.1 }}>{trailer.name}</span>
+                <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: 600 }}>SN: {trailer.serialNumber} • {trailer.model}</span>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'white', padding: '0.4rem 0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
-                <Clock size={16} color="var(--accent)" />
-                <input 
-                  type="number"
-                  placeholder="0"
-                  style={{ width: '60px', border: 'none', background: 'transparent', fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)', outline: 'none', textAlign: 'center' }}
-                  value={(() => {
-                    const currentLog = trailer.history.find(h => h.phase === trailer.currentPhase && !h.exitedAt);
-                    return currentLog?.bayManualHours || currentLog?.phaseManualHours || '';
-                  })()}
-                  onChange={(e) => {
-                    const val = parseFloat(e.target.value);
-                    const updatedHistory = trailer.history.map(h => 
-                      h.phase === trailer.currentPhase && !h.exitedAt 
-                        ? { ...h, bayManualHours: isNaN(val) ? undefined : val, phaseManualHours: isNaN(val) ? undefined : val } 
-                        : h
-                    );
-                    onUpdate?.(trailer.id, { history: updatedHistory });
-                  }}
-                />
-                <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748b' }}>Hrs</span>
-              </div>
+              {!trailer.isArchived && (
+                <div style={{ display: 'flex', gap: '0.4rem' }}>
+                  {isEditing && (
+                    <button 
+                      className="btn btn-primary btn-sm" 
+                      onClick={handleSaveAll} 
+                      disabled={isDuplicateSerial}
+                      style={{ 
+                        background: '#2563eb', 
+                        padding: '4px 12px', 
+                        fontSize: '0.7rem',
+                        opacity: isDuplicateSerial ? 0.6 : 1
+                      }}
+                    >
+                      Save
+                    </button>
+                  )}
+                  <button 
+                    className={`btn btn-sm ${isEditing ? 'btn-danger' : 'btn-secondary'}`}
+                    onClick={() => setIsEditing(!isEditing)}
+                    style={{ padding: '4px 12px', fontSize: '0.7rem' }}
+                  >
+                    {isEditing ? 'Cancel' : 'Edit Info'}
+                  </button>
+                </div>
+              )}
             </div>
-
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', padding: '1rem', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
               <div>
                 <span style={{ fontSize: '0.65rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>Expected Due</span>
@@ -189,24 +201,58 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
               </div>
             </div>
 
-            {/* Production Time Summary - Simple & Short */}
-            <div style={{ padding: '1rem', background: '#f0fdfa', borderRadius: '12px', border: '1px solid #99f6e4' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+            {/* Production Time Summary - Consolidate HH:MM Editing */}
+            <div style={{ padding: '1.25rem', background: '#f0fdfa', borderRadius: '16px', border: '1px solid #99f6e4' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <History size={14} color="#0d9488" />
-                  <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#0d9488', textTransform: 'uppercase' }}>Production Time Summary</span>
+                  <History size={16} color="#0d9488" />
+                  <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#0d9488', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Production Hours</span>
                 </div>
-                <span style={{ fontSize: '0.85rem', fontWeight: 800, color: '#0d9488' }}>Total: {formatLogDuration(totalTimeMs)}</span>
+                <div style={{ fontSize: '0.8rem', fontWeight: 800, color: '#0d9488', background: 'white', padding: '2px 10px', borderRadius: '99px', border: '1px solid #99f6e4' }}>
+                  Total: {totalTimeDisplay}
+                </div>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: '0.5rem' }}>
-                {Object.entries(phaseTimes)
-                  .filter(([phase]) => phase !== 'backlog')
-                  .map(([phase, time]) => (
-                  <div key={phase} style={{ background: 'white', padding: '0.4rem 0.6rem', borderRadius: '8px', border: '1px solid #ccfbf1' }}>
-                    <div style={{ fontSize: '0.55rem', fontWeight: 800, color: '#5eead4', textTransform: 'uppercase', lineHeight: 1, marginBottom: '2px' }}>{phase}</div>
-                    <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#134e4a' }}>{formatLogDuration(time)}</div>
-                  </div>
-                ))}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '0.75rem' }}>
+                {PHASES.filter(p => !['backlog', 'shipping'].includes(p.id)).map(phase => {
+                  const time = phaseTimes[phase.id] || { h: 0, m: 0 };
+
+                  const updateManualTime = (newH: number) => {
+                    const decimalVal = newH; // Hours only
+                    const updatedHistory = [...trailer.history];
+                    let targetIdx = -1;
+                    for (let i = updatedHistory.length - 1; i >= 0; i--) {
+                      if (updatedHistory[i].phase === phase.id) { targetIdx = i; break; }
+                    }
+                    if (targetIdx !== -1) {
+                      updatedHistory[targetIdx] = { 
+                        ...updatedHistory[targetIdx], 
+                        phaseManualHours: decimalVal, 
+                        bayManualHours: decimalVal 
+                      };
+                      onUpdate(trailer.id, { history: updatedHistory });
+                    }
+                  };
+
+                  return (
+                    <div key={phase.id} style={{ background: 'white', padding: '0.6rem', borderRadius: '12px', border: '1px solid #ccfbf1', boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)' }}>
+                      <div style={{ fontSize: '0.6rem', fontWeight: 800, color: '#134e4a', textTransform: 'uppercase', marginBottom: '6px', letterSpacing: '0.025em' }}>{phase.title}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', background: '#f0fdfa', borderRadius: '6px', padding: '4px 8px', border: '1.5px solid #f0fdfa' }}>
+                        <input 
+                          type="text"
+                          inputMode="numeric"
+                          style={{ width: '100%', border: 'none', background: 'transparent', fontSize: '1rem', fontWeight: 900, color: '#134e4a', textAlign: 'left', outline: 'none' }}
+                          value={time.h || ''}
+                          placeholder="0"
+                          onChange={(e) => {
+                            const v = Math.max(0, parseInt(e.target.value.replace(/\D/g, ''), 10) || 0);
+                            updateManualTime(v);
+                          }}
+                        />
+                        <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#94a3b8', marginLeft: '4px' }}>h</span>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 

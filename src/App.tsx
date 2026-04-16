@@ -30,6 +30,8 @@ import TVView from './TVView';
 import StationView from './StationView';
 import { ArchiveView } from './ArchiveView';
 import { ScheduleView } from './ScheduleView';
+import { CatalogView } from './CatalogView';
+import { BookOpen } from 'lucide-react';
 
 import { 
   Search, 
@@ -62,14 +64,24 @@ import './App.css';
 
 import { supabase } from './lib/supabase';
 
-function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrailer, suggestedBay, runwayWeeks }: { 
+function Dashboard({ 
+  trailers, 
+  setTrailers, 
+  updateTrailer, 
+  isConnected, 
+  addTrailer, 
+  suggestedBay, 
+  runwayWeeks,
+  nextSuggestedSerial 
+}: { 
   trailers: Trailer[], 
   setTrailers: React.Dispatch<React.SetStateAction<Trailer[]>>,
   updateTrailer: (id: string, updates: Partial<Trailer>) => void,
   isConnected: boolean,
   addTrailer: (trailer: Trailer) => Promise<void>,
   suggestedBay: StationId,
-  runwayWeeks: number
+  runwayWeeks: number,
+  nextSuggestedSerial?: string
 }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const highlightedTrailerId = searchParams.get('highlight');
@@ -111,11 +123,18 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
     serialNumber: '',
     name: '',
     model: '',
-    station: 'B1' as StationId,
+    station: 'None' as StationId,
     isPriority: false,
     expectedDueDate: '',
     promisedShippingDate: ''
   });
+
+  const totalHoursForNewModel = useMemo(() => {
+    if (!newTrailerData.model) return 0;
+    const modelHours = MODEL_TARGET_HOURS[newTrailerData.model];
+    if (!modelHours) return 0;
+    return Object.entries(modelHours).reduce((a, [p, h]) => p !== 'shipping' ? a + (h as number) : a, 0);
+  }, [newTrailerData.model]);
 
 
   const sensors = useSensors(
@@ -137,7 +156,6 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
     ));
   }, [trailers, searchQuery]);
 
-  // Calculate Column Totals (Stage vs Pipeline)
   const getPhaseWorkload = (phaseId: PhaseId) => {
     if (phaseId === 'shipping') return { stage: 0, pipeline: 0 };
     
@@ -373,9 +391,7 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
         id: newId,
         name: newTrailerData.name || '---',
         model: newTrailerData.model,
-        serialNumber: newTrailerData.serialNumber
-          ? (newTrailerData.serialNumber.toUpperCase().startsWith('LT-') ? newTrailerData.serialNumber.toUpperCase() : `LT-${newTrailerData.serialNumber.toUpperCase()}`)
-          : `LT-${Math.floor(10000 + Math.random() * 90000)}`,
+        serialNumber: newTrailerData.serialNumber || `UNIT-${Math.floor(10000 + Math.random() * 90000)}`,
         station: newTrailerData.station,
         isPriority: newTrailerData.isPriority,
         dateStarted: Date.now(),
@@ -391,7 +407,7 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
         serialNumber: '',
         name: '', 
         model: '', 
-        station: suggestedBay, 
+        station: 'None', 
         isPriority: false,
         expectedDueDate: '',
         promisedShippingDate: ''
@@ -444,6 +460,9 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
           </button>
           <button className="btn btn-secondary" onClick={() => navigate('/tv')}>
             <Tv size={16} /> <span className="btn-text">TV Mode</span>
+          </button>
+          <button className="btn btn-secondary" onClick={() => navigate('/catalog')}>
+            <BookOpen size={16} /> <span className="btn-text">Catalog</span>
           </button>
           <button className="btn btn-primary" onClick={() => setIsAddModalOpen(true)}>
             <Plus size={16} /> <span className="btn-text">Add Unit</span>
@@ -537,22 +556,36 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
 
       <Modal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} title="Quick Unit Registration">
         <form onSubmit={handleAddTrailer}>
-
           {/* Serial Number — top of form, prominent */}
           <div style={{ marginBottom: '1.25rem' }}>
-            <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.4rem', display: 'block' }}>Serial Number</label>
-            <div style={{ display: 'flex', alignItems: 'center', border: '2px solid #e2e8f0', borderRadius: '10px', overflow: 'hidden', background: '#fff', transition: 'border-color 0.2s' }}
-              onFocusCapture={e => (e.currentTarget.style.borderColor = 'var(--accent)')}
-              onBlurCapture={e => (e.currentTarget.style.borderColor = '#e2e8f0')}
-            >
-              <span style={{ padding: '0 0.75rem', fontSize: '0.9rem', fontWeight: 800, color: '#94a3b8', background: '#f8fafc', borderRight: '2px solid #e2e8f0', height: '100%', display: 'flex', alignItems: 'center', whiteSpace: 'nowrap' }}>LT-</span>
-              <input
-                type="text"
-                style={{ border: 'none', outline: 'none', padding: '0.65rem 0.75rem', fontSize: '0.95rem', fontWeight: 700, width: '100%', background: 'transparent', letterSpacing: '0.05em' }}
-                placeholder="e.g. 54321"
-                value={newTrailerData.serialNumber}
-                onChange={e => setNewTrailerData({...newTrailerData, serialNumber: e.target.value.toUpperCase()})}
+            <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span>Serial Number</span>
+              {trailers.some(t => t.serialNumber === newTrailerData.serialNumber) && (
+                <span style={{ color: '#ef4444', fontSize: '0.7rem', fontWeight: 800 }}>ALREADY EXISTS!</span>
+              )}
+            </label>
+            <div style={{ position: 'relative' }}>
+              <input 
+                type="text" 
+                className="form-input" 
+                style={{ 
+                  borderRadius: '10px',
+                  borderColor: trailers.some(t => t.serialNumber === newTrailerData.serialNumber) ? '#fecdd3' : undefined,
+                  backgroundColor: trailers.some(t => t.serialNumber === newTrailerData.serialNumber) ? '#fff1f2' : undefined 
+                }}
+                value={newTrailerData.serialNumber} 
+                onChange={e => setNewTrailerData({ ...newTrailerData, serialNumber: e.target.value })}
+                placeholder="e.g. T001"
               />
+              {nextSuggestedSerial && (
+                <button 
+                  type="button"
+                  style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', background: '#f0f9ff', border: '1px solid #bae6fd', color: '#0369a1', fontSize: '0.65rem', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontWeight: 700 }}
+                  onClick={() => setNewTrailerData(prev => ({ ...prev, serialNumber: nextSuggestedSerial }))}
+                >
+                  SUGGEST: {nextSuggestedSerial}
+                </button>
+              )}
             </div>
           </div>
 
@@ -561,7 +594,7 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
             <input type="text" className="form-input" value={newTrailerData.name} onChange={e => setNewTrailerData({...newTrailerData, name: e.target.value})} placeholder="e.g. Stock Unit" />
           </div>
           <div className="form-group">
-            <label className="form-label">Official Lane Model *</label>
+            <label className="form-label">LANE TRAILERS *</label>
             <select className="form-select" value={newTrailerData.model} onChange={e => setNewTrailerData({...newTrailerData, model: e.target.value})} required>
               <option value="">Select Model...</option>
               {MODEL_CATEGORIES.map(cat => <optgroup key={cat.name} label={cat.name}>{cat.models.map(m => <option key={m} value={m}>{m}</option>)}</optgroup>)}
@@ -577,6 +610,24 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
               <input type="date" className="form-input" value={newTrailerData.promisedShippingDate} onChange={e => setNewTrailerData({...newTrailerData, promisedShippingDate: e.target.value})} />
             </div>
           </div>
+          
+          {newTrailerData.model && (
+            <div style={{ marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '2px dashed #f1f5f9' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '1rem' }}>
+                <span style={{ fontSize: '0.875rem', fontWeight: 700, color: '#64748b' }}>Estimated Build Time</span>
+                <span style={{ fontSize: '1.5rem', fontWeight: 900, color: '#0f172a' }}>{totalHoursForNewModel}h</span>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                {Object.entries(MODEL_TARGET_HOURS[newTrailerData.model] || {}).filter(([p]) => p !== 'shipping' && p !== 'backlog').map(([phase, hours]) => (
+                  <div key={phase} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.4rem 0.75rem', background: '#f8fafc', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
+                    <span style={{ fontSize: '0.75rem', textTransform: 'capitalize', color: '#64748b', fontWeight: 600 }}>{phase}</span>
+                    <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#0f172a' }}>{hours}h</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="form-group" style={{ marginTop: '1rem', display: 'flex', alignItems: 'center', gap: '0.75rem', background: '#fff1f2', padding: '0.85rem', borderRadius: '12px', border: '1px solid #fecdd3' }}>
             <input 
               type="checkbox" 
@@ -593,8 +644,14 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
             <button 
               type="submit" 
               className="btn btn-primary" 
-              disabled={isAdding}
-              style={{ height: '3.5rem', fontSize: '1.1rem', opacity: isAdding ? 0.7 : 1, position: 'relative' }}
+              disabled={isAdding || !newTrailerData.name || !newTrailerData.serialNumber || trailers.some(t => t.serialNumber === newTrailerData.serialNumber)}
+              style={{ 
+                height: '3.5rem', 
+                fontSize: '1.1rem', 
+                opacity: (isAdding || !newTrailerData.name || !newTrailerData.serialNumber || trailers.some(t => t.serialNumber === newTrailerData.serialNumber)) ? 0.7 : 1, 
+                position: 'relative',
+                background: '#2563eb'
+              }}
             >
               {isAdding ? 'Registering Unit...' : 'Add to Backlog'}
               {!isAdding && (
@@ -602,7 +659,7 @@ function Dashboard({ trailers, setTrailers, updateTrailer, isConnected, addTrail
                   position: 'absolute', 
                   top: '-12px', 
                   right: '12px', 
-                  background: '#000', 
+                  background: '#334155', 
                   color: '#fff', 
                   padding: '2px 8px', 
                   borderRadius: '6px', 
@@ -843,43 +900,60 @@ function App() {
     'None': 0
   });
 
-  // Fetch initial data
+  const nextSuggestedSerial = useMemo(() => {
+    if (trailers.length === 0) return '';
+    
+    // Trailers are already sorted by dateStarted DESC from the initial fetch,
+    // but let's be safe and ensure we check them in chronological order of entry.
+    const sorted = [...trailers].sort((a, b) => b.dateStarted - a.dateStarted);
+
+    for (const t of sorted) {
+      const match = t.serialNumber.match(/^(.*?)([0-9]+)$/);
+      if (match) {
+        const prefix = match[1];
+        const numStr = match[2];
+        let nextNum = parseInt(numStr, 10) + 1;
+        
+        // Loop until we find a serial that doesn't exist yet
+        let suggested = `${prefix}${nextNum.toString().padStart(numStr.length, "0")}`;
+        while (trailers.some(tr => tr.serialNumber === suggested)) {
+          nextNum++;
+          suggested = `${prefix}${nextNum.toString().padStart(numStr.length, "0")}`;
+        }
+        
+        return suggested;
+      }
+    }
+    
+    return '';
+  }, [trailers]);
+
   useEffect(() => {
     const fetchInitialData = async () => {
+      setLoading(true);
       try {
-        // Fetch trailers
-        const { data: trailersData, error: trailersError } = await supabase
-          .from('trailers')
-          .select('*')
-          .order('dateStarted', { ascending: false });
+        const [trailersRes, bayRes] = await Promise.all([
+          supabase.from('trailers').select('*').order('dateStarted', { ascending: false }),
+          supabase.from('bay_settings').select('*')
+        ]);
         
-        if (trailersError) throw trailersError;
-        if (trailersData) setTrailers(trailersData);
-
-        // Fetch bay capacities
-        const { data: capData, error: capError } = await supabase
-          .from('bay_settings')
-          .select('*');
-        
-        if (capError) {
-          console.warn('bay_settings table might be missing, using defaults:', capError.message);
-        } else if (capData) {
-          const caps: Record<string, number> = { 
+        if (trailersRes.data) setTrailers(trailersRes.data);
+        if (bayRes.data) {
+          const caps = { 
             'B1': 40,
             'B2': 80,
             'B3': 80,
             'B4': 40,
             'None': 0
           };
-          capData.forEach((row: any) => {
-            caps[row.id] = row.capacity;
+          bayRes.data.forEach((b: any) => {
+            caps[b.id as StationId] = b.capacity;
           });
-          setBayCapacities(caps as Record<StationId, number>);
+          setBayCapacities(caps);
         }
-
         setIsConnected(true);
       } catch (err) {
-        console.error('Initial fetch failed:', err);
+        console.error('Error fetching data:', err);
       } finally {
         setLoading(false);
       }
@@ -894,43 +968,29 @@ function App() {
         'postgres_changes' as any,
         { event: '*', schema: 'public', table: 'trailers' },
         (payload: any) => {
-          console.log('Trailer Change received:', payload);
           if (payload.eventType === 'INSERT') {
             setTrailers(prev => prev.find(t => t.id === payload.new.id) ? prev : [payload.new as Trailer, ...prev]);
           } else if (payload.eventType === 'UPDATE') {
-            setTrailers(prev => prev.map(t => 
-              t.id === payload.new.id 
-                ? { ...t, ...payload.new } as Trailer // SPREAD TO MERGE AND PREVENT STATE LOSS
-                : t
-            ));
+            setTrailers(prev => prev.map(t => t.id === payload.new.id ? { ...t, ...payload.new } as Trailer : t));
           } else if (payload.eventType === 'DELETE') {
-            setTrailers(prev => prev.filter(t => t.id === payload.old.id));
+            setTrailers(prev => prev.filter(t => t.id !== payload.old.id));
           }
         }
       )
-      .subscribe((status) => {
-        console.log('Trailers Channel Status:', status);
-      });
+      .subscribe();
 
-    // Subscribe to bay capacity changes
     const capChannel = supabase
       .channel('bay-settings-changes')
       .on(
         'postgres_changes' as any,
         { event: '*', schema: 'public', table: 'bay_settings' },
         (payload: any) => {
-          console.log('Bay Setting Change received:', payload);
           if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-            setBayCapacities(prev => ({
-              ...prev,
-              [payload.new.id]: payload.new.capacity
-            }));
+            setBayCapacities(prev => ({ ...prev, [payload.new.id]: payload.new.capacity }));
           }
         }
       )
-      .subscribe((status) => {
-        console.log('Bay Settings Channel Status:', status);
-      });
+      .subscribe();
 
     return () => {
       supabase.removeChannel(trailerChannel);
@@ -1081,14 +1141,15 @@ function App() {
   return (
     <AuthGate>
       <Routes>
-        <Route path="/" element={<Dashboard trailers={trailers} setTrailers={setTrailers} updateTrailer={updateTrailer} isConnected={isConnected} addTrailer={addTrailer} suggestedBay={suggestedBay} runwayWeeks={runwayWeeks} />} />
-        <Route path="/backlog" element={<BacklogView trailers={trailers} onAddTrailer={addTrailer} onUpdateTrailer={updateTrailer} suggestedBay={suggestedBay} />} />
+        <Route path="/" element={<Dashboard trailers={trailers} setTrailers={setTrailers} updateTrailer={updateTrailer} isConnected={isConnected} addTrailer={addTrailer} suggestedBay={suggestedBay} runwayWeeks={runwayWeeks} nextSuggestedSerial={nextSuggestedSerial} />} />
+        <Route path="/backlog" element={<BacklogView trailers={trailers} onAddTrailer={addTrailer} onUpdateTrailer={updateTrailer} suggestedBay={suggestedBay} nextSuggestedSerial={nextSuggestedSerial} />} />
         <Route path="/stations" element={<StationView trailers={trailers} setTrailers={setTrailers} onUpdateTrailer={updateTrailer} bayCapacities={bayCapacities} onUpdateCapacity={updateCapacity} />} />
         <Route path="/tv" element={<TVView trailers={trailers} />} />
         <Route path="/tv/station1" element={<TVView trailers={trailers} monitorMode="station1" />} />
         <Route path="/tv/station2" element={<TVView trailers={trailers} monitorMode="station2" />} />
         <Route path="/archive" element={<ArchiveView trailers={trailers} onUpdateTrailer={updateTrailer} />} />
         <Route path="/schedule" element={<ScheduleView trailers={trailers} />} />
+        <Route path="/catalog" element={<CatalogView />} />
       </Routes>
     </AuthGate>
   );
