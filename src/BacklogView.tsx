@@ -10,9 +10,10 @@ interface Props {
   onUpdateTrailer: (id: string, updates: Partial<Trailer>) => void;
   trailers: Trailer[];
   suggestedBay: StationId;
+  nextSuggestedSerial?: string;
 }
 
-export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, trailers, suggestedBay }) => {
+export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, trailers, suggestedBay, nextSuggestedSerial }) => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
@@ -71,7 +72,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
       id: Math.random().toString(36).substr(2, 9),
       name: formData.name || '---',
       model: formData.model,
-      serialNumber: formData.serialNumber || `LT-${Math.floor(10000 + Math.random() * 90000)}`,
+      serialNumber: formData.serialNumber || `UNIT-${Math.floor(10000 + Math.random() * 90000)}`,
       isPriority: formData.isPriority,
       dateStarted: Date.now(),
       currentPhase: 'backlog',
@@ -119,17 +120,38 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
               
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: '1rem' }}>
                 <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label" style={{ fontSize: '0.65rem' }}>Serial Number *</label>
-                  <input 
-                    type="text" 
-                    className="form-input" 
-                    required
-                    style={{ height: '38px', fontSize: '0.9rem' }}
-                    value={formData.serialNumber} 
-                    onChange={e => setFormData({...formData, serialNumber: e.target.value})} 
-                    placeholder="LT-XXXXX" 
-                  />
-                </div>
+                <label className="form-label" style={{ fontSize: '0.65rem', display: 'flex', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <span>Serial Number</span>
+                    {trailers.some(t => t.serialNumber === formData.serialNumber) && (
+                      <span style={{ color: '#ef4444', fontSize: '0.65rem', fontWeight: 800 }}>ALREADY EXISTS!</span>
+                    )}
+                  </div>
+                  {nextSuggestedSerial && (
+                    <button 
+                      type="button"
+                      onClick={() => setFormData(prev => ({ ...prev, serialNumber: nextSuggestedSerial }))}
+                      style={{ background: 'none', border: 'none', color: '#2563eb', fontSize: '0.65rem', fontWeight: 800, cursor: 'pointer', padding: 0 }}
+                    >
+                      SUGGEST: {nextSuggestedSerial}
+                    </button>
+                  )}
+                </label>
+                <input 
+                  type="text" 
+                  className="form-input" 
+                  style={{ 
+                    height: '42px', 
+                    fontSize: '0.9rem', 
+                    fontWeight: 700,
+                    borderColor: trailers.some(t => t.serialNumber === formData.serialNumber) ? '#fecdd3' : undefined,
+                    backgroundColor: trailers.some(t => t.serialNumber === formData.serialNumber) ? '#fff1f2' : undefined 
+                  }}
+                  placeholder="e.g. 10001" 
+                  value={formData.serialNumber} 
+                  onChange={(e) => setFormData({ ...formData, serialNumber: e.target.value })} 
+                />
+              </div>
                 <div className="form-group" style={{ marginBottom: 0 }}>
                   <label className="form-label" style={{ fontSize: '0.65rem' }}>Customer / PO</label>
                   <input 
@@ -144,7 +166,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
               </div>
 
               <div className="form-group" style={{ marginBottom: 0 }}>
-                <label className="form-label" style={{ fontSize: '0.65rem' }}>Official Trailer Model *</label>
+                <label className="form-label" style={{ fontSize: '0.65rem' }}>LANE TRAILERS *</label>
                 <select 
                   className="form-select" 
                   style={{ height: '42px', fontSize: '0.9rem', fontWeight: 700 }}
@@ -208,7 +230,18 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
                 </div>
               </div>
 
-              <button type="submit" className="btn btn-primary" style={{ height: '3.5rem', fontSize: '1rem', borderRadius: '12px', position: 'relative' }}>
+              <button 
+                type="submit" 
+                className="btn btn-primary" 
+                style={{ 
+                  height: '3.5rem', 
+                  fontSize: '1rem', 
+                  borderRadius: '12px', 
+                  position: 'relative',
+                  opacity: trailers.some(t => t.serialNumber === formData.serialNumber) ? 0.6 : 1
+                }}
+                disabled={trailers.some(t => t.serialNumber === formData.serialNumber)}
+              >
                 Confirm Registration <ArrowRight size={18} />
                 <div style={{ 
                   position: 'absolute', 
@@ -234,7 +267,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
                   <span style={{ fontSize: '0.875rem', fontWeight: 700, color: '#64748b' }}>Estimated Build Time</span>
                   <span style={{ fontSize: '1.5rem', fontWeight: 900, color: '#0f172a' }}>{totalHours}h</span>
                 </div>
-                {Object.entries(selectedModelHours || {}).filter(([p]) => p !== 'shipping').map(([phase, hours]) => (
+                {Object.entries(selectedModelHours || {}).filter(([p]) => p !== 'shipping' && p !== 'backlog').map(([phase, hours]) => (
                   <div key={phase} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '0.4rem', borderBottom: '1px solid #f1f5f9' }}>
                     <span style={{ fontSize: '0.8125rem', textTransform: 'capitalize', color: '#64748b', fontWeight: 600 }}>{phase}</span>
                     <span style={{ fontSize: '0.8125rem', fontWeight: 800, color: '#0f172a' }}>{hours}h</span>

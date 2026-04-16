@@ -145,6 +145,44 @@ export const DEFAULT_BAY_CAPACITIES: Record<string, number> = {
   'None': 0,
 };
 
+export interface ModelSpec {
+  steelWeight: string;
+  description: string;
+  axles: string;
+}
+
+export const MODEL_SPECS: Record<string, ModelSpec> = {};
+
+MODEL_CATEGORIES.forEach(cat => {
+  cat.models.forEach(model => {
+    let weight = '2,450 lbs';
+    let desc = 'Standard industrial trailer with high-durability chassis.';
+    let axles = 'Single 3.5k';
+
+    if (cat.name === 'Reel Trailers') {
+      weight = '3,200 lbs';
+      axles = 'Tandem 7k';
+    } else if (cat.name === 'Drone Trailers (LAD)') {
+      weight = '4,800 lbs';
+      axles = 'Tandem 10k';
+      desc = 'Specialized drone transport unit with reinforced platform.';
+    } else if (cat.name === 'Pole Trailers (LPT)') {
+      weight = '6,200 lbs';
+      axles = 'Tandem 12k Duals';
+      desc = 'Heavy-duty pole hauling trailer for utility maintenance.';
+    } else if (cat.name === 'Pipe Trailers') {
+      weight = '2,900 lbs';
+      axles = 'Single 8k';
+    } else if (cat.name === 'Specialty & Equipment') {
+      weight = '7,500 lbs+';
+      axles = 'Triple 7k';
+      desc = 'High-capacity equipment hauler for extreme loads.';
+    }
+
+    MODEL_SPECS[model] = { steelWeight: weight, description: desc, axles };
+  });
+});
+
 /**
  * Calculates the total remaining build hours for a trailer from its current phase to shipping.
  * Accounts for finished types (Paint vs. Outsource) and current phase progress.

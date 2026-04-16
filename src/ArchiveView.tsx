@@ -12,6 +12,7 @@ interface Props {
 
 export const ArchiveView: React.FC<Props> = ({ trailers, onUpdateTrailer }) => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState<'shipped' | 'serial'>('shipped');
   const [selectedTrailerId, setSelectedTrailerId] = useState<string | null>(null);
 
   const archivedTrailers = trailers
@@ -21,7 +22,12 @@ export const ArchiveView: React.FC<Props> = ({ trailers, onUpdateTrailer }) => {
       t.serialNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
       t.model.toLowerCase().includes(searchQuery.toLowerCase())
     )
-    .sort((a, b) => (b.archivedAt || 0) - (a.archivedAt || 0));
+    .sort((a, b) => {
+      if (sortBy === 'serial') {
+        return a.serialNumber.localeCompare(b.serialNumber);
+      }
+      return (b.archivedAt || 0) - (a.archivedAt || 0);
+    });
 
   const selectedTrailer = trailers.find(t => t.id === selectedTrailerId);
 
@@ -37,7 +43,27 @@ export const ArchiveView: React.FC<Props> = ({ trailers, onUpdateTrailer }) => {
             <h1 style={{ fontSize: '1.25rem', fontWeight: 800 }}>Production Archive</h1>
           </div>
         </div>
-        <div className="header-right">
+         <div className="header-right" style={{ gap: '1rem' }}>
+           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: '#f1f5f9', padding: '0.25rem', borderRadius: '10px' }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#64748b', marginLeft: '0.5rem' }}>SORT BY:</span>
+              <select 
+                value={sortBy} 
+                onChange={(e) => setSortBy(e.target.value as any)}
+                style={{ 
+                  background: 'white', 
+                  border: '1px solid #e2e8f0', 
+                  borderRadius: '8px', 
+                  padding: '0.25rem 0.5rem', 
+                  fontSize: '0.75rem', 
+                  fontWeight: 700,
+                  outline: 'none',
+                  cursor: 'pointer'
+                }}
+              >
+                <option value="shipped">Date Shipped</option>
+                <option value="serial">Serial Number</option>
+              </select>
+           </div>
            <div className="search-bar">
             <Search size={16} color="var(--text-muted)" />
             <input 
@@ -50,7 +76,7 @@ export const ArchiveView: React.FC<Props> = ({ trailers, onUpdateTrailer }) => {
         </div>
       </header>
 
-      <main className="main-content" style={{ padding: '2rem' }}>
+      <main className="main-content" style={{ padding: '2rem', paddingBottom: '6rem' }}>
         <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
             <div>
