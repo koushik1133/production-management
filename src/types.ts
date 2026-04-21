@@ -37,8 +37,26 @@ export interface Trailer {
   isDeleted?: boolean;
   invoiceNumber?: string;
   vinDate?: string;
-  expectedDueDate?: string;
   promisedShippingDate?: string;
+}
+
+export interface ShippedTrailer {
+  serial_number: string;       // PRIMARY KEY
+  trailer_name: string;
+  customer_name?: string;
+  vin_date: string;
+  invoice_number: string;
+  shipped_at: string;
+  total_hours: number;
+  prefab_hours: number;
+  build_hours: number;
+  paint_hours: number;
+  outsource_hours: number;
+  trim_hours: number;
+  photo_1_url?: string;
+  photo_2_url?: string;
+  photo_3_url?: string;
+  sale_price: number;
 }
 
 export const STATIONS: StationId[] = ['B1', 'B2', 'B3', 'B4'];
@@ -137,75 +155,50 @@ MODEL_CATEGORIES.forEach(cat => {
 
 export const ALL_MODELS = MODEL_CATEGORIES.flatMap(cat => cat.models);
 
-export const DEFAULT_BAY_CAPACITIES: Record<string, number> = {
-  'B1': 40,
-  'B2': 80,
-  'B3': 80,
-  'B4': 40,
-  'None': 0,
-};
-
 export interface ModelSpec {
-  steelWeight: string;
-  description: string;
-  axles: string;
+  steelWeight?: string;
+  description?: string;
+  axles?: string;
 }
 
-export const MODEL_SPECS: Record<string, ModelSpec> = {};
-
-MODEL_CATEGORIES.forEach(cat => {
-  cat.models.forEach(model => {
-    let weight = '2,450 lbs';
-    let desc = 'Standard industrial trailer with high-durability chassis.';
-    let axles = 'Single 3.5k';
-
-    if (cat.name === 'Reel Trailers') {
-      weight = '3,200 lbs';
-      axles = 'Tandem 7k';
-    } else if (cat.name === 'Drone Trailers (LAD)') {
-      weight = '4,800 lbs';
-      axles = 'Tandem 10k';
-      desc = 'Specialized drone transport unit with reinforced platform.';
-    } else if (cat.name === 'Pole Trailers (LPT)') {
-      weight = '6,200 lbs';
-      axles = 'Tandem 12k Duals';
-      desc = 'Heavy-duty pole hauling trailer for utility maintenance.';
-    } else if (cat.name === 'Pipe Trailers') {
-      weight = '2,900 lbs';
-      axles = 'Single 8k';
-    } else if (cat.name === 'Specialty & Equipment') {
-      weight = '7,500 lbs+';
-      axles = 'Triple 7k';
-      desc = 'High-capacity equipment hauler for extreme loads.';
-    }
-
-    MODEL_SPECS[model] = { steelWeight: weight, description: desc, axles };
-  });
-});
+export interface CatalogModel {
+  id: string;
+  name: string;
+  category: string;
+  target_hours: Record<PhaseId, number>;
+  specs: ModelSpec;
+}
 
 /**
  * Calculates the total remaining build hours for a trailer from its current phase to shipping.
  * Accounts for finished types (Paint vs. Outsource) and current phase progress.
  */
-export function calculateTrailerRemainingHours(trailer: Trailer): number {
+export function calculateTrailerRemainingHours(trailer: Trailer, hoursConfig?: Record<string, Record<PhaseId, number>>): number {
   const phaseOrder: PhaseId[] = ['backlog', 'prefab', 'build', 'paint', 'outsource', 'trim', 'shipping'];
   const currentIndex = phaseOrder.indexOf(trailer.currentPhase);
   if (currentIndex === -1) return 0;
 
-  // We stop at 'shipping' (meaning we include production work up to the point it ships)
   const relevantPhases = phaseOrder.slice(currentIndex);
   let total = 0;
 
   relevantPhases.forEach(pId => {
     if (pId === 'shipping' && trailer.currentPhase !== 'shipping') return;
-    
-    // Skip irrelevant finishing phase
-    if (pId === 'paint' && trailer.finishingType === 'Outsource') return;
-    if (pId === 'outsource' && trailer.finishingType === 'Paint') return;
-    if (!trailer.finishingType && pId === 'outsource') return;
 
-    const target = MODEL_TARGET_HOURS[trailer.model]?.[pId] || PHASE_METADATA[pId].defaultTargetHours;
-    total += target;
+    // Skip irrelevant finishing phase ONLY if an explicit override is set
+    if (trailer.finishingType === 'Outsource' && pId === 'paint') return;
+    if (trailer.finishingType === 'Paint' && pId === 'outsource') return;
+
+    const config = hoursConfig || MODEL_TARGET_HOURS;
+    const target = config[trailer.model]?.[pId] || PHASE_METADATA[pId].defaultTargetHours;
+    
+    // Check for manual hours in history
+    const log = trailer.history.find(h => h.phase === pId);
+    if (pId === trailer.currentPhase && log) {
+      const loggedHours = log.phaseManualHours || log.bayManualHours || 0;
+      total += Math.max(0, target - loggedHours);
+    } else {
+      total += target;
+    }
   });
 
   return total;

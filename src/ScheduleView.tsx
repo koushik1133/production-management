@@ -25,15 +25,15 @@ export const ScheduleView: React.FC<Props> = ({ trailers }) => {
   const today = startOfDay(new Date());
   
   const groups = {
-    overdue: filteredTrailers.filter(t => t.expectedDueDate && isBefore(startOfDay(new Date(t.expectedDueDate + 'T12:00:00')), today)),
-    today: filteredTrailers.filter(t => t.expectedDueDate && isToday(new Date(t.expectedDueDate + 'T12:00:00'))),
-    upcoming: filteredTrailers.filter(t => t.expectedDueDate && !isToday(new Date(t.expectedDueDate + 'T12:00:00')) && !isBefore(startOfDay(new Date(t.expectedDueDate + 'T12:00:00')), today)),
-    unscheduled: filteredTrailers.filter(t => !t.expectedDueDate)
+    overdue: filteredTrailers.filter(t => t.promisedShippingDate && isBefore(startOfDay(new Date(t.promisedShippingDate + 'T12:00:00')), today)),
+    today: filteredTrailers.filter(t => t.promisedShippingDate && isToday(new Date(t.promisedShippingDate + 'T12:00:00'))),
+    upcoming: filteredTrailers.filter(t => t.promisedShippingDate && !isToday(new Date(t.promisedShippingDate + 'T12:00:00')) && !isBefore(startOfDay(new Date(t.promisedShippingDate + 'T12:00:00')), today)),
+    unscheduled: filteredTrailers.filter(t => !t.promisedShippingDate)
   };
 
   // Sort groups by date
-  groups.upcoming.sort((a, b) => new Date(a.expectedDueDate!).getTime() - new Date(b.expectedDueDate!).getTime());
-  groups.overdue.sort((a, b) => new Date(a.expectedDueDate!).getTime() - new Date(b.expectedDueDate!).getTime());
+  groups.upcoming.sort((a, b) => new Date(a.promisedShippingDate!).getTime() - new Date(b.promisedShippingDate!).getTime());
+  groups.overdue.sort((a, b) => new Date(a.promisedShippingDate!).getTime() - new Date(b.promisedShippingDate!).getTime());
 
   const RenderTrailerList = (list: Trailer[], title: string, color: string, icon: React.ReactNode) => {
     if (list.length === 0) return null;
@@ -86,7 +86,7 @@ export const ScheduleView: React.FC<Props> = ({ trailers }) => {
                   <div style={{ flex: 1, padding: '0.75rem', background: trailer.isPriority ? '#fff1f2' : '#f8fafc', borderRadius: '12px', border: '1px solid', borderColor: trailer.isPriority ? '#fecdd3' : '#f1f5f9' }}>
                     <span style={{ fontSize: '0.6rem', fontWeight: 800, color: trailer.isPriority ? '#be123c' : '#94a3b8', textTransform: 'uppercase', display: 'block', marginBottom: '0.25rem' }}>Due Date</span>
                     <div style={{ fontSize: '0.85rem', fontWeight: 800, color: trailer.isPriority ? '#e11d48' : '#0f172a' }}>
-                      {trailer.expectedDueDate ? format(new Date(trailer.expectedDueDate + 'T12:00:00'), 'MMM d, yyyy') : 'NOT SET'}
+                      {trailer.promisedShippingDate ? format(new Date(trailer.promisedShippingDate + 'T12:00:00'), 'MMM d, yyyy') : 'NOT SET'}
                     </div>
                   </div>
                 </div>

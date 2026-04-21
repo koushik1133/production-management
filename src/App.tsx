@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Routes, Route, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { format } from 'date-fns';
 import {
@@ -38,54 +38,89 @@ import {
   Plus, 
   MapPin,
   Tv,
-  Download,
-  Upload,
   Clock,
   Archive,
   Crown,
   BarChart3,
   ChevronLeft,
   ChevronRight,
-  Calendar
+  Calendar,
+  Image as ImageIcon,
+  DollarSign,
+  Sun,
+  Moon
 } from 'lucide-react';
 
-import type { Trailer, PhaseId, StationId } from './types';
 import { 
   PHASES, 
   MODEL_CATEGORIES, 
   MODEL_TARGET_HOURS,
   STATIONS,
-  PHASE_METADATA
+  PHASE_METADATA,
+  calculateTrailerRemainingHours
 } from './types';
+import type { Trailer, PhaseId, StationId, ModelSpec, CatalogModel, ShippedTrailer } from './types';
 
-import { exportToCsv, parseCsv } from './utils/CsvUtils';
+const localModelCategories = MODEL_CATEGORIES;
+const localModelSpecs = MODEL_TARGET_HOURS;
+
+
 import logo from './assets/logo.jpeg';
 import './App.css';
 
 import { supabase } from './lib/supabase';
 
 function Dashboard({ 
+  theme,
+  onToggleTheme,
+  sensors,
+  handleDragStart,
+  handleDragOver,
+  handleDragEnd,
+  activeId,
+  filteredTrailers,
+  totalWorkRemaining,
+  totalProductionTime,
   trailers, 
-  setTrailers, 
   updateTrailer, 
   isConnected, 
   addTrailer, 
   suggestedBay, 
   runwayWeeks,
-  nextSuggestedSerial 
+  nextSuggestedSerial,
+  localTargetHours,
+  onDeleteTrailer,
+  onSaveShippedRecord,
+  searchQuery,
+  setSearchQuery,
+  shippedTrailers
 }: { 
   trailers: Trailer[], 
-  setTrailers: React.Dispatch<React.SetStateAction<Trailer[]>>,
   updateTrailer: (id: string, updates: Partial<Trailer>) => void,
   isConnected: boolean,
   addTrailer: (trailer: Trailer) => Promise<void>,
   suggestedBay: StationId,
   runwayWeeks: number,
-  nextSuggestedSerial?: string
+  nextSuggestedSerial?: string,
+  localTargetHours: Record<string, Record<PhaseId, number>>,
+  onDeleteTrailer: (id: string) => void,
+  onSaveShippedRecord: (record: Omit<ShippedTrailer, 'id'>) => Promise<void>,
+  theme: 'light' | 'dark',
+  onToggleTheme: () => void,
+  sensors: any,
+  handleDragStart: (event: DragStartEvent) => void,
+  handleDragOver: (event: DragOverEvent) => void,
+  handleDragEnd: (event: DragEndEvent) => Promise<void>,
+  activeId: string | null,
+  filteredTrailers: Trailer[],
+  totalWorkRemaining: number,
+  totalProductionTime: number,
+  searchQuery: string,
+  setSearchQuery: React.Dispatch<React.SetStateAction<string>>,
+  shippedTrailers: ShippedTrailer[]
 }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const highlightedTrailerId = searchParams.get('highlight');
-  const [activeId, setActiveId] = useState<string | null>(null);
 
   useEffect(() => {
     if (highlightedTrailerId) {
@@ -95,12 +130,53 @@ function Dashboard({
       return () => clearTimeout(timer);
     }
   }, [highlightedTrailerId, setSearchParams]);
-  const [searchQuery, setSearchQuery] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isStatsModalOpen, setIsStatsModalOpen] = useState(false);
-  const [isRecapModalOpen, setIsRecapModalOpen] = useState(false);
   const [selectedTrailerId, setSelectedTrailerId] = useState<string | null>(null);
-  
+  const [pendingShippingTrailer, setPendingShippingTrailer] = useState<Trailer | null>(null);
+  const [shippingForm, setShippingForm] = useState({ 
+    invoice_number: '', 
+    vin_date: '',
+    customer_name: '',
+    sale_price: '',
+    dealer_price: '',
+    cost_price: ''
+  });
+  const selectedTrailer = useMemo(() => trailers.find(t => t.id === selectedTrailerId), [trailers, selectedTrailerId]);
+  const [shippingPhotos, setShippingPhotos] = useState<{ p1: File | null, p2: File | null, p3: File | null }>({ p1: null, p2: null, p3: null });
+  const [shippingHours, setShippingHours] = useState<Record<string, string>>({
+    prefab: '0', build: '0', paint: '0', outsource: '0', trim: '0'
+  });
+  const [isShipping, setIsShipping] = useState(false);
+
+  useEffect(() => {
+    if (pendingShippingTrailer) {
+      const getPhaseHours = (phaseId: string) => {
+        const entries = pendingShippingTrailer.history.filter(h => h.phase === phaseId);
+        const manual = entries.reduce((s, h) => s + (h.phaseManualHours || h.bayManualHours || 0), 0);
+        if (manual > 0) return manual.toString();
+        const ms = entries.reduce((s, h) => s + (h.duration || (h.exitedAt ? h.exitedAt - h.enteredAt : 0)), 0);
+        return (ms / 3600000).toFixed(1);
+      };
+      
+      setShippingHours({
+        prefab: getPhaseHours('prefab'),
+        build: getPhaseHours('build'),
+        paint: getPhaseHours('paint'),
+        outsource: getPhaseHours('outsource'),
+        trim: getPhaseHours('trim')
+      });
+      
+      setShippingForm(prev => ({
+        ...prev,
+        customer_name: pendingShippingTrailer.name || prev.customer_name,
+        invoice_number: pendingShippingTrailer.invoiceNumber || prev.invoice_number,
+        vin_date: pendingShippingTrailer.vinDate || prev.vin_date,
+        sale_price: '' // trailer table doesn't have sale_price
+      }));
+    }
+  }, [pendingShippingTrailer]);
+
   const [currentTime, setCurrentTime] = useState(new Date());
   
   useEffect(() => {
@@ -109,7 +185,6 @@ function Dashboard({
   }, []);
 
   const navigate = useNavigate();
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const mainContentRef = useRef<HTMLDivElement>(null);
 
   const scrollBoard = (direction: 'left' | 'right') => {
@@ -119,307 +194,141 @@ function Dashboard({
     }
   };
 
-  const [newTrailerData, setNewTrailerData] = useState({
-    serialNumber: '',
-    name: '',
-    model: '',
-    station: 'None' as StationId,
-    isPriority: false,
-    expectedDueDate: '',
-    promisedShippingDate: ''
-  });
-
-  const totalHoursForNewModel = useMemo(() => {
-    if (!newTrailerData.model) return 0;
-    const modelHours = MODEL_TARGET_HOURS[newTrailerData.model];
-    if (!modelHours) return 0;
-    return Object.entries(modelHours).reduce((a, [p, h]) => p !== 'shipping' ? a + (h as number) : a, 0);
-  }, [newTrailerData.model]);
-
-
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 10 } }),
-    useSensor(TouchSensor, { 
-      activationConstraint: { 
-        delay: 250, 
-        tolerance: 5 
-      } 
-    }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
-  );
-
-  const filteredTrailers = useMemo(() => {
-    return trailers.filter(t => !t.isArchived && (
-      t.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-      t.serialNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      t.model.toLowerCase().includes(searchQuery.toLowerCase())
-    ));
-  }, [trailers, searchQuery]);
-
-  const getPhaseWorkload = (phaseId: PhaseId) => {
-    if (phaseId === 'shipping') return { stage: 0, pipeline: 0 };
-    
-    return trailers
-      .filter(t => t.currentPhase === phaseId && !t.isArchived)
-      .reduce((acc, t) => {
-        // 1. Stage Work (current phase only)
-        const target = (MODEL_TARGET_HOURS[t.model]?.[phaseId] || 0);
-        const currentLog = t.history.find(h => h.phase === t.currentPhase && !h.exitedAt);
-        const loggedInCurrent = (currentLog?.bayManualHours || currentLog?.phaseManualHours || 0);
-        const stageRem = Math.max(0, target - loggedInCurrent);
-        
-        // 2. Pipeline Work (this phase + all future phases)
-        let pipelineRem = stageRem;
-        const phaseIdx = PHASES.findIndex(p => p.id === phaseId);
-        if (phaseIdx !== -1) {
-          PHASES.slice(phaseIdx + 1).forEach(futurePhase => {
-            if (futurePhase.id !== 'shipping') {
-              pipelineRem += (MODEL_TARGET_HOURS[t.model]?.[futurePhase.id] || 0);
-            }
-          });
-        }
-
-        return {
-          stage: acc.stage + stageRem,
-          pipeline: acc.pipeline + pipelineRem
-        };
-      }, { stage: 0, pipeline: 0 });
-  };
-
-  // Calculate Global Work Remaining
-  const totalWorkRemaining = trailers.reduce((sum, t) => {
-    // If unit is in shipping or archived, it has 0 work remaining
-    if (t.currentPhase === 'shipping' || t.isArchived) return sum;
-
-    const phaseIndex = PHASES.findIndex(p => p.id === t.currentPhase);
-    if (phaseIndex === -1) return sum;
-    
-    // Sum target hours for current phase AND all subsequent phases
-    const remainingForThisTrailer = PHASES.slice(phaseIndex).reduce((pSum, p) => {
-      // 1. Skip backlog and shipping as they are not build work
-      if (p.id === 'backlog' || p.id === 'shipping') return pSum;
-
-      // 2. Logic for Finishing (Paint vs Outsource)
-      if (t.finishingType === 'Paint' && p.id === 'outsource') return pSum;
-      if (t.finishingType === 'Outsource' && p.id === 'paint') return pSum;
-      if (!t.finishingType && p.id === 'outsource') return pSum;
-
-      const target = (MODEL_TARGET_HOURS[t.model]?.[p.id] || 0);
-      return pSum + target;
-    }, 0);
-    
-    return sum + remainingForThisTrailer;
-  }, 0);
-
-  // Global Workload and Suggestions are now passed as props from App
-
-  const totalProductionTime = useMemo(() => {
-    return trailers.reduce((total, t) => {
-      if (t.isArchived || t.currentPhase === 'shipping') return total;
-      
-      const trailerTotalHours = PHASES.reduce((pSum, p) => {
-        if (p.id === 'backlog' || p.id === 'shipping') return pSum;
-        if (t.finishingType === 'Paint' && p.id === 'outsource') return pSum;
-        if (t.finishingType === 'Outsource' && p.id === 'paint') return pSum;
-        if (!t.finishingType && p.id === 'outsource') return pSum;
-        return pSum + (MODEL_TARGET_HOURS[t.model]?.[p.id] || 0);
-      }, 0);
-      
-      return total + trailerTotalHours;
-    }, 0);
-  }, [trailers]);
-
-  const handleDragStart = (event: DragStartEvent) => {
-    setActiveId(event.active.id as string);
-  };
-
-  const handleDragOver = (event: DragOverEvent) => {
-    const { active, over } = event;
-    if (!over) return;
-    const activeId = active.id as string;
-    const overId = over.id as string;
-    const activeTrailer = trailers.find(t => t.id === activeId);
-    if (!activeTrailer) return;
-
-    const isOverColumn = PHASES.some(p => p.id === overId);
-    let overPhase: PhaseId | null = null;
-    if (isOverColumn) overPhase = overId as PhaseId;
-    else {
-      const overTrailer = trailers.find(t => t.id === overId);
-      if (overTrailer) overPhase = overTrailer.currentPhase;
-    }
-
-    if (overPhase) {
-      if (activeTrailer.currentPhase !== overPhase) {
-        setTrailers(prev => {
-          const activeIndex = prev.findIndex(t => t.id === activeId);
-          const overIndex = prev.findIndex(t => t.id === overId);
-          
-          let newIndex;
-          if (isOverColumn) {
-            newIndex = prev.length;
-          } else {
-            newIndex = overIndex;
-          }
-
-          const now = Date.now();
-          const updatedHistory = [...activeTrailer.history];
-          const currentLogIndex = updatedHistory.findIndex(h => h.phase === activeTrailer.currentPhase && !h.exitedAt);
-          if (currentLogIndex !== -1) {
-            const prevLog = updatedHistory[currentLogIndex];
-            updatedHistory[currentLogIndex] = { ...prevLog, exitedAt: now, duration: now - prevLog.enteredAt };
-          }
-          updatedHistory.push({ phase: overPhase as PhaseId, enteredAt: now });
-
-          const updatedTrailer = { ...activeTrailer, currentPhase: overPhase as PhaseId, history: updatedHistory };
-          const newTrailers = [...prev];
-          newTrailers.splice(activeIndex, 1);
-          newTrailers.splice(newIndex, 0, updatedTrailer);
-          return newTrailers;
-        });
-      } else if (activeId !== overId) {
-        // Reorder within same column
-        setTrailers(prev => {
-          const oldIndex = prev.findIndex(t => t.id === activeId);
-          const newIndex = prev.findIndex(t => t.id === overId);
-          const moved = arrayMove(prev, oldIndex, newIndex);
-          return moved;
-        });
-      }
-    }
-  };
-
-  const [pendingShippingTrailer, setPendingShippingTrailer] = useState<Trailer | null>(null);
-  const [shippingForm, setShippingForm] = useState({ invoiceNumber: '', vinDate: '' });
-
-  const handleDragEnd = async (event: DragEndEvent) => {
-    const { active, over } = event;
-    const activeId = active.id as string;
-    const trailer = trailers.find(t => t.id === activeId);
-    
-    if (trailer && over) {
-      // 1. Interpolate dateStarted to persist manual order (Dashboard uses dateStarted DESC)
-      const columnTrailers = trailers.filter(t => t.currentPhase === trailer.currentPhase);
-      const indexInCol = columnTrailers.findIndex(t => t.id === activeId);
-      
-      let newDateStarted = trailer.dateStarted;
-      const above = columnTrailers[indexInCol - 1];
-      const below = columnTrailers[indexInCol + 1];
-
-      if (above && below) {
-        newDateStarted = (above.dateStarted + below.dateStarted) / 2;
-      } else if (above) {
-        newDateStarted = above.dateStarted - 1000;
-      } else if (below) {
-        newDateStarted = below.dateStarted + 1000;
-      }
-
-      // ALWAYS prompt for VIN/Invoice when entering Shipping from ANY phrase (if data is missing)
-      if (trailer.currentPhase === 'shipping' && (!trailer.vinDate || !trailer.invoiceNumber)) {
-        setPendingShippingTrailer(trailer);
-      }
-      
-      // SYNC FINAL STATE TO SUPABASE
-      const { error } = await supabase
-        .from('trailers')
-        .update({
-          currentPhase: trailer.currentPhase,
-          history: trailer.history,
-          dateStarted: newDateStarted
-        })
-        .eq('id', trailer.id);
-        
-      if (error) console.error('Error syncing drag movement:', error);
-      
-      if (newDateStarted !== trailer.dateStarted) {
-        setTrailers(prev => prev.map(t => t.id === activeId ? { ...t, dateStarted: newDateStarted } : t));
-      }
-    }
-    
-    setActiveId(null);
-  };
-
   const handleShipSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!pendingShippingTrailer) return;
+    if (!pendingShippingTrailer || isShipping) return;
     
-    const updates: Partial<Trailer> = {
-      invoiceNumber: shippingForm.invoiceNumber,
-      vinDate: shippingForm.vinDate
-    };
-    
-    // Move to shipping is already in the 'trailers' state via handleDragOver,
-    // here we just add the details and archive it as it's the final stage.
-    updates.isArchived = true;
-    updates.archivedAt = Date.now();
-    
-    await updateTrailer(pendingShippingTrailer.id, updates);
-    setPendingShippingTrailer(null);
-    setShippingForm({ invoiceNumber: '', vinDate: '' });
-  };
+    setIsShipping(true);
+    try {
+      const fileToBase64 = (file: File | null): Promise<string | undefined> => {
+        return new Promise((resolve) => {
+          if (!file) return resolve(undefined);
+          const reader = new FileReader();
+          reader.readAsDataURL(file);
+          reader.onload = (e) => {
+            const img = new window.Image();
+            img.onload = () => {
+              const canvas = document.createElement('canvas');
+              let width = img.width;
+              let height = img.height;
+              const max = 1200;
+              if (width > height && width > max) { height *= max / width; width = max; }
+              else if (height > max) { width *= max / height; height = max; }
+              canvas.width = width;
+              canvas.height = height;
+              const ctx = canvas.getContext('2d');
+              ctx?.drawImage(img, 0, 0, width, height);
+              resolve(canvas.toDataURL('image/jpeg', 0.6));
+            };
+            img.src = e.target?.result as string;
+          };
+          reader.onerror = () => resolve(undefined);
+        });
+      };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-      const text = event.target?.result as string;
-      const imported = parseCsv(text) as Trailer[];
-      
-      const { error } = await supabase
-        .from('trailers')
-        .insert(imported);
-      
-      if (error) console.error('Error importing CSV:', error);
-    };
-    reader.readAsText(file);
+      const [p1, p2, p3] = await Promise.all([
+        fileToBase64(shippingPhotos.p1),
+        fileToBase64(shippingPhotos.p2),
+        fileToBase64(shippingPhotos.p3)
+      ]);
+
+      const getH = (key: string) => parseFloat(shippingHours[key]) || 0;
+      const hours = { prefab: getH('prefab'), build: getH('build'), paint: getH('paint'), outsource: getH('outsource'), trim: getH('trim') };
+      const total_h = parseFloat(Object.values(hours).reduce((a, b) => a + b, 0).toFixed(1));
+
+      const shippedRecord: ShippedTrailer = {
+        serial_number: pendingShippingTrailer.serialNumber,
+        trailer_name: pendingShippingTrailer.model,
+        customer_name: shippingForm.customer_name,
+        invoice_number: shippingForm.invoice_number,
+        vin_date: shippingForm.vin_date,
+        shipped_at: new Date().toISOString(),
+        total_hours: total_h,
+        prefab_hours: hours.prefab,
+        build_hours: hours.build,
+        paint_hours: hours.paint,
+        outsource_hours: hours.outsource,
+        trim_hours: hours.trim,
+        photo_1_url: p1,
+        photo_2_url: p2,
+        photo_3_url: p3,
+        sale_price: parseFloat(shippingForm.sale_price) || 0
+      };
+
+      await onSaveShippedRecord(shippedRecord);
+      await updateTrailer(pendingShippingTrailer.id, {
+        invoiceNumber: shippingForm.invoice_number,
+        vinDate: shippingForm.vin_date,
+        isArchived: true,
+        archivedAt: Date.now()
+      });
+
+      setPendingShippingTrailer(null);
+      setShippingPhotos({ p1: null, p2: null, p3: null });
+      setShippingForm({ invoice_number: '', vin_date: '', customer_name: '', sale_price: '', dealer_price: '', cost_price: '' });
+      setShippingHours({ prefab: '0', build: '0', paint: '0', outsource: '0', trim: '0' });
+    } catch (err) {
+      console.error(err);
+      alert('Failed to complete shipment.');
+    } finally {
+      setIsShipping(false);
+    }
   };
 
   const [isAdding, setIsAdding] = useState(false);
+  const [newTrailerData, setNewTrailerData] = useState({
+    serialNumber: '',
+    name: '', 
+    model: '', 
+    station: 'None' as StationId, 
+    isPriority: false,
+    promisedShippingDate: ''
+  });
 
   const handleAddTrailer = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newTrailerData.model) {
-      alert("Missing Required Field: Please select an Official Model.");
-      return;
-    }
-    
+    if (!newTrailerData.model) return;
     setIsAdding(true);
     try {
-      const newId = Math.random().toString(36).substr(2, 9);
       const newTrailer: Trailer = {
-        id: newId,
+        id: crypto.randomUUID(),
         name: newTrailerData.name || '---',
         model: newTrailerData.model,
         serialNumber: newTrailerData.serialNumber || `UNIT-${Math.floor(10000 + Math.random() * 90000)}`,
-        station: newTrailerData.station,
+        station: 'None',
         isPriority: newTrailerData.isPriority,
         dateStarted: Date.now(),
         currentPhase: 'backlog',
         history: [{ phase: 'backlog', enteredAt: Date.now() }],
-        expectedDueDate: newTrailerData.expectedDueDate,
         promisedShippingDate: newTrailerData.promisedShippingDate
       };
-      
       await addTrailer(newTrailer);
       setIsAddModalOpen(false);
-      setNewTrailerData({ 
-        serialNumber: '',
-        name: '', 
-        model: '', 
-        station: 'None', 
-        isPriority: false,
-        expectedDueDate: '',
-        promisedShippingDate: ''
-      });
-    } catch (err: any) {
-      alert("Error during registration process: " + err.message);
-    } finally {
-      setIsAdding(false);
-    }
+      setNewTrailerData({ serialNumber: '', name: '', model: '', station: 'None', isPriority: false, promisedShippingDate: '' });
+    } finally { setIsAdding(false); }
   };
 
-  const selectedTrailer = trailers.find(t => t.id === selectedTrailerId);
+  const getPhaseWorkload = (phaseId: PhaseId) => {
+    if (phaseId === 'shipping') return { stage: 0, pipeline: 0 };
+    return trailers.filter(t => t.currentPhase === phaseId && !t.isArchived).reduce((acc, t) => {
+      const target = (localTargetHours[t.model]?.[phaseId] || PHASE_METADATA[phaseId]?.defaultTargetHours || 0);
+      const curLog = t.history.find(h => h.phase === t.currentPhase && !h.exitedAt);
+      const stageRem = Math.max(0, target - (curLog?.bayManualHours || curLog?.phaseManualHours || 0));
+      let pipeRem = stageRem;
+      const pIdx = PHASES.findIndex(p => p.id === phaseId);
+      if (pIdx !== -1) {
+        PHASES.slice(pIdx + 1).forEach(fp => {
+          if (fp.id !== 'shipping' && fp.id !== 'backlog') {
+            if (t.finishingType === 'Outsource' && fp.id === 'paint') return;
+            if (t.finishingType === 'Paint' && fp.id === 'outsource') return;
+            pipeRem += (localTargetHours[t.model]?.[fp.id] || PHASE_METADATA[fp.id].defaultTargetHours);
+          }
+        });
+      }
+      return { stage: acc.stage + stageRem, pipeline: acc.pipeline + pipeRem };
+    }, { stage: 0, pipeline: 0 });
+  };
+
   const activeTrailer = activeId ? trailers.find(t => t.id === activeId) : null;
 
   return (
@@ -427,68 +336,70 @@ function Dashboard({
       <header className="main-header">
         <div className="header-left">
           <Link to="/" className="header-logo-link">
-            <img src={logo} alt="Lane Trailers" className="header-logo-img" />
+            <img src={logo} alt="Lane Trailers" className="header-logo-img" style={{ height: '36px', filter: 'drop-shadow(0 0 8px rgba(59, 130, 246, 0.3))' }} />
           </Link>
+          <div className="header-divider" />
           <div className="header-clock-section">
-            <div className="header-date">{format(currentTime, 'EEEE, MMMM d')}</div>
+            <div className="header-date">{format(currentTime, 'EEE, MMM d')}</div>
             <div className="header-time-live">{format(currentTime, 'hh:mm:ss a')} <span>• LIVE</span></div>
           </div>
           
-          <div className="header-search-container">
-            <Search size={16} color="var(--text-muted)" />
-            <input type="text" placeholder="Search serial or customer..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+          <div className="header-search-container" style={{ background: 'var(--glass-bg)', border: '1px solid var(--border-default)', borderRadius: '12px' }}>
+            <Search size={14} color="var(--text-muted)" />
+            <input type="text" placeholder="Global Search..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)', outline: 'none' }} />
           </div>
 
-          <div className="header-nav-scroll">
-            <button className="btn btn-secondary btn-icon" onClick={() => scrollBoard('left')}>
-              <ChevronLeft size={20} />
+          <div className="header-nav-scroll" style={{ marginLeft: '1rem' }}>
+            <button className="btn btn-secondary btn-icon" onClick={() => scrollBoard('left')} style={{ borderRadius: '10px' }}>
+              <ChevronLeft size={18} />
             </button>
-            <button className="btn btn-secondary btn-icon" onClick={() => scrollBoard('right')}>
-              <ChevronRight size={20} />
+            <button className="btn btn-secondary btn-icon" onClick={() => scrollBoard('right')} style={{ borderRadius: '10px' }}>
+              <ChevronRight size={18} />
             </button>
           </div>
         </div>
 
         <div className="header-right">
-          <div className={`sync-indicator ${isConnected ? 'connected' : 'disconnected'}`}>
+          <div className={`sync-indicator ${isConnected ? 'connected' : 'disconnected'}`} style={{ marginRight: '0.5rem' }}>
              <div className="pulse-dot" />
-             <span className="sync-label">{isConnected ? 'LIVE SYNC' : 'OFFLINE'}</span>
+             <span className="sync-label" style={{ fontSize: '0.6rem' }}>{isConnected ? 'NODE CONNECTED' : 'LINK LOST'}</span>
           </div>
           
           <button className="btn btn-secondary" onClick={() => navigate('/stations')}>
-            <MapPin size={16} /> <span className="btn-text">Bays</span>
+            <MapPin size={14} /> <span className="btn-text">Bays</span>
           </button>
           <button className="btn btn-secondary" onClick={() => navigate('/tv')}>
-            <Tv size={16} /> <span className="btn-text">TV Mode</span>
+            <Tv size={14} /> <span className="btn-text">TV Mode</span>
           </button>
           <button className="btn btn-secondary" onClick={() => navigate('/catalog')}>
-            <BookOpen size={16} /> <span className="btn-text">Catalog</span>
+            <BookOpen size={14} /> <span className="btn-text">Catalog</span>
           </button>
           <button className="btn btn-primary" onClick={() => setIsAddModalOpen(true)}>
-            <Plus size={16} /> <span className="btn-text">Add Unit</span>
+            <Plus size={14} /> <span className="btn-text">Register Unit</span>
           </button>
-          <button className="btn btn-secondary btn-icon" onClick={() => exportToCsv(trailers)} title="Export CSV">
-            <Download size={16} />
-          </button>
-          <button className="btn btn-secondary btn-icon" onClick={() => fileInputRef.current?.click()} title="Import CSV">
-            <Upload size={16} />
-          </button>
-          <input type="file" ref={fileInputRef} style={{ display: 'none' }} accept=".csv" onChange={handleFileUpload} />
           
           <div className="header-divider" />
+
+          <button 
+            className="btn btn-secondary btn-icon theme-toggle" 
+            onClick={onToggleTheme}
+            style={{ borderRadius: '12px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-default)' }}
+          >
+            {theme === 'light' ? <Moon size={18} color="#475569" /> : <Sun size={18} color="#fbbf24" />}
+          </button>
           
           <button className="btn btn-secondary" onClick={() => navigate('/schedule')}>
-             <Calendar size={16} /> <span className="btn-text">Schedule</span>
+             <Calendar size={14} /> <span className="btn-text">Timeline</span>
           </button>
           
-          <button className="btn btn-primary" onClick={() => navigate('/backlog')}>
-             <Plus size={16} /> <span className="btn-text">Backlog Registration</span>
+          <button className="btn btn-secondary" onClick={() => navigate('/backlog')}>
+             <Plus size={14} /> <span className="btn-text">Backlog</span>
           </button>
           
           <div className="header-divider" />
           
-          <button className="btn btn-secondary btn-icon archive-btn" title="Production Archive" onClick={() => navigate('/archive')}>
-            <Archive size={20} />
+          <button className="btn btn-secondary btn-icon archive-btn shimmer" title="Production Archive" onClick={() => navigate('/archive')} style={{ background: 'var(--accent-gradient)', border: 'none', color: 'white' }}>
+            <Archive size={18} />
           </button>
         </div>
       </header>
@@ -504,10 +415,8 @@ function Dashboard({
               onUpdateTrailer={updateTrailer} 
               onShipRequest={(t) => {
                 if (t.vinDate && t.invoiceNumber) {
-                  // Data already collected — archive directly
                   updateTrailer(t.id, { isArchived: true, archivedAt: Date.now() });
                 } else {
-                  // Data missing — open popup (mandatory at shipping)
                   setPendingShippingTrailer(t);
                 }
               }}
@@ -515,15 +424,15 @@ function Dashboard({
               workload={getPhaseWorkload(phase.id)}
               highlightedId={highlightedTrailerId}
               suggestedBay={suggestedBay}
+              localTargetHours={localTargetHours}
             />
           ))}
           <DragOverlay>
-            {activeTrailer ? <TrailerCard trailer={activeTrailer} /> : null}
+            {activeTrailer ? <TrailerCard trailer={activeTrailer} localTargetHours={localTargetHours} isOverlay /> : null}
           </DragOverlay>
         </DndContext>
       </main>
 
-      {/* Global Progress Strip */}
       <div className="pipeline-workload-strip" style={{ position: 'fixed', bottom: '40px', left: 0, right: 0, height: '50px', borderTop: '2px solid #fbbf24', display: 'flex', alignItems: 'center' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <Clock size={20} style={{ color: '#fbbf24' }} />
@@ -556,7 +465,6 @@ function Dashboard({
 
       <Modal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} title="Quick Unit Registration">
         <form onSubmit={handleAddTrailer}>
-          {/* Serial Number — top of form, prominent */}
           <div style={{ marginBottom: '1.25rem' }}>
             <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span>Serial Number</span>
@@ -600,34 +508,13 @@ function Dashboard({
               {MODEL_CATEGORIES.map(cat => <optgroup key={cat.name} label={cat.name}>{cat.models.map(m => <option key={m} value={m}>{m}</option>)}</optgroup>)}
             </select>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
-            <div className="form-group">
-              <label className="form-label">Expected Due Date</label>
-              <input type="date" className="form-input" value={newTrailerData.expectedDueDate} onChange={e => setNewTrailerData({...newTrailerData, expectedDueDate: e.target.value})} />
-            </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1rem', marginTop: '1rem' }}>
             <div className="form-group">
               <label className="form-label">Promised Shipping Date</label>
               <input type="date" className="form-input" value={newTrailerData.promisedShippingDate} onChange={e => setNewTrailerData({...newTrailerData, promisedShippingDate: e.target.value})} />
             </div>
           </div>
           
-          {newTrailerData.model && (
-            <div style={{ marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '2px dashed #f1f5f9' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '1rem' }}>
-                <span style={{ fontSize: '0.875rem', fontWeight: 700, color: '#64748b' }}>Estimated Build Time</span>
-                <span style={{ fontSize: '1.5rem', fontWeight: 900, color: '#0f172a' }}>{totalHoursForNewModel}h</span>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-                {Object.entries(MODEL_TARGET_HOURS[newTrailerData.model] || {}).filter(([p]) => p !== 'shipping' && p !== 'backlog').map(([phase, hours]) => (
-                  <div key={phase} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.4rem 0.75rem', background: '#f8fafc', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
-                    <span style={{ fontSize: '0.75rem', textTransform: 'capitalize', color: '#64748b', fontWeight: 600 }}>{phase}</span>
-                    <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#0f172a' }}>{hours}h</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
           <div className="form-group" style={{ marginTop: '1rem', display: 'flex', alignItems: 'center', gap: '0.75rem', background: '#fff1f2', padding: '0.85rem', borderRadius: '12px', border: '1px solid #fecdd3' }}>
             <input 
               type="checkbox" 
@@ -677,74 +564,138 @@ function Dashboard({
         </form>
       </Modal>
 
-      {selectedTrailer && <TrailerDetailsModal trailer={selectedTrailer} isOpen={true} onClose={() => setSelectedTrailerId(null)} onUpdate={updateTrailer} allTrailers={trailers} />}
+      {selectedTrailer && (
+        <TrailerDetailsModal 
+          trailer={selectedTrailer} 
+          isOpen={true} 
+          onClose={() => setSelectedTrailerId(null)} 
+          onUpdate={updateTrailer} 
+          allTrailers={trailers}
+          localTargetHours={localTargetHours}
+          onDeleteTrailer={(id) => {
+            onDeleteTrailer(id);
+            setSelectedTrailerId(null);
+          }}
+          shippedTrailers={shippedTrailers}
+        />
+      )}
       
-      <Modal isOpen={!!pendingShippingTrailer} onClose={() => setPendingShippingTrailer(null)} title="VIN & Invoice Entry">
-        <form onSubmit={handleShipSubmit}>
-          {/* Unit Info Banner */}
-          {pendingShippingTrailer && (
-            <div style={{
-              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-              padding: '0.75rem 1rem', background: '#f8fafc', borderRadius: '10px',
-              border: '1px solid #e2e8f0', marginBottom: '1.5rem'
-            }}>
-              <div>
-                <div style={{ fontSize: '0.7rem', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Unit</div>
-                <div style={{ fontSize: '0.95rem', fontWeight: 800, color: '#0f172a' }}>{pendingShippingTrailer.model}</div>
+      <Modal isOpen={!!pendingShippingTrailer} onClose={() => setPendingShippingTrailer(null)} title={`Shipment Checklist: ${pendingShippingTrailer?.serialNumber}`}>
+        <form onSubmit={handleShipSubmit} style={{ opacity: isShipping ? 0.7 : 1, pointerEvents: isShipping ? 'none' : 'all' }}>
+          
+          <div style={{ padding: '1.25rem', background: 'var(--bg-secondary)', borderRadius: '16px', border: '1px solid var(--border-default)', marginBottom: '1.5rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ fontSize: '0.65rem' }}>Invoice Number</label>
+                <input required className="form-input" placeholder="INV-0000"
+                  value={shippingForm.invoice_number}
+                  onChange={e => setShippingForm(prev => ({ ...prev, invoice_number: e.target.value }))}
+                />
               </div>
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: '0.7rem', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Serial</div>
-                <div style={{ fontSize: '0.95rem', fontWeight: 800, color: '#0f172a' }}>{pendingShippingTrailer.serialNumber}</div>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ fontSize: '0.65rem' }}>VIN Date</label>
+                <input required type="date" className="form-input"
+                  value={shippingForm.vin_date}
+                  onChange={e => setShippingForm(prev => ({ ...prev, vin_date: e.target.value }))}
+                />
               </div>
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: '0.7rem', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Phase</div>
-                <div style={{ fontSize: '0.95rem', fontWeight: 800, color: '#3b82f6' }}>{pendingShippingTrailer.currentPhase.charAt(0).toUpperCase() + pendingShippingTrailer.currentPhase.slice(1)}</div>
+              <div className="form-group" style={{ gridColumn: 'span 2', margin: 0, marginTop: '1rem' }}>
+                <label className="form-label" style={{ fontSize: '0.65rem' }}>Customer Name</label>
+                <input required className="form-input" placeholder="e.g. Acme Logistics"
+                  value={shippingForm.customer_name}
+                  onChange={e => setShippingForm(prev => ({ ...prev, customer_name: e.target.value }))}
+                />
               </div>
-            </div>
-          )}
-
-          {/* Form Fields */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
-            <div className="form-group" style={{ margin: 0 }}>
-              <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.4rem' }}>Invoice Number *</label>
-              <input 
-                type="text" 
-                className="form-input"
-                required
-                placeholder="e.g. INV-99012"
-                style={{ padding: '0.6rem 0.75rem', borderRadius: '8px', border: '1.5px solid #e2e8f0', fontSize: '0.9rem', fontWeight: 600 }}
-                value={shippingForm.invoiceNumber}
-                onChange={e => setShippingForm(prev => ({ ...prev, invoiceNumber: e.target.value }))}
-              />
-            </div>
-            <div className="form-group" style={{ margin: 0 }}>
-              <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.4rem' }}>VIN Date *</label>
-              <input 
-                type="date" 
-                className="form-input"
-                required
-                style={{ padding: '0.6rem 0.75rem', borderRadius: '8px', border: '1.5px solid #e2e8f0', fontSize: '0.9rem', fontWeight: 600 }}
-                value={shippingForm.vinDate}
-                onChange={e => setShippingForm(prev => ({ ...prev, vinDate: e.target.value }))}
-              />
             </div>
           </div>
 
-          {/* Action Buttons */}
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid #f1f5f9' }}>
-            {pendingShippingTrailer?.currentPhase !== 'shipping' && (
-              <button type="button" className="btn btn-secondary" style={{ borderRadius: '8px', padding: '0.5rem 1.25rem', fontSize: '0.85rem' }} onClick={() => setPendingShippingTrailer(null)}>Skip for Now</button>
+          <div style={{ padding: '1.25rem', background: 'rgba(59, 130, 246, 0.05)', borderRadius: '16px', border: '1px solid rgba(59, 130, 246, 0.2)', marginBottom: '1.5rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '1.25rem' }}>
+              <Clock size={16} color="var(--accent)" />
+              <span style={{ fontSize: '0.75rem', fontWeight: 900, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Production Hours Verification</span>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem' }}>
+              {['prefab', 'build', 'paint', 'outsource', 'trim'].map(phase => (
+                <div key={phase} className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label" style={{ fontSize: '0.6rem', opacity: 0.8 }}>{phase}</label>
+                  <input 
+                    type="number" 
+                    step="0.1"
+                    className="form-input" 
+                    style={{ padding: '0.5rem', textAlign: 'center' }}
+                    value={shippingHours[phase]}
+                    onChange={e => setShippingHours(prev => ({ ...prev, [phase]: e.target.value }))}
+                  />
+                </div>
+              ))}
+              <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', background: 'rgba(59, 130, 246, 0.1)', borderRadius: '8px' }}>
+                <span style={{ fontSize: '0.55rem', fontWeight: 800, color: 'var(--accent)', textTransform: 'uppercase' }}>Total</span>
+                <span style={{ fontSize: '1rem', fontWeight: 900, color: 'var(--text-primary)' }}>
+                  {Object.values(shippingHours).reduce((a, b) => a + (parseFloat(b) || 0), 0).toFixed(1)}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ marginBottom: '1.5rem' }}>
+            <label className="form-label">Shipping Documentation Photos</label>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem' }}>
+              {(['p1', 'p2', 'p3'] as const).map(slot => (
+                <div key={slot}>
+                  {shippingPhotos[slot] ? (
+                    <div style={{ position: 'relative', borderRadius: '12px', overflow: 'hidden', border: '2px solid var(--accent)' }}>
+                      <img src={URL.createObjectURL(shippingPhotos[slot]!)} alt="" style={{ width: '100%', height: '80px', objectFit: 'cover', display: 'block' }} />
+                      <button type="button" onClick={() => setShippingPhotos(prev => ({ ...prev, [slot]: null }))} style={{ position: 'absolute', top: '6px', right: '6px', background: 'rgba(0,0,0,0.7)', border: 'none', borderRadius: '50%', color: 'white', width: '24px', height: '24px', cursor: 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>✕</button>
+                    </div>
+                  ) : (
+                    <label style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '80px', background: 'var(--bg-secondary)', borderRadius: '12px', border: '2px dashed var(--border-default)', cursor: 'pointer', color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 700, gap: '6px', transition: 'all 0.2s' }} className="hover-shimmer">
+                      <ImageIcon size={18} color="var(--text-muted)" /> 
+                      <span>Upload</span>
+                      <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) setShippingPhotos(prev => ({ ...prev, [slot]: f })); }} />
+                    </label>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ padding: '1.25rem', background: 'rgba(217, 119, 6, 0.05)', borderRadius: '16px', border: '1px solid rgba(217, 119, 6, 0.2)', marginBottom: '2rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '1.25rem' }}>
+              <DollarSign size={16} color="#d97706" />
+              <span style={{ fontSize: '0.75rem', fontWeight: 900, color: '#d97706', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Financial Settlement (Private)</span>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr', gap: '1rem' }}>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ color: '#d97706', fontSize: '0.65rem' }}>Final Sale Price ($)</label>
+                <input type="number" className="form-input" style={{ borderColor: 'rgba(217, 119, 6, 0.3)', background: 'rgba(217, 119, 6, 0.05)' }} placeholder="0.00"
+                  value={shippingForm.sale_price}
+                  onChange={e => setShippingForm(prev => ({ ...prev, sale_price: e.target.value }))}
+                />
+              </div>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ color: '#d97706', fontSize: '0.65rem', opacity: 0.6 }}>Dealer Ref</label>
+                <input type="number" disabled className="form-input" style={{ opacity: 0.3 }} placeholder="---" />
+              </div>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ color: '#d97706', fontSize: '0.65rem', opacity: 0.6 }}>Base Cost</label>
+                <input type="number" disabled className="form-input" style={{ opacity: 0.3 }} placeholder="---" />
+              </div>
+            </div>
+          </div>
+
+          <div className="form-footer">
+            {!isShipping && (
+              <button type="button" className="btn btn-secondary" onClick={() => setPendingShippingTrailer(null)}>Cancel</button>
             )}
-            <button type="submit" className="btn btn-primary" style={{ background: '#3b82f6', borderRadius: '8px', padding: '0.5rem 1.5rem', fontSize: '0.85rem', fontWeight: 700 }}>Save</button>
+            <button type="submit" className="btn btn-primary" disabled={isShipping} style={{ padding: '0.75rem 2rem', minWidth: '200px' }}>
+              {isShipping ? 'Processing Shipment...' : 'Complete Shipment Checklist'}
+            </button>
           </div>
         </form>
       </Modal>
 
-      <Modal isOpen={isRecapModalOpen} onClose={() => setIsRecapModalOpen(false)} title="Weekly Recap"><p>Recap calculation logic update to include paint/outsource splitted phases.</p></Modal>
       <Modal isOpen={isStatsModalOpen} onClose={() => setIsStatsModalOpen(false)} title="Production Analytics Dashboard">
         <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', padding: '1rem 0' }}>
-          
-          {/* Section 1: Phase Distribution */}
           <div>
             <h4 style={{ fontSize: '0.8rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '1rem' }}>Active Phase Distribution</h4>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
@@ -753,11 +704,11 @@ function Dashboard({
                 const percentage = trailers.filter(t => !t.isArchived).length > 0 ? (count / trailers.filter(t => !t.isArchived).length) * 100 : 0;
                 return (
                   <div key={phase.id} style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                    <div style={{ width: '100px', fontSize: '0.75rem', fontWeight: 700, color: '#475569' }}>{phase.title}</div>
-                    <div style={{ flex: 1, height: '8px', background: '#f1f5f9', borderRadius: '4px', overflow: 'hidden' }}>
-                      <div style={{ width: `${percentage}%`, height: '100%', background: 'var(--accent)', borderRadius: '4px' }} />
+                    <div style={{ width: '100px', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-secondary)' }}>{phase.title}</div>
+                    <div style={{ flex: 1, height: '10px', background: 'rgba(255,255,255,0.03)', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--border-default)' }}>
+                      <div style={{ width: `${percentage}%`, height: '100%', background: 'var(--accent-gradient)', borderRadius: '6px' }} />
                     </div>
-                    <div style={{ width: '40px', textAlign: 'right', fontSize: '0.85rem', fontWeight: 800, color: '#0f172a' }}>{count}</div>
+                    <div style={{ width: '40px', textAlign: 'right', fontSize: '0.9rem', fontWeight: 900, color: 'var(--text-primary)' }}>{count}</div>
                   </div>
                 );
               })}
@@ -766,16 +717,15 @@ function Dashboard({
 
           <div style={{ height: '1px', background: '#f1f5f9' }} />
 
-          {/* Section 2: Model Popularity */}
           <div>
             <h4 style={{ fontSize: '0.8rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '1rem' }}>Model Volume (All Units)</h4>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem' }}>
               {Array.from(new Set(trailers.map(t => t.model))).map(model => {
                 const count = trailers.filter(t => t.model === model).length;
                 return (
-                  <div key={model} style={{ padding: '1rem', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontWeight: 700, color: '#1e293b', fontSize: '0.85rem' }}>{model}</span>
-                    <span style={{ background: '#e2e8f0', padding: '0.2rem 0.6rem', borderRadius: '8px', fontWeight: 800, fontSize: '0.75rem' }}>{count}</span>
+                  <div key={model} style={{ padding: '1rem', background: 'var(--bg-card)', borderRadius: '16px', border: '1px solid var(--border-default)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }} className="hover-lift">
+                    <span style={{ fontWeight: 800, color: 'var(--text-primary)', fontSize: '0.85rem' }}>{model}</span>
+                    <span style={{ background: 'rgba(255,255,255,0.05)', padding: '0.2rem 0.6rem', borderRadius: '8px', fontWeight: 900, fontSize: '0.8rem', color: 'var(--accent)' }}>{count}</span>
                   </div>
                 );
               })}
@@ -784,16 +734,15 @@ function Dashboard({
 
           <div style={{ height: '1px', background: '#f1f5f9' }} />
 
-          {/* Section 3: Performance Audit */}
-          <div style={{ background: '#f0f9ff', padding: '1.25rem', borderRadius: '16px', border: '1px solid #bae6fd' }}>
-            <h4 style={{ fontSize: '0.8rem', fontWeight: 800, color: '#0369a1', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '1rem' }}>Factory Performance (Archive)</h4>
+          <div style={{ background: 'rgba(59, 130, 246, 0.05)', padding: '1.5rem', borderRadius: '24px', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
+            <h4 style={{ fontSize: '0.8rem', fontWeight: 900, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '1.25rem' }}>Factory Performance Analytics</h4>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
               <div>
-                <div style={{ fontSize: '1.25rem', fontWeight: 900, color: '#0c4a6e' }}>{trailers.filter(t => t.isArchived).length}</div>
-                <div style={{ fontSize: '0.7rem', fontWeight: 600, color: '#0284c7' }}>Units Shipped YTD</div>
+                <div style={{ fontSize: '2rem', fontWeight: 900, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>{trailers.filter(t => t.isArchived).length}</div>
+                <div style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Units Shipped YTD</div>
               </div>
               <div>
-                <div style={{ fontSize: '1.25rem', fontWeight: 900, color: '#0c4a6e' }}>
+                <div style={{ fontSize: '2rem', fontWeight: 900, color: '#10b981', letterSpacing: '-0.02em' }}>
                   {(() => {
                     const archived = trailers.filter(t => t.isArchived && t.archivedAt);
                     if (archived.length === 0) return '---';
@@ -802,11 +751,10 @@ function Dashboard({
                     return `${days} Days`;
                   })()}
                 </div>
-                <div style={{ fontSize: '0.7rem', fontWeight: 600, color: '#0284c7' }}>Avg Lifecycle (Start → Ship)</div>
+                <div style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Avg Build Velocity</div>
               </div>
             </div>
           </div>
-
         </div>
       </Modal>
     </div>
@@ -819,7 +767,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   });
   const [pin, setPin] = useState('');
   const [error, setError] = useState(false);
-  const CORRECT_PIN = '1234'; // Default PIN
+  const CORRECT_PIN = '1234';
 
   const handlePinEntry = (digit: string) => {
     setError(false);
@@ -891,6 +839,18 @@ function App() {
   const [trailers, setTrailers] = useState<Trailer[]>([]);
   const [loading, setLoading] = useState(true);
   const [isConnected, setIsConnected] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [editingModelName, setEditingModelName] = useState<string | null>(null);
+  const [modelFormData, setModelFormData] = useState<Record<PhaseId, number> | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+
 
   const [bayCapacities, setBayCapacities] = useState<Record<StationId, number>>({
     'B1': 40,
@@ -900,11 +860,47 @@ function App() {
     'None': 0
   });
 
+  const [catalogModels, setCatalogModels] = useState<CatalogModel[]>([]);
+  const [shippedTrailers, setShippedTrailers] = useState<ShippedTrailer[]>([]);
+
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    const saved = localStorage.getItem('lane-trailers-theme');
+    return (saved as 'light' | 'dark') || 'dark';
+  });
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('lane-trailers-theme', theme);
+  }, [theme]);
+
+  const localTargetHours = useMemo(() => {
+    const hours: Record<string, Record<PhaseId, number>> = { ...MODEL_TARGET_HOURS };
+    catalogModels.forEach(m => {
+      hours[m.name] = m.target_hours;
+    });
+    return hours;
+  }, [catalogModels]);
+
+  const filteredTrailers = useMemo(() => {
+    const seen = new Set<string>();
+    const unique = trailers.filter(t => {
+      if (!t.id || seen.has(t.id)) return false;
+      seen.add(t.id);
+      return true;
+    });
+
+    return unique.filter(t => !t.isArchived && (
+      t.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      t.serialNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      t.model.toLowerCase().includes(searchQuery.toLowerCase())
+    ));
+  }, [trailers, searchQuery]);
+
+
+
   const nextSuggestedSerial = useMemo(() => {
     if (trailers.length === 0) return '';
     
-    // Trailers are already sorted by dateStarted DESC from the initial fetch,
-    // but let's be safe and ensure we check them in chronological order of entry.
     const sorted = [...trailers].sort((a, b) => b.dateStarted - a.dateStarted);
 
     for (const t of sorted) {
@@ -914,7 +910,6 @@ function App() {
         const numStr = match[2];
         let nextNum = parseInt(numStr, 10) + 1;
         
-        // Loop until we find a serial that doesn't exist yet
         let suggested = `${prefix}${nextNum.toString().padStart(numStr.length, "0")}`;
         while (trailers.some(tr => tr.serialNumber === suggested)) {
           nextNum++;
@@ -928,37 +923,47 @@ function App() {
     return '';
   }, [trailers]);
 
-  useEffect(() => {
-    const fetchInitialData = async () => {
-      setLoading(true);
-      try {
-        const [trailersRes, bayRes] = await Promise.all([
-          supabase.from('trailers').select('*').order('dateStarted', { ascending: false }),
-          supabase.from('bay_settings').select('*')
-        ]);
-        
-        if (trailersRes.data) setTrailers(trailersRes.data);
-        if (bayRes.data) {
-          const caps = { 
-            'B1': 40,
-            'B2': 80,
-            'B3': 80,
-            'B4': 40,
-            'None': 0
-          };
-          bayRes.data.forEach((b: any) => {
-            caps[b.id as StationId] = b.capacity;
-          });
-          setBayCapacities(caps);
-        }
-        setIsConnected(true);
-      } catch (err) {
-        console.error('Error fetching data:', err);
-      } finally {
-        setLoading(false);
+  const fetchInitialData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [trailersRes, bayRes, modelsRes, shippedRes] = await Promise.all([
+        supabase.from('trailers').select('*').order('dateStarted', { ascending: false }),
+        supabase.from('bay_settings').select('*'),
+        supabase.from('production_models').select('*'),
+        supabase.from('shipped_trailers').select('*').order('shipped_at', { ascending: false })
+      ]);
+      
+      if (trailersRes.data) {
+        // De-duplicate items by ID just in case
+        const uniqueTrailers = trailersRes.data.filter((t, index, self) => 
+          index === self.findIndex((u) => u.id === t.id)
+        );
+        setTrailers(uniqueTrailers);
       }
-    };
+      if (modelsRes.data) setCatalogModels(modelsRes.data);
+      if (shippedRes.data) setShippedTrailers(shippedRes.data);
+      if (bayRes.data) {
+        const caps = { 
+          'B1': 40,
+          'B2': 80,
+          'B3': 80,
+          'B4': 40,
+          'None': 0
+        };
+        bayRes.data.forEach((b: any) => {
+          caps[b.id as StationId] = b.capacity;
+        });
+        setBayCapacities(caps);
+      }
+      setIsConnected(true);
+    } catch (err) {
+      console.error('Error fetching data:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [setLoading, setTrailers, setCatalogModels, setShippedTrailers, setBayCapacities, setIsConnected]);
 
+  useEffect(() => {
     fetchInitialData();
 
     // Subscribe to trailer changes
@@ -968,8 +973,18 @@ function App() {
         'postgres_changes' as any,
         { event: '*', schema: 'public', table: 'trailers' },
         (payload: any) => {
+          // Guard: Don't let real-time updates overwrite the trailer we are currently dragging
+          // This prevents the "blurred" card from jumping or resetting during sync
+          if (activeIdRef.current === payload.new?.id || activeIdRef.current === payload.old?.id) {
+            return;
+          }
+
           if (payload.eventType === 'INSERT') {
-            setTrailers(prev => prev.find(t => t.id === payload.new.id) ? prev : [payload.new as Trailer, ...prev]);
+            setTrailers(prev => {
+              const exists = prev.some(t => t.id === payload.new.id);
+              if (exists) return prev;
+              return [payload.new as Trailer, ...prev];
+            });
           } else if (payload.eventType === 'UPDATE') {
             setTrailers(prev => prev.map(t => t.id === payload.new.id ? { ...t, ...payload.new } as Trailer : t));
           } else if (payload.eventType === 'DELETE') {
@@ -992,9 +1007,27 @@ function App() {
       )
       .subscribe();
 
+    const modelChannel = supabase
+      .channel('production-models-changes')
+      .on(
+        'postgres_changes' as any,
+        { event: '*', schema: 'public', table: 'production_models' },
+        (payload: any) => {
+          if (payload.eventType === 'INSERT') {
+            setCatalogModels(prev => prev.find(m => m.id === payload.new.id) ? prev : [...prev, payload.new as CatalogModel]);
+          } else if (payload.eventType === 'UPDATE') {
+            setCatalogModels(prev => prev.map(m => m.id === payload.new.id ? { ...m, ...payload.new } : m));
+          } else if (payload.eventType === 'DELETE') {
+            setCatalogModels(prev => prev.filter(m => m.id !== payload.old.id));
+          }
+        }
+      )
+      .subscribe();
+
     return () => {
       supabase.removeChannel(trailerChannel);
       supabase.removeChannel(capChannel);
+      supabase.removeChannel(modelChannel);
     };
   }, []);
 
@@ -1022,43 +1055,83 @@ function App() {
     
     if (error) {
       console.error('Error updating trailer:', error);
-      // Optional: Rollback on error
+      fetchInitialData();
     }
+  };
+
+  const deleteTrailer = async (id: string) => {
+    setTrailers(prev => prev.filter(t => t.id !== id));
+    const { error } = await supabase.from('trailers').delete().eq('id', id);
+    if (error) console.error('Error deleting trailer:', error);
+  };
+
+  const handleAddModel = async (data: { name: string, category: string, hours: Record<PhaseId, number>, spec: ModelSpec }) => {
+    const newModel: CatalogModel = {
+      id: Math.random().toString(36).substr(2, 9),
+      name: data.name,
+      category: data.category,
+      target_hours: data.hours,
+      specs: data.spec
+    };
+
+    setCatalogModels(prev => [...prev, newModel]);
+
+    const { error } = await supabase
+      .from('production_models')
+      .upsert(newModel);
+      
+    if (error) console.error('Error adding model to catalog:', error);
+  };
+
+  const handleEditModel = (name: string, spec: { targetHours: Record<PhaseId, number> }) => {
+    setEditingModelName(name);
+    setModelFormData(spec.targetHours);
+  };
+
+  const handleDeleteModel = async (name: string) => {
+    const modelToDelete = catalogModels.find(m => m.name === name);
+    if (!modelToDelete) return;
+
+    setCatalogModels(prev => prev.filter(m => m.id !== modelToDelete.id));
+    const { error } = await supabase.from('production_models').delete().eq('id', modelToDelete.id);
+    if (error) console.error('Error deleting model from catalog:', error);
+  };
+
+  const handleSaveModelSpecs = async () => {
+    if (!editingModelName || !modelFormData) return;
+    
+    const existingModel = catalogModels.find(m => m.name === editingModelName);
+    if (existingModel) {
+      const updatedModel = { ...existingModel, target_hours: modelFormData };
+      setCatalogModels(prev => prev.map(m => m.name === editingModelName ? updatedModel : m));
+      
+      const { error } = await supabase
+        .from('production_models')
+        .upsert(updatedModel);
+      if (error) console.error('Error updating model specs:', error);
+    } else {
+      // If it is a hardcoded model being edited for the first time, we need to create it in DB
+      const newModel: CatalogModel = {
+        id: Math.random().toString(36).substr(2, 9),
+        name: editingModelName,
+        category: localModelCategories.find(c => c.models.includes(editingModelName))?.name || 'Uncategorized',
+        target_hours: modelFormData,
+        specs: {}
+      };
+      setCatalogModels(prev => [...prev, newModel]);
+      await supabase.from('production_models').upsert(newModel);
+    }
+    setEditingModelName(null);
   };
 
   const addTrailer = async (newTrailer: Trailer) => {
     // Optimistic update
     setTrailers(prev => [newTrailer, ...prev]);
 
-    // Clean up empty strings for date fields to prevent DB errors
-    const payload = { ...newTrailer };
-    if (!payload.expectedDueDate) delete payload.expectedDueDate;
-    if (!payload.promisedShippingDate) delete payload.promisedShippingDate;
-
     const { error } = await supabase
       .from('trailers')
-      .insert([payload]);
+      .insert([newTrailer]);
     
-    // SELF-HEALING: If columns are missing in DB, try again without them
-    if (error && error.message.includes('expectedDueDate')) {
-      console.warn('New columns missing in DB, attempting fallback registration...');
-      const fallbackPayload = { ...payload };
-      delete fallbackPayload.expectedDueDate;
-      delete fallbackPayload.promisedShippingDate;
-
-      const { error: fallbackError } = await supabase
-        .from('trailers')
-        .insert([fallbackPayload]);
-      
-      if (fallbackError) {
-        alert("Registration Failed: " + fallbackError.message);
-        setTrailers(prev => prev.filter(t => t.id !== newTrailer.id));
-      } else {
-        alert("Unit Registered (Fallback Mode: Dates excluded). Please update DB schema.");
-      }
-      return;
-    }
-
     if (error) {
       alert("Error adding trailer: " + error.message);
       // Rollback on error
@@ -1068,27 +1141,10 @@ function App() {
   
   // Global workload calculation moved to App level for prop passing
   const totalWorkRemaining = useMemo(() => {
-    return trailers.reduce((sum, t) => {
-      if (t.currentPhase === 'shipping' || t.isArchived) return sum;
-      const phaseIndex = PHASES.findIndex(p => p.id === t.currentPhase);
-      if (phaseIndex === -1) return sum;
-      
-      return sum + PHASES.slice(phaseIndex).reduce((pSum, p) => {
-        if (p.id === 'backlog' || p.id === 'shipping') return pSum;
-        if (t.finishingType === 'Paint' && p.id === 'outsource') return pSum;
-        if (t.finishingType === 'Outsource' && p.id === 'paint') return pSum;
-        if (!t.finishingType && p.id === 'outsource') return pSum;
-
-        const target = (MODEL_TARGET_HOURS[t.model]?.[p.id] || 0);
-        if (p.id === t.currentPhase) {
-          const currentLog = t.history.find(h => h.phase === t.currentPhase && !h.exitedAt);
-          const loggedInCurrent = (currentLog?.bayManualHours || currentLog?.phaseManualHours || 0);
-          return pSum + Math.max(0, target - loggedInCurrent);
-        }
-        return pSum + target;
-      }, 0);
-    }, 0);
-  }, [trailers]);
+    return trailers
+      .filter(t => !t.isArchived && t.currentPhase !== 'shipping')
+      .reduce((acc, t) => acc + calculateTrailerRemainingHours(t, localTargetHours), 0);
+  }, [trailers, localTargetHours]);
 
   const totalShopCapacity = useMemo(() => {
     return Object.values(bayCapacities).reduce((sum, h) => sum + (h || 0), 0);
@@ -1099,36 +1155,144 @@ function App() {
     return totalWorkRemaining / totalShopCapacity;
   }, [totalWorkRemaining, totalShopCapacity]);
 
-  const getSuggestedBay = () => {
-    let bestBay: StationId = 'B1';
-    let minTime = Infinity;
+  // Stable reference for trailers to avoid stale closures in async DnD handlers
+  const trailersRef = useRef(trailers);
+  const activeIdRef = useRef(activeId);
+  useEffect(() => {
+    trailersRef.current = trailers;
+  }, [trailers]);
+  useEffect(() => {
+    activeIdRef.current = activeId;
+  }, [activeId]);
 
-    STATIONS.forEach(bayId => {
-      const stationTrailers = trailers.filter(t => t.station === bayId && !t.isArchived);
-      const pipe = stationTrailers.reduce((acc, t) => {
-        const fIdx = PHASES.findIndex(p => p.id === t.currentPhase);
-        if (fIdx === -1) return acc;
-        
-        return acc + PHASES.slice(fIdx).reduce((pAcc, p) => {
-          if (p.id === 'shipping' || (p.id === 'paint' && t.finishingType === 'Outsource') || (p.id === 'outsource' && t.finishingType === 'Paint') || (!t.finishingType && p.id === 'outsource')) return pAcc;
-          const target = MODEL_TARGET_HOURS[t.model]?.[p.id] || PHASE_METADATA[p.id].defaultTargetHours;
-          let res = target;
-          if (p.id === t.currentPhase) {
-            const cur = t.history.find(h => h.phase === t.currentPhase && !h.exitedAt);
-            res = Math.max(0, target - (cur?.bayManualHours || cur?.phaseManualHours || 0));
-          }
-          return pAcc + res;
-        }, 0);
-      }, 0);
 
-      const cap = bayCapacities[bayId] || 40;
-      const lt = cap > 0 ? pipe / cap : 0;
-      if (lt < minTime) { minTime = lt; bestBay = bayId; }
-    });
-    return bestBay;
+
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(event.active.id as string);
   };
 
-  const suggestedBay = useMemo(getSuggestedBay, [trailers, bayCapacities]);
+  const handleDragOver = (event: DragOverEvent) => {
+    const { active, over } = event;
+    if (!over) return;
+    const activeId = active.id as string;
+    const overId = over.id as string;
+    
+    // Find active trailer from the living state to ensure immediate reaction
+    const activeTrailer = trailers.find(t => t.id === activeId);
+    if (!activeTrailer) return;
+
+    const isOverColumn = PHASES.some(p => p.id === overId);
+    let overPhase: PhaseId | null = null;
+    if (isOverColumn) overPhase = overId as PhaseId;
+    else {
+      const overTrailer = trailers.find(t => t.id === overId);
+      if (overTrailer) overPhase = overTrailer.currentPhase;
+    }
+
+    if (overPhase && activeTrailer.currentPhase !== overPhase) {
+      setTrailers(prev => {
+        const activeIdx = prev.findIndex(t => t.id === activeId);
+        if (activeIdx === -1) return prev;
+        
+        const now = Date.now();
+        const updatedHistory = [...prev[activeIdx].history];
+        const currentLogIndex = updatedHistory.findIndex(h => h.phase === prev[activeIdx].currentPhase && !h.exitedAt);
+        
+        if (currentLogIndex !== -1) {
+          const prevLog = updatedHistory[currentLogIndex];
+          updatedHistory[currentLogIndex] = { ...prevLog, exitedAt: now, duration: now - prevLog.enteredAt };
+        }
+        updatedHistory.push({ phase: overPhase as PhaseId, enteredAt: now });
+
+        const updatedTrailer = { ...prev[activeIdx], currentPhase: overPhase as PhaseId, history: updatedHistory };
+        const newTrailers = [...prev];
+        newTrailers[activeIdx] = updatedTrailer;
+        return newTrailers;
+      });
+    }
+  };
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    const activeId = active.id as string;
+    
+    // 1. Immediately clear activeId to prevent "blurred out" state
+    setActiveId(null);
+    
+    // 2. Use the Ref to get the trailers AFTER handleDragOver updates them locally
+    const trailer = trailersRef.current.find(t => t.id === activeId);
+    
+    if (trailer && over) {
+      try {
+        const overId = over.id as string;
+        const isOverColumn = PHASES.some(p => p.id === overId);
+        
+        // If same column reorder, update state array order
+        if (!isOverColumn && trailer.id !== overId) {
+          setTrailers(prev => {
+            const oldIndex = prev.findIndex(t => t.id === activeId);
+            const newIndex = prev.findIndex(t => t.id === overId);
+            if (oldIndex === -1 || newIndex === -1) return prev;
+            return arrayMove(prev, oldIndex, newIndex);
+          });
+        }
+
+        // 3. Persist to DB with robust error handling
+        const { error } = await supabase
+          .from('trailers')
+          .update({
+            currentPhase: trailer.currentPhase,
+            history: trailer.history,
+            dateStarted: trailer.dateStarted 
+          })
+          .eq('id', trailer.id);
+          
+        if (error) {
+          console.error('Supabase Sync Error:', error);
+          // Optional: Could add toast notification here
+        }
+        
+        // Mandatory shipping checklist prompt handled by Dashboard's useEffect on pendingShippingTrailer
+      } catch (err) {
+        console.error('DragEnd Execution Error:', err);
+      }
+    }
+  };
+
+
+
+  const totalProductionTime = useMemo(() => {
+    return trailers
+      .filter(t => !t.isArchived && t.currentPhase !== 'shipping')
+      .reduce((acc, t) => {
+        const curLog = t.history.find(h => h.phase === t.currentPhase && !h.exitedAt);
+        const timeInStage = curLog ? (Date.now() - curLog.enteredAt) / (1000 * 60 * 60) : 0;
+        return acc + timeInStage;
+      }, 0);
+  }, [trailers]);
+
+function getSuggestedBay(): StationId {
+    const activeUnits = trailers.filter(t => !t.isArchived && t.station !== 'None');
+    const bayLoads = STATIONS.reduce((acc, b) => ({ ...acc, [b]: 0 }), {} as Record<StationId, number>);
+    
+    activeUnits.forEach(t => {
+      if (t.station !== 'None') {
+        const remaining = calculateTrailerRemainingHours(t, localTargetHours);
+        bayLoads[t.station] += remaining;
+      }
+    });
+
+    const scores = STATIONS.map(b => ({
+      id: b,
+      load: bayLoads[b] || 0,
+      capacity: bayCapacities[b] || 40,
+      utilization: (bayLoads[b] || 0) / (bayCapacities[b] || 1)
+    }));
+
+    return scores.sort((a, b) => a.utilization - b.utilization)[0]?.id || 'B1';
+  }
+
+  const suggestedBay = useMemo(getSuggestedBay, [trailers, bayCapacities, localTargetHours]);
 
   if (loading) {
     return (
@@ -1141,16 +1305,68 @@ function App() {
   return (
     <AuthGate>
       <Routes>
-        <Route path="/" element={<Dashboard trailers={trailers} setTrailers={setTrailers} updateTrailer={updateTrailer} isConnected={isConnected} addTrailer={addTrailer} suggestedBay={suggestedBay} runwayWeeks={runwayWeeks} nextSuggestedSerial={nextSuggestedSerial} />} />
-        <Route path="/backlog" element={<BacklogView trailers={trailers} onAddTrailer={addTrailer} onUpdateTrailer={updateTrailer} suggestedBay={suggestedBay} nextSuggestedSerial={nextSuggestedSerial} />} />
-        <Route path="/stations" element={<StationView trailers={trailers} setTrailers={setTrailers} onUpdateTrailer={updateTrailer} bayCapacities={bayCapacities} onUpdateCapacity={updateCapacity} />} />
-        <Route path="/tv" element={<TVView trailers={trailers} />} />
-        <Route path="/tv/station1" element={<TVView trailers={trailers} monitorMode="station1" />} />
-        <Route path="/tv/station2" element={<TVView trailers={trailers} monitorMode="station2" />} />
-        <Route path="/archive" element={<ArchiveView trailers={trailers} onUpdateTrailer={updateTrailer} />} />
+        <Route path="/" element={<Dashboard 
+          trailers={trailers} 
+          updateTrailer={updateTrailer} 
+          isConnected={isConnected} 
+          addTrailer={addTrailer} 
+          suggestedBay={suggestedBay} 
+          runwayWeeks={runwayWeeks} 
+          nextSuggestedSerial={nextSuggestedSerial} 
+          localTargetHours={localTargetHours} 
+          onDeleteTrailer={deleteTrailer} 
+          onSaveShippedRecord={async (rec) => { 
+            const { data, error } = await supabase.from('shipped_trailers').upsert([rec]).select().single(); 
+            if (error) {
+              console.error('SHIPMENT ERROR:', error);
+            } else if (data) {
+              setShippedTrailers(prev => [data, ...prev]); 
+            }
+          }}
+          theme={theme}
+          onToggleTheme={() => setTheme(prev => prev === 'light' ? 'dark' : 'light')}
+          sensors={sensors}
+          handleDragStart={handleDragStart}
+          handleDragOver={handleDragOver}
+          handleDragEnd={handleDragEnd}
+          activeId={activeId}
+          filteredTrailers={filteredTrailers}
+          totalWorkRemaining={totalWorkRemaining}
+          totalProductionTime={totalProductionTime}
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          shippedTrailers={shippedTrailers}
+        />} />
+        <Route path="/backlog" element={<BacklogView trailers={trailers} onAddTrailer={addTrailer} onUpdateTrailer={updateTrailer} suggestedBay={suggestedBay} nextSuggestedSerial={nextSuggestedSerial} localModelCategories={localModelCategories} localTargetHours={localTargetHours} />} />
+        <Route path="/stations" element={<StationView trailers={trailers} setTrailers={setTrailers} onUpdateTrailer={updateTrailer} bayCapacities={bayCapacities} onUpdateCapacity={updateCapacity} localTargetHours={localTargetHours} />} />
+        <Route path="/tv" element={<TVView trailers={trailers} localTargetHours={localTargetHours} />} />
+        <Route path="/tv/station1" element={<TVView trailers={trailers} monitorMode="station1" localTargetHours={localTargetHours} />} />
+        <Route path="/tv/station2" element={<TVView trailers={trailers} monitorMode="station2" localTargetHours={localTargetHours} />} />
+        <Route path="/archive" element={<ArchiveView trailers={trailers} onUpdateTrailer={updateTrailer} localTargetHours={localTargetHours} shippedTrailers={shippedTrailers} />} />
         <Route path="/schedule" element={<ScheduleView trailers={trailers} />} />
-        <Route path="/catalog" element={<CatalogView />} />
+        <Route path="/catalog" element={<CatalogView categories={localModelCategories} hours={localTargetHours} specs={localModelSpecs as any} onAddModel={handleAddModel} onEditModel={handleEditModel} onDeleteModel={handleDeleteModel} />} />
       </Routes>
+
+      {/* Quick Model Spec Editor */}
+      <Modal isOpen={!!editingModelName} onClose={() => setEditingModelName(null)} title={`Specs: ${editingModelName}`}>
+        <div style={{ padding: '1rem' }}>
+          <p style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '1.5rem' }}>Update target hours for all units of this model.</p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem', marginBottom: '1.5rem' }}>
+            {modelFormData && PHASES.filter(p => !['backlog', 'shipping'].includes(p.id)).map(phase => (
+              <div key={phase.id}>
+                <label style={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', color: '#94a3b8', display: 'block', marginBottom: '4px' }}>{phase.title}</label>
+                <input 
+                  type="number"
+                  className="form-input"
+                  value={modelFormData[phase.id] || ''}
+                  onChange={e => setModelFormData({ ...modelFormData, [phase.id]: parseInt(e.target.value, 10) || 0 })}
+                />
+              </div>
+            ))}
+          </div>
+          <button className="btn btn-primary" style={{ width: '100%', padding: '0.75rem', fontWeight: 700 }} onClick={handleSaveModelSpecs}>Save Specifications</button>
+        </div>
+      </Modal>
     </AuthGate>
   );
 }
