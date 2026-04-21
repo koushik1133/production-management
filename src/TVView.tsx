@@ -2,16 +2,17 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Tv, Share2, Maximize, Minimize, Sun, Moon } from 'lucide-react';
 import { Modal } from './components/Modal';
-import type { Trailer } from './types';
+import type { Trailer, PhaseId } from './types';
 import { PHASES } from './types';
 import { TrailerCard } from './components/TrailerCard';
 
 interface Props {
   trailers: Trailer[];
   monitorMode?: 'all' | 'station1' | 'station2';
+  localTargetHours: Record<string, Record<PhaseId, number>>;
 }
 
-const TVView: React.FC<Props> = ({ trailers, monitorMode: initialMode = 'all' }) => {
+const TVView: React.FC<Props> = ({ trailers, monitorMode: initialMode = 'all', localTargetHours }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [monitorMode, setMonitorMode] = useState(initialMode);
   const [isCastModalOpen, setIsCastModalOpen] = useState(false);
@@ -295,7 +296,14 @@ const TVView: React.FC<Props> = ({ trailers, monitorMode: initialMode = 'all' })
               </div>
               <div className="cards-container" style={{ overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                 {trailersInCol.map(trailer => (
-                    <TrailerCard key={trailer.id} trailer={trailer} hideCustomerName={true} hideShipButton={true} isTVMode={true} />
+                    <TrailerCard 
+                      key={trailer.id} 
+                      trailer={trailer} 
+                      hideCustomerName={true} 
+                      hideShipButton={true} 
+                      isTVMode={true} 
+                      localTargetHours={localTargetHours}
+                    />
                   ))}
                 {trailersInCol.length === 0 && (
                   <div style={{ padding: '2rem', textAlign: 'center', color: themeStyles.textMuted, fontSize: '0.8rem', fontStyle: 'italic', border: '1px dashed #cbd5e1', borderRadius: '12px' }}>

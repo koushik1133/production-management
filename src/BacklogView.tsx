@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LayoutGrid, ArrowRight, Clock, Trash2, Calendar } from 'lucide-react';
-import { MODEL_CATEGORIES, MODEL_TARGET_HOURS } from './types';
-import type { Trailer, StationId } from './types';
+import { PHASES, PHASE_METADATA } from './types';
+import type { Trailer, StationId, PhaseId } from './types';
 import { addHours, format } from 'date-fns';
 
 interface Props {
@@ -11,18 +11,19 @@ interface Props {
   trailers: Trailer[];
   suggestedBay: StationId;
   nextSuggestedSerial?: string;
+  localModelCategories: { name: string, models: string[] }[];
+  localTargetHours: Record<string, Record<PhaseId, number>>;
 }
 
-export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, trailers, suggestedBay, nextSuggestedSerial }) => {
+export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, trailers, suggestedBay, nextSuggestedSerial, localModelCategories, localTargetHours }) => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
 
   const activeFloorTrailers = trailers.filter(t => !t.isArchived && t.currentPhase !== 'backlog');
   const factoryWorkloadHours = activeFloorTrailers.reduce((sum, t) => {
-    const hours = MODEL_TARGET_HOURS[t.model];
-    if (!hours) return sum;
-    return sum + (hours[t.currentPhase] || 0);
+    const hours = localTargetHours[t.model] || {};
+    return sum + (hours[t.currentPhase] || PHASE_METADATA[t.currentPhase]?.defaultTargetHours || 0);
   }, 0);
 
   const BAYS_COUNT = 4;
@@ -57,19 +58,18 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
       steel: false,
       parts: false
     },
-    expectedDueDate: '',
     promisedShippingDate: ''
   });
 
-  const selectedModelHours = formData.model ? MODEL_TARGET_HOURS[formData.model] : null;
-  const totalHours = selectedModelHours ? Object.entries(selectedModelHours).reduce((a, [p, h]) => p !== 'shipping' ? a + h : a, 0) : 0;
+  const selectedModelHours = formData.model ? localTargetHours[formData.model] : null;
+  const totalHours = selectedModelHours ? Object.entries(selectedModelHours).reduce((a, [p, h]) => (p !== 'shipping' && p !== 'backlog') ? a + (h as number) : a, 0) : 0;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.model) return;
 
     const newTrailer: Trailer = {
-      id: Math.random().toString(36).substr(2, 9),
+      id: crypto.randomUUID(),
       name: formData.name || '---',
       model: formData.model,
       serialNumber: formData.serialNumber || `UNIT-${Math.floor(10000 + Math.random() * 90000)}`,
@@ -78,7 +78,6 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
       currentPhase: 'backlog',
       history: [{ phase: 'backlog', enteredAt: Date.now() }],
       partsStatus: formData.partsStatus,
-      expectedDueDate: formData.expectedDueDate,
       promisedShippingDate: formData.promisedShippingDate,
       isArchived: false,
       isDeleted: false,
@@ -94,7 +93,6 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
       station: 'B1', 
       isPriority: false, 
       partsStatus: { tyres: false, steel: false, parts: false },
-      expectedDueDate: '',
       promisedShippingDate: ''
     });
   };
@@ -114,8 +112,8 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
       <div className="backlog-grid-layout">
         {/* Registration Section */}
         <div style={{ position: 'sticky', top: '2rem' }}>
-          <h2 style={{ fontSize: '1rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#94a3b8', marginBottom: '1.5rem' }}>Registration Form</h2>
-          <section className="registration-card" style={{ background: 'white', padding: '1.5rem', borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
+          <h2 style={{ fontSize: '1rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: '1.5rem' }}>Registration Form</h2>
+          <section className="registration-card" style={{ background: 'var(--bg-card)', padding: '1.5rem', borderRadius: '16px', border: '1px solid var(--border-default)', boxShadow: 'var(--shadow-lg)' }}>
             <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
               
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: '1rem' }}>
@@ -175,7 +173,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
                   required
                 >
                   <option value="">Select Trailer Model...</option>
-                  {MODEL_CATEGORIES.map(cat => (
+                  {localModelCategories.map(cat => (
                     <optgroup key={cat.name} label={cat.name}>
                       {cat.models.map(m => <option key={m} value={m}>{m}</option>)}
                     </optgroup>
@@ -183,19 +181,9 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
                 </select>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', padding: '1.25rem', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1rem', padding: '1.25rem', background: 'var(--bg-secondary)', borderRadius: '12px', border: '1px solid var(--border-default)' }}>
                 <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label" style={{ fontSize: '0.65rem', color: '#1e40af' }}>Expected Due Date</label>
-                  <input 
-                    type="date" 
-                    className="form-input" 
-                    style={{ height: '38px', fontSize: '0.85rem' }}
-                    value={formData.expectedDueDate} 
-                    onChange={e => setFormData({...formData, expectedDueDate: e.target.value})} 
-                  />
-                </div>
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label" style={{ fontSize: '0.65rem', color: '#1e40af' }}>Promised Shipping</label>
+                  <label className="form-label" style={{ fontSize: '0.65rem', color: 'var(--accent)' }}>Promised Shipping Date</label>
                   <input 
                     type="date" 
                     className="form-input" 
@@ -206,7 +194,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
                 </div>
               </div>
 
-              <div style={{ padding: '1.25rem', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+              <div style={{ padding: '1.25rem', background: 'var(--bg-secondary)', borderRadius: '12px', border: '1px solid var(--border-default)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                   <label className="form-label" style={{ fontSize: '0.65rem', color: '#166534', margin: 0 }}>Parts Readiness</label>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -222,9 +210,9 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem' }}>
                   {Object.entries(formData.partsStatus).map(([key, val]) => (
-                    <label key={key} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', padding: '0.75rem 0.4rem', background: val ? '#dcfce7' : 'white', borderRadius: '10px', border: `1px solid ${val ? '#22c55e' : '#e2e8f0'}`, transition: 'all 0.2s' }}>
+                    <label key={key} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', padding: '0.75rem 0.4rem', background: val ? 'rgba(34, 197, 94, 0.1)' : 'var(--bg-card)', borderRadius: '10px', border: `1px solid ${val ? 'var(--accent)' : 'var(--border-default)'}`, transition: 'all 0.2s' }}>
                       <input type="checkbox" checked={val} onChange={e => setFormData({...formData, partsStatus: {...formData.partsStatus, [key]: e.target.checked}})} style={{ width: '16px', height: '16px' }} />
-                      <span style={{ fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', color: val ? '#166534' : '#64748b' }}>{key}</span>
+                      <span style={{ fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', color: val ? 'var(--accent)' : 'var(--text-muted)' }}>{key}</span>
                     </label>
                   ))}
                 </div>
@@ -262,15 +250,15 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
             </form>
 
             {formData.model && (
-              <div style={{ marginTop: '2rem', paddingTop: '2rem', borderTop: '2px dashed #f1f5f9' }}>
+              <div style={{ marginTop: '2rem', paddingTop: '2rem', borderTop: '2px dashed var(--border-default)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '1rem' }}>
-                  <span style={{ fontSize: '0.875rem', fontWeight: 700, color: '#64748b' }}>Estimated Build Time</span>
-                  <span style={{ fontSize: '1.5rem', fontWeight: 900, color: '#0f172a' }}>{totalHours}h</span>
+                  <span style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--text-secondary)' }}>Estimated Build Time</span>
+                  <span style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--text-primary)' }}>{totalHours}h</span>
                 </div>
                 {Object.entries(selectedModelHours || {}).filter(([p]) => p !== 'shipping' && p !== 'backlog').map(([phase, hours]) => (
-                  <div key={phase} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '0.4rem', borderBottom: '1px solid #f1f5f9' }}>
-                    <span style={{ fontSize: '0.8125rem', textTransform: 'capitalize', color: '#64748b', fontWeight: 600 }}>{phase}</span>
-                    <span style={{ fontSize: '0.8125rem', fontWeight: 800, color: '#0f172a' }}>{hours}h</span>
+                  <div key={phase} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '0.4rem', borderBottom: '1px solid var(--border-default)' }}>
+                    <span style={{ fontSize: '0.8125rem', textTransform: 'capitalize', color: 'var(--text-secondary)', fontWeight: 600 }}>{phase}</span>
+                    <span style={{ fontSize: '0.8125rem', fontWeight: 800, color: 'var(--text-primary)' }}>{hours}h</span>
                   </div>
                 ))}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '4px', marginTop: '1rem' }}>
@@ -286,11 +274,11 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
         {/* List Section */}
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-             <h2 style={{ fontSize: '1rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#94a3b8' }}>Existing Backlog ({backlogTrailers.length})</h2>
+             <h2 style={{ fontSize: '1rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)' }}>Existing Backlog ({backlogTrailers.length})</h2>
              <input 
               type="text" 
               placeholder="Filter backlog..." 
-              style={{ padding: '0.5rem 1rem', borderRadius: '8px', border: '1px solid #e2e8f0', width: '240px', fontSize: '0.875rem' }}
+              style={{ padding: '0.5rem 1rem', borderRadius: '8px', border: '1px solid var(--border-default)', background: 'var(--bg-card)', color: 'var(--text-primary)', width: '240px', fontSize: '0.875rem' }}
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
              />
@@ -300,15 +288,18 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
                 {backlogTrailers.length > 0 ? (() => {
                   let cumulativeBacklogHours = 0;
                   return backlogTrailers.map(t => {
-                    const modelHours = MODEL_TARGET_HOURS[t.model] || {};
-                    const totalBuildHours = Object.entries(modelHours).reduce((a, [p, h]) => (p !== 'shipping' && p !== 'backlog') ? a + (h as number) : a, 0);
+                    const modelHours = localTargetHours[t.model] || {};
+                    // Correct build hours calculation (excluding backlog/shipping)
+                    const actualBuildHours = PHASES.filter(p => p.id !== 'backlog' && p.id !== 'shipping').reduce((sum, p) => {
+                      return sum + (modelHours[p.id] || PHASE_METADATA[p.id].defaultTargetHours);
+                    }, 0);
                     
                     // Estimate = (Active Floor Delay) + (Hours of units ahead in backlog / 4 bays)
                     const estimateHours = activeFloorDelayHours + (cumulativeBacklogHours / BAYS_COUNT);
                     const estimatedDate = addHours(new Date(), estimateHours);
                     
                     // Add current unit's hours for the NEXT unit's calculation
-                    cumulativeBacklogHours += totalBuildHours;
+                    cumulativeBacklogHours += actualBuildHours;
 
                     return (
                       <div key={t.id} className="backlog-item-card">
@@ -348,7 +339,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
 
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#64748b' }}>
                           <Clock size={14} />
-                          <span style={{ fontSize: '0.8rem', fontWeight: 700 }}>{totalBuildHours}h Build</span>
+                          <span style={{ fontSize: '0.8rem', fontWeight: 700 }}>{actualBuildHours}h Build</span>
                         </div>
 
                         {confirmingDeleteId === t.id ? (
@@ -371,12 +362,12 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
                           </div>
                         ) : (
                           <>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', padding: '0.5rem', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#3b82f6' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', padding: '0.5rem', background: 'var(--bg-secondary)', borderRadius: '8px', border: '1px solid var(--border-default)' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--accent)' }}>
                                 <Calendar size={12} />
                                 <span style={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Est. Start Date</span>
                               </div>
-                              <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#1e293b' }}>
+                              <div style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-primary)' }}>
                                 {format(estimatedDate, 'MMM d, h:mm a')}
                               </div>
                             </div>
@@ -411,7 +402,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
                     );
                   });
                 })() : (
-                  <div style={{ padding: '4rem', textAlign: 'center', background: 'white', borderRadius: '12px', border: '2px dashed #e2e8f0', color: '#94a3b8' }}>
+                  <div style={{ padding: '4rem', textAlign: 'center', background: 'var(--bg-card)', borderRadius: '12px', border: '2px dashed var(--border-default)', color: 'var(--text-muted)' }}>
                     No units found in backlog matching your filters.
                   </div>
                 )}

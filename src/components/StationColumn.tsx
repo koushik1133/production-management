@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import type { StationId, Trailer } from '../types';
+import type { StationId, Trailer, PhaseId } from '../types';
 import { TrailerCard } from './TrailerCard';
 
 interface Props {
@@ -12,9 +12,10 @@ interface Props {
   workload?: { stage: number; pipeline: number; leadTime: number; leadTimeDisplay?: string };
   capacity?: number;
   onUpdateCapacity?: (capacity: number) => void;
+  localTargetHours: Record<string, Record<PhaseId, number>>;
 }
 
-export const StationColumn: React.FC<Props> = ({ id, trailers, onUpdateTrailer, onCardClick, workload, capacity, onUpdateCapacity }) => {
+export const StationColumn: React.FC<Props> = ({ id, trailers, onUpdateTrailer, onCardClick, workload, capacity, onUpdateCapacity, localTargetHours }) => {
   const { setNodeRef } = useDroppable({
     id,
   });
@@ -78,13 +79,14 @@ export const StationColumn: React.FC<Props> = ({ id, trailers, onUpdateTrailer, 
           strategy={verticalListSortingStrategy}
         >
           {trailers.map((trailer) => (
-            <TrailerCard 
-              key={trailer.id} 
-              trailer={trailer} 
-              onUpdateTrailer={onUpdateTrailer}
-              onCardClick={() => onCardClick?.(trailer)}
-              showPhaseBadge={true}
-            />
+              <TrailerCard 
+                key={trailer.id} 
+                trailer={trailer} 
+                onUpdateTrailer={onUpdateTrailer}
+                onCardClick={() => onCardClick?.(trailer)}
+                showPhaseBadge={true}
+                localTargetHours={localTargetHours}
+              />
           ))}
         </SortableContext>
       </div>

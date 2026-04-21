@@ -41,19 +41,20 @@
 .search-bar {
   display: flex;
   align-items: center;
-  background-color: #f4f4f5;
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  padding: 0.5rem 0.75rem;
-  gap: 0.5rem;
-  width: 320px;
-  transition: all 0.2s;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: var(--glass-blur);
+  border-radius: var(--radius-md);
+  padding: 0.5rem 1rem;
+  gap: 0.75rem;
+  width: 380px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .search-bar:focus-within {
-  border-color: var(--border-focus);
-  background-color: #ffffff;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+  border-color: var(--accent);
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
 }
 
 .search-bar input {
@@ -99,17 +100,19 @@
 /* Kanban Columns */
 .kanban-column {
   width: 100%;
-  max-width: 360px;
-  min-width: 320px;
+  max-width: 400px;
+  min-width: 340px;
   flex: 0 0 auto;
-  background-color: #f1f1f4;
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+  backdrop-filter: var(--glass-blur);
   border-radius: var(--radius-lg);
   display: flex;
   flex-direction: column;
-  padding: 0.75rem;
-  height: calc(100vh - 200px); /* Account for manifold strip, global header, and footer */
-  box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
+  padding: 1rem;
+  height: calc(100vh - 180px);
   transition: all 0.3s ease;
+  box-shadow: var(--shadow-md);
 }
 
 .bay-page .kanban-column {
@@ -122,8 +125,9 @@
 
 .column-footer {
   flex-shrink: 0;
-  padding: 0.75rem 0.5rem;
-  background: rgba(255, 255, 255, 0.4);
+  padding: 1rem 0.5rem;
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border-default);
   border-radius: 0 0 var(--radius-lg) var(--radius-lg);
   margin-top: auto;
 }
@@ -169,12 +173,13 @@
 }
 
 .column-count {
-  font-size: 0.75rem;
-  font-weight: 600;
-  background-color: rgba(0, 0, 0, 0.05);
-  padding: 0.1rem 0.5rem;
+  font-size: 0.7rem;
+  font-weight: 800;
+  background-color: var(--bg-secondary);
+  padding: 0.2rem 0.6rem;
   border-radius: 9999px;
   color: var(--text-secondary);
+  border: 1px solid var(--border-default);
 }
 
 .cards-container {
@@ -206,24 +211,21 @@
 }
 
 /* Trailer Card - Light Mode */
+/* Trailer Card - Dark Elite */
 .trailer-card {
-  background-color: var(--bg-card);
+  background: var(--bg-card);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-md);
-  padding: 1.25rem;
-  flex-shrink: 0; /* CRITICAL: Prevent cards from compressing in flex columns */
-  min-height: min-content;
+  padding: 1.5rem;
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 1.25rem;
   cursor: grab;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: var(--shadow-sm);
   position: relative;
   user-select: none;
-  touch-action: manipulation;
-  -webkit-user-select: none;
-  -webkit-touch-callout: none;
   overflow: hidden;
 }
 
@@ -296,8 +298,8 @@
 .bay-selector-pill {
   display: inline-flex;
   align-items: center;
-  background: white;
-  border: 1px solid #e2e8f0;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-default);
   border-radius: 6px;
   padding: 0.15rem 0.4rem;
   gap: 0.35rem;
@@ -314,14 +316,14 @@
 .bay-label {
   font-size: 0.65rem;
   font-weight: 800;
-  color: #94a3b8;
+  color: var(--text-muted);
   letter-spacing: 0.05em;
   padding-right: 0.35rem;
-  border-right: 1px solid #e2e8f0;
+  border-right: 1px solid var(--border-default);
 }
 
 .bay-icon {
-  color: #3b82f6;
+  color: var(--accent);
   opacity: 0.7;
 }
 
@@ -331,8 +333,8 @@
   border: none;
   outline: none;
   font-size: 0.75rem;
-  font-weight: 700;
-  color: #0f172a;
+  font-weight: 800;
+  color: var(--text-primary);
   padding: 0 0.2rem;
   cursor: pointer;
   min-width: 32px;
@@ -356,15 +358,15 @@
   color: #6b21a8;
 }
 
-/* Modal Styles - Light Optimized */
+/* Modal Styles - Glass Optimized */
 .modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(2px);
+  background-color: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -372,21 +374,27 @@
 }
 
 .modal-content {
-  background-color: #ffffff;
-  border: 1px solid #e2e8f0;
+  background: var(--bg-sidebar);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
   width: 100%;
-  max-width: 520px;
+  max-width: 580px;
   max-height: 90vh;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  box-shadow: var(--shadow-lg);
   overflow: hidden;
+  animation: modalIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes modalIn {
+  from { opacity: 0; transform: scale(0.95) translateY(10px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
 }
 
 .modal-header {
   padding: 1.5rem;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid var(--border-default);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -394,9 +402,10 @@
 }
 
 .modal-title {
-  font-size: 1.25rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
 }
 
 .modal-body {
@@ -421,18 +430,19 @@
 
 .form-input, .form-select {
   width: 100%;
-  background-color: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: var(--radius-sm);
-  padding: 0.75rem 1rem;
-  font-size: 1rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  padding: 0.85rem 1rem;
+  font-size: 0.95rem;
+  color: var(--text-primary);
   transition: all 0.2s;
 }
 
 .form-input:focus, .form-select:focus {
-  background-color: #ffffff;
+  background: rgba(255, 255, 255, 0.05);
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
   outline: none;
 }
 
@@ -442,7 +452,7 @@
   gap: 0.75rem;
   justify-content: flex-end;
   padding-top: 1.5rem;
-  border-top: 1px solid #f1f5f9;
+  border-top: 1px solid var(--border-default);
 }
 
 /* Button Variants */
@@ -496,8 +506,8 @@
 
 .stat-card {
   padding: 1.25rem;
-  background-color: #f8fafc;
-  border: 1px solid #f1f5f9;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-default);
   border-radius: var(--radius-md);
 }
 
@@ -817,10 +827,10 @@
 }
 
 .auth-gate-title {
-  font-size: 1.5rem;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  color: #fafafa;
+  font-size: 1.75rem;
+  font-weight: 900;
+  letter-spacing: -0.04em;
+  color: #ffffff;
   margin-bottom: 0.5rem;
 }
 
@@ -894,20 +904,20 @@
 }
 
 .keypad-button {
-  height: 74px;
-  border-radius: 18px;
-  background: #18181b;
-  border: 1px solid #27272a;
+  height: 80px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-default);
   color: white;
-  font-size: 1.75rem;
-  font-weight: 600;
-  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  font-size: 2rem;
+  font-weight: 700;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .keypad-button:hover {
-  background: #27272a;
-  border-color: #3f3f46;
-  transform: scale(1.02);
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--text-muted);
+  transform: translateY(-2px);
 }
 
 .keypad-button:active {
@@ -1051,30 +1061,24 @@
 
 /* Backlog Manager Refactor */
 .backlog-page-wrapper {
-  padding: 2rem 3rem;
-  max-width: 1600px;
+  padding: 3rem;
+  max-width: 1400px;
   margin: 0 auto;
-  background: #f8fafc;
+  background: var(--bg-main);
   min-height: 100vh;
 }
 
-.backlog-header-section {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 2.5rem;
-}
-
 .backlog-page-title {
-  font-size: 2.25rem;
+  font-size: 2.5rem;
   font-weight: 900;
-  letter-spacing: -0.04em;
-  color: #0f172a;
+  letter-spacing: -0.05em;
+  color: var(--text-primary);
 }
 
 .backlog-page-subtitle {
-  color: #64748b;
-  font-size: 1.1rem;
+  color: var(--text-secondary);
+  font-size: 1rem;
+  font-weight: 600;
   margin-top: 0.25rem;
 }
 
@@ -1170,25 +1174,28 @@
   margin-left: 1.5rem;
   display: flex;
   flex-direction: column;
-  border-left: 1px solid #e2e8f0;
+  border-left: 1px solid var(--border-default);
   padding-left: 1.5rem;
 }
 
 .header-date {
-  font-size: 0.9rem;
-  font-weight: 800;
-  color: #0f172a;
+  font-size: 0.95rem;
+  font-weight: 900;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
 }
 
 .header-time-live {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: #64748b;
-  letter-spacing: 0.05em;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
 }
 
 .header-time-live span {
-  opacity: 0.5;
+  color: #10b981;
+  font-weight: 900;
 }
 
 .header-search-container {

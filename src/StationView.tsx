@@ -12,8 +12,8 @@ import {
 } from '@dnd-kit/core';
 import type { DragStartEvent, DragOverEvent } from '@dnd-kit/core';
 import { sortableKeyboardCoordinates, arrayMove } from '@dnd-kit/sortable';
-import type { Trailer, StationId } from './types';
-import { STATIONS, PHASE_METADATA, MODEL_TARGET_HOURS, calculateTrailerRemainingHours } from './types';
+import type { Trailer, StationId, PhaseId } from './types';
+import { STATIONS, PHASE_METADATA, calculateTrailerRemainingHours } from './types';
 import { TrailerCard } from './components/TrailerCard';
 import { StationColumn } from './components/StationColumn';
 import { TrailerDetailsModal } from './components/TrailerDetailsModal';
@@ -24,9 +24,10 @@ interface Props {
   onUpdateTrailer: (id: string, updates: Partial<Trailer>) => void;
   bayCapacities: Record<StationId, number>;
   onUpdateCapacity: (id: StationId, capacity: number) => void;
+  localTargetHours: Record<string, Record<PhaseId, number>>;
 }
 
-const StationView: React.FC<Props> = ({ trailers, setTrailers, onUpdateTrailer, bayCapacities, onUpdateCapacity }) => {
+const StationView: React.FC<Props> = ({ trailers, setTrailers, onUpdateTrailer, bayCapacities, onUpdateCapacity, localTargetHours }) => {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [selectedTrailerId, setSelectedTrailerId] = useState<string | null>(null);
 
@@ -117,11 +118,11 @@ const StationView: React.FC<Props> = ({ trailers, setTrailers, onUpdateTrailer, 
   const getStationWorkloadData = (stationId: StationId) => {
     const stationTrailers = trailers.filter(t => t.station === stationId && !t.isArchived);
     const totals = stationTrailers.reduce((acc, t) => {
-      const remainingHours = calculateTrailerRemainingHours(t);
+      const remainingHours = calculateTrailerRemainingHours(t, localTargetHours);
       
-      // We still want stage-only hours for some logic possibly, 
+      // stage-only hours for some logic possibly, 
       // but for pipeline it's straightforward now.
-      const currentPhaseTarget = MODEL_TARGET_HOURS[t.model]?.[t.currentPhase] || PHASE_METADATA[t.currentPhase].defaultTargetHours;
+      const currentPhaseTarget = localTargetHours[t.model]?.[t.currentPhase] || PHASE_METADATA[t.currentPhase].defaultTargetHours;
       return {
         stage: acc.stage + currentPhaseTarget,
         pipeline: acc.pipeline + remainingHours
@@ -179,11 +180,12 @@ const StationView: React.FC<Props> = ({ trailers, setTrailers, onUpdateTrailer, 
                 workload={workloadData}
                 capacity={workloadData.capacity}
                 onUpdateCapacity={(cap) => onUpdateCapacity(station, cap)}
+                localTargetHours={localTargetHours}
               />
             );
           })}
           <DragOverlay>
-            {activeTrailer ? <TrailerCard trailer={activeTrailer} /> : null}
+            {activeTrailer ? <TrailerCard trailer={activeTrailer} localTargetHours={localTargetHours} /> : null}
           </DragOverlay>
         </DndContext>
       </main>
@@ -194,6 +196,7 @@ const StationView: React.FC<Props> = ({ trailers, setTrailers, onUpdateTrailer, 
           isOpen={true} 
           onClose={() => setSelectedTrailerId(null)} 
           onUpdate={onUpdateTrailer} 
+          localTargetHours={localTargetHours}
         />
       )}
     </div>

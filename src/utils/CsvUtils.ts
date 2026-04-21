@@ -43,7 +43,7 @@ export const parseCsv = (csvText: string): Partial<Trailer>[] => {
     }
     
     result.push({
-      id: cols[0] || Math.random().toString(36).substr(2, 9),
+      id: cols[0] || crypto.randomUUID(),
       name: cols[1] || '---',
       model: cols[2],
       serialNumber: cols[3] || `LT-${Math.floor(10000 + Math.random() * 90000)}`,
