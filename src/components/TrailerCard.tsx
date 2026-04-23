@@ -3,7 +3,7 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Clock, Hash, Calendar, Crown, StickyNote, Truck, Layers } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
-import type { Trailer, StationId, PhaseId } from '../types';
+import type { Trailer, StationId, PhaseId, UserRole } from '../types';
 import { STATIONS, PHASE_METADATA, calculateTrailerRemainingHours } from '../types';
 
 interface Props {
@@ -19,6 +19,7 @@ interface Props {
   isTVMode?: boolean;
   localTargetHours: Record<string, Record<PhaseId, number>>;
   isOverlay?: boolean;
+  userRole: UserRole;
 }
 
 export const TrailerCard: React.FC<Props> = React.memo(({ 
@@ -33,7 +34,8 @@ export const TrailerCard: React.FC<Props> = React.memo(({
   showPhaseBadge,
   isTVMode,
   localTargetHours,
-  isOverlay
+  isOverlay,
+  userRole
 }) => {
   const cardRef = useRef<HTMLDivElement>(null);
   const {
@@ -45,6 +47,7 @@ export const TrailerCard: React.FC<Props> = React.memo(({
     isDragging
   } = useSortable({
     id: trailer.id,
+    disabled: userRole !== 'manager',
     data: {
       type: 'Trailer',
       trailer

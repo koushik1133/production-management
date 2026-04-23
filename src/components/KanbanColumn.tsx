@@ -1,7 +1,7 @@
 import React from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import type { PhaseId, Trailer, StationId } from '../types';
+import type { PhaseId, Trailer, StationId, UserRole } from '../types';
 import { TrailerCard } from './TrailerCard';
 
 interface Props {
@@ -15,9 +15,10 @@ interface Props {
   highlightedId?: string | null;
   suggestedBay?: StationId;
   localTargetHours: Record<string, Record<PhaseId, number>>;
+  userRole: UserRole;
 }
 
-export const KanbanColumn: React.FC<Props> = React.memo(({ id, title, trailers, onCardClick, onUpdateTrailer, onShipRequest, workload, highlightedId, suggestedBay, localTargetHours }) => {
+export const KanbanColumn: React.FC<Props> = React.memo(({ id, title, trailers, onCardClick, onUpdateTrailer, onShipRequest, workload, highlightedId, suggestedBay, localTargetHours, userRole }) => {
   const { setNodeRef } = useDroppable({
     id,
   });
@@ -46,6 +47,7 @@ export const KanbanColumn: React.FC<Props> = React.memo(({ id, title, trailers, 
                 isHighlighted={trailer.id === highlightedId}
                 suggestedBay={suggestedBay}
                 localTargetHours={localTargetHours}
+                userRole={userRole}
               />
           ))}
         </SortableContext>

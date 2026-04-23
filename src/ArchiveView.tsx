@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Clock, Truck, Search, ChevronRight, Package, Eye, EyeOff, Image, Hash, User, DollarSign, BarChart3 } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
-import type { Trailer, PhaseId, ShippedTrailer } from './types';
+import type { Trailer, PhaseId, ShippedTrailer, UserRole } from './types';
 import { TrailerDetailsModal } from './components/TrailerDetailsModal';
 import { Modal } from './components/Modal';
 
@@ -11,6 +11,7 @@ interface Props {
   onUpdateTrailer: (id: string, updates: Partial<Trailer>) => void;
   localTargetHours: Record<string, Record<PhaseId, number>>;
   shippedTrailers?: ShippedTrailer[];
+  userRole: UserRole;
 }
 
 const PHASE_LABELS = [
@@ -21,7 +22,7 @@ const PHASE_LABELS = [
   { key: 'trim_hours', label: 'Trim', color: '#10b981' },
 ];
 
-const ShippedRecord: React.FC<{ record: ShippedTrailer; onClose: () => void }> = ({ record, onClose }) => {
+const ShippedRecord: React.FC<{ record: ShippedTrailer; onClose: () => void; userRole: UserRole }> = ({ record, onClose, userRole }) => {
   const [showPrices, setShowPrices] = useState(false);
   const photos = [record.photo_1_url, record.photo_2_url, record.photo_3_url].filter(Boolean) as string[];
 
@@ -46,8 +47,8 @@ const ShippedRecord: React.FC<{ record: ShippedTrailer; onClose: () => void }> =
               <h2 style={{ fontSize: '1.5rem', fontWeight: 900, letterSpacing: '-0.02em', marginBottom: '0.25rem' }}>{record.trailer_name}</h2>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', color: 'var(--text-secondary)', fontSize: '0.85rem', fontWeight: 600 }}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}><User size={14} /> {record.customer_name || 'Generic Stock'}</span>
-                <span style={{ width: '4px', height: '4px', background: 'var(--text-muted)', borderRadius: '50%' }} />
-                <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}><Hash size={14} /> {record.invoice_number}</span>
+                {userRole === 'manager' && <span style={{ width: '4px', height: '4px', background: 'var(--text-muted)', borderRadius: '50%' }} />}
+                {userRole === 'manager' && <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}><Hash size={14} /> {record.invoice_number}</span>}
               </div>
             </div>
             <div style={{ textAlign: 'right' }}>
@@ -123,26 +124,27 @@ const ShippedRecord: React.FC<{ record: ShippedTrailer; onClose: () => void }> =
         </div>
 
         {/* Pricing Segment */}
-        <div style={{ 
-          marginTop: '0.5rem',
-          padding: '1.25rem', 
-          background: showPrices ? 'rgba(234, 179, 8, 0.05)' : 'rgba(255, 255, 255, 0.02)', 
-          borderRadius: '20px', 
-          border: `1px solid ${showPrices ? 'rgba(234, 179, 8, 0.2)' : 'var(--border-default)'}`,
-          transition: 'all 0.3s ease'
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-              <DollarSign size={16} color={showPrices ? '#eab308' : 'var(--text-muted)'} />
-              <span style={{ fontSize: '0.85rem', fontWeight: 800, color: showPrices ? '#eab308' : 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Financial Data</span>
-            </div>
-            <button
-              onClick={() => setShowPrices(p => !p)}
-              style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: '0.5rem', 
-                background: showPrices ? 'rgba(234, 179, 8, 0.15)' : 'rgba(255,255,255,0.05)', 
+        {userRole === 'manager' && (
+          <div style={{ 
+            marginTop: '0.5rem',
+            padding: '1.25rem', 
+            background: showPrices ? 'rgba(234, 179, 8, 0.05)' : 'rgba(255, 255, 255, 0.02)', 
+            borderRadius: '20px', 
+            border: `1px solid ${showPrices ? 'rgba(234, 179, 8, 0.2)' : 'var(--border-default)'}`,
+            transition: 'all 0.3s ease'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                <DollarSign size={16} color={showPrices ? '#eab308' : 'var(--text-muted)'} />
+                <span style={{ fontSize: '0.85rem', fontWeight: 800, color: showPrices ? '#eab308' : 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Financial Data</span>
+              </div>
+              <button
+                onClick={() => setShowPrices(p => !p)}
+                style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '0.5rem', 
+                  background: showPrices ? 'rgba(234, 179, 8, 0.15)' : 'rgba(255,255,255,0.05)', 
                 border: 'none', 
                 borderRadius: '10px', 
                 padding: '6px 14px', 
@@ -164,12 +166,13 @@ const ShippedRecord: React.FC<{ record: ShippedTrailer; onClose: () => void }> =
             </div>
           )}
         </div>
+      )}
       </div>
     </Modal>
   );
 };
 
-export const ArchiveView: React.FC<Props> = ({ trailers, onUpdateTrailer, localTargetHours, shippedTrailers = [] }) => {
+export const ArchiveView: React.FC<Props> = ({ trailers, onUpdateTrailer, localTargetHours, shippedTrailers = [], userRole }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'shipped' | 'serial'>('shipped');
   const [selectedTrailerId, setSelectedTrailerId] = useState<string | null>(null);
@@ -412,11 +415,12 @@ export const ArchiveView: React.FC<Props> = ({ trailers, onUpdateTrailer, localT
           onUpdate={onUpdateTrailer}
           localTargetHours={localTargetHours}
           shippedTrailers={shippedTrailers}
+          userRole={userRole}
         />
       )}
 
       {selectedShipped && (
-        <ShippedRecord record={selectedShipped} onClose={() => setSelectedSerial(null)} />
+        <ShippedRecord record={selectedShipped} onClose={() => setSelectedSerial(null)} userRole={userRole} />
       )}
 
       {/* Hover Lift Style Injection */}

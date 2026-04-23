@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { formatDistanceToNow, format } from 'date-fns';
 import { History, FileText, Send, Crown, Trash2, Image as ImageIcon } from 'lucide-react';
-import type { Trailer, PhaseId, ShippedTrailer } from '../types';
+import type { Trailer, PhaseId, ShippedTrailer, UserRole } from '../types';
 import { BAY_WEEKLY_HOURS, calculateTrailerRemainingHours, PHASES } from '../types';
 import { Modal } from './Modal';
 
@@ -14,9 +14,10 @@ interface Props {
   localTargetHours: Record<string, Record<PhaseId, number>>;
   onDeleteTrailer?: (id: string) => void;
   shippedTrailers?: ShippedTrailer[];
+  userRole: UserRole;
 }
 
-export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose, onUpdate, allTrailers = [], localTargetHours, onDeleteTrailer, shippedTrailers = [] }) => {
+export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose, onUpdate, allTrailers = [], localTargetHours, onDeleteTrailer, shippedTrailers = [], userRole }) => {
   const [isEditing, setIsEditing] = React.useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false);
   const [editForm, setEditForm] = useState({
@@ -177,17 +178,19 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                         Save
                       </button>
                     )}
-                    <button 
-                      className={`btn btn-sm ${isEditing ? 'btn-danger' : 'btn-secondary'}`}
-                      onClick={() => setIsEditing(!isEditing)}
-                      style={{ padding: '4px 12px', fontSize: '0.7rem' }}
-                    >
-                      {isEditing ? 'Cancel' : 'Edit Info'}
-                    </button>
+                    {userRole === 'manager' && (
+                      <button 
+                        className={`btn btn-sm ${isEditing ? 'btn-danger' : 'btn-secondary'}`}
+                        onClick={() => setIsEditing(!isEditing)}
+                        style={{ padding: '4px 12px', fontSize: '0.7rem' }}
+                      >
+                        {isEditing ? 'Cancel' : 'Edit Info'}
+                      </button>
+                    )}
                   </div>
                 )}
                 
-                {onDeleteTrailer && (
+                {onDeleteTrailer && userRole === 'manager' && (
                   <div style={{ position: 'relative' }}>
                     {showDeleteConfirm ? (
                       <div className="delete-confirm-popover" style={{ 

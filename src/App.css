@@ -99,9 +99,9 @@
 /* Kanban Columns */
 .kanban-column {
   width: 100%;
-  max-width: 400px;
-  min-width: 340px;
-  flex: 0 0 auto;
+  max-width: 480px;
+  min-width: 280px;
+  flex: 1 1 320px;
   background: var(--bg-card);
   border: 1px solid var(--border-default);
   backdrop-filter: var(--glass-blur);
@@ -658,8 +658,8 @@
 }
 /* Mobile & Tablet Responsiveness */
 @media (max-width: 1200px) {
-  .search-bar { width: 240px; }
-  .kanban-column { min-width: 300px; max-width: 300px; }
+  .search-bar { width: 220px; }
+  .kanban-column { min-width: 260px; flex: 1 1 280px; }
 }
 
 @media (max-width: 1024px) {
