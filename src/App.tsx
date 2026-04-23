@@ -368,7 +368,7 @@ function Dashboard({
           <button className="btn btn-secondary" onClick={() => navigate('/stations')}>
             <MapPin size={14} /> <span className="btn-text">Bays</span>
           </button>
-          <button className="btn btn-secondary" onClick={() => navigate('/tv')}>
+          <button className="btn btn-secondary nav-tv-btn" onClick={() => navigate('/tv')}>
             <Tv size={14} /> <span className="btn-text">TV Mode</span>
           </button>
           <button className="btn btn-secondary" onClick={() => navigate('/catalog')}>
