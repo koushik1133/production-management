@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Tv, Share2, Maximize, Minimize, Sun, Moon } from 'lucide-react';
 import { Modal } from './components/Modal';
-import type { Trailer, PhaseId } from './types';
+import type { Trailer, PhaseId, UserRole } from './types';
 import { PHASES } from './types';
 import { TrailerCard } from './components/TrailerCard';
 
@@ -10,9 +10,10 @@ interface Props {
   trailers: Trailer[];
   monitorMode?: 'all' | 'station1' | 'station2';
   localTargetHours: Record<string, Record<PhaseId, number>>;
+  userRole: UserRole;
 }
 
-const TVView: React.FC<Props> = ({ trailers, monitorMode: initialMode = 'all', localTargetHours }) => {
+const TVView: React.FC<Props> = ({ trailers, monitorMode: initialMode = 'all', localTargetHours, userRole }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [monitorMode, setMonitorMode] = useState(initialMode);
   const [isCastModalOpen, setIsCastModalOpen] = useState(false);
@@ -303,6 +304,7 @@ const TVView: React.FC<Props> = ({ trailers, monitorMode: initialMode = 'all', l
                       hideShipButton={true} 
                       isTVMode={true} 
                       localTargetHours={localTargetHours}
+                      userRole={userRole}
                     />
                   ))}
                 {trailersInCol.length === 0 && (
