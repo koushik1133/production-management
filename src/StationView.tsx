@@ -187,7 +187,7 @@ const StationView: React.FC<Props> = ({ trailers, setTrailers, onUpdateTrailer, 
             );
           })}
           <DragOverlay>
-            {activeTrailer ? <TrailerCard trailer={activeTrailer} localTargetHours={localTargetHours} /> : null}
+            {activeTrailer ? <TrailerCard trailer={activeTrailer} localTargetHours={localTargetHours} userRole={userRole} /> : null}
           </DragOverlay>
         </DndContext>
       </main>
