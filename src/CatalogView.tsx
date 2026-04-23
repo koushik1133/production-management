@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Search, Clock, Weight, ChevronRight, LayoutGrid, Plus, Edit, Trash2, Info } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { PHASES } from './types';
-import type { PhaseId, ModelSpec } from './types';
+import type { PhaseId, ModelSpec, UserRole } from './types';
 import { Modal } from './components/Modal';
 
 interface Props {
@@ -12,9 +12,10 @@ interface Props {
   onAddModel: (model: { name: string, category: string, hours: Record<PhaseId, number>, spec: ModelSpec }) => void;
   onEditModel: (name: string, spec: { targetHours: Record<PhaseId, number> }) => void;
   onDeleteModel: (name: string) => void;
+  userRole: UserRole;
 }
 
-export const CatalogView: React.FC<Props> = ({ categories, hours, specs, onAddModel, onEditModel, onDeleteModel }) => {
+export const CatalogView: React.FC<Props> = ({ categories, hours, specs, onAddModel, onEditModel, onDeleteModel, userRole }) => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = React.useState('');
   const [selectedModel, setSelectedModel] = React.useState<string | null>(null);
@@ -72,13 +73,15 @@ export const CatalogView: React.FC<Props> = ({ categories, hours, specs, onAddMo
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem' }}>Master library of all trailer models and production specifications.</p>
           </div>
         </div>
-        <button 
-          className="btn btn-primary shimmer" 
-          style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem 1.5rem', borderRadius: '12px', fontWeight: 700 }}
-          onClick={() => setIsAddingModel(true)}
-        >
-          <Plus size={20} /> Define New Model
-        </button>
+        {userRole === 'manager' && (
+          <button 
+            className="btn btn-primary shimmer" 
+            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem 1.5rem', borderRadius: '12px', fontWeight: 700 }}
+            onClick={() => setIsAddingModel(true)}
+          >
+            <Plus size={20} /> Define New Model
+          </button>
+        )}
       </header>
 
       <div style={{ position: 'relative', marginBottom: '3rem' }}>
@@ -127,28 +130,30 @@ export const CatalogView: React.FC<Props> = ({ categories, hours, specs, onAddMo
                         <span style={{ fontSize: '0.75rem', color: 'var(--accent)', fontWeight: 800, background: 'rgba(59, 130, 246, 0.1)', padding: '2px 8px', borderRadius: '99px' }}>{specs[model]?.axles}</span>
                       </div>
                     </div>
-                    <div style={{ display: 'flex', gap: '0.4rem' }}>
-                        <button 
-                          className="btn-icon" 
-                          style={{ background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', color: 'var(--text-secondary)', transition: 'all 0.2s', padding: '6px', borderRadius: '8px' }}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onEditModel(model, { targetHours: hours[model] });
-                          }}
-                        >
-                          <Edit size={16} />
-                        </button>
-                        <button 
-                          className="btn-icon" 
-                          style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', color: '#ef4444', transition: 'all 0.2s', padding: '6px', borderRadius: '8px' }}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setShowDeleteConfirm(model);
-                          }}
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                    </div>
+                    {userRole === 'manager' && (
+                      <div style={{ display: 'flex', gap: '0.4rem' }}>
+                          <button 
+                            className="btn-icon" 
+                            style={{ background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', color: 'var(--text-secondary)', transition: 'all 0.2s', padding: '6px', borderRadius: '8px' }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onEditModel(model, { targetHours: hours[model] });
+                            }}
+                          >
+                            <Edit size={16} />
+                          </button>
+                          <button 
+                            className="btn-icon" 
+                            style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', color: '#ef4444', transition: 'all 0.2s', padding: '6px', borderRadius: '8px' }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setShowDeleteConfirm(model);
+                            }}
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                      </div>
+                    )}
                   </div>
 
                   <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '1.5rem', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>

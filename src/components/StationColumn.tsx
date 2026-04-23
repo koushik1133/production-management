@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import type { StationId, Trailer, PhaseId } from '../types';
+import type { StationId, Trailer, PhaseId, UserRole } from '../types';
 import { TrailerCard } from './TrailerCard';
 
 interface Props {
@@ -13,9 +13,10 @@ interface Props {
   capacity?: number;
   onUpdateCapacity?: (capacity: number) => void;
   localTargetHours: Record<string, Record<PhaseId, number>>;
+  userRole: UserRole;
 }
 
-export const StationColumn: React.FC<Props> = ({ id, trailers, onUpdateTrailer, onCardClick, workload, capacity, onUpdateCapacity, localTargetHours }) => {
+export const StationColumn: React.FC<Props> = ({ id, trailers, onUpdateTrailer, onCardClick, workload, capacity, onUpdateCapacity, localTargetHours, userRole }) => {
   const { setNodeRef } = useDroppable({
     id,
   });
@@ -57,17 +58,28 @@ export const StationColumn: React.FC<Props> = ({ id, trailers, onUpdateTrailer, 
               type="number" 
               placeholder="Hrs/Wk" 
               className="bay-time-input"
-              style={{ width: '48px', height: '24px', fontSize: '0.75rem', fontWeight: 700, textAlign: 'center', border: '1px solid #cbd5e1', borderRadius: '4px' }}
+              style={{ 
+                width: '48px', 
+                height: '24px', 
+                fontSize: '0.75rem', 
+                fontWeight: 700, 
+                textAlign: 'center', 
+                border: '1px solid #cbd5e1', 
+                borderRadius: '4px',
+                background: userRole !== 'manager' ? '#f1f5f9' : '#fff',
+                cursor: userRole !== 'manager' ? 'not-allowed' : 'text'
+              }}
               value={localCapacity}
-              onChange={(e) => setLocalCapacity(e.target.value)}
-              onBlur={handleCapacitySubmit}
+              onChange={(e) => userRole === 'manager' && setLocalCapacity(e.target.value)}
+              onBlur={() => userRole === 'manager' && handleCapacitySubmit()}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') {
+                if (e.key === 'Enter' && userRole === 'manager') {
                   handleCapacitySubmit();
                   (e.target as HTMLInputElement).blur();
                 }
               }}
               onClick={(e) => e.stopPropagation()}
+              readOnly={userRole !== 'manager'}
             />
             <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#94a3b8' }}>{trailers.length}</span>
           </div>
@@ -86,6 +98,7 @@ export const StationColumn: React.FC<Props> = ({ id, trailers, onUpdateTrailer, 
                 onCardClick={() => onCardClick?.(trailer)}
                 showPhaseBadge={true}
                 localTargetHours={localTargetHours}
+                userRole={userRole}
               />
           ))}
         </SortableContext>

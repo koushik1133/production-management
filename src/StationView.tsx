@@ -12,7 +12,7 @@ import {
 } from '@dnd-kit/core';
 import type { DragStartEvent, DragOverEvent } from '@dnd-kit/core';
 import { sortableKeyboardCoordinates, arrayMove } from '@dnd-kit/sortable';
-import type { Trailer, StationId, PhaseId } from './types';
+import type { Trailer, StationId, PhaseId, UserRole } from './types';
 import { STATIONS, PHASE_METADATA, calculateTrailerRemainingHours } from './types';
 import { TrailerCard } from './components/TrailerCard';
 import { StationColumn } from './components/StationColumn';
@@ -25,9 +25,10 @@ interface Props {
   bayCapacities: Record<StationId, number>;
   onUpdateCapacity: (id: StationId, capacity: number) => void;
   localTargetHours: Record<string, Record<PhaseId, number>>;
+  userRole: UserRole;
 }
 
-const StationView: React.FC<Props> = ({ trailers, setTrailers, onUpdateTrailer, bayCapacities, onUpdateCapacity, localTargetHours }) => {
+const StationView: React.FC<Props> = ({ trailers, setTrailers, onUpdateTrailer, bayCapacities, onUpdateCapacity, localTargetHours, userRole }) => {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [selectedTrailerId, setSelectedTrailerId] = useState<string | null>(null);
 
@@ -181,6 +182,7 @@ const StationView: React.FC<Props> = ({ trailers, setTrailers, onUpdateTrailer, 
                 capacity={workloadData.capacity}
                 onUpdateCapacity={(cap) => onUpdateCapacity(station, cap)}
                 localTargetHours={localTargetHours}
+                userRole={userRole}
               />
             );
           })}
@@ -197,6 +199,7 @@ const StationView: React.FC<Props> = ({ trailers, setTrailers, onUpdateTrailer, 
           onClose={() => setSelectedTrailerId(null)} 
           onUpdate={onUpdateTrailer} 
           localTargetHours={localTargetHours}
+          userRole={userRole}
         />
       )}
     </div>

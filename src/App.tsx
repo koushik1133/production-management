@@ -59,7 +59,7 @@ import {
   PHASE_METADATA,
   calculateTrailerRemainingHours
 } from './types';
-import type { Trailer, PhaseId, StationId, ModelSpec, CatalogModel, ShippedTrailer } from './types';
+import type { Trailer, PhaseId, StationId, ModelSpec, CatalogModel, ShippedTrailer, UserRole } from './types';
 
 const localModelCategories = MODEL_CATEGORIES;
 const localModelSpecs = MODEL_TARGET_HOURS;
@@ -93,7 +93,8 @@ function Dashboard({
   onSaveShippedRecord,
   searchQuery,
   setSearchQuery,
-  shippedTrailers
+  shippedTrailers,
+  userRole
 }: { 
   trailers: Trailer[], 
   updateTrailer: (id: string, updates: Partial<Trailer>) => void,
@@ -117,7 +118,8 @@ function Dashboard({
   totalProductionTime: number,
   searchQuery: string,
   setSearchQuery: React.Dispatch<React.SetStateAction<string>>,
-  shippedTrailers: ShippedTrailer[]
+  shippedTrailers: ShippedTrailer[],
+  userRole: UserRole
 }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const highlightedTrailerId = searchParams.get('highlight');
@@ -425,10 +427,11 @@ function Dashboard({
               highlightedId={highlightedTrailerId}
               suggestedBay={suggestedBay}
               localTargetHours={localTargetHours}
+              userRole={userRole}
             />
           ))}
           <DragOverlay>
-            {activeTrailer ? <TrailerCard trailer={activeTrailer} localTargetHours={localTargetHours} isOverlay /> : null}
+            {activeTrailer ? <TrailerCard trailer={activeTrailer} localTargetHours={localTargetHours} isOverlay userRole={userRole} /> : null}
           </DragOverlay>
         </DndContext>
       </main>
@@ -577,6 +580,7 @@ function Dashboard({
             setSelectedTrailerId(null);
           }}
           shippedTrailers={shippedTrailers}
+          userRole={userRole}
         />
       )}
       
@@ -761,13 +765,19 @@ function Dashboard({
   );
 }
 
-function AuthGate({ children }: { children: React.ReactNode }) {
-  const [isAuthenticated, setIsAuthenticated] = useState(() => {
-    return localStorage.getItem('lane-trailers-auth') === 'true';
+function AuthGate({ children }: { children: (role: UserRole) => React.ReactNode }) {
+  const [auth, setAuth] = useState<{ isAuthenticated: boolean; role: UserRole | null }>(() => {
+    const isAuthed = localStorage.getItem('lane-trailers-auth') === 'true';
+    const role = localStorage.getItem('lane-trailers-role') as UserRole;
+    return { isAuthenticated: isAuthed, role: isAuthed ? role : null };
   });
   const [pin, setPin] = useState('');
   const [error, setError] = useState(false);
-  const CORRECT_PIN = '1234';
+  
+  const ROLES_CONFIG: Record<string, UserRole> = {
+    '1234': 'manager',
+    '5678': 'worker'
+  };
 
   const handlePinEntry = (digit: string) => {
     setError(false);
@@ -775,9 +785,11 @@ function AuthGate({ children }: { children: React.ReactNode }) {
       const newPin = pin + digit;
       setPin(newPin);
       if (newPin.length === 4) {
-        if (newPin === CORRECT_PIN) {
+        const assignedRole = ROLES_CONFIG[newPin];
+        if (assignedRole) {
           localStorage.setItem('lane-trailers-auth', 'true');
-          setIsAuthenticated(true);
+          localStorage.setItem('lane-trailers-role', assignedRole);
+          setAuth({ isAuthenticated: true, role: assignedRole });
         } else {
           setError(true);
           setTimeout(() => setPin(''), 500);
@@ -786,7 +798,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     }
   };
 
-  if (isAuthenticated) return <>{children}</>;
+  if (auth.isAuthenticated && auth.role) return <>{children(auth.role)}</>;
 
   return (
     <div className="auth-gate-container">
@@ -1304,69 +1316,76 @@ function getSuggestedBay(): StationId {
 
   return (
     <AuthGate>
-      <Routes>
-        <Route path="/" element={<Dashboard 
-          trailers={trailers} 
-          updateTrailer={updateTrailer} 
-          isConnected={isConnected} 
-          addTrailer={addTrailer} 
-          suggestedBay={suggestedBay} 
-          runwayWeeks={runwayWeeks} 
-          nextSuggestedSerial={nextSuggestedSerial} 
-          localTargetHours={localTargetHours} 
-          onDeleteTrailer={deleteTrailer} 
-          onSaveShippedRecord={async (rec) => { 
-            const { data, error } = await supabase.from('shipped_trailers').upsert([rec]).select().single(); 
-            if (error) {
-              console.error('SHIPMENT ERROR:', error);
-            } else if (data) {
-              setShippedTrailers(prev => [data, ...prev]); 
-            }
-          }}
-          theme={theme}
-          onToggleTheme={() => setTheme(prev => prev === 'light' ? 'dark' : 'light')}
-          sensors={sensors}
-          handleDragStart={handleDragStart}
-          handleDragOver={handleDragOver}
-          handleDragEnd={handleDragEnd}
-          activeId={activeId}
-          filteredTrailers={filteredTrailers}
-          totalWorkRemaining={totalWorkRemaining}
-          totalProductionTime={totalProductionTime}
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
-          shippedTrailers={shippedTrailers}
-        />} />
-        <Route path="/backlog" element={<BacklogView trailers={trailers} onAddTrailer={addTrailer} onUpdateTrailer={updateTrailer} suggestedBay={suggestedBay} nextSuggestedSerial={nextSuggestedSerial} localModelCategories={localModelCategories} localTargetHours={localTargetHours} />} />
-        <Route path="/stations" element={<StationView trailers={trailers} setTrailers={setTrailers} onUpdateTrailer={updateTrailer} bayCapacities={bayCapacities} onUpdateCapacity={updateCapacity} localTargetHours={localTargetHours} />} />
-        <Route path="/tv" element={<TVView trailers={trailers} localTargetHours={localTargetHours} />} />
-        <Route path="/tv/station1" element={<TVView trailers={trailers} monitorMode="station1" localTargetHours={localTargetHours} />} />
-        <Route path="/tv/station2" element={<TVView trailers={trailers} monitorMode="station2" localTargetHours={localTargetHours} />} />
-        <Route path="/archive" element={<ArchiveView trailers={trailers} onUpdateTrailer={updateTrailer} localTargetHours={localTargetHours} shippedTrailers={shippedTrailers} />} />
-        <Route path="/schedule" element={<ScheduleView trailers={trailers} />} />
-        <Route path="/catalog" element={<CatalogView categories={localModelCategories} hours={localTargetHours} specs={localModelSpecs as any} onAddModel={handleAddModel} onEditModel={handleEditModel} onDeleteModel={handleDeleteModel} />} />
-      </Routes>
+      {(userRole) => (
+        <>
+          <Routes>
+            <Route path="/" element={<Dashboard 
+              trailers={trailers} 
+              updateTrailer={updateTrailer} 
+              isConnected={isConnected} 
+              addTrailer={addTrailer} 
+              suggestedBay={suggestedBay} 
+              runwayWeeks={runwayWeeks} 
+              nextSuggestedSerial={nextSuggestedSerial} 
+              localTargetHours={localTargetHours} 
+              onDeleteTrailer={deleteTrailer} 
+              onSaveShippedRecord={async (rec) => { 
+                const { data, error } = await supabase.from('shipped_trailers').upsert([rec]).select().single(); 
+                if (error) {
+                  console.error('SHIPMENT ERROR:', error);
+                } else if (data) {
+                  setShippedTrailers(prev => [data, ...prev]); 
+                }
+              }}
+              theme={theme}
+              onToggleTheme={() => setTheme(prev => prev === 'light' ? 'dark' : 'light')}
+              sensors={sensors}
+              handleDragStart={handleDragStart}
+              handleDragOver={handleDragOver}
+              handleDragEnd={handleDragEnd}
+              activeId={activeId}
+              filteredTrailers={filteredTrailers}
+              totalWorkRemaining={totalWorkRemaining}
+              totalProductionTime={totalProductionTime}
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
+              shippedTrailers={shippedTrailers}
+              userRole={userRole}
+            />} />
+            <Route path="/backlog" element={<BacklogView trailers={trailers} onAddTrailer={addTrailer} onUpdateTrailer={updateTrailer} suggestedBay={suggestedBay} nextSuggestedSerial={nextSuggestedSerial} localModelCategories={localModelCategories} localTargetHours={localTargetHours} userRole={userRole} />} />
+            <Route path="/stations" element={<StationView trailers={trailers} setTrailers={setTrailers} onUpdateTrailer={updateTrailer} bayCapacities={bayCapacities} onUpdateCapacity={updateCapacity} localTargetHours={localTargetHours} userRole={userRole} />} />
+            <Route path="/tv" element={<TVView trailers={trailers} localTargetHours={localTargetHours} />} />
+            <Route path="/tv/station1" element={<TVView trailers={trailers} monitorMode="station1" localTargetHours={localTargetHours} />} />
+            <Route path="/tv/station2" element={<TVView trailers={trailers} monitorMode="station2" localTargetHours={localTargetHours} />} />
+            <Route path="/archive" element={<ArchiveView trailers={trailers} onUpdateTrailer={updateTrailer} localTargetHours={localTargetHours} shippedTrailers={shippedTrailers} userRole={userRole} />} />
+            <Route path="/schedule" element={<ScheduleView trailers={trailers} />} />
+            <Route path="/catalog" element={<CatalogView categories={localModelCategories} hours={localTargetHours} specs={localModelSpecs as any} onAddModel={handleAddModel} onEditModel={handleEditModel} onDeleteModel={handleDeleteModel} userRole={userRole} />} />
+          </Routes>
 
-      {/* Quick Model Spec Editor */}
-      <Modal isOpen={!!editingModelName} onClose={() => setEditingModelName(null)} title={`Specs: ${editingModelName}`}>
-        <div style={{ padding: '1rem' }}>
-          <p style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '1.5rem' }}>Update target hours for all units of this model.</p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem', marginBottom: '1.5rem' }}>
-            {modelFormData && PHASES.filter(p => !['backlog', 'shipping'].includes(p.id)).map(phase => (
-              <div key={phase.id}>
-                <label style={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', color: '#94a3b8', display: 'block', marginBottom: '4px' }}>{phase.title}</label>
-                <input 
-                  type="number"
-                  className="form-input"
-                  value={modelFormData[phase.id] || ''}
-                  onChange={e => setModelFormData({ ...modelFormData, [phase.id]: parseInt(e.target.value, 10) || 0 })}
-                />
+          {/* Quick Model Spec Editor - Only for Managers */}
+          {userRole === 'manager' && (
+            <Modal isOpen={!!editingModelName} onClose={() => setEditingModelName(null)} title={`Specs: ${editingModelName}`}>
+              <div style={{ padding: '1rem' }}>
+                <p style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '1.5rem' }}>Update target hours for all units of this model.</p>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem', marginBottom: '1.5rem' }}>
+                  {modelFormData && PHASES.filter(p => !['backlog', 'shipping'].includes(p.id)).map(phase => (
+                    <div key={phase.id}>
+                      <label style={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', color: '#94a3b8', display: 'block', marginBottom: '4px' }}>{phase.title}</label>
+                      <input 
+                        type="number"
+                        className="form-input"
+                        value={modelFormData[phase.id] || ''}
+                        onChange={e => setModelFormData({ ...modelFormData, [phase.id]: parseInt(e.target.value, 10) || 0 })}
+                      />
+                    </div>
+                  ))}
+                </div>
+                <button className="btn btn-primary" style={{ width: '100%', padding: '0.75rem', fontWeight: 700 }} onClick={handleSaveModelSpecs}>Save Specifications</button>
               </div>
-            ))}
-          </div>
-          <button className="btn btn-primary" style={{ width: '100%', padding: '0.75rem', fontWeight: 700 }} onClick={handleSaveModelSpecs}>Save Specifications</button>
-        </div>
-      </Modal>
+            </Modal>
+          )}
+        </>
+      )}
     </AuthGate>
   );
 }
