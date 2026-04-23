@@ -90,7 +90,7 @@ export const TrailerCard: React.FC<Props> = React.memo(({
       {...listeners}
       onClick={() => onCardClick?.()}
     >
-      <div className="card-header-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
+      <div className="card-header-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
         <div className="card-title" style={{ flex: 1, minWidth: 0 }}>
           <span className="card-model" style={{ 
             display: 'block', 
