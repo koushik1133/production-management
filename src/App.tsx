@@ -48,7 +48,8 @@ import {
   Image as ImageIcon,
   DollarSign,
   Sun,
-  Moon
+  Moon,
+  Undo2
 } from 'lucide-react';
 
 import { 
@@ -94,7 +95,9 @@ function Dashboard({
   searchQuery,
   setSearchQuery,
   shippedTrailers,
-  userRole
+  userRole,
+  undoStack,
+  handleUndo
 }: { 
   trailers: Trailer[], 
   updateTrailer: (id: string, updates: Partial<Trailer>) => void,
@@ -119,7 +122,9 @@ function Dashboard({
   searchQuery: string,
   setSearchQuery: React.Dispatch<React.SetStateAction<string>>,
   shippedTrailers: ShippedTrailer[],
-  userRole: UserRole
+  userRole: UserRole,
+  undoStack: Array<Array<{ id: string } & Partial<Trailer>>>,
+  handleUndo: () => void
 }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const highlightedTrailerId = searchParams.get('highlight');
@@ -362,6 +367,17 @@ function Dashboard({
         </div>
 
         <div className="header-right">
+          {/* Undo last drag action */}
+          {undoStack.length > 0 && (
+            <button
+              className="btn btn-secondary btn-icon"
+              onClick={handleUndo}
+              title="Undo last move"
+              style={{ borderRadius: '10px' }}
+            >
+              <Undo2 size={16} />
+            </button>
+          )}
           <div className={`sync-indicator ${isConnected ? 'connected' : 'disconnected'}`} style={{ marginRight: '0.5rem' }}>
              <div className="pulse-dot" />
              <span className="sync-label" style={{ fontSize: '0.6rem' }}>{isConnected ? 'NODE CONNECTED' : 'LINK LOST'}</span>
@@ -855,6 +871,8 @@ function App() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [editingModelName, setEditingModelName] = useState<string | null>(null);
   const [modelFormData, setModelFormData] = useState<Record<PhaseId, number> | null>(null);
+  // Undo stack: each entry is an array of partial trailer snapshots (affected trailers only)
+  const [undoStack, setUndoStack] = useState<Array<Array<{ id: string } & Partial<Trailer>>>>([]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -1188,8 +1206,56 @@ function App() {
 
 
 
+  const handleUndo = async () => {
+    setUndoStack(prev => {
+      if (prev.length === 0) return prev;
+      const snapshot = prev[prev.length - 1];
+      const nextStack = prev.slice(0, -1);
+
+      // Restore local state
+      setTrailers(current =>
+        current.map(t => {
+          const snap = snapshot.find(s => s.id === t.id);
+          return snap ? { ...t, ...snap } : t;
+        })
+      );
+
+      // Persist rollback to DB
+      Promise.all(
+        snapshot.map(snap =>
+          supabase.from('trailers').update({
+            currentPhase: snap.currentPhase,
+            history: snap.history,
+            dateStarted: snap.dateStarted,
+            vertical_order: snap.vertical_order,
+          }).eq('id', snap.id)
+        )
+      ).catch(err => console.error('Undo sync error:', err));
+
+      return nextStack;
+    });
+  };
+
   const handleDragStart = (event: DragStartEvent) => {
-    setActiveId(event.active.id as string);
+    const dragId = event.active.id as string;
+    setActiveId(dragId);
+
+    // Snapshot at drag START — this is the only point where state is guaranteed to be original.
+    // handleDragOver will mutate it before handleDragEnd, so we can't snapshot there.
+    const draggedTrailer = trailersRef.current.find(t => t.id === dragId);
+    if (draggedTrailer) {
+      const snapshot = trailersRef.current
+        .filter(t => t.currentPhase === draggedTrailer.currentPhase && !t.isArchived && !t.isDeleted)
+        .map(t => ({
+          id: t.id,
+          currentPhase: t.currentPhase,
+          vertical_order: t.vertical_order,
+          history: t.history,
+          dateStarted: t.dateStarted,
+        }));
+      // Ensure the dragged trailer is in the snapshot (it always is, but being explicit)
+      setUndoStack(prev => [...prev.slice(-19), snapshot]);
+    }
   };
 
   const handleDragOver = (event: DragOverEvent) => {
@@ -1245,30 +1311,28 @@ function App() {
     
     if (trailer && over) {
       try {
+        // Work only with active trailers in the destination PHASE
+        // (trailer.currentPhase is already the destination after handleDragOver)
         const overId = over.id as string;
         const currentItems = trailersRef.current;
-
-        // Work only with active trailers in the SAME PHASE
         const phaseTrailers = currentItems.filter(
           t => t.currentPhase === trailer.currentPhase && !t.isArchived && !t.isDeleted
         );
 
-        const oldIndex = phaseTrailers.findIndex(t => t.id === activeId);
-
-        // overItem may be another card or a column drop zone
+        const currentIdx = phaseTrailers.findIndex(t => t.id === activeId);
         const overIsCard = phaseTrailers.some(t => t.id === overId);
-        const newIndex = overIsCard
+        const targetIdx = overIsCard
           ? phaseTrailers.findIndex(t => t.id === overId)
-          : phaseTrailers.length - 1; // dropped on empty column → put at end
+          : phaseTrailers.length - 1;
 
-        if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) return;
+        // Reorder within destination phase and assign sequential vertical_order
+        const reordered = (
+          currentIdx !== -1 && targetIdx !== -1 && currentIdx !== targetIdx
+            ? arrayMove([...phaseTrailers], currentIdx, targetIdx)
+            : [...phaseTrailers]
+        ).map((t, idx) => ({ ...t, vertical_order: idx * 1000 }));
 
-        // Reorder and assign clean sequential values (0, 1000, 2000 …)
-        const reordered = arrayMove([...phaseTrailers], oldIndex, newIndex).map(
-          (t, idx) => ({ ...t, vertical_order: idx * 1000 })
-        );
-
-        // 1. Instant local update
+        // Instant local update
         setTrailers(prev =>
           prev.map(t => {
             const updated = reordered.find(r => r.id === t.id);
@@ -1276,12 +1340,20 @@ function App() {
           })
         );
 
-        // 2. Persist ALL trailers in the phase (so every monitor gets full ground truth)
-        await Promise.all(
-          reordered.map(t =>
-            supabase.from('trailers').update({ vertical_order: t.vertical_order }).eq('id', t.id)
-          )
-        );
+        // Persist to DB:
+        // - moved trailer: full update (phase, history, dateStarted, vertical_order)
+        // - other trailers in phase: vertical_order only
+        await Promise.all([
+          supabase.from('trailers').update({
+            currentPhase: trailer.currentPhase,
+            history: trailer.history,
+            dateStarted: trailer.dateStarted,
+            vertical_order: reordered.find(r => r.id === activeId)?.vertical_order ?? 0,
+          }).eq('id', activeId),
+          ...reordered
+            .filter(t => t.id !== activeId)
+            .map(t => supabase.from('trailers').update({ vertical_order: t.vertical_order }).eq('id', t.id))
+        ]);
 
       } catch (err) {
         console.error('DragEnd Execution Error:', err);
@@ -1369,6 +1441,8 @@ function getSuggestedBay(): StationId {
               setSearchQuery={setSearchQuery}
               shippedTrailers={shippedTrailers}
               userRole={userRole}
+              undoStack={undoStack}
+              handleUndo={handleUndo}
             />} />
             <Route path="/backlog" element={<BacklogView trailers={trailers} onAddTrailer={addTrailer} onUpdateTrailer={updateTrailer} suggestedBay={suggestedBay} nextSuggestedSerial={nextSuggestedSerial} localModelCategories={localModelCategories} localTargetHours={localTargetHours} userRole={userRole} />} />
             <Route path="/stations" element={<StationView trailers={trailers} setTrailers={setTrailers} onUpdateTrailer={updateTrailer} bayCapacities={bayCapacities} onUpdateCapacity={updateCapacity} localTargetHours={localTargetHours} userRole={userRole} />} />
