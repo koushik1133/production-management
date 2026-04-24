@@ -1294,6 +1294,11 @@ function App() {
         const updatedTrailer = { ...prev[activeIdx], currentPhase: overPhase as PhaseId, history: updatedHistory };
         const newTrailers = [...prev];
         newTrailers[activeIdx] = updatedTrailer;
+
+        // CRITICAL: sync ref immediately so handleDragEnd reads the correct phase.
+        // useEffect([trailers]) runs after paint — too late for the DnD event chain.
+        trailersRef.current = newTrailers;
+
         return newTrailers;
       });
     }
