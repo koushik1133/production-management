@@ -19,12 +19,13 @@ interface Props {
 }
 
 export const KanbanColumn: React.FC<Props> = React.memo(({ id, title, trailers, onCardClick, onUpdateTrailer, onShipRequest, workload, highlightedId, suggestedBay, localTargetHours, userRole }) => {
-  const { setNodeRef } = useDroppable({
-    id,
-  });
+  const { setNodeRef } = useDroppable({ id });
+
+  // Sort within column by vertical_order so real-time updates render in correct order
+  const sortedTrailers = [...trailers].sort((a, b) => (a.vertical_order ?? 0) - (b.vertical_order ?? 0));
 
   return (
-    <div className="kanban-column" ref={setNodeRef}>
+    <div className="kanban-column" id={id} data-droppable-id={id} ref={setNodeRef}>
       <div className="column-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--accent)' }} />
@@ -34,10 +35,10 @@ export const KanbanColumn: React.FC<Props> = React.memo(({ id, title, trailers, 
       </div>
       <div className="cards-container">
         <SortableContext
-          items={Array.from(new Set(trailers.map((t) => t.id)))}
+          items={Array.from(new Set(sortedTrailers.map((t) => t.id)))}
           strategy={verticalListSortingStrategy}
         >
-          {trailers.map((trailer) => (
+          {sortedTrailers.map((trailer) => (
               <TrailerCard 
                 key={trailer.id} 
                 trailer={trailer} 

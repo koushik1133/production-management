@@ -4,7 +4,7 @@ import { format } from 'date-fns';
 import {
   DndContext,
   DragOverlay,
-  closestCorners,
+  pointerWithin,
   KeyboardSensor,
   PointerSensor,
   TouchSensor,
@@ -343,7 +343,7 @@ function Dashboard({
           <div className="header-divider" />
           <div className="header-clock-section">
             <div className="header-date">{format(currentTime, 'EEE, MMM d')}</div>
-            <div className="header-time-live">{format(currentTime, 'hh:mm:ss a')} <span>• LIVE</span></div>
+            <div className="header-time-live">{format(currentTime, 'hh:mm:ss a')}</div>
           </div>
           
           <div className="header-search-container" style={{ background: 'var(--glass-bg)', border: '1px solid var(--border-default)', borderRadius: '12px' }}>
@@ -407,7 +407,7 @@ function Dashboard({
       </header>
 
       <main className="main-content" ref={mainContentRef}>
-        <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd}>
+        <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd}>
           {PHASES.map((phase) => (
             <KanbanColumn 
               key={phase.id} 
@@ -939,7 +939,7 @@ function App() {
     setLoading(true);
     try {
       const [trailersRes, bayRes, modelsRes, shippedRes] = await Promise.all([
-        supabase.from('trailers').select('*').order('dateStarted', { ascending: false }),
+        supabase.from('trailers').select('*'),
         supabase.from('bay_settings').select('*'),
         supabase.from('production_models').select('*'),
         supabase.from('shipped_trailers').select('*').order('shipped_at', { ascending: false })
@@ -950,7 +950,14 @@ function App() {
         const uniqueTrailers = trailersRes.data.filter((t, index, self) => 
           index === self.findIndex((u) => u.id === t.id)
         );
-        setTrailers(uniqueTrailers);
+        // Local sort: vertical_order ASC, then dateStarted DESC fallback
+        const sorted = [...uniqueTrailers].sort((a, b) => {
+          if (a.vertical_order !== undefined && b.vertical_order !== undefined) {
+            return a.vertical_order - b.vertical_order;
+          }
+          return (b.dateStarted || 0) - (a.dateStarted || 0);
+        });
+        setTrailers(sorted);
       }
       if (modelsRes.data) setCatalogModels(modelsRes.data);
       if (shippedRes.data) setShippedTrailers(shippedRes.data);
@@ -998,7 +1005,9 @@ function App() {
               return [payload.new as Trailer, ...prev];
             });
           } else if (payload.eventType === 'UPDATE') {
-            setTrailers(prev => prev.map(t => t.id === payload.new.id ? { ...t, ...payload.new } as Trailer : t));
+            setTrailers(prev =>
+              prev.map(t => t.id === payload.new.id ? { ...t, ...payload.new } as Trailer : t)
+            );
           } else if (payload.eventType === 'DELETE') {
             setTrailers(prev => prev.filter(t => t.id !== payload.old.id));
           }
@@ -1237,34 +1246,43 @@ function App() {
     if (trailer && over) {
       try {
         const overId = over.id as string;
-        const isOverColumn = PHASES.some(p => p.id === overId);
-        
-        // If same column reorder, update state array order
-        if (!isOverColumn && trailer.id !== overId) {
-          setTrailers(prev => {
-            const oldIndex = prev.findIndex(t => t.id === activeId);
-            const newIndex = prev.findIndex(t => t.id === overId);
-            if (oldIndex === -1 || newIndex === -1) return prev;
-            return arrayMove(prev, oldIndex, newIndex);
-          });
-        }
+        const currentItems = trailersRef.current;
 
-        // 3. Persist to DB with robust error handling
-        const { error } = await supabase
-          .from('trailers')
-          .update({
-            currentPhase: trailer.currentPhase,
-            history: trailer.history,
-            dateStarted: trailer.dateStarted 
+        // Work only with active trailers in the SAME PHASE
+        const phaseTrailers = currentItems.filter(
+          t => t.currentPhase === trailer.currentPhase && !t.isArchived && !t.isDeleted
+        );
+
+        const oldIndex = phaseTrailers.findIndex(t => t.id === activeId);
+
+        // overItem may be another card or a column drop zone
+        const overIsCard = phaseTrailers.some(t => t.id === overId);
+        const newIndex = overIsCard
+          ? phaseTrailers.findIndex(t => t.id === overId)
+          : phaseTrailers.length - 1; // dropped on empty column → put at end
+
+        if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) return;
+
+        // Reorder and assign clean sequential values (0, 1000, 2000 …)
+        const reordered = arrayMove([...phaseTrailers], oldIndex, newIndex).map(
+          (t, idx) => ({ ...t, vertical_order: idx * 1000 })
+        );
+
+        // 1. Instant local update
+        setTrailers(prev =>
+          prev.map(t => {
+            const updated = reordered.find(r => r.id === t.id);
+            return updated ? updated : t;
           })
-          .eq('id', trailer.id);
-          
-        if (error) {
-          console.error('Supabase Sync Error:', error);
-          // Optional: Could add toast notification here
-        }
-        
-        // Mandatory shipping checklist prompt handled by Dashboard's useEffect on pendingShippingTrailer
+        );
+
+        // 2. Persist ALL trailers in the phase (so every monitor gets full ground truth)
+        await Promise.all(
+          reordered.map(t =>
+            supabase.from('trailers').update({ vertical_order: t.vertical_order }).eq('id', t.id)
+          )
+        );
+
       } catch (err) {
         console.error('DragEnd Execution Error:', err);
       }
