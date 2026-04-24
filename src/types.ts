@@ -39,6 +39,7 @@ export interface Trailer {
   invoiceNumber?: string;
   vinDate?: string;
   promisedShippingDate?: string;
+  vertical_order?: number;
 }
 
 export interface ShippedTrailer {
