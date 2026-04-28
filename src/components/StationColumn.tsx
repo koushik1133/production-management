@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import type { StationId, Trailer, PhaseId, UserRole } from '../types';
@@ -22,10 +22,11 @@ export const StationColumn: React.FC<Props> = ({ id, trailers, onUpdateTrailer, 
   });
 
   const [localCapacity, setLocalCapacity] = useState<string>(capacity?.toString() || '');
-
-  useEffect(() => {
+  const [prevCapacity, setPrevCapacity] = useState(capacity);
+  if (capacity !== prevCapacity) {
+    setPrevCapacity(capacity);
     setLocalCapacity(capacity?.toString() || '');
-  }, [capacity]);
+  }
 
   const handleCapacitySubmit = () => {
     const val = parseFloat(localCapacity);
