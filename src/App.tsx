@@ -463,7 +463,21 @@ function Dashboard({
         </DndContext>
       </main>
 
-      <div className="pipeline-workload-strip" style={{ position: 'fixed', bottom: '40px', left: 0, right: 0, height: '50px', borderTop: '2px solid #fbbf24', display: 'flex', alignItems: 'center' }}>
+      <div className="pipeline-workload-strip" style={{ 
+        position: 'fixed', 
+        bottom: '48px', 
+        left: 0, 
+        right: 0, 
+        height: '56px', 
+        borderTop: '2px solid #fbbf24', 
+        display: 'flex', 
+        alignItems: 'center',
+        background: 'rgba(15, 23, 42, 0.95)',
+        backdropFilter: 'blur(10px)',
+        zIndex: 90,
+        padding: '0 1.5rem',
+        boxShadow: '0 -4px 20px rgba(0,0,0,0.3)'
+      }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <Clock size={20} style={{ color: '#fbbf24' }} />
           <span className="strip-label" style={{ fontSize: '0.8rem', letterSpacing: '0.05em' }}>WORKLOAD REMAINING:</span>
