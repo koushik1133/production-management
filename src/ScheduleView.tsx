@@ -135,7 +135,7 @@ export const ScheduleView: React.FC<Props> = ({ trailers }) => {
               style={{ width: '100%', padding: '0.6rem 1rem', borderRadius: '10px', border: '1px solid #e2e8f0' }}
             />
           </div>
-          <button className="btn btn-primary" onClick={() => navigate('/backlog')}>
+          <button className="btn btn-primary hide-on-mobile" onClick={() => navigate('/backlog')}>
             <Plus size={16} /> Register Unit
           </button>
         </div>
