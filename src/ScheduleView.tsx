@@ -126,7 +126,7 @@ export const ScheduleView: React.FC<Props> = ({ trailers }) => {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <div className="header-search-container" style={{ width: '300px' }}>
+          <div className="header-search-container" style={{ maxWidth: '300px', flex: 1 }}>
             <input 
               type="text" 
               placeholder="Filter schedule..." 

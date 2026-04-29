@@ -323,16 +323,13 @@ const TVView: React.FC<Props> = ({ trailers, monitorMode: initialMode = 'all', l
         padding: '0 1.5rem', 
         display: 'flex', 
         alignItems: 'center', 
+        justifyContent: 'center',
         background: themeStyles.header.background, 
         borderTop: themeStyles.header.borderBottom,
         fontSize: '0.75rem',
         color: themeStyles.textMuted
       }}>
-        <span>Live Production Stream • Status: Online</span>
-        <span style={{ flex: 1 }}></span>
-        <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-           <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#22c55e' }} /> Monitor Connected
-        </span>
+        <span>Live Production Stream</span>
       </footer>
     </div>
   );

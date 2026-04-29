@@ -49,7 +49,8 @@ import {
   DollarSign,
   Sun,
   Moon,
-  Undo2
+  Undo2,
+  Redo2
 } from 'lucide-react';
 
 import { 
@@ -84,7 +85,6 @@ function Dashboard({
   totalProductionTime,
   trailers, 
   updateTrailer, 
-  isConnected, 
   addTrailer, 
   suggestedBay, 
   runwayWeeks,
@@ -97,11 +97,12 @@ function Dashboard({
   shippedTrailers,
   userRole,
   undoStack,
-  handleUndo
-}: { 
+  handleUndo,
+  redoStack,
+  handleRedo
+}: {
   trailers: Trailer[], 
   updateTrailer: (id: string, updates: Partial<Trailer>) => void,
-  isConnected: boolean,
   addTrailer: (trailer: Trailer) => Promise<void>,
   suggestedBay: StationId,
   runwayWeeks: number,
@@ -124,7 +125,9 @@ function Dashboard({
   shippedTrailers: ShippedTrailer[],
   userRole: UserRole,
   undoStack: Array<Array<{ id: string } & Partial<Trailer>>>,
-  handleUndo: () => void
+  handleUndo: () => void,
+  redoStack: Array<Array<{ id: string } & Partial<Trailer>>>,
+  handleRedo: () => void
 }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const highlightedTrailerId = searchParams.get('highlight');
@@ -233,11 +236,16 @@ function Dashboard({
         });
       };
 
-      const [p1, p2, p3] = await Promise.all([
+      const [u1, u2, u3] = await Promise.all([
         fileToBase64(shippingPhotos.p1),
         fileToBase64(shippingPhotos.p2),
         fileToBase64(shippingPhotos.p3)
       ]);
+
+      // Fallback to production photos if shipping photos aren't provided
+      const p1 = u1 || pendingShippingTrailer.photo_1_url;
+      const p2 = u2 || pendingShippingTrailer.photo_2_url;
+      const p3 = u3 || pendingShippingTrailer.photo_3_url;
 
       const getH = (key: string) => parseFloat(shippingHours[key]) || 0;
       const hours = { prefab: getH('prefab'), build: getH('build'), paint: getH('paint'), outsource: getH('outsource'), trim: getH('trim') };
@@ -367,21 +375,24 @@ function Dashboard({
         </div>
 
         <div className="header-right">
-          {/* Undo last drag action */}
-          {undoStack.length > 0 && (
-            <button
-              className="btn btn-secondary btn-icon"
-              onClick={handleUndo}
-              title="Undo last move"
-              style={{ borderRadius: '10px' }}
-            >
-              <Undo2 size={16} />
-            </button>
-          )}
-          <div className={`sync-indicator ${isConnected ? 'connected' : 'disconnected'}`} style={{ marginRight: '0.5rem' }}>
-             <div className="pulse-dot" />
-             <span className="sync-label" style={{ fontSize: '0.6rem' }}>{isConnected ? 'NODE CONNECTED' : 'LINK LOST'}</span>
-          </div>
+          <button
+            className="btn btn-secondary btn-icon"
+            onClick={handleUndo}
+            disabled={undoStack.length === 0}
+            title="Undo last move"
+            style={{ borderRadius: '10px', opacity: undoStack.length === 0 ? 0.4 : 1 }}
+          >
+            <Undo2 size={16} />
+          </button>
+          <button
+            className="btn btn-secondary btn-icon"
+            onClick={handleRedo}
+            disabled={redoStack.length === 0}
+            title="Redo"
+            style={{ borderRadius: '10px', opacity: redoStack.length === 0 ? 0.4 : 1 }}
+          >
+            <Redo2 size={16} />
+          </button>
           
           <button className="btn btn-secondary" onClick={() => navigate('/stations')}>
             <MapPin size={14} /> <span className="btn-text">Bays</span>
@@ -866,13 +877,13 @@ function AuthGate({ children }: { children: (role: UserRole) => React.ReactNode 
 function App() {
   const [trailers, setTrailers] = useState<Trailer[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isConnected, setIsConnected] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeId, setActiveId] = useState<string | null>(null);
   const [editingModelName, setEditingModelName] = useState<string | null>(null);
   const [modelFormData, setModelFormData] = useState<Record<PhaseId, number> | null>(null);
-  // Undo stack: each entry is an array of partial trailer snapshots (affected trailers only)
+  // Undo/Redo stacks
   const [undoStack, setUndoStack] = useState<Array<Array<{ id: string } & Partial<Trailer>>>>([]);
+  const [redoStack, setRedoStack] = useState<Array<Array<{ id: string } & Partial<Trailer>>>>([]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -992,13 +1003,12 @@ function App() {
         });
         setBayCapacities(caps);
       }
-      setIsConnected(true);
     } catch (err) {
       console.error('Error fetching data:', err);
     } finally {
       setLoading(false);
     }
-  }, [setLoading, setTrailers, setCatalogModels, setShippedTrailers, setBayCapacities, setIsConnected]);
+  }, [setLoading, setTrailers, setCatalogModels, setShippedTrailers, setBayCapacities]);
 
   useEffect(() => {
     fetchInitialData();
@@ -1212,6 +1222,18 @@ function App() {
       const snapshot = prev[prev.length - 1];
       const nextStack = prev.slice(0, -1);
 
+      // Save current state to redo stack before restoring
+      const redoSnapshot = trailersRef.current
+        .filter(t => snapshot.some(s => s.id === t.id))
+        .map(t => ({
+          id: t.id,
+          currentPhase: t.currentPhase,
+          vertical_order: t.vertical_order,
+          history: t.history,
+          dateStarted: t.dateStarted,
+        }));
+      setRedoStack(rPrev => [...rPrev, redoSnapshot]);
+
       // Restore local state
       setTrailers(current =>
         current.map(t => {
@@ -1236,6 +1258,48 @@ function App() {
     });
   };
 
+  const handleRedo = async () => {
+    setRedoStack(prev => {
+      if (prev.length === 0) return prev;
+      const snapshot = prev[prev.length - 1];
+      const nextStack = prev.slice(0, -1);
+
+      // Save current state to undo stack before restoring
+      const undoSnapshot = trailersRef.current
+        .filter(t => snapshot.some(s => s.id === t.id))
+        .map(t => ({
+          id: t.id,
+          currentPhase: t.currentPhase,
+          vertical_order: t.vertical_order,
+          history: t.history,
+          dateStarted: t.dateStarted,
+        }));
+      setUndoStack(uPrev => [...uPrev, undoSnapshot]);
+
+      // Restore local state
+      setTrailers(current =>
+        current.map(t => {
+          const snap = snapshot.find(s => s.id === t.id);
+          return snap ? { ...t, ...snap } : t;
+        })
+      );
+
+      // Persist to DB
+      Promise.all(
+        snapshot.map(snap =>
+          supabase.from('trailers').update({
+            currentPhase: snap.currentPhase,
+            history: snap.history,
+            dateStarted: snap.dateStarted,
+            vertical_order: snap.vertical_order,
+          }).eq('id', snap.id)
+        )
+      ).catch(err => console.error('Redo sync error:', err));
+
+      return nextStack;
+    });
+  };
+
   const handleDragStart = (event: DragStartEvent) => {
     const dragId = event.active.id as string;
     setActiveId(dragId);
@@ -1255,6 +1319,7 @@ function App() {
         }));
       // Ensure the dragged trailer is in the snapshot (it always is, but being explicit)
       setUndoStack(prev => [...prev.slice(-19), snapshot]);
+      setRedoStack([]); // New action clears redo stack
     }
   };
 
@@ -1338,12 +1403,21 @@ function App() {
         ).map((t, idx) => ({ ...t, vertical_order: idx * 1000 }));
 
         // Instant local update
-        setTrailers(prev =>
-          prev.map(t => {
+        // Instant local update with re-sorting
+        setTrailers(prev => {
+          const updatedList = prev.map(t => {
             const updated = reordered.find(r => r.id === t.id);
             return updated ? updated : t;
-          })
-        );
+          });
+          
+          // Re-sort the entire list to ensure the UI respects the new vertical_order
+          return [...updatedList].sort((a, b) => {
+            if (a.currentPhase === b.currentPhase && a.vertical_order !== undefined && b.vertical_order !== undefined) {
+              return a.vertical_order - b.vertical_order;
+            }
+            return 0; // Keep relative order of different phases
+          });
+        });
 
         // Persist to DB:
         // - moved trailer: full update (phase, history, dateStarted, vertical_order)
@@ -1417,7 +1491,6 @@ function getSuggestedBay(): StationId {
             <Route path="/" element={<Dashboard 
               trailers={trailers} 
               updateTrailer={updateTrailer} 
-              isConnected={isConnected} 
               addTrailer={addTrailer} 
               suggestedBay={suggestedBay} 
               runwayWeeks={runwayWeeks} 
@@ -1448,6 +1521,8 @@ function getSuggestedBay(): StationId {
               userRole={userRole}
               undoStack={undoStack}
               handleUndo={handleUndo}
+              redoStack={redoStack}
+              handleRedo={handleRedo}
             />} />
             <Route path="/backlog" element={<BacklogView trailers={trailers} onAddTrailer={addTrailer} onUpdateTrailer={updateTrailer} suggestedBay={suggestedBay} nextSuggestedSerial={nextSuggestedSerial} localModelCategories={localModelCategories} localTargetHours={localTargetHours} userRole={userRole} />} />
             <Route path="/stations" element={<StationView trailers={trailers} setTrailers={setTrailers} onUpdateTrailer={updateTrailer} bayCapacities={bayCapacities} onUpdateCapacity={updateCapacity} localTargetHours={localTargetHours} userRole={userRole} />} />

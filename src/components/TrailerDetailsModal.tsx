@@ -406,6 +406,95 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
           <button className="btn btn-primary" style={{ width: '100%' }} onClick={handleSaveAll}><Send size={14} /> Update Notes</button>
         </div>
 
+        <div className="section-title"><ImageIcon size={16} /><span>Production Photos</span></div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
+          {[1, 2, 3].map(num => {
+            const field = `photo_${num}_url` as keyof Trailer;
+            const url = trailer[field] as string | undefined;
+            
+            const fileToBase64 = (file: File): Promise<string> => {
+              return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = (e) => {
+                  const img = new window.Image();
+                  img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    let width = img.width;
+                    let height = img.height;
+                    const max = 1200;
+                    if (width > height && width > max) { height *= max / width; width = max; }
+                    else if (height > max) { width *= max / height; height = max; }
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx?.drawImage(img, 0, 0, width, height);
+                    resolve(canvas.toDataURL('image/jpeg', 0.6));
+                  };
+                  img.src = e.target?.result as string;
+                };
+              });
+            };
+
+            return (
+              <div key={num} style={{ position: 'relative' }}>
+                <label style={{ 
+                  display: 'flex', 
+                  flexDirection: 'column', 
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                  height: '100px', 
+                  background: url ? 'transparent' : 'rgba(255,255,255,0.02)', 
+                  border: '1px dashed var(--border-default)', 
+                  borderRadius: '12px', 
+                  cursor: 'pointer',
+                  overflow: 'hidden',
+                  transition: 'all 0.2s'
+                }}>
+                  {url ? (
+                    <img src={url} alt={`Photo ${num}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : !trailer.isArchived ? (
+                    <>
+                      <ImageIcon size={20} color="var(--text-muted)" />
+                      <span style={{ fontSize: '0.6rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', marginTop: '4px' }}>Add Photo {num}</span>
+                    </>
+                  ) : (
+                    <span style={{ fontSize: '0.6rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>No Photo</span>
+                  )}
+                  {!trailer.isArchived && (
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      style={{ display: 'none' }} 
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const base64 = await fileToBase64(file);
+                          onUpdate(trailer.id, { [field]: base64 });
+                        }
+                      }}
+                    />
+                  )}
+                </label>
+                {url && !trailer.isArchived && (
+                  <button 
+                    onClick={() => onUpdate(trailer.id, { [field]: null })}
+                    style={{ 
+                      position: 'absolute', top: '-8px', right: '-8px', 
+                      width: '24px', height: '24px', borderRadius: '50%', 
+                      background: '#ef4444', color: 'white', border: '2px solid white', 
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', 
+                      cursor: 'pointer', zIndex: 10, boxShadow: '0 2px 4px rgba(0,0,0,0.2)' 
+                    }}
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
         <div className="section-title" style={{ marginTop: '2.5rem' }}><History size={16} /><span>Unit History</span></div>
         <div className="audit-log">
           {trailer.history.slice().reverse().map((log, idx) => (
