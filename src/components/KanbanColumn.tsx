@@ -28,7 +28,6 @@ export const KanbanColumn: React.FC<Props> = React.memo(({ id, title, trailers, 
     <div className="kanban-column" id={id} data-droppable-id={id} ref={setNodeRef}>
       <div className="column-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--accent)' }} />
           <span className="column-title" style={{ fontSize: '0.85rem', fontWeight: 900, letterSpacing: '0.05em' }}>{title}</span>
         </div>
         <span className="column-count" style={{ background: 'rgba(255,255,255,0.05)', color: 'var(--text-secondary)', fontWeight: 800 }}>{trailers.length}</span>
