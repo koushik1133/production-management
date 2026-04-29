@@ -1406,6 +1406,10 @@
   .sync-label {
     display: none; /* Hide label on mobile to save space */
   }
+
+  .hide-on-mobile {
+    display: none !important;
+  }
   
   .pipeline-workload-strip {
     flex-direction: column;

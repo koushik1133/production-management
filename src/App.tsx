@@ -376,7 +376,7 @@ function Dashboard({
 
         <div className="header-right">
           <button
-            className="btn btn-secondary btn-icon"
+            className="btn btn-secondary btn-icon hide-on-mobile"
             onClick={handleUndo}
             disabled={undoStack.length === 0}
             title="Undo last move"
@@ -385,7 +385,7 @@ function Dashboard({
             <Undo2 size={16} />
           </button>
           <button
-            className="btn btn-secondary btn-icon"
+            className="btn btn-secondary btn-icon hide-on-mobile"
             onClick={handleRedo}
             disabled={redoStack.length === 0}
             title="Redo"
@@ -403,7 +403,7 @@ function Dashboard({
           <button className="btn btn-secondary" onClick={() => navigate('/catalog')}>
             <BookOpen size={14} /> <span className="btn-text">Catalog</span>
           </button>
-          <button className="btn btn-primary" onClick={() => setIsAddModalOpen(true)}>
+          <button className="btn btn-primary hide-on-mobile" onClick={() => setIsAdding(true)} style={{ background: 'var(--accent)' }}>
             <Plus size={14} /> <span className="btn-text">Register Unit</span>
           </button>
           
@@ -877,6 +877,13 @@ function AuthGate({ children }: { children: (role: UserRole) => React.ReactNode 
 function App() {
   const [trailers, setTrailers] = useState<Trailer[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeId, setActiveId] = useState<string | null>(null);
   const [editingModelName, setEditingModelName] = useState<string | null>(null);
@@ -886,8 +893,11 @@ function App() {
   const [redoStack, setRedoStack] = useState<Array<Array<{ id: string } & Partial<Trailer>>>>([]);
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } }),
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: isMobile ? 10000 : 8,
+      },
+    }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
