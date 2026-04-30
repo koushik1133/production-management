@@ -114,9 +114,10 @@ input, button, select {
 
 .btn-primary:hover {
   transform: translateY(-2px);
-  box-shadow: 0 12px 20px -4px rgba(59, 130, 246, 0.5);
-  filter: brightness(1.1);
-  color: #ffffff !important;
+  box-shadow: 0 12px 24px -4px rgba(59, 130, 246, 0.6);
+  background: #ffffff; /* Becomes solid white on hover */
+  color: #000000 !important; /* Text becomes black for high contrast */
+  border: 1px solid #000000; /* Border becomes black */
 }
 
 .btn-primary:active {
