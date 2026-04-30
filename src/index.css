@@ -132,16 +132,19 @@ input, button, select {
 }
 
 .btn-secondary:hover {
-  background: #1e293b; /* Deep slate for high contrast */
-  color: #ffffff !important;
-  border-color: var(--accent);
+  background: #000000 !important; /* Pure black for maximum contrast */
+  color: #ffffff !important;      /* Pure white text */
+  border-color: var(--accent) !important;
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
 }
 
-/* Ensure icons also turn white on hover */
-.btn-secondary:hover svg {
+/* Force icons to turn pure white on hover */
+.btn-secondary:hover svg, 
+.btn-secondary:hover .btn-text,
+.btn-secondary:hover * {
   color: #ffffff !important;
+  stroke: #ffffff !important;
 }
 
 .btn-secondary:active {
