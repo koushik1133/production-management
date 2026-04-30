@@ -1479,7 +1479,11 @@
   }
 
   .strip-value {
-    font-size: 1rem;
+    font-size: 0.85rem !important;
+  }
+
+  .strip-label {
+    font-size: 0.65rem !important;
   }
 
   /* Force same width for all sections in mobile */
@@ -1563,8 +1567,8 @@
 
   .pipeline-workload-strip {
     height: auto !important;
-    min-height: 60px !important;
-    padding: 1rem !important;
+    min-height: 40px !important; /* Reduced from 60px */
+    padding: 0.5rem 0.75rem !important; /* Reduced padding */
   }
 
   .strip-stats {
