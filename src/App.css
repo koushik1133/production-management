@@ -627,23 +627,31 @@
   border-color: #2563eb !important;
 }
 
-/* GLOBAL FORCE BLACK TEXT FOR LIGHT MODE BOTTLENECK CARDS */
+/* GLOBAL FORCE BLACK TEXT FOR LIGHT MODE & DELAYED UNITS IN TV MODE */
+.trailer-card.is-bottleneck,
+.trailer-card.is-bottleneck * {
+  /* Let Dark Mode keep its theme, but Force Black specifically for Light Theme or any invisible text scenarios */
+}
+
 [data-theme='light'] .trailer-card.is-bottleneck,
-[data-theme='light'] .trailer-card.is-bottleneck .card-model {
+[data-theme='light'] .trailer-card.is-bottleneck *,
+.tv-page .trailer-card.is-bottleneck,
+.tv-page .trailer-card.is-bottleneck * {
   color: #000000 !important;
   opacity: 1 !important;
 }
 
-/* Specific metadata colors for professional look */
-[data-theme='light'] .trailer-card.is-bottleneck .card-meta span,
-[data-theme='light'] .trailer-card.is-bottleneck .card-meta-item span {
-  color: #1e293b !important;
-}
-
-/* Ensure icons also turn black */
-[data-theme='light'] .trailer-card.is-bottleneck svg {
+[data-theme='light'] .trailer-card.is-bottleneck svg,
+.tv-page .trailer-card.is-bottleneck svg {
   color: #000000 !important;
   stroke: #000000 !important;
+}
+
+/* Specific metadata colors for professional look */
+[data-theme='light'] .trailer-card.is-bottleneck .card-meta span,
+[data-theme='light'] .trailer-card.is-bottleneck .card-meta-item span,
+.tv-page .trailer-card.is-bottleneck .card-meta span {
+  color: #000000 !important;
 }
 
 .reco-badge-tag {
