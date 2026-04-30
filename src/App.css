@@ -1435,6 +1435,86 @@
   .strip-value {
     font-size: 1rem;
   }
+
+  /* Force same width for all sections in mobile */
+  .kanban-column, .main-content > div, .main-content > section {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  .main-content {
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+    width: 100vw !important;
+    max-width: 100% !important;
+    overflow-x: hidden !important;
+  }
+
+  /* Inline search for mobile - aligned next to logo */
+  .mobile-search-inline {
+    display: flex !important;
+    margin: 0 !important;
+    flex: 1 !important;
+    height: 32px !important;
+    padding: 0 0.5rem !important;
+    max-width: 200px !important;
+  }
+
+  .header-left {
+    display: flex !important;
+    flex-direction: row !important;
+    width: 100% !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    gap: 0.5rem !important;
+  }
+
+  .header-clock-section, .header-nav-scroll, .header-divider {
+    display: none !important;
+  }
+
+  /* Match footer width to dashboard/content and fix overlap */
+  .dashboard-footer {
+    display: flex !important;
+    position: relative !important;
+    width: 100% !important;
+    margin-top: 1rem !important;
+    background: transparent !important;
+    border: none !important;
+    padding: 2rem 0.5rem !important;
+    justify-content: center !important;
+    backdrop-filter: none !important;
+  }
+
+  .footer-legend {
+    width: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 0.65rem !important;
+    font-size: 0.75rem !important;
+  }
+
+  .stats-btn {
+    display: none !important;
+  }
+
+  .hide-on-mobile {
+    display: none !important;
+  }
+
+  .pipeline-workload-strip {
+    height: auto !important;
+    min-height: 60px !important;
+    padding: 1rem !important;
+  }
+
+  .strip-stats {
+    display: none !important; /* Hide overlapping stats on mobile to make room for legend */
+  }
 }
 
 /* Manual Hours Input Styling */

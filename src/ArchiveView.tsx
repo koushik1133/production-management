@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Clock, Truck, Search, ChevronRight, Package, Eye, EyeOff, Image, Hash, User, DollarSign, BarChart3 } from 'lucide-react';
+import { ArrowLeft, Clock, Truck, Search, ChevronRight, Package, Eye, EyeOff, Image, Hash, User, DollarSign, BarChart3, Download, Upload } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import type { Trailer, PhaseId, ShippedTrailer, UserRole } from './types';
 import { TrailerDetailsModal } from './components/TrailerDetailsModal';
@@ -264,6 +264,46 @@ export const ArchiveView: React.FC<Props> = ({ trailers, onUpdateTrailer, localT
               onChange={(e) => setSearchQuery(e.target.value)} 
               style={{ width: '100%', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-default)', borderRadius: '12px', padding: '0.6rem 1rem 0.6rem 2.5rem', fontSize: '0.85rem', color: 'white', fontWeight: 600, outline: 'none' }}
             />
+          </div>
+
+          <div className="hide-on-mobile" style={{ display: 'flex', gap: '0.5rem' }}>
+            <button 
+              className="btn btn-secondary" 
+              onClick={() => {
+                const csvContent = "data:text/csv;charset=utf-8," 
+                  + ["Serial,Model,Customer,Invoice,ShippedDate,Hours"].join(",") + "\n"
+                  + filteredShipped.map(t => `${t.serial_number},${t.trailer_name},${t.customer_name || ''},${t.invoice_number},${t.shipped_at},${t.total_hours}`).join("\n");
+                const encodedUri = encodeURI(csvContent);
+                const link = document.createElement("a");
+                link.setAttribute("href", encodedUri);
+                link.setAttribute("download", `production_archive_${format(new Date(), 'yyyy_MM_dd')}.csv`);
+                document.body.appendChild(link);
+                link.click();
+              }}
+              style={{ fontSize: '0.75rem' }}
+            >
+              <Download size={14} /> Export CSV
+            </button>
+            <label className="btn btn-secondary" style={{ fontSize: '0.75rem', cursor: 'pointer' }}>
+              <Upload size={14} /> Import
+              <input 
+                type="file" 
+                accept=".csv" 
+                style={{ display: 'none' }} 
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                      const text = event.target?.result as string;
+                      console.log("Imported CSV Data:", text);
+                      alert("CSV Import received. Processing logic would go here.");
+                    };
+                    reader.readAsText(file);
+                  }
+                }}
+              />
+            </label>
           </div>
         </div>
       </header>
