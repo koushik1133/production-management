@@ -40,6 +40,7 @@ export interface Trailer {
   vinDate?: string;
   promisedShippingDate?: string;
   vertical_order?: number;
+  bay_vertical_order?: number;
   photo_1_url?: string;
   photo_2_url?: string;
   photo_3_url?: string;

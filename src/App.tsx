@@ -1057,9 +1057,11 @@ function App() {
               return [payload.new as Trailer, ...prev];
             });
           } else if (payload.eventType === 'UPDATE') {
-            setTrailers(prev =>
-              prev.map(t => t.id === payload.new.id ? { ...t, ...payload.new } as Trailer : t)
-            );
+            setTrailers(prev => {
+              const updated = prev.map(t => t.id === payload.new.id ? { ...t, ...payload.new } as Trailer : t);
+              // Re-sort after any update as vertical_order or currentPhase might have changed
+              return [...updated].sort((a, b) => (a.vertical_order ?? 0) - (b.vertical_order ?? 0));
+            });
           } else if (payload.eventType === 'DELETE') {
             setTrailers(prev => prev.filter(t => t.id !== payload.old.id));
           }
@@ -1409,9 +1411,10 @@ function App() {
         // (trailer.currentPhase is already the destination after handleDragOver)
         const overId = over.id as string;
         const currentItems = trailersRef.current;
-        const phaseTrailers = currentItems.filter(
-          t => t.currentPhase === trailer.currentPhase && !t.isArchived && !t.isDeleted
-        );
+        // 1. Get trailers in destination phase, SORTED by existing vertical_order
+        const phaseTrailers = currentItems
+          .filter(t => t.currentPhase === trailer.currentPhase && !t.isArchived && !t.isDeleted)
+          .sort((a, b) => (a.vertical_order ?? 0) - (b.vertical_order ?? 0));
 
         const currentIdx = phaseTrailers.findIndex(t => t.id === activeId);
         const overIsCard = phaseTrailers.some(t => t.id === overId);
@@ -1419,12 +1422,11 @@ function App() {
           ? phaseTrailers.findIndex(t => t.id === overId)
           : phaseTrailers.length - 1;
 
-        // Reorder within destination phase and assign sequential vertical_order
-        const reordered = (
-          currentIdx !== -1 && targetIdx !== -1 && currentIdx !== targetIdx
-            ? arrayMove([...phaseTrailers], currentIdx, targetIdx)
-            : [...phaseTrailers]
-        ).map((t, idx) => ({ ...t, vertical_order: idx * 1000 }));
+        if (currentIdx === -1) return;
+
+        // 2. Perform the move and re-assign sequential vertical_order
+        const reordered = arrayMove([...phaseTrailers], currentIdx, targetIdx)
+          .map((t, idx) => ({ ...t, vertical_order: idx * 1000 }));
 
         // Instant local update
         // Instant local update with re-sorting
