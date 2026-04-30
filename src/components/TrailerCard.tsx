@@ -61,11 +61,12 @@ export const TrailerCard: React.FC<Props> = React.memo(({
   }, [isHighlighted]);
 
   const style = {
-    transition,
+    transition: isDragging ? 'none' : transition,
     transform: CSS.Transform.toString(transform),
     opacity: isDragging ? (isOverlay ? 1 : 0.3) : 1,
     zIndex: isDragging ? (isOverlay ? 1000 : 10) : 1,
-    cursor: isOverlay ? 'grabbing' : 'grab'
+    cursor: isDragging ? 'grabbing' : 'grab',
+    touchAction: 'none'
   };
 
   const currentLog = trailer.history.find(h => h.phase === trailer.currentPhase && !h.exitedAt);
