@@ -1530,9 +1530,11 @@
     margin-top: 1rem !important;
     background: transparent !important;
     border: none !important;
-    padding: 2rem 0.5rem !important;
+    padding: 1.5rem 1rem !important; /* Slightly reduced padding */
     justify-content: center !important;
     backdrop-filter: none !important;
+    box-sizing: border-box !important; /* Ensure padding doesn't push width out */
+    overflow: hidden !important;
   }
 
   .footer-legend {
@@ -1542,6 +1544,13 @@
     align-items: center !important;
     gap: 0.65rem !important;
     font-size: 0.75rem !important;
+    text-align: center !important;
+  }
+
+  /* Hide Bottleneck and High Priority in mobile legend */
+  .footer-legend > span:nth-child(1),
+  .footer-legend > span:nth-child(2) {
+    display: none !important;
   }
 
   .stats-btn {
