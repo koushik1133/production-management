@@ -629,13 +629,15 @@
 
 /* GLOBAL FORCE BLACK TEXT FOR LIGHT MODE BOTTLENECK CARDS */
 [data-theme='light'] .trailer-card.is-bottleneck,
-[data-theme='light'] .trailer-card.is-bottleneck *,
-[data-theme='light'] .trailer-card.is-bottleneck .card-model,
-[data-theme='light'] .trailer-card.is-bottleneck .card-meta span,
-[data-theme='light'] .trailer-card.is-bottleneck .card-meta-item span,
-[data-theme='light'] .trailer-card.is-bottleneck .card-time {
+[data-theme='light'] .trailer-card.is-bottleneck .card-model {
   color: #000000 !important;
   opacity: 1 !important;
+}
+
+/* Specific metadata colors for professional look */
+[data-theme='light'] .trailer-card.is-bottleneck .card-meta span,
+[data-theme='light'] .trailer-card.is-bottleneck .card-meta-item span {
+  color: #1e293b !important;
 }
 
 /* Ensure icons also turn black */
