@@ -633,12 +633,24 @@
   /* Let Dark Mode keep its theme, but Force Black specifically for Light Theme or any invisible text scenarios */
 }
 
+/* Base Light Mode Force Black */
 [data-theme='light'] .trailer-card.is-bottleneck,
-[data-theme='light'] .trailer-card.is-bottleneck *,
+[data-theme='light'] .trailer-card.is-bottleneck * {
+  color: #000000 !important;
+  opacity: 1 !important;
+}
+
+/* TV MODE SPECIFIC FORCE BLACK */
 .tv-page .trailer-card.is-bottleneck,
 .tv-page .trailer-card.is-bottleneck * {
   color: #000000 !important;
   opacity: 1 !important;
+}
+
+/* Ensure model name specifically is absolute black */
+[data-theme='light'] .trailer-card.is-bottleneck .card-model,
+.tv-page .trailer-card.is-bottleneck .card-model {
+  color: #000000 !important;
 }
 
 [data-theme='light'] .trailer-card.is-bottleneck svg,
