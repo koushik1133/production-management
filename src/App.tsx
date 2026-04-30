@@ -363,8 +363,8 @@ function Dashboard({
             <button className="btn btn-secondary btn-icon-mobile" onClick={() => navigate('/stations')} title="Bays">
               <MapPin size={18} />
             </button>
-            <button className="btn btn-secondary btn-icon-mobile" onClick={() => navigate('/tv')} title="TV Mode">
-              <Tv size={18} />
+            <button className="btn btn-secondary btn-icon-mobile" onClick={onToggleTheme} title="Toggle Theme">
+              {theme === 'light' ? <Moon size={18} color="#475569" /> : <Sun size={18} color="#fbbf24" />}
             </button>
             <button className="btn btn-secondary btn-icon-mobile" onClick={() => navigate('/archive')} title="Archive">
               <Archive size={18} />
