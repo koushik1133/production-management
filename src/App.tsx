@@ -487,6 +487,9 @@ function Dashboard({
           <span className="strip-value" style={{ color: '#fff' }}>
             ~{runwayWeeks < 1 ? '< 1' : Math.round(runwayWeeks)} WEEKS
           </span>
+          <div style={{ width: '1px', height: '24px', background: 'rgba(255,255,255,0.2)', margin: '0 1rem' }} />
+          <span className="strip-label">TOTAL PIPELINE UNITS:</span>
+          <span className="strip-value" style={{ color: '#fff' }}>{trailers.length}</span>
         </div>
         <div style={{ flex: 1 }} />
         <div className="strip-stats">
@@ -499,7 +502,6 @@ function Dashboard({
         <div className="footer-legend">
           <span><span className="dot delay">●</span> Bottleneck Delay</span>
           <span><Crown size={12} className="priority-icon" /> High Priority</span>
-          <span>Total Pipeline Units: {trailers.length}</span>
         </div>
         <span style={{ flex: 1 }}></span>
         <button className="btn btn-secondary stats-btn" onClick={() => setIsStatsModalOpen(true)}>
