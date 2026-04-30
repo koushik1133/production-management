@@ -99,9 +99,9 @@
 /* Kanban Columns */
 .kanban-column {
   width: 100%;
-  max-width: 600px;
+  max-width: 500px;
   min-width: 320px;
-  flex: 1 1 360px;
+  flex: 1 1 400px;
   background: var(--bg-card);
   border: 1px solid var(--border-default);
   backdrop-filter: var(--glass-blur);
@@ -116,6 +116,8 @@
 
 .bay-page .kanban-column {
   height: auto;
+  max-width: 320px;
+  flex: 1 1 300px;
 }
 
 .bay-page .main-content {
