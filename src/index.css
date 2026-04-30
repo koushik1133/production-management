@@ -43,7 +43,7 @@
   --accent: #3b82f6;
   --accent-gradient: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
   
-  --border-default: rgba(255, 255, 255, 0.08);
+  --border-default: rgba(255, 255, 255, 0.12); /* Slightly more visible for #000000 bg */
   --border-focus: #3b82f6;
   --glass-bg: rgba(255, 255, 255, 0.03);
   --glass-border: rgba(255, 255, 255, 0.08);
