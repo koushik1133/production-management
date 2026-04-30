@@ -30,11 +30,11 @@
 }
 
 :root, :root[data-theme="dark"] {
-  --bg-main: #09090b;
-  --bg-header: rgba(9, 9, 11, 0.85);
-  --bg-card: #18181b;
-  --bg-secondary: #27272a;
-  --bg-sidebar: #18181b;
+  --bg-main: #000000;
+  --bg-header: rgba(0, 0, 0, 0.85);
+  --bg-card: #000000;
+  --bg-secondary: #121212;
+  --bg-sidebar: #000000;
   
   --text-primary: #fafafa;
   --text-secondary: #a1a1aa;
