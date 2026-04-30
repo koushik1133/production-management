@@ -114,10 +114,9 @@ input, button, select {
 
 .btn-primary:hover {
   transform: translateY(-2px);
-  box-shadow: 0 12px 24px -4px rgba(59, 130, 246, 0.6);
-  background: #ffffff; /* Becomes solid white on hover */
-  color: #000000 !important; /* Text becomes black for high contrast */
-  border: 1px solid #000000; /* Border becomes black */
+  box-shadow: 0 12px 20px -4px rgba(59, 130, 246, 0.5);
+  filter: brightness(1.1);
+  color: #ffffff !important;
 }
 
 .btn-primary:active {
@@ -133,10 +132,21 @@ input, button, select {
 }
 
 .btn-secondary:hover {
-  background: var(--bg-card);
+  background: #1e293b; /* Deep slate for high contrast */
+  color: #ffffff !important;
   border-color: var(--accent);
   transform: translateY(-1px);
-  box-shadow: var(--shadow-sm);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+/* Ensure icons also turn white on hover */
+.btn-secondary:hover svg {
+  color: #ffffff !important;
+}
+
+.btn-secondary:active {
+  transform: translateY(0);
+  background: #0f172a;
 }
 
 .hover-lift {
