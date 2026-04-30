@@ -630,9 +630,24 @@
 
 /* Explicitly fix text visibility inside bottleneck cards */
 .trailer-card.is-bottleneck .card-model,
-.trailer-card.is-bottleneck .card-meta span,
-.trailer-card.is-bottleneck .card-time {
+.trailer-card.is-bottleneck .card-meta span {
   color: var(--text-primary);
+}
+
+[data-theme='light'] .trailer-card.is-bottleneck .card-model {
+  color: #0f172a !important; /* Force deep dark for light mode */
+}
+
+[data-theme='light'] .trailer-card.is-bottleneck .card-meta span,
+[data-theme='light'] .trailer-card.is-bottleneck .card-meta-item span {
+  color: #334155 !important;
+}
+
+[data-theme='light'] .trailer-card.is-bottleneck .card-time {
+  color: #1d4ed8 !important; /* Stronger blue for light mode */
+  background: rgba(29, 78, 216, 0.05);
+  padding: 2px 6px;
+  border-radius: 4px;
 }
 
 .reco-badge-tag {
