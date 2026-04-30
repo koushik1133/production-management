@@ -86,6 +86,15 @@ export const StationColumn: React.FC<Props> = ({ id, trailers, onUpdateTrailer, 
           </div>
         </div>
       </div>
+      
+      {/* Horizontal Divider Line */}
+      <div style={{ 
+        height: '1px', 
+        background: 'var(--border-default)', 
+        margin: '0 1rem',
+        opacity: 0.6
+      }}></div>
+
       <div className="cards-container">
         <SortableContext
           items={trailers.map((t) => t.id)}
