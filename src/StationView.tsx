@@ -52,7 +52,7 @@ const StationView: React.FC<Props> = ({ trailers, setTrailers, onUpdateTrailer, 
 
   const sensors = useSensors(
     useSensor(PointerSensor, { 
-      activationConstraint: isMobileView ? { distance: 9999 } : { distance: 8 } 
+      activationConstraint: isMobileView ? { distance: 9999 } : { distance: 3 } 
     }),
     useSensor(TouchSensor, {
       activationConstraint: isMobileView ? { distance: 9999 } : { distance: 8 }

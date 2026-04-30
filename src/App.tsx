@@ -909,7 +909,7 @@ function App() {
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: isMobile ? 10000 : 8,
+        distance: isMobile ? 10000 : 3,
       },
     }),
     useSensor(TouchSensor, {
