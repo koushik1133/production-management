@@ -270,15 +270,31 @@ export const ArchiveView: React.FC<Props> = ({ trailers, onUpdateTrailer, localT
             <button 
               className="btn btn-secondary" 
               onClick={() => {
+                const headers = ["Serial", "Model", "Customer", "Invoice", "VIN_Date", "Shipped_Date", "Sale_Price", "Total_Hours", "Prefab_H", "Build_H", "Paint_H", "Outsource_H", "Trim_H"];
                 const csvContent = "data:text/csv;charset=utf-8," 
-                  + ["Serial,Model,Customer,Invoice,ShippedDate,Hours"].join(",") + "\n"
-                  + filteredShipped.map(t => `${t.serial_number},${t.trailer_name},${t.customer_name || ''},${t.invoice_number},${t.shipped_at},${t.total_hours}`).join("\n");
+                  + headers.join(",") + "\n"
+                  + filteredShipped.map(t => [
+                    t.serial_number,
+                    t.trailer_name,
+                    t.customer_name || '',
+                    t.invoice_number,
+                    t.vin_date || '',
+                    t.shipped_at,
+                    t.sale_price || 0,
+                    t.total_hours,
+                    t.prefab_hours || 0,
+                    t.build_hours || 0,
+                    t.paint_hours || 0,
+                    t.outsource_hours || 0,
+                    t.trim_hours || 0
+                  ].join(",")).join("\n");
                 const encodedUri = encodeURI(csvContent);
                 const link = document.createElement("a");
                 link.setAttribute("href", encodedUri);
-                link.setAttribute("download", `production_archive_${format(new Date(), 'yyyy_MM_dd')}.csv`);
+                link.setAttribute("download", `production_full_archive_${format(new Date(), 'yyyy_MM_dd')}.csv`);
                 document.body.appendChild(link);
                 link.click();
+                document.body.removeChild(link);
               }}
               style={{ fontSize: '0.75rem' }}
             >
