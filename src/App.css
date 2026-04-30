@@ -76,7 +76,7 @@
   display: flex;
   overflow-x: auto;
   overflow-y: auto;
-  padding: 0.5rem 1.5vw 1.5rem 1.5vw;
+  padding: 1.5rem 1.5vw 4rem 1.5vw; /* Increased bottom padding */
   gap: 1.25rem;
   scrollbar-width: auto;
   scrollbar-color: var(--accent) transparent;
@@ -109,7 +109,7 @@
   display: flex;
   flex-direction: column;
   padding: 1rem;
-  height: calc(100vh - 180px);
+  height: calc(100vh - 220px); /* Increased offset from footer */
   transition: all 0.3s ease;
   box-shadow: var(--shadow-md);
 }
