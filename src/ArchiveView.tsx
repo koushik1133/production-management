@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
+import * as XLSX from 'xlsx';
 import { ArrowLeft, Clock, Truck, Search, ChevronRight, Package, Eye, EyeOff, Image, Hash, User, DollarSign, BarChart3, Download, Upload } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import type { Trailer, PhaseId, ShippedTrailer, UserRole } from './types';
@@ -271,34 +272,47 @@ export const ArchiveView: React.FC<Props> = ({ trailers, onUpdateTrailer, localT
               className="btn btn-secondary" 
               onClick={() => {
                 const headers = ["Serial", "Model", "Customer", "Invoice", "VIN_Date", "Shipped_Date", "Sale_Price", "Total_Hours", "Prefab_H", "Build_H", "Paint_H", "Outsource_H", "Trim_H"];
-                const csvContent = "data:text/csv;charset=utf-8," 
-                  + headers.join(",") + "\n"
-                  + filteredShipped.map(t => [
-                    t.serial_number,
-                    t.trailer_name,
-                    t.customer_name || '',
-                    t.invoice_number,
-                    t.vin_date || '',
-                    t.shipped_at,
-                    t.sale_price || 0,
-                    t.total_hours,
-                    t.prefab_hours || 0,
-                    t.build_hours || 0,
-                    t.paint_hours || 0,
-                    t.outsource_hours || 0,
-                    t.trim_hours || 0
-                  ].join(",")).join("\n");
-                const encodedUri = encodeURI(csvContent);
-                const link = document.createElement("a");
-                link.setAttribute("href", encodedUri);
-                link.setAttribute("download", `production_full_archive_${format(new Date(), 'yyyy_MM_dd')}.csv`);
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
+                
+                // Sort by monthly sales (most recent month first)
+                const sortedData = [...filteredShipped].sort((a, b) => {
+                  const dateA = new Date(a.shipped_at);
+                  const dateB = new Date(b.shipped_at);
+                  // Sort by Year then Month
+                  if (dateA.getFullYear() !== dateB.getFullYear()) {
+                    return dateB.getFullYear() - dateA.getFullYear();
+                  }
+                  return dateB.getMonth() - dateA.getMonth();
+                });
+
+                const data = sortedData.map(t => ({
+                  "Serial": t.serial_number,
+                  "Model": t.trailer_name,
+                  "Customer": t.customer_name || 'Generic Stock',
+                  "Invoice": t.invoice_number,
+                  "VIN Date": t.vin_date || '',
+                  "Shipped Date": format(new Date(t.shipped_at), 'yyyy-MM-dd'),
+                  "Sale Price": t.sale_price || 0,
+                  "Total Hours": t.total_hours,
+                  "Prefab (h)": t.prefab_hours || 0,
+                  "Build (h)": t.build_hours || 0,
+                  "Paint (h)": t.paint_hours || 0,
+                  "Outsource (h)": t.outsource_hours || 0,
+                  "Trim (h)": t.trim_hours || 0
+                }));
+
+                const worksheet = XLSX.utils.json_to_sheet(data);
+                const workbook = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(workbook, worksheet, "Production Archive");
+                
+                // Auto-size columns
+                const maxWidths = headers.map(h => ({ wch: Math.max(h.length, 15) }));
+                worksheet['!cols'] = maxWidths;
+
+                XLSX.writeFile(workbook, `production_full_archive_${format(new Date(), 'yyyy_MM_dd')}.xlsx`);
               }}
               style={{ fontSize: '0.75rem' }}
             >
-              <Download size={14} /> Export CSV
+              <Download size={14} /> Export Excel
             </button>
             <label className="btn btn-secondary" style={{ fontSize: '0.75rem', cursor: 'pointer' }}>
               <Upload size={14} /> Import
