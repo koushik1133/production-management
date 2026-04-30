@@ -403,7 +403,7 @@ function Dashboard({
           <button className="btn btn-secondary" onClick={() => navigate('/catalog')}>
             <BookOpen size={14} /> <span className="btn-text">Catalog</span>
           </button>
-          <button className="btn btn-primary hide-on-mobile" onClick={() => setIsAdding(true)} style={{ background: 'var(--accent)', display: 'var(--hide-mobile)' }}>
+          <button className="btn btn-primary register-btn hide-on-mobile" onClick={() => setIsAdding(true)}>
             <Plus size={14} /> <span className="btn-text">Register Unit</span>
           </button>
           
@@ -567,7 +567,7 @@ function Dashboard({
               onChange={e => setNewTrailerData({...newTrailerData, isPriority: e.target.checked})}
               style={{ width: '20px', height: '20px' }}
             />
-            <label htmlFor="quick-priority" style={{ fontSize: '0.85rem', fontWeight: 800, color: '#be123c', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <label htmlFor="quick-priority" className="pointer">
               <Crown size={16} /> HIGH PRIORITY UNIT
             </label>
           </div>
@@ -576,13 +576,6 @@ function Dashboard({
               type="submit" 
               className="btn btn-primary" 
               disabled={isAdding || !newTrailerData.name || !newTrailerData.serialNumber || trailers.some(t => t.serialNumber === newTrailerData.serialNumber)}
-              style={{ 
-                height: '3.5rem', 
-                fontSize: '1.1rem', 
-                opacity: (isAdding || !newTrailerData.name || !newTrailerData.serialNumber || trailers.some(t => t.serialNumber === newTrailerData.serialNumber)) ? 0.7 : 1, 
-                position: 'relative',
-                background: '#2563eb'
-              }}
             >
               {isAdding ? 'Registering Unit...' : 'Add to Backlog'}
               {!isAdding && (

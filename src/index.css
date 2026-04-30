@@ -107,13 +107,21 @@ input, button, select {
 
 .btn-primary {
   background: var(--accent-gradient);
-  color: white;
+  color: #ffffff !important;
   box-shadow: 0 8px 16px -4px rgba(59, 130, 246, 0.4);
+  border: none;
 }
+
 .btn-primary:hover {
   transform: translateY(-2px);
   box-shadow: 0 12px 20px -4px rgba(59, 130, 246, 0.5);
   filter: brightness(1.1);
+  color: #ffffff !important;
+}
+
+.btn-primary:active {
+  transform: translateY(0);
+  filter: brightness(0.9);
 }
 
 .btn-secondary {
@@ -122,6 +130,7 @@ input, button, select {
   border: 1px solid var(--border-default);
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
+
 .btn-secondary:hover {
   background: var(--bg-card);
   border-color: var(--accent);
