@@ -361,8 +361,12 @@ function Dashboard({
           
           <div className="header-search-container mobile-search-inline" style={{ background: 'var(--glass-bg)', border: '1px solid var(--border-default)', borderRadius: '12px' }}>
             <Search size={14} color="var(--text-muted)" />
-            <input type="text" placeholder="Search..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)', outline: 'none' }} />
+            <input type="text" placeholder="Search..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)', outline: 'none', width: '100%' }} />
           </div>
+
+          <button className="btn btn-primary register-btn-mobile" style={{ display: 'none' }} onClick={() => setIsAdding(true)}>
+            <Plus size={16} />
+          </button>
 
           <div className="header-nav-scroll" style={{ marginLeft: '1rem' }}>
             <button className="btn btn-secondary btn-icon" onClick={() => scrollBoard('left')} style={{ borderRadius: '10px' }}>
