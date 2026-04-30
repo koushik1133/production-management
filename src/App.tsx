@@ -359,9 +359,9 @@ function Dashboard({
             <div className="header-time-live">{format(currentTime, 'hh:mm:ss a')}</div>
           </div>
           
-          <div className="header-search-container" style={{ background: 'var(--glass-bg)', border: '1px solid var(--border-default)', borderRadius: '12px' }}>
+          <div className="header-search-container mobile-search-inline" style={{ background: 'var(--glass-bg)', border: '1px solid var(--border-default)', borderRadius: '12px' }}>
             <Search size={14} color="var(--text-muted)" />
-            <input type="text" placeholder="Global Search..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)', outline: 'none' }} />
+            <input type="text" placeholder="Search..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)', outline: 'none' }} />
           </div>
 
           <div className="header-nav-scroll" style={{ marginLeft: '1rem' }}>
@@ -403,7 +403,7 @@ function Dashboard({
           <button className="btn btn-secondary" onClick={() => navigate('/catalog')}>
             <BookOpen size={14} /> <span className="btn-text">Catalog</span>
           </button>
-          <button className="btn btn-primary hide-on-mobile" onClick={() => setIsAdding(true)} style={{ background: 'var(--accent)' }}>
+          <button className="btn btn-primary hide-on-mobile" onClick={() => setIsAdding(true)} style={{ background: 'var(--accent)', display: 'var(--hide-mobile)' }}>
             <Plus size={14} /> <span className="btn-text">Register Unit</span>
           </button>
           
@@ -908,6 +908,11 @@ function App() {
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: isMobile ? 10000 : 8,
+      },
+    }),
+    useSensor(TouchSensor, {
       activationConstraint: {
         distance: isMobile ? 10000 : 8,
       },
