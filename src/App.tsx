@@ -359,12 +359,18 @@ function Dashboard({
             <div className="header-time-live">{format(currentTime, 'hh:mm:ss a')}</div>
           </div>
           
-          <div className="header-nav-scroll" style={{ marginLeft: '1rem' }}>
-            <button className="btn btn-secondary btn-icon" onClick={() => scrollBoard('left')} style={{ borderRadius: '10px' }}>
-              <ChevronLeft size={18} />
+          <div className="header-nav-mobile-center">
+            <button className="btn btn-secondary btn-icon-mobile" onClick={() => navigate('/stations')} title="Bays">
+              <MapPin size={18} />
             </button>
-            <button className="btn btn-secondary btn-icon" onClick={() => scrollBoard('right')} style={{ borderRadius: '10px' }}>
-              <ChevronRight size={18} />
+            <button className="btn btn-secondary btn-icon-mobile" onClick={() => navigate('/tv')} title="TV Mode">
+              <Tv size={18} />
+            </button>
+            <button className="btn btn-secondary btn-icon-mobile" onClick={() => navigate('/archive')} title="Archive">
+              <Archive size={18} />
+            </button>
+            <button className="btn btn-primary register-btn-mobile" onClick={() => setIsAdding(true)} title="Register">
+              <Plus size={20} />
             </button>
           </div>
 
@@ -372,15 +378,11 @@ function Dashboard({
             <Search size={14} color="var(--text-muted)" />
             <input type="text" placeholder="Search..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)', outline: 'none', width: '100%' }} />
           </div>
-
-          <button className="btn btn-primary register-btn-mobile" style={{ display: 'none' }} onClick={() => setIsAdding(true)}>
-            <Plus size={16} />
-          </button>
         </div>
 
-        <div className="header-right">
+        <div className="header-right hide-on-mobile">
           <button
-            className="btn btn-secondary btn-icon hide-on-mobile"
+            className="btn btn-secondary btn-icon"
             onClick={handleUndo}
             disabled={undoStack.length === 0}
             title="Undo last move"
@@ -389,7 +391,7 @@ function Dashboard({
             <Undo2 size={16} />
           </button>
           <button
-            className="btn btn-secondary btn-icon hide-on-mobile"
+            className="btn btn-secondary btn-icon"
             onClick={handleRedo}
             disabled={redoStack.length === 0}
             title="Redo"
@@ -407,7 +409,7 @@ function Dashboard({
           <button className="btn btn-secondary" onClick={() => navigate('/catalog')}>
             <BookOpen size={14} /> <span className="btn-text">Catalog</span>
           </button>
-          <button className="btn btn-primary register-btn hide-on-mobile" onClick={() => setIsAdding(true)}>
+          <button className="btn btn-primary register-btn" onClick={() => setIsAdding(true)}>
             <Plus size={14} /> <span className="btn-text">Register Unit</span>
           </button>
           
