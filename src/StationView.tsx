@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, MapPin } from 'lucide-react';
+import { supabase } from './lib/supabase';
 import {
   DndContext,
   DragOverlay,
@@ -32,13 +33,33 @@ const StationView: React.FC<Props> = ({ trailers, setTrailers, onUpdateTrailer, 
   const [activeId, setActiveId] = useState<string | null>(null);
   const [selectedTrailerId, setSelectedTrailerId] = useState<string | null>(null);
 
+  // Stable references to prevent sync jumps
+  const trailersRef = useRef(trailers);
+  const activeIdRef = useRef(activeId);
+  
+  useEffect(() => {
+    trailersRef.current = trailers;
+  }, [trailers]);
+
+  useEffect(() => {
+    activeIdRef.current = activeId;
+  }, [activeId]);
+
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
   const handleDragStart = (event: DragStartEvent) => {
-    setActiveId(event.active.id as string);
+    const dragId = event.active.id as string;
+    setActiveId(dragId);
+
+    // Snapshot at drag START for potential undo/redo alignment or just local stability
+    const draggedTrailer = trailersRef.current.find(t => t.id === dragId);
+    if (draggedTrailer) {
+      // We can implement local snapshotting here if needed, 
+      // but for now we focus on vertical_order sync.
+    }
   };
 
   const handleDragOver = (event: DragOverEvent) => {
@@ -46,6 +67,7 @@ const StationView: React.FC<Props> = ({ trailers, setTrailers, onUpdateTrailer, 
     if (!over) return;
     const activeId = active.id as string;
     const overId = over.id as string;
+    
     const activeTrailer = trailers.find(t => t.id === activeId);
     if (!activeTrailer) return;
 
@@ -57,60 +79,82 @@ const StationView: React.FC<Props> = ({ trailers, setTrailers, onUpdateTrailer, 
       if (overTrailer) overStation = overTrailer.station;
     }
 
-    if (overStation) {
-      if (activeTrailer.station !== overStation) {
-        setTrailers(prev => {
-          const activeIdx = prev.findIndex(t => t.id === activeId);
-          const overIdx = prev.findIndex(t => t.id === overId);
-          let newIdx;
-          if (isOverStation) newIdx = prev.length;
-          else newIdx = overIdx;
+    if (overStation && activeTrailer.station !== overStation) {
+      setTrailers(prev => {
+        const activeIdx = prev.findIndex(t => t.id === activeId);
+        if (activeIdx === -1) return prev;
+        
+        const updatedTrailer = { ...prev[activeIdx], station: overStation as StationId };
+        const newTrailers = [...prev];
+        newTrailers[activeIdx] = updatedTrailer;
 
-          const updated = { ...activeTrailer, station: overStation };
-          const newTrailers = [...prev];
-          newTrailers.splice(activeIdx, 1);
-          newTrailers.splice(newIdx, 0, updated);
-          return newTrailers;
-        });
-      } else if (activeId !== overId) {
-        setTrailers(prev => {
-          const oldIndex = prev.findIndex(t => t.id === activeId);
-          const newIndex = prev.findIndex(t => t.id === overId);
-          return arrayMove(prev, oldIndex, newIndex);
-        });
-      }
+        // Sync ref immediately
+        trailersRef.current = newTrailers;
+        return newTrailers;
+      });
     }
   };
 
-  const handleDragEnd = (event: any) => {
+  const handleDragEnd = async (event: any) => {
     const { active, over } = event;
-    if (active && over) {
-      const activeId = active.id as string;
-      const trailer = trailers.find(t => t.id === activeId);
-      if (trailer) {
-        // Calculate new dateStarted for persistence in current sorted view
-        const columnTrailers = trailers.filter(t => t.station === trailer.station);
-        const indexInCol = columnTrailers.findIndex(t => t.id === activeId);
+    const activeId = active.id as string;
+    
+    setActiveId(null);
+    
+    const trailer = trailersRef.current.find(t => t.id === activeId);
+    
+    if (trailer && over) {
+      try {
+        const overId = over.id as string;
+        const currentItems = trailersRef.current;
         
-        let newDateStarted = trailer.dateStarted;
-        const above = columnTrailers[indexInCol - 1];
-        const below = columnTrailers[indexInCol + 1];
+        // Get units in target station, sorted by vertical_order
+        const stationTrailers = currentItems
+          .filter(t => t.station === trailer.station && !t.isArchived && !t.isDeleted)
+          .sort((a, b) => (a.vertical_order ?? 0) - (b.vertical_order ?? 0));
 
-        if (above && below) {
-          newDateStarted = (above.dateStarted + below.dateStarted) / 2;
-        } else if (above) {
-          newDateStarted = above.dateStarted - 1000;
-        } else if (below) {
-          newDateStarted = below.dateStarted + 1000;
-        }
+        const currentIdx = stationTrailers.findIndex(t => t.id === activeId);
+        const overIsCard = stationTrailers.some(t => t.id === overId);
+        const targetIdx = overIsCard
+          ? stationTrailers.findIndex(t => t.id === overId)
+          : stationTrailers.length - 1;
 
-        onUpdateTrailer(activeId, { 
-          station: trailer.station,
-          dateStarted: newDateStarted 
+        if (currentIdx === -1) return;
+
+        // Reorder and assign sequential whole-number vertical_orders
+        const reordered = arrayMove([...stationTrailers], currentIdx, targetIdx)
+          .map((t, idx) => ({ ...t, vertical_order: idx * 1000 }));
+
+        // Optimistic local update
+        setTrailers(prev => {
+          const updatedList = prev.map(t => {
+            const updated = reordered.find(r => r.id === t.id);
+            return updated ? updated : t;
+          });
+          
+          return [...updatedList].sort((a, b) => {
+            if (a.station === b.station && a.vertical_order !== undefined && b.vertical_order !== undefined) {
+              return a.vertical_order - b.vertical_order;
+            }
+            return 0;
+          });
         });
+
+        // Batch persist to DB
+        await Promise.all([
+          supabase.from('trailers').update({
+            station: trailer.station,
+            vertical_order: reordered.find(r => r.id === activeId)?.vertical_order ?? 0,
+          }).eq('id', activeId),
+          ...reordered
+            .filter(t => t.id !== activeId)
+            .map(t => supabase.from('trailers').update({ vertical_order: t.vertical_order }).eq('id', t.id))
+        ]);
+
+      } catch (err) {
+        console.error('StationView DragEnd Error:', err);
       }
     }
-    setActiveId(null);
   };
   
   const selectedTrailer = trailers.find(t => t.id === selectedTrailerId);
