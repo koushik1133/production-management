@@ -619,7 +619,20 @@
 /* Bottleneck Highlight - Removed Red, Using subtle blue if needed, but user wants clean blue theme */
 .trailer-card.is-bottleneck {
   border: 1.5px solid #3b82f6;
+  background-color: rgba(59, 130, 246, 0.08); /* Transparent blue tint works for both modes */
+}
+
+/* Specific override for Light Mode to ensure it pops but stays clean */
+[data-theme='light'] .trailer-card.is-bottleneck {
   background-color: #eff6ff;
+  border-color: #2563eb;
+}
+
+/* Explicitly fix text visibility inside bottleneck cards */
+.trailer-card.is-bottleneck .card-model,
+.trailer-card.is-bottleneck .card-meta span,
+.trailer-card.is-bottleneck .card-time {
+  color: var(--text-primary);
 }
 
 .reco-badge-tag {
@@ -638,8 +651,8 @@
 }
 
 .trailer-card.is-bottleneck .card-time {
-  background-color: #3b82f6;
-  color: white;
+  color: #3b82f6;
+  font-weight: 700;
 }
 
 @keyframes pulse {
