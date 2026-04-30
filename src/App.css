@@ -627,24 +627,21 @@
   border-color: #2563eb !important;
 }
 
-.trailer-card.is-bottleneck .card-model,
-.trailer-card.is-bottleneck .card-meta-item span,
-.trailer-card.is-bottleneck .card-meta span {
-  color: var(--text-primary) !important;
-}
-
-[data-theme='light'] .trailer-card.is-bottleneck .card-model {
-  color: #000000 !important;
-}
-
+/* GLOBAL FORCE BLACK TEXT FOR LIGHT MODE BOTTLENECK CARDS */
+[data-theme='light'] .trailer-card.is-bottleneck,
+[data-theme='light'] .trailer-card.is-bottleneck *,
+[data-theme='light'] .trailer-card.is-bottleneck .card-model,
+[data-theme='light'] .trailer-card.is-bottleneck .card-meta span,
 [data-theme='light'] .trailer-card.is-bottleneck .card-meta-item span,
-[data-theme='light'] .trailer-card.is-bottleneck .card-meta span {
-  color: #1e293b !important;
+[data-theme='light'] .trailer-card.is-bottleneck .card-time {
+  color: #000000 !important;
+  opacity: 1 !important;
 }
 
-[data-theme='light'] .trailer-card.is-bottleneck .card-time {
-  color: #1d4ed8 !important;
-  font-weight: 800 !important;
+/* Ensure icons also turn black */
+[data-theme='light'] .trailer-card.is-bottleneck svg {
+  color: #000000 !important;
+  stroke: #000000 !important;
 }
 
 .reco-badge-tag {
