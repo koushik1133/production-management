@@ -1528,17 +1528,7 @@
 
   /* Match footer width to dashboard/content and fix overlap */
   .dashboard-footer {
-    display: flex !important;
-    position: relative !important;
-    width: 100% !important;
-    margin-top: 0 !important; /* Removed extra space under blue section */
-    background: transparent !important;
-    border: none !important;
-    padding: 1.5rem 1rem !important; /* Slightly reduced padding */
-    justify-content: center !important;
-    backdrop-filter: none !important;
-    box-sizing: border-box !important; /* Ensure padding doesn't push width out */
-    overflow: hidden !important;
+    display: none !important; /* Removed extra black section under blue */
   }
 
   .footer-legend {
@@ -1567,8 +1557,14 @@
 
   .pipeline-workload-strip {
     height: auto !important;
-    min-height: 40px !important; /* Reduced from 60px */
-    padding: 0.5rem 0.75rem !important; /* Reduced padding */
+    min-height: 40px !important;
+    padding: 0.5rem 0.75rem !important;
+    position: fixed !important;
+    bottom: 0 !important; /* Align directly to the bottom */
+    left: 0 !important;
+    right: 0 !important;
+    border-bottom: none !important;
+    box-shadow: 0 -4px 10px rgba(0,0,0,0.2) !important;
   }
 
   .strip-stats {
