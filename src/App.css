@@ -1544,12 +1544,18 @@
   .register-btn-mobile {
     display: flex !important;
     padding: 6px !important;
-    border-radius: 8px !important;
-    min-width: 32px !important;
-    height: 32px !important;
+    border-radius: 12px !important; /* Matches reference image roundedness */
+    min-width: 54px !important; /* Wider as seen in reference */
+    height: 42px !important;
     justify-content: center !important;
     align-items: center !important;
-    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4) !important;
+    background: #2563eb !important; /* Pure blue from reference image */
+    border: none !important;
+    position: absolute !important;
+    left: 10px !important;
+    top: 54px !important; /* Moves below the top row as per reference */
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3) !important;
+    z-index: 101 !important;
   }
 
   .header-left {

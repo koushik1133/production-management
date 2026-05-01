@@ -411,17 +411,8 @@ function Dashboard({
             <Redo2 size={16} />
           </button>
           
-          <button className="btn btn-secondary" onClick={() => navigate('/stations')}>
-            <MapPin size={14} /> <span className="btn-text">Bays</span>
-          </button>
-          <button className="btn btn-secondary nav-tv-btn" onClick={() => navigate('/tv')}>
-            <Tv size={14} /> <span className="btn-text">TV Mode</span>
-          </button>
           <button className="btn btn-secondary" onClick={() => navigate('/catalog')}>
             <BookOpen size={14} /> <span className="btn-text">Catalog</span>
-          </button>
-          <button className="btn btn-primary register-btn" onClick={() => setIsAdding(true)}>
-            <Plus size={14} /> <span className="btn-text">Register Unit</span>
           </button>
           
           <div className="header-divider" />
@@ -436,10 +427,6 @@ function Dashboard({
           
           <button className="btn btn-secondary" onClick={() => navigate('/schedule')}>
              <Calendar size={14} /> <span className="btn-text">Timeline</span>
-          </button>
-          
-          <button className="btn btn-secondary" onClick={() => navigate('/backlog')}>
-             <Plus size={14} /> <span className="btn-text">Backlog</span>
           </button>
           
           <div className="header-divider" />
