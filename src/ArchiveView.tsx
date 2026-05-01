@@ -58,7 +58,7 @@ const ShippedRecord: React.FC<{ record: ShippedTrailer; onClose: () => void; use
             </div>
           </div>
           
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginTop: '0.5rem', zIndex: 1 }}>
+          <div className="shipped-hero-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginTop: '0.5rem', zIndex: 1 }}>
             <div style={{ background: 'rgba(255,255,255,0.03)', padding: '0.75rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
               <div style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>Date Shipped</div>
               <div style={{ fontSize: '0.9rem', fontWeight: 700 }}>{record.shipped_at ? format(new Date(record.shipped_at), 'MMM d, yyyy') : '—'}</div>
@@ -80,7 +80,7 @@ const ShippedRecord: React.FC<{ record: ShippedTrailer; onClose: () => void; use
             <BarChart3 size={16} color="var(--accent)" />
             <h3 style={{ fontSize: '0.9rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Production Timeline</h3>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '0.75rem' }}>
+          <div className="shipped-phase-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '0.75rem' }}>
             {PHASE_LABELS.map(({ key, label, color }) => (
               <div key={key} style={{ 
                 background: 'var(--bg-card)', 
@@ -204,7 +204,7 @@ export const ArchiveView: React.FC<Props> = ({ trailers, onUpdateTrailer, localT
 
   return (
     <div className="app-container" style={{ background: 'var(--bg-main)', minHeight: '100vh', color: 'var(--text-primary)' }}>
-      <header style={{ 
+      <header className="archive-header" style={{ 
         height: 'var(--header-height)', 
         display: 'flex', 
         alignItems: 'center', 
@@ -244,7 +244,7 @@ export const ArchiveView: React.FC<Props> = ({ trailers, onUpdateTrailer, localT
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+        <div className="archive-header-right" style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(255,255,255,0.03)', padding: '0.4rem 0.75rem', borderRadius: '10px', border: '1px solid var(--border-default)' }}>
             <span style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)' }}>SORT</span>
             <select
@@ -256,7 +256,7 @@ export const ArchiveView: React.FC<Props> = ({ trailers, onUpdateTrailer, localT
               <option value="serial">Serial Number</option>
             </select>
           </div>
-          <div style={{ position: 'relative', width: '280px' }}>
+          <div className="archive-search" style={{ position: 'relative', width: '280px' }}>
             <Search size={16} color="var(--text-muted)" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
             <input 
               type="text" 
@@ -338,10 +338,10 @@ export const ArchiveView: React.FC<Props> = ({ trailers, onUpdateTrailer, localT
         </div>
       </header>
 
-      <main style={{ padding: '3rem 2rem', maxWidth: '1400px', margin: '0 auto' }}>
+      <main className="archive-main" style={{ padding: '3rem 2rem', maxWidth: '1400px', margin: '0 auto' }}>
         
         {/* Statistics Bar */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.5rem', marginBottom: '3rem' }}>
+        <div className="archive-stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.5rem', marginBottom: '3rem' }}>
           {[
             { label: 'Total Shipped', value: shippedTrailers.length, icon: Truck, color: 'var(--accent)' },
             { label: 'Avg Build Time', value: `${shippedTrailers.length ? (shippedTrailers.reduce((a,b) => a + b.total_hours, 0) / shippedTrailers.length).toFixed(1) : 0}h`, icon: Clock, color: '#10b981' },
@@ -361,7 +361,7 @@ export const ArchiveView: React.FC<Props> = ({ trailers, onUpdateTrailer, localT
         </div>
 
         {/* Tab Selection */}
-        <div style={{ display: 'flex', marginBottom: '2rem', gap: '0.5rem', background: 'rgba(255,255,255,0.02)', padding: '6px', borderRadius: '16px', border: '1px solid var(--border-default)', width: 'fit-content' }}>
+        <div className="archive-tabs" style={{ display: 'flex', marginBottom: '2rem', gap: '0.5rem', background: 'rgba(255,255,255,0.02)', padding: '6px', borderRadius: '16px', border: '1px solid var(--border-default)', width: 'fit-content' }}>
           {[{ id: 'shipped', label: '🚚 Shipped Units', count: filteredShipped.length }, { id: 'removed', label: '🗑 Deleted Units', count: removedTrailers.length }].map(({ id, label, count }) => (
             <button
               key={id}
@@ -376,7 +376,7 @@ export const ArchiveView: React.FC<Props> = ({ trailers, onUpdateTrailer, localT
 
         {/* Shipped Content */}
         {tab === 'shipped' && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '1.5rem' }}>
+          <div className="archive-card-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '1.5rem' }}>
             {filteredShipped.length > 0 ? filteredShipped.map(t => (
               <div
                 key={t.serial_number}
@@ -432,7 +432,7 @@ export const ArchiveView: React.FC<Props> = ({ trailers, onUpdateTrailer, localT
                 </div>
               </div>
             )) : (
-              <div style={{ gridColumn: '1 / -1', padding: '8rem', textAlign: 'center', background: 'var(--bg-card)', borderRadius: '32px', border: '2px dashed var(--border-default)' }}>
+              <div className="archive-empty" style={{ gridColumn: '1 / -1', padding: '8rem', textAlign: 'center', background: 'var(--bg-card)', borderRadius: '32px', border: '2px dashed var(--border-default)' }}>
                 <Truck size={64} style={{ marginBottom: '1.5rem', opacity: 0.1 }} />
                 <h3 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '0.5rem' }}>No Shipped Units Found</h3>
                 <p style={{ color: 'var(--text-muted)', fontWeight: 600 }}>Try adjusting your search filters or sort orders.</p>
@@ -443,7 +443,7 @@ export const ArchiveView: React.FC<Props> = ({ trailers, onUpdateTrailer, localT
 
         {/* Removed Content */}
         {tab === 'removed' && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '1.5rem' }}>
+          <div className="archive-card-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '1.5rem' }}>
             {removedTrailers.length > 0 ? removedTrailers.map(t => (
               <div 
                 key={t.id} 
@@ -467,7 +467,7 @@ export const ArchiveView: React.FC<Props> = ({ trailers, onUpdateTrailer, localT
                 </div>
               </div>
             )) : (
-              <div style={{ gridColumn: '1 / -1', padding: '8rem', textAlign: 'center', background: 'var(--bg-card)', borderRadius: '32px', border: '2px dashed var(--border-default)' }}>
+              <div className="archive-empty" style={{ gridColumn: '1 / -1', padding: '8rem', textAlign: 'center', background: 'var(--bg-card)', borderRadius: '32px', border: '2px dashed var(--border-default)' }}>
                 <Package size={64} style={{ marginBottom: '1.5rem', opacity: 0.1 }} />
                 <h3 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '0.5rem' }}>No Removed Units</h3>
                 <p style={{ color: 'var(--text-muted)', fontWeight: 600 }}>Historical deletions will appear here.</p>
@@ -493,7 +493,7 @@ export const ArchiveView: React.FC<Props> = ({ trailers, onUpdateTrailer, localT
         <ShippedRecord record={selectedShipped} onClose={() => setSelectedSerial(null)} userRole={userRole} />
       )}
 
-      {/* Hover Lift Style Injection */}
+      {/* Hover Lift Style Injection + Mobile Responsive */}
       <style>{`
         .hover-lift:hover {
           transform: translateY(-8px);
@@ -503,6 +503,83 @@ export const ArchiveView: React.FC<Props> = ({ trailers, onUpdateTrailer, localT
         }
         .gallery-img:hover {
           transform: scale(1.05);
+        }
+
+        /* ── MOBILE ONLY ── */
+        @media (max-width: 768px) {
+
+          /* Header: stack into two rows */
+          .archive-header {
+            height: auto !important;
+            flex-direction: column !important;
+            align-items: flex-start !important;
+            padding: 0.75rem 1rem !important;
+            gap: 0.75rem !important;
+          }
+          .archive-header-right {
+            width: 100% !important;
+            flex-wrap: wrap !important;
+            gap: 0.5rem !important;
+          }
+          .archive-search {
+            width: 100% !important;
+          }
+
+          /* Main content padding */
+          .archive-main {
+            padding: 1rem !important;
+          }
+
+          /* Stats bar: 2 columns on mobile */
+          .archive-stats-grid {
+            grid-template-columns: repeat(2, 1fr) !important;
+            gap: 0.75rem !important;
+            margin-bottom: 1.25rem !important;
+          }
+          .archive-stats-grid > div {
+            padding: 1rem !important;
+            border-radius: 16px !important;
+          }
+          .archive-stats-grid .stat-value {
+            font-size: 1.35rem !important;
+          }
+
+          /* Tab strip: scrollable, no overflow */
+          .archive-tabs {
+            width: 100% !important;
+            overflow-x: auto !important;
+            -webkit-overflow-scrolling: touch !important;
+          }
+
+          /* Card grid: single column */
+          .archive-card-grid {
+            grid-template-columns: 1fr !important;
+            gap: 0.75rem !important;
+          }
+          .archive-card-grid > div {
+            padding: 1rem !important;
+            border-radius: 16px !important;
+          }
+
+          /* Empty state: reduce huge padding */
+          .archive-empty {
+            padding: 3rem 1rem !important;
+          }
+
+          /* Shipped record modal: phase grid 3-col → 3-col still fine but make smaller */
+          .shipped-phase-grid {
+            grid-template-columns: repeat(3, 1fr) !important;
+            gap: 0.5rem !important;
+          }
+          .shipped-phase-grid > div {
+            padding: 0.6rem !important;
+          }
+
+          /* Hero 3-col grid in modal → single col stacked */
+          .shipped-hero-grid {
+            grid-template-columns: 1fr !important;
+            gap: 0.5rem !important;
+          }
         }
       `}</style>
     </div>
