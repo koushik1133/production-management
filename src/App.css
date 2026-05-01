@@ -1519,44 +1519,6 @@
     border-radius: 8px !important;
   }
 
-  /* Centered button container for mobile */
-  .header-nav-mobile-center {
-    display: flex !important;
-    flex: 1 !important;
-    justify-content: center !important;
-    align-items: center !important;
-    gap: 0.35rem !important;
-    margin: 0 0.5rem !important;
-  }
-
-  .btn-icon-mobile {
-    display: flex !important;
-    padding: 6px !important;
-    border-radius: 8px !important;
-    min-width: 30px !important;
-    height: 30px !important;
-    justify-content: center !important;
-    align-items: center !important;
-    background: var(--bg-secondary) !important;
-    border: 1px solid var(--border-default) !important;
-  }
-
-  .register-btn-mobile {
-    display: flex !important;
-    padding: 6px !important;
-    border-radius: 12px !important; /* Matches reference image roundedness */
-    min-width: 54px !important; /* Wider as seen in reference */
-    height: 42px !important;
-    justify-content: center !important;
-    align-items: center !important;
-    background: #2563eb !important; /* Pure blue from reference image */
-    border: none !important;
-    position: absolute !important;
-    left: 10px !important;
-    top: 54px !important; /* Moves below the top row as per reference */
-    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3) !important;
-    z-index: 101 !important;
-  }
 
   .header-left {
     display: flex !important;
@@ -1565,10 +1527,6 @@
     justify-content: space-between !important;
     align-items: center !important;
     gap: 0.5rem !important;
-  }
-
-  .header-clock-section, .header-nav-scroll, .header-divider {
-    display: none !important;
   }
 
   /* Match footer width to dashboard/content and fix overlap */

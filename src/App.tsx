@@ -353,28 +353,12 @@ function Dashboard({
           <Link to="/" className="header-logo-link">
             <img src={logo} alt="Lane Trailers" className="header-logo-img" style={{ height: '36px', filter: 'drop-shadow(0 0 8px rgba(59, 130, 246, 0.3))' }} />
           </Link>
-          <div className="header-divider hide-on-mobile" />
-          <div className="header-clock-section hide-on-mobile">
+          <div className="header-divider" />
+          <div className="header-clock-section">
             <div className="header-date">{format(currentTime, 'EEE, MMM d')}</div>
             <div className="header-time-live">{format(currentTime, 'hh:mm:ss a')}</div>
           </div>
           
-          {/* MOBILE ONLY NAV */}
-          <div className="header-nav-mobile-center show-on-mobile-only">
-            <button className="btn btn-secondary btn-icon-mobile" onClick={() => navigate('/stations')} title="Bays">
-              <MapPin size={18} />
-            </button>
-            <button className="btn btn-secondary btn-icon-mobile" onClick={onToggleTheme} title="Toggle Theme">
-              {theme === 'light' ? <Moon size={18} color="#475569" /> : <Sun size={18} color="#fbbf24" />}
-            </button>
-            <button className="btn btn-secondary btn-icon-mobile" onClick={() => navigate('/archive')} title="Archive">
-              <Archive size={18} />
-            </button>
-            <button className="btn btn-primary register-btn-mobile" onClick={() => setIsAdding(true)} title="Register">
-              <Plus size={20} />
-            </button>
-          </div>
-
           <div className="header-search-container mobile-search-inline" style={{ background: 'var(--glass-bg)', border: '1px solid var(--border-default)', borderRadius: '12px' }}>
             <Search size={14} color="var(--text-muted)" />
             <input type="text" placeholder="Search..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)', outline: 'none', width: '100%' }} />
@@ -411,8 +395,17 @@ function Dashboard({
             <Redo2 size={16} />
           </button>
           
+          <button className="btn btn-secondary" onClick={() => navigate('/stations')}>
+            <MapPin size={14} /> <span className="btn-text">Bays</span>
+          </button>
+          <button className="btn btn-secondary nav-tv-btn" onClick={() => navigate('/tv')}>
+            <Tv size={14} /> <span className="btn-text">TV Mode</span>
+          </button>
           <button className="btn btn-secondary" onClick={() => navigate('/catalog')}>
             <BookOpen size={14} /> <span className="btn-text">Catalog</span>
+          </button>
+          <button className="btn btn-primary register-btn" onClick={() => setIsAdding(true)}>
+            <Plus size={14} /> <span className="btn-text">Register Unit</span>
           </button>
           
           <div className="header-divider" />
@@ -427,6 +420,10 @@ function Dashboard({
           
           <button className="btn btn-secondary" onClick={() => navigate('/schedule')}>
              <Calendar size={14} /> <span className="btn-text">Timeline</span>
+          </button>
+          
+          <button className="btn btn-secondary" onClick={() => navigate('/backlog')}>
+             <Plus size={14} /> <span className="btn-text">Backlog</span>
           </button>
           
           <div className="header-divider" />
