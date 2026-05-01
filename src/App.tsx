@@ -82,7 +82,7 @@ function Dashboard({
   activeId,
   filteredTrailers,
   totalWorkRemaining,
-  totalProductionTime,
+
   trailers, 
   updateTrailer, 
   addTrailer, 
