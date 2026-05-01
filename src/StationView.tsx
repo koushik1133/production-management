@@ -256,6 +256,67 @@ const StationView: React.FC<Props> = ({ trailers, setTrailers, onUpdateTrailer, 
           userRole={userRole}
         />
       )}
+
+      {/* Mobile-only responsive styles for Bay page */}
+      <style>{`
+        @media (max-width: 768px) {
+
+          /* Allow the bay page main to scroll vertically and not clip horizontally */
+          .bay-page .main-content {
+            flex-direction: column !important;
+            overflow-x: hidden !important;
+            overflow-y: auto !important;
+            padding: 0.75rem !important;
+            gap: 0.75rem !important;
+            height: auto !important;
+            width: 100% !important;
+            max-width: 100% !important;
+          }
+
+          /* Each bay column: full width, compact fixed height with internal scroll */
+          .bay-page .kanban-column {
+            width: 100% !important;
+            max-width: 100% !important;
+            min-width: 0 !important;
+            height: auto !important;
+            min-height: 220px !important;
+            max-height: 60vh !important;
+            overflow: hidden !important;
+            display: flex !important;
+            flex-direction: column !important;
+            border-radius: 16px !important;
+            padding: 0 !important;
+          }
+
+          /* Cards inside a column scroll vertically */
+          .bay-page .cards-container {
+            flex: 1 !important;
+            overflow-y: auto !important;
+            -webkit-overflow-scrolling: touch !important;
+            padding: 0.5rem !important;
+          }
+
+          /* Column header stays compact */
+          .bay-page .column-header {
+            padding: 0.6rem 0.75rem !important;
+            flex-shrink: 0 !important;
+          }
+
+          /* Column footer stays at bottom */
+          .bay-page .column-footer {
+            flex-shrink: 0 !important;
+            padding: 0.6rem 0.75rem !important;
+          }
+
+          /* Header bar on bay page */
+          .bay-page .header {
+            height: auto !important;
+            padding: 0.6rem 1rem !important;
+            flex-wrap: wrap !important;
+            gap: 0.5rem !important;
+          }
+        }
+      `}</style>
     </div>
   );
 };
