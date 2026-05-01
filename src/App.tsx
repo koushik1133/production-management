@@ -432,6 +432,32 @@ function Dashboard({
             <Archive size={18} />
           </button>
         </div>
+
+        {/* MOBILE ONLY NAV (Restored buttons) */}
+        <div className="header-right show-on-mobile-only" style={{ display: 'none' }}>
+          <button className="btn btn-secondary" onClick={() => navigate('/stations')}>
+            <MapPin size={14} /> <span className="btn-text">Bays</span>
+          </button>
+          <button className="btn btn-secondary" onClick={() => navigate('/catalog')}>
+            <BookOpen size={14} /> <span className="btn-text">Catalog</span>
+          </button>
+          <button className="btn btn-primary register-btn" onClick={() => setIsAddModalOpen(true)}>
+            <Plus size={14} /> <span className="btn-text">Register</span>
+          </button>
+          <button className="btn btn-secondary" onClick={() => navigate('/schedule')}>
+             <Calendar size={14} /> <span className="btn-text">Timeline</span>
+          </button>
+          <button className="btn btn-secondary" onClick={() => navigate('/backlog')}>
+             <Plus size={14} /> <span className="btn-text">Backlog</span>
+          </button>
+          <button 
+            className="btn btn-secondary btn-icon theme-toggle" 
+            onClick={onToggleTheme}
+            style={{ borderRadius: '12px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-default)' }}
+          >
+            {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
+          </button>
+        </div>
       </header>
 
       <main className="main-content" ref={mainContentRef}>
@@ -472,30 +498,31 @@ function Dashboard({
         height: '56px', 
         borderTop: '2px solid #fbbf24', 
         display: 'flex', 
-        alignItems: 'center',
-        background: 'rgba(15, 23, 42, 0.95)',
-        backdropFilter: 'blur(10px)',
-        zIndex: 90,
-        padding: '0 1.5rem',
-        boxShadow: '0 -4px 20px rgba(0,0,0,0.3)'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <Clock size={20} style={{ color: '#fbbf24' }} />
-          <span className="strip-label" style={{ fontSize: '0.8rem', letterSpacing: '0.05em' }}>WORKLOAD REMAINING:</span>
-          <span className="strip-value" style={{ color: '#fbbf24', fontSize: '1.25rem' }}>{Math.round(totalWorkRemaining)} HOURS</span>
-          <div style={{ width: '1px', height: '24px', background: 'rgba(255,255,255,0.2)', margin: '0 1rem' }} />
-          <span className="strip-label">PRODUCTION RUNWAY:</span>
-          <span className="strip-value" style={{ color: '#fff' }}>
-            ~{runwayWeeks < 1 ? '< 1' : Math.round(runwayWeeks)} WEEKS
-          </span>
-          <div style={{ width: '1px', height: '24px', background: 'rgba(255,255,255,0.2)', margin: '0 1rem' }} />
-          <span className="strip-label">TOTAL PIPELINE UNITS:</span>
-          <span className="strip-value" style={{ color: '#fff' }}>{trailers.length}</span>
-        </div>
-        <div style={{ flex: 1 }} />
-        <div className="strip-stats">
-          <span>Active Units: {trailers.filter(t => !t.isArchived && t.currentPhase !== 'shipping').length}</span>
-          <span>Avg. Build Content: {trailers.filter(t => !t.isArchived && t.currentPhase !== 'shipping').length > 0 ? Math.round(totalProductionTime / Math.max(trailers.filter(t => !t.isArchived && t.currentPhase !== 'shipping').length, 1)) : 0}h/unit</span>
+      <div className="pipeline-workload-strip">
+        <div className="strip-items-container">
+          <Clock size={16} style={{ color: '#fbbf24', flexShrink: 0 }} />
+          
+          <div className="strip-item">
+            <span className="strip-label desktop-label">WORKLOAD REMAINING:</span>
+            <span className="strip-label mobile-label">WORKLOAD:</span>
+            <span className="strip-value highlight">{Math.round(totalWorkRemaining)}h</span>
+          </div>
+
+          <div className="strip-divider" />
+
+          <div className="strip-item">
+            <span className="strip-label desktop-label">PRODUCTION RUNWAY:</span>
+            <span className="strip-label mobile-label">RUNWAY:</span>
+            <span className="strip-value">~{runwayWeeks < 1 ? '<1' : Math.round(runwayWeeks)}w</span>
+          </div>
+
+          <div className="strip-divider" />
+
+          <div className="strip-item">
+            <span className="strip-label desktop-label">TOTAL PIPELINE UNITS:</span>
+            <span className="strip-label mobile-label">UNITS:</span>
+            <span className="strip-value">{trailers.filter(t => !t.isArchived).length}</span>
+          </div>
         </div>
       </div>
 
