@@ -1335,80 +1335,106 @@
 
 /* Bottom Strip & Footer */
 .pipeline-workload-strip {
+  position: fixed;
+  bottom: 48px;
+  left: 0;
+  right: 0;
   height: 48px;
   background: #09090b;
   color: white;
   display: flex;
   align-items: center;
+  justify-content: space-between;
   padding: 0 1.5rem;
   font-size: 0.875rem;
-  z-index: 50;
+  z-index: 90;
   box-shadow: 0 -4px 12px rgba(0,0,0,0.2);
-  margin-top: 2rem;
+  border-top: 2px solid #fbbf24;
+}
+
+.strip-items-container {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  overflow: hidden;
+}
+
+.strip-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.strip-divider {
+  width: 1px;
+  height: 20px;
+  background: rgba(255,255,255,0.15);
+  flex-shrink: 0;
 }
 
 .strip-label {
-  font-weight: 700;
-  letter-spacing: 0.02em;
-}
-
-.mobile-label {
-  display: none;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #fbbf24;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
 }
 
 .strip-value {
-  font-size: 1.1rem;
+  font-size: 0.95rem;
   font-weight: 800;
+  color: white;
+  white-space: nowrap;
 }
 
 .strip-value.highlight {
   color: #fbbf24;
 }
 
-.strip-item {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.strip-divider {
-  width: 1px;
-  height: 20px;
-  background: rgba(255,255,255,0.2);
-}
-
 .strip-stats {
   display: flex;
-  gap: 2rem;
-  opacity: 0.8;
+  gap: 1.5rem;
+  opacity: 0.75;
+  font-size: 0.75rem;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Desktop shows full labels, mobile-label hidden */
+.mobile-label { display: none; }
+.desktop-label { display: inline; }
+
+/* Runtime badge – hidden on desktop, shown on mobile via show-on-mobile-only */
+.strip-runtime {
+  display: none;
+  align-items: center;
+  gap: 0.25rem;
+  flex-shrink: 0;
+  margin-left: auto;
+  padding-left: 0.5rem;
 }
 
 .dashboard-footer {
-  display: none; /* Hide standard footer to move legend into bottom strip logic on mobile */
+  display: none;
 }
 
 @media (min-width: 769px) {
-  .pipeline-workload-strip {
-    bottom: 40px;
-    height: 40px;
-  }
-  
   .dashboard-footer {
-  height: 48px;
-  background: var(--bg-header);
-  border-top: 1px solid var(--border-default);
-  display: flex;
-  align-items: center;
-  padding: 0 1.5rem;
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  z-index: 100;
-  backdrop-filter: blur(10px);
-}
+    height: 48px;
+    background: var(--bg-header);
+    border-top: 1px solid var(--border-default);
+    display: flex;
+    align-items: center;
+    padding: 0 1.5rem;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    backdrop-filter: blur(10px);
+  }
 }
 
 .footer-legend {
@@ -1504,39 +1530,10 @@
 
   .strip-value {
     font-size: 0.85rem !important;
-    font-weight: 800 !important;
   }
 
   .strip-label {
-    font-size: 0.6rem !important;
-    font-weight: 700 !important;
-    opacity: 0.8;
-  }
-
-  .desktop-label {
-    display: none !important;
-  }
-
-  .mobile-label {
-    display: inline !important;
-  }
-
-  .strip-item {
-    display: flex;
-    align-items: center;
-    gap: 0.35rem;
-  }
-
-  .strip-divider {
-    width: 1px;
-    height: 14px;
-    background: rgba(255,255,255,0.15);
-  }
-
-  .strip-items-container {
-    justify-content: center !important;
-    gap: 0.75rem !important;
-    width: 100% !important;
+    font-size: 0.65rem !important;
   }
 
   /* Force same width for all sections in mobile */
@@ -1608,21 +1605,48 @@
   }
 
   .pipeline-workload-strip {
-    height: 44px !important;
-    min-height: 44px !important;
-    padding: 0 0.75rem !important;
+    height: auto !important;
+    min-height: 36px !important;
+    padding: 0.35rem 0.6rem !important;  /* tight, no edge trimming */
     position: fixed !important;
     bottom: 0 !important;
     left: 0 !important;
     right: 0 !important;
     border-bottom: none !important;
-    box-shadow: 0 -4px 15px rgba(0,0,0,0.4) !important;
-    width: 100% !important;
-    box-sizing: border-box !important;
+    box-shadow: 0 -4px 10px rgba(0,0,0,0.2) !important;
+    gap: 0 !important;
+  }
+
+  /* Switch labels on mobile */
+  .desktop-label { display: none !important; }
+  .mobile-label  { display: inline !important; }
+
+  .strip-items-container {
+    gap: 0.35rem !important;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  .strip-item {
+    gap: 0.25rem !important;
+  }
+
+  .strip-label {
+    font-size: 0.6rem !important;
+    letter-spacing: 0 !important;
+  }
+
+  .strip-value {
+    font-size: 0.75rem !important;
+  }
+
+  .strip-divider {
+    height: 14px !important;
+    margin: 0 0.25rem !important;
   }
 
   .strip-stats {
-    display: none !important; /* Hide overlapping stats on mobile to make room for legend */
+    display: none !important;
   }
 }
 

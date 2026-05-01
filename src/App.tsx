@@ -82,7 +82,7 @@ function Dashboard({
   activeId,
   filteredTrailers,
   totalWorkRemaining,
-
+  totalProductionTime,
   trailers, 
   updateTrailer, 
   addTrailer, 
@@ -447,8 +447,8 @@ function Dashboard({
           <button className="btn btn-secondary" onClick={() => navigate('/schedule')}>
              <Calendar size={14} /> <span className="btn-text">Timeline</span>
           </button>
-          <button className="btn btn-secondary" onClick={() => navigate('/backlog')}>
-             <Plus size={14} /> <span className="btn-text">Backlog</span>
+          <button className="btn btn-secondary" onClick={() => navigate('/archive')}>
+             <Archive size={14} /> <span className="btn-text">Shipped</span>
           </button>
           <button 
             className="btn btn-secondary btn-icon theme-toggle" 
@@ -493,7 +493,7 @@ function Dashboard({
       <div className="pipeline-workload-strip">
         <div className="strip-items-container">
           <Clock size={16} style={{ color: '#fbbf24', flexShrink: 0 }} />
-          
+
           <div className="strip-item">
             <span className="strip-label desktop-label">WORKLOAD REMAINING:</span>
             <span className="strip-label mobile-label">WORKLOAD:</span>
@@ -513,8 +513,19 @@ function Dashboard({
           <div className="strip-item">
             <span className="strip-label desktop-label">TOTAL PIPELINE UNITS:</span>
             <span className="strip-label mobile-label">UNITS:</span>
-            <span className="strip-value">{trailers.filter(t => !t.isArchived).length}</span>
+            <span className="strip-value">{trailers.filter(t => !t.isArchived && !t.isDeleted).length}</span>
           </div>
+        </div>
+
+        <div className="strip-stats hide-on-mobile">
+          <span>Active: {trailers.filter(t => !t.isArchived && t.currentPhase !== 'shipping').length}</span>
+          <span>Avg: {trailers.filter(t => !t.isArchived && t.currentPhase !== 'shipping').length > 0 ? Math.round(totalProductionTime / Math.max(trailers.filter(t => !t.isArchived && t.currentPhase !== 'shipping').length, 1)) : 0}h/unit</span>
+        </div>
+
+        {/* Mobile-only runtime badge on the far right */}
+        <div className="strip-runtime show-on-mobile-only" style={{ display: 'none' }}>
+          <span className="strip-label mobile-label">RUNTIME:</span>
+          <span className="strip-value">{Math.round(totalProductionTime)}h</span>
         </div>
       </div>
 
