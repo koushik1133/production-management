@@ -333,6 +333,18 @@ const StationView: React.FC<Props> = ({ trailers, setTrailers, onUpdateTrailer, 
             overflow-y: auto !important;
             -webkit-overflow-scrolling: touch !important;
           }
+
+          /* Kill hover transforms on mobile - they intercept touch scroll */
+          .bay-page .trailer-card:hover,
+          .bay-page .trailer-card:active {
+            transform: none !important;
+            box-shadow: var(--shadow-sm) !important;
+          }
+
+          /* Disable pointer-events that cause scroll interference */
+          .bay-page .trailer-card {
+            cursor: pointer !important;
+          }
         }
       `}</style>
     </div>
