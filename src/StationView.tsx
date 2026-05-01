@@ -261,59 +261,77 @@ const StationView: React.FC<Props> = ({ trailers, setTrailers, onUpdateTrailer, 
       <style>{`
         @media (max-width: 768px) {
 
-          /* Allow the bay page main to scroll vertically and not clip horizontally */
+          /* Page scrolls vertically - show all bays stacked, no clipping */
           .bay-page .main-content {
             flex-direction: column !important;
             overflow-x: hidden !important;
             overflow-y: auto !important;
+            -webkit-overflow-scrolling: touch !important;
             padding: 0.75rem !important;
-            gap: 0.75rem !important;
+            gap: 1rem !important;
             height: auto !important;
+            min-height: 0 !important;
             width: 100% !important;
             max-width: 100% !important;
+            /* Remove fixed height constraint so page can grow */
+            flex: 0 0 auto !important;
+            display: block !important;
           }
 
-          /* Each bay column: full width, compact fixed height with internal scroll */
+          /* Each bay column: full width, grows naturally to show ALL cards */
           .bay-page .kanban-column {
             width: 100% !important;
             max-width: 100% !important;
             min-width: 0 !important;
             height: auto !important;
-            min-height: 220px !important;
-            max-height: 60vh !important;
-            overflow: hidden !important;
+            min-height: 0 !important;
+            max-height: none !important;   /* ← NO cap, all cards visible */
+            overflow: visible !important;
             display: flex !important;
             flex-direction: column !important;
             border-radius: 16px !important;
             padding: 0 !important;
+            margin-bottom: 1rem !important;
           }
 
-          /* Cards inside a column scroll vertically */
+          /* Cards container: natural height, no scroll trap */
           .bay-page .cards-container {
-            flex: 1 !important;
-            overflow-y: auto !important;
-            -webkit-overflow-scrolling: touch !important;
+            flex: 0 0 auto !important;
+            height: auto !important;
+            max-height: none !important;
+            overflow: visible !important;
             padding: 0.5rem !important;
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 0.75rem !important;
           }
 
-          /* Column header stays compact */
+          /* Column header compact */
           .bay-page .column-header {
             padding: 0.6rem 0.75rem !important;
             flex-shrink: 0 !important;
           }
 
-          /* Column footer stays at bottom */
+          /* Column footer always visible at bottom of its column */
           .bay-page .column-footer {
             flex-shrink: 0 !important;
             padding: 0.6rem 0.75rem !important;
           }
 
-          /* Header bar on bay page */
+          /* Header bar compact */
           .bay-page .header {
             height: auto !important;
             padding: 0.6rem 1rem !important;
             flex-wrap: wrap !important;
             gap: 0.5rem !important;
+          }
+
+          /* Let the whole page scroll, not locked to 100vh */
+          .bay-page.app-container {
+            height: auto !important;
+            min-height: 100vh !important;
+            overflow-y: auto !important;
+            -webkit-overflow-scrolling: touch !important;
           }
         }
       `}</style>
