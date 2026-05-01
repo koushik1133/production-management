@@ -37,13 +37,10 @@ import {
   Search, 
   Plus, 
   MapPin,
-  Tv,
   Clock,
   Archive,
   Crown,
   BarChart3,
-  ChevronLeft,
-  ChevronRight,
   Calendar,
   Image as ImageIcon,
   DollarSign,
@@ -197,12 +194,6 @@ function Dashboard({
   const navigate = useNavigate();
   const mainContentRef = useRef<HTMLDivElement>(null);
 
-  const scrollBoard = (direction: 'left' | 'right') => {
-    if (mainContentRef.current) {
-      const amount = 400;
-      mainContentRef.current.scrollBy({ left: direction === 'left' ? -amount : amount, behavior: 'smooth' });
-    }
-  };
 
   const handleShipSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -402,9 +393,6 @@ function Dashboard({
           
           <button className="btn btn-secondary" onClick={() => navigate('/stations')}>
             <MapPin size={14} /> <span className="btn-text">Bays</span>
-          </button>
-          <button className="btn btn-secondary nav-tv-btn" onClick={() => navigate('/tv')}>
-            <Tv size={14} /> <span className="btn-text">TV Mode</span>
           </button>
           <button className="btn btn-secondary" onClick={() => navigate('/catalog')}>
             <BookOpen size={14} /> <span className="btn-text">Catalog</span>
