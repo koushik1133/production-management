@@ -63,7 +63,7 @@ import {
 } from './types';
 import type { Trailer, PhaseId, StationId, ModelSpec, CatalogModel, ShippedTrailer, UserRole } from './types';
 
-const localModelCategories = MODEL_CATEGORIES;
+const staticModelCategories = MODEL_CATEGORIES;
 const localModelSpecs = MODEL_TARGET_HOURS;
 
 
@@ -404,7 +404,7 @@ function Dashboard({
           <button className="btn btn-secondary" onClick={() => navigate('/catalog')}>
             <BookOpen size={14} /> <span className="btn-text">Catalog</span>
           </button>
-          <button className="btn btn-primary register-btn" onClick={() => setIsAdding(true)}>
+          <button className="btn btn-primary register-btn" onClick={() => setIsAddModalOpen(true)}>
             <Plus size={14} /> <span className="btn-text">Register Unit</span>
           </button>
           
@@ -562,7 +562,16 @@ function Dashboard({
             </div>
           </div>
           
-          <div className="form-group" style={{ marginTop: '1rem', display: 'flex', alignItems: 'center', gap: '0.75rem', background: '#fff1f2', padding: '0.85rem', borderRadius: '12px', border: '1px solid #fecdd3' }}>
+          <div className="form-group priority-checkbox-container" style={{ 
+            marginTop: '1rem', 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '0.75rem', 
+            padding: '0.85rem', 
+            borderRadius: '12px', 
+            border: '1px solid var(--priority-border)',
+            background: 'var(--priority-bg)'
+          }}>
             <input 
               type="checkbox" 
               id="quick-priority" 
@@ -570,8 +579,8 @@ function Dashboard({
               onChange={e => setNewTrailerData({...newTrailerData, isPriority: e.target.checked})}
               style={{ width: '20px', height: '20px' }}
             />
-            <label htmlFor="quick-priority" className="pointer">
-              <Crown size={16} /> HIGH PRIORITY UNIT
+            <label htmlFor="quick-priority" className="pointer" style={{ color: 'var(--text-primary)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <Crown size={16} color="#ef4444" /> HIGH PRIORITY UNIT
             </label>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '0.75rem', marginTop: '1.5rem' }}>
@@ -898,6 +907,7 @@ function App() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [editingModelName, setEditingModelName] = useState<string | null>(null);
   const [modelFormData, setModelFormData] = useState<Record<PhaseId, number> | null>(null);
+  const [modelSpecData, setModelSpecData] = useState<{ steelWeight: string; axles: string }>({ steelWeight: '', axles: '' });
   // Undo/Redo stacks
   const [undoStack, setUndoStack] = useState<Array<Array<{ id: string } & Partial<Trailer>>>>([]);
   const [redoStack, setRedoStack] = useState<Array<Array<{ id: string } & Partial<Trailer>>>>([]);
@@ -945,6 +955,22 @@ function App() {
       hours[m.name] = m.target_hours;
     });
     return hours;
+  }, [catalogModels]);
+
+  // Dynamically merge static categories with any new models stored in Supabase
+  const localModelCategories = useMemo(() => {
+    const merged = staticModelCategories.map(cat => ({ ...cat, models: [...cat.models] }));
+    catalogModels.forEach(m => {
+      const existingCat = merged.find(c => c.name === m.category);
+      if (existingCat) {
+        if (!existingCat.models.includes(m.name)) {
+          existingCat.models.push(m.name);
+        }
+      } else {
+        merged.push({ name: m.category, models: [m.name] });
+      }
+    });
+    return merged;
   }, [catalogModels]);
 
   const filteredTrailers = useMemo(() => {
@@ -1162,6 +1188,12 @@ function App() {
   const handleEditModel = (name: string, spec: { targetHours: Record<PhaseId, number> }) => {
     setEditingModelName(name);
     setModelFormData(spec.targetHours);
+    // Pre-populate steel weight and axles from existing catalogModels entry
+    const existing = catalogModels.find(m => m.name === name);
+    setModelSpecData({
+      steelWeight: existing?.specs?.steelWeight || '',
+      axles: existing?.specs?.axles || '',
+    });
   };
 
   const handleDeleteModel = async (name: string) => {
@@ -1178,7 +1210,7 @@ function App() {
     
     const existingModel = catalogModels.find(m => m.name === editingModelName);
     if (existingModel) {
-      const updatedModel = { ...existingModel, target_hours: modelFormData };
+      const updatedModel = { ...existingModel, target_hours: modelFormData, specs: { ...existingModel.specs, steelWeight: modelSpecData.steelWeight, axles: modelSpecData.axles } };
       setCatalogModels(prev => prev.map(m => m.name === editingModelName ? updatedModel : m));
       
       const { error } = await supabase
@@ -1192,7 +1224,7 @@ function App() {
         name: editingModelName,
         category: localModelCategories.find(c => c.models.includes(editingModelName))?.name || 'Uncategorized',
         target_hours: modelFormData,
-        specs: {}
+        specs: { steelWeight: modelSpecData.steelWeight, axles: modelSpecData.axles }
       };
       setCatalogModels(prev => [...prev, newModel]);
       await supabase.from('production_models').upsert(newModel);
@@ -1563,9 +1595,36 @@ function getSuggestedBay(): StationId {
 
           {/* Quick Model Spec Editor - Only for Managers */}
           {userRole === 'manager' && (
-            <Modal isOpen={!!editingModelName} onClose={() => setEditingModelName(null)} title={`Specs: ${editingModelName}`}>
+          <Modal isOpen={!!editingModelName} onClose={() => setEditingModelName(null)} title={`Edit: ${editingModelName}`}>
               <div style={{ padding: '1rem' }}>
-                <p style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '1.5rem' }}>Update target hours for all units of this model.</p>
+                <p style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '1.5rem' }}>Update target hours and specs for all units of this model.</p>
+
+                {/* Steel Weight + Axles */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
+                  <div>
+                    <label style={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', color: '#94a3b8', display: 'block', marginBottom: '4px' }}>Steel Weight</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      placeholder="e.g. 2,450 lbs"
+                      value={modelSpecData.steelWeight}
+                      onChange={e => setModelSpecData(prev => ({ ...prev, steelWeight: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', color: '#94a3b8', display: 'block', marginBottom: '4px' }}>Axle Config</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      placeholder="e.g. Tandem 7k"
+                      value={modelSpecData.axles}
+                      onChange={e => setModelSpecData(prev => ({ ...prev, axles: e.target.value }))}
+                    />
+                  </div>
+                </div>
+
+                {/* Phase target hours */}
+                <label style={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', color: '#94a3b8', display: 'block', marginBottom: '0.75rem' }}>Target Hours by Phase</label>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem', marginBottom: '1.5rem' }}>
                   {modelFormData && PHASES.filter(p => !['backlog', 'shipping'].includes(p.id)).map(phase => (
                     <div key={phase.id}>
