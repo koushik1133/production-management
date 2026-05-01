@@ -641,20 +641,20 @@
 }
 
 /* TV MODE SPECIFIC FORCE BLACK */
-.tv-page .trailer-card.is-bottleneck,
-.tv-page .trailer-card.is-bottleneck * {
+.tv-view-container .trailer-card.is-bottleneck,
+.tv-view-container .trailer-card.is-bottleneck * {
   color: #000000 !important;
   opacity: 1 !important;
 }
 
 /* Ensure model name specifically is absolute black */
 [data-theme='light'] .trailer-card.is-bottleneck .card-model,
-.tv-page .trailer-card.is-bottleneck .card-model {
+.tv-view-container .trailer-card.is-bottleneck .card-model {
   color: #000000 !important;
 }
 
 [data-theme='light'] .trailer-card.is-bottleneck svg,
-.tv-page .trailer-card.is-bottleneck svg {
+.tv-view-container .trailer-card.is-bottleneck svg {
   color: #000000 !important;
   stroke: #000000 !important;
 }
@@ -662,7 +662,7 @@
 /* Specific metadata colors for professional look */
 [data-theme='light'] .trailer-card.is-bottleneck .card-meta span,
 [data-theme='light'] .trailer-card.is-bottleneck .card-meta-item span,
-.tv-page .trailer-card.is-bottleneck .card-meta span {
+.tv-view-container .trailer-card.is-bottleneck .card-meta span {
   color: #000000 !important;
 }
 
