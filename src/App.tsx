@@ -490,14 +490,6 @@ function Dashboard({
         </DndContext>
       </main>
 
-      <div className="pipeline-workload-strip" style={{ 
-        position: 'fixed', 
-        bottom: '48px', 
-        left: 0, 
-        right: 0, 
-        height: '56px', 
-        borderTop: '2px solid #fbbf24', 
-        display: 'flex', 
       <div className="pipeline-workload-strip">
         <div className="strip-items-container">
           <Clock size={16} style={{ color: '#fbbf24', flexShrink: 0 }} />
