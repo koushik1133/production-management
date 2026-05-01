@@ -522,11 +522,6 @@ function Dashboard({
           <span>Avg: {trailers.filter(t => !t.isArchived && t.currentPhase !== 'shipping').length > 0 ? Math.round(totalProductionTime / Math.max(trailers.filter(t => !t.isArchived && t.currentPhase !== 'shipping').length, 1)) : 0}h/unit</span>
         </div>
 
-        {/* Mobile-only runtime badge on the far right */}
-        <div className="strip-runtime show-on-mobile-only" style={{ display: 'none' }}>
-          <span className="strip-label mobile-label">RUNTIME:</span>
-          <span className="strip-value">{Math.round(totalProductionTime)}h</span>
-        </div>
       </div>
 
       <footer className="dashboard-footer">
