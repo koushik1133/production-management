@@ -298,7 +298,8 @@ function Dashboard({
     model: '', 
     station: 'None' as StationId, 
     isPriority: false,
-    promisedShippingDate: ''
+    promisedShippingDate: '',
+    partsStatus: { tyres: false, steel: false, parts: false }
   });
 
   const handleAddTrailer = async (e: React.FormEvent) => {
@@ -316,11 +317,12 @@ function Dashboard({
         dateStarted: Date.now(),
         currentPhase: 'backlog',
         history: [{ phase: 'backlog', enteredAt: Date.now() }],
-        promisedShippingDate: newTrailerData.promisedShippingDate
+        promisedShippingDate: newTrailerData.promisedShippingDate,
+        partsStatus: newTrailerData.partsStatus
       };
       await addTrailer(newTrailer);
       setIsAddModalOpen(false);
-      setNewTrailerData({ serialNumber: '', name: '', model: '', station: 'None', isPriority: false, promisedShippingDate: '' });
+      setNewTrailerData({ serialNumber: '', name: '', model: '', station: 'None', isPriority: false, promisedShippingDate: '', partsStatus: { tyres: false, steel: false, parts: false } });
     } finally { setIsAdding(false); }
   };
 
@@ -608,6 +610,18 @@ function Dashboard({
             <label htmlFor="quick-priority" className="pointer" style={{ color: 'var(--text-primary)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <Crown size={16} color="#ef4444" /> HIGH PRIORITY UNIT
             </label>
+          </div>
+          
+          <div style={{ padding: '0.85rem', background: 'var(--bg-secondary)', borderRadius: '12px', border: '1px solid var(--border-default)', marginTop: '1rem' }}>
+            <label className="form-label" style={{ fontSize: '0.65rem', color: '#166534', marginBottom: '0.75rem', display: 'block' }}>Parts Readiness</label>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem' }}>
+              {Object.entries(newTrailerData.partsStatus).map(([key, val]) => (
+                <label key={key} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', padding: '0.75rem 0.4rem', background: val ? 'rgba(34, 197, 94, 0.1)' : 'var(--bg-card)', borderRadius: '10px', border: `1px solid ${val ? 'var(--accent)' : 'var(--border-default)'}`, transition: 'all 0.2s' }}>
+                  <input type="checkbox" checked={val} onChange={e => setNewTrailerData({...newTrailerData, partsStatus: {...newTrailerData.partsStatus, [key as keyof typeof newTrailerData.partsStatus]: e.target.checked}})} style={{ width: '16px', height: '16px' }} />
+                  <span style={{ fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', color: val ? 'var(--accent)' : 'var(--text-muted)' }}>{key}</span>
+                </label>
+              ))}
+            </div>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '0.75rem', marginTop: '1.5rem' }}>
             <button 
