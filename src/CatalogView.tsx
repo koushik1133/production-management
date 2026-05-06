@@ -233,6 +233,7 @@ export const CatalogView: React.FC<Props> = ({ categories, hours, specs, onAddMo
                   }
                 }}
               >
+                <option value="" disabled>Select a Category...</option>
                 {categories.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
                 <option value="NEW">+ ADD NEW CATEGORY...</option>
               </select>
