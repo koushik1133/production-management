@@ -97,69 +97,8 @@ export const PHASES: { id: PhaseId; title: string }[] = [
 // Target Hours breakdown per Model (Randomly assumed as requested)
 export const MODEL_TARGET_HOURS: Record<string, Record<PhaseId, number>> = {};
 
-// Generator for target hours
-export const MODEL_CATEGORIES = [
-  { 
-    name: 'Reel Trailers', 
-    models: ['LRG 1010', 'LRG 1010R', 'LRG 1008', 'LRG 0320', 'LRE 0103S', 'LRE 0214', 'LRS 0114', 'LRS 0320', 'LRGE 1007', 'LRF 1014'] 
-  },
-  { 
-    name: 'Drone Trailers (LAD)', 
-    models: ['LAD 2016', 'LAD 2420', 'LAD 2424 Bumper', 'LAD 2424 Gooseneck'] 
-  },
-  { 
-    name: 'Pole Trailers (LPT)', 
-    models: ['LPT 3055', 'LPT 3547', 'LPT 4055', 'LPT 4260', 'LPT 5050'] 
-  },
-  { 
-    name: 'Pipe Trailers', 
-    models: ['LSP 3040G (Stick)', 'LCP 0807 (Self-Loading)', 'LCV 0406 (Vertical)'] 
-  },
-  { 
-    name: 'Specialty & Equipment', 
-    models: ['LMT Series (Material)', 'LTM 1207 (Equipment)', 'Dump Trailer Standard', 'Custom Engineering'] 
-  }
-];
-
-MODEL_CATEGORIES.forEach(cat => {
-  cat.models.forEach(model => {
-    // Standardized fixed values based on model categories
-    let baseHours: Record<PhaseId, number> = {
-      backlog: 0,
-      prefab: 24,
-      build: 80,
-      paint: 24,
-      outsource: 168,
-      trim: 24,
-      shipping: 24,
-    };
-
-    if (cat.name.includes('Reel Trailers')) {
-      baseHours = { ...baseHours, prefab: 30, build: 120, paint: 30, trim: 24, shipping: 16 };
-    } else if (cat.name.includes('Drone Trailers')) {
-      baseHours = { ...baseHours, prefab: 40, build: 160, paint: 40, trim: 30, shipping: 24 };
-    } else if (cat.name.includes('Pole Trailers')) {
-      baseHours = { ...baseHours, prefab: 35, build: 140, paint: 35, trim: 24, shipping: 20 };
-    } else if (cat.name.includes('Pipe Trailers')) {
-      baseHours = { ...baseHours, prefab: 28, build: 100, paint: 28, trim: 20, shipping: 16 };
-    } else if (cat.name.includes('Specialty')) {
-      baseHours = { ...baseHours, prefab: 50, build: 200, paint: 50, trim: 40, shipping: 32 };
-    }
-
-    // Boost for Goosenecks or heavy custom units
-    if (model.includes('Gooseneck') || model.includes('4260') || model.includes('5050')) {
-      baseHours.build *= 1.25;
-      baseHours.prefab *= 1.25;
-    }
-
-    // Backlog itself has 0 work-hours; production begins in Prefab
-    baseHours.backlog = 0;
-    
-    MODEL_TARGET_HOURS[model] = baseHours;
-  });
-});
-
-export const ALL_MODELS = MODEL_CATEGORIES.flatMap(cat => cat.models);
+export const MODEL_CATEGORIES: { name: string, models: string[] }[] = [];
+export const ALL_MODELS: string[] = [];
 
 export interface ModelSpec {
   steelWeight?: string;
