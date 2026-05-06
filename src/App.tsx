@@ -64,7 +64,6 @@ import {
 import type { Trailer, PhaseId, StationId, ModelSpec, CatalogModel, ShippedTrailer, UserRole } from './types';
 
 const staticModelCategories = MODEL_CATEGORIES;
-const localModelSpecs = MODEL_TARGET_HOURS;
 
 
 import logo from './assets/logo.jpeg';
@@ -99,7 +98,8 @@ function Dashboard({
   undoStack,
   handleUndo,
   redoStack,
-  handleRedo
+  handleRedo,
+  localModelCategories
 }: {
   trailers: Trailer[], 
   updateTrailer: (id: string, updates: Partial<Trailer>) => void,
@@ -127,7 +127,8 @@ function Dashboard({
   undoStack: Array<Array<{ id: string } & Partial<Trailer>>>,
   handleUndo: () => void,
   redoStack: Array<Array<{ id: string } & Partial<Trailer>>>,
-  handleRedo: () => void
+  handleRedo: () => void,
+  localModelCategories: { name: string; models: string[] }[]
 }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const highlightedTrailerId = searchParams.get('highlight');
@@ -577,7 +578,7 @@ function Dashboard({
             <label className="form-label">LANE TRAILERS *</label>
             <select className="form-select" value={newTrailerData.model} onChange={e => setNewTrailerData({...newTrailerData, model: e.target.value})} required>
               <option value="">Select Model...</option>
-              {MODEL_CATEGORIES.map(cat => <optgroup key={cat.name} label={cat.name}>{cat.models.map(m => <option key={m} value={m}>{m}</option>)}</optgroup>)}
+              {localModelCategories.map(cat => <optgroup key={cat.name} label={cat.name}>{cat.models.map(m => <option key={m} value={m}>{m}</option>)}</optgroup>)}
             </select>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1rem', marginTop: '1rem' }}>
@@ -982,6 +983,17 @@ function App() {
     return hours;
   }, [catalogModels]);
 
+  // Build a proper specs map that merges catalog model specs from the DB
+  const localModelSpecs = useMemo(() => {
+    const specsMap: Record<string, ModelSpec> = {};
+    catalogModels.forEach(m => {
+      if (m.specs) {
+        specsMap[m.name] = m.specs;
+      }
+    });
+    return specsMap;
+  }, [catalogModels]);
+
   // Dynamically merge static categories with any new models stored in Supabase
   const localModelCategories = useMemo(() => {
     const merged = staticModelCategories.map(cat => ({ ...cat, models: [...cat.models] }));
@@ -1067,13 +1079,15 @@ function App() {
       if (modelsRes.data) setCatalogModels(modelsRes.data);
       if (shippedRes.data) setShippedTrailers(shippedRes.data);
       if (bayRes.data) {
-        const caps = { 
+        // Start with a clean slate — only 'None' gets a fixed 0
+        const caps: Record<StationId, number> = {
           'B1': 40,
-          'B2': 80,
-          'B3': 80,
+          'B2': 40,
+          'B3': 40,
           'B4': 40,
           'None': 0
         };
+        // Override with actual DB values
         bayRes.data.forEach((b: any) => {
           caps[b.id as StationId] = b.capacity;
         });
@@ -1089,85 +1103,116 @@ function App() {
   useEffect(() => {
     fetchInitialData();
 
-    // Subscribe to trailer changes
-    const trailerChannel = supabase
-      .channel('trailers-changes')
-      .on(
-        'postgres_changes' as any,
-        { event: '*', schema: 'public', table: 'trailers' },
-        (payload: any) => {
-          // Guard: Don't let real-time updates overwrite the trailer we are currently dragging
-          // This prevents the "blurred" card from jumping or resetting during sync
-          if (activeIdRef.current === payload.new?.id || activeIdRef.current === payload.old?.id) {
-            return;
-          }
+    let retryTimeout: ReturnType<typeof setTimeout> | null = null;
 
-          if (payload.eventType === 'INSERT') {
-            setTrailers(prev => {
-              const exists = prev.some(t => t.id === payload.new.id);
-              if (exists) return prev;
-              return [payload.new as Trailer, ...prev];
-            });
-          } else if (payload.eventType === 'UPDATE') {
-            setTrailers(prev => {
-              const updated = prev.map(t => t.id === payload.new.id ? { ...t, ...payload.new } as Trailer : t);
-              // Re-sort after any update as vertical_order or currentPhase might have changed
-              return [...updated].sort((a, b) => (a.vertical_order ?? 0) - (b.vertical_order ?? 0));
-            });
-          } else if (payload.eventType === 'DELETE') {
-            setTrailers(prev => prev.filter(t => t.id !== payload.old.id));
-          }
-        }
-      )
-      .subscribe();
+    const setupSubscriptions = () => {
+      // Subscribe to trailer changes
+      const trailerChannel = supabase
+        .channel('trailers-changes')
+        .on(
+          'postgres_changes' as any,
+          { event: '*', schema: 'public', table: 'trailers' },
+          (payload: any) => {
+            // Guard: Don't let real-time updates overwrite the trailer we are currently dragging
+            if (activeIdRef.current === payload.new?.id || activeIdRef.current === payload.old?.id) {
+              return;
+            }
 
-    const capChannel = supabase
-      .channel('bay-settings-changes')
-      .on(
-        'postgres_changes' as any,
-        { event: '*', schema: 'public', table: 'bay_settings' },
-        (payload: any) => {
-          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-            setBayCapacities(prev => ({ ...prev, [payload.new.id]: payload.new.capacity }));
+            if (payload.eventType === 'INSERT') {
+              setTrailers(prev => {
+                const exists = prev.some(t => t.id === payload.new.id);
+                if (exists) return prev;
+                return [payload.new as Trailer, ...prev];
+              });
+            } else if (payload.eventType === 'UPDATE') {
+              setTrailers(prev => {
+                const updated = prev.map(t => t.id === payload.new.id ? { ...t, ...payload.new } as Trailer : t);
+                return [...updated].sort((a, b) => (a.vertical_order ?? 0) - (b.vertical_order ?? 0));
+              });
+            } else if (payload.eventType === 'DELETE') {
+              setTrailers(prev => prev.filter(t => t.id !== payload.old.id));
+            }
           }
-        }
-      )
-      .subscribe();
+        )
+        .subscribe((status: string) => {
+          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+            console.warn('Trailer channel error, will re-fetch data and retry...');
+            fetchInitialData();
+            retryTimeout = setTimeout(() => {
+              supabase.removeChannel(trailerChannel);
+              setupSubscriptions();
+            }, 3000);
+          }
+        });
 
-    const modelChannel = supabase
-      .channel('production-models-changes')
-      .on(
-        'postgres_changes' as any,
-        { event: '*', schema: 'public', table: 'production_models' },
-        (payload: any) => {
-          if (payload.eventType === 'INSERT') {
-            setCatalogModels(prev => prev.find(m => m.id === payload.new.id) ? prev : [...prev, payload.new as CatalogModel]);
-          } else if (payload.eventType === 'UPDATE') {
-            setCatalogModels(prev => prev.map(m => m.id === payload.new.id ? { ...m, ...payload.new } : m));
-          } else if (payload.eventType === 'DELETE') {
-            setCatalogModels(prev => prev.filter(m => m.id !== payload.old.id));
+      const capChannel = supabase
+        .channel('bay-settings-changes')
+        .on(
+          'postgres_changes' as any,
+          { event: '*', schema: 'public', table: 'bay_settings' },
+          (payload: any) => {
+            if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+              setBayCapacities(prev => ({ ...prev, [payload.new.id]: payload.new.capacity }));
+            }
           }
-        }
-      )
-      .subscribe();
+        )
+        .subscribe((status: string) => {
+          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+            console.warn('Bay settings channel error, will retry...');
+          }
+        });
+
+      const modelChannel = supabase
+        .channel('production-models-changes')
+        .on(
+          'postgres_changes' as any,
+          { event: '*', schema: 'public', table: 'production_models' },
+          (payload: any) => {
+            if (payload.eventType === 'INSERT') {
+              setCatalogModels(prev => prev.find(m => m.id === payload.new.id) ? prev : [...prev, payload.new as CatalogModel]);
+            } else if (payload.eventType === 'UPDATE') {
+              setCatalogModels(prev => prev.map(m => m.id === payload.new.id ? { ...m, ...payload.new } : m));
+            } else if (payload.eventType === 'DELETE') {
+              setCatalogModels(prev => prev.filter(m => m.id !== payload.old.id));
+            }
+          }
+        )
+        .subscribe((status: string) => {
+          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+            console.warn('Models channel error, will retry...');
+          }
+        });
+
+      return { trailerChannel, capChannel, modelChannel };
+    };
+
+    const channels = setupSubscriptions();
 
     return () => {
-      supabase.removeChannel(trailerChannel);
-      supabase.removeChannel(capChannel);
-      supabase.removeChannel(modelChannel);
+      if (retryTimeout) clearTimeout(retryTimeout);
+      supabase.removeChannel(channels.trailerChannel);
+      supabase.removeChannel(channels.capChannel);
+      supabase.removeChannel(channels.modelChannel);
     };
   }, []);
 
   const updateCapacity = async (id: StationId, capacity: number) => {
+    // Save previous value for rollback
+    const prevCapacity = bayCapacities[id];
     // Optimistic update
     setBayCapacities(prev => ({ ...prev, [id]: capacity }));
 
     const { error } = await supabase
       .from('bay_settings')
-      .upsert({ id, capacity });
+      .upsert(
+        { id, capacity, updated_at: new Date().toISOString() },
+        { onConflict: 'id' }
+      );
     
     if (error) {
       console.error('Error updating bay capacity:', error);
+      // Rollback on failure
+      setBayCapacities(prev => ({ ...prev, [id]: prevCapacity }));
     }
   };
 
@@ -1194,20 +1239,26 @@ function App() {
 
   const handleAddModel = async (data: { name: string, category: string, hours: Record<PhaseId, number>, spec: ModelSpec }) => {
     const newModel: CatalogModel = {
-      id: Math.random().toString(36).substr(2, 9),
+      id: crypto.randomUUID(),
       name: data.name,
       category: data.category,
       target_hours: data.hours,
       specs: data.spec
     };
 
+    // Optimistic update
     setCatalogModels(prev => [...prev, newModel]);
 
     const { error } = await supabase
       .from('production_models')
-      .upsert(newModel);
+      .insert(newModel);
       
-    if (error) console.error('Error adding model to catalog:', error);
+    if (error) {
+      console.error('Error adding model to catalog:', error);
+      // Rollback on failure
+      setCatalogModels(prev => prev.filter(m => m.id !== newModel.id));
+      alert('Failed to save model: ' + error.message);
+    }
   };
 
   const handleEditModel = (name: string, spec: { targetHours: Record<PhaseId, number> }) => {
@@ -1236,23 +1287,33 @@ function App() {
     const existingModel = catalogModels.find(m => m.name === editingModelName);
     if (existingModel) {
       const updatedModel = { ...existingModel, target_hours: modelFormData, specs: { ...existingModel.specs, steelWeight: modelSpecData.steelWeight, axles: modelSpecData.axles } };
+      const prevModels = [...catalogModels];
       setCatalogModels(prev => prev.map(m => m.name === editingModelName ? updatedModel : m));
       
       const { error } = await supabase
         .from('production_models')
         .upsert(updatedModel);
-      if (error) console.error('Error updating model specs:', error);
+      if (error) {
+        console.error('Error updating model specs:', error);
+        setCatalogModels(prevModels);
+        alert('Failed to update model: ' + error.message);
+      }
     } else {
       // If it is a hardcoded model being edited for the first time, we need to create it in DB
       const newModel: CatalogModel = {
-        id: Math.random().toString(36).substr(2, 9),
+        id: crypto.randomUUID(),
         name: editingModelName,
         category: localModelCategories.find(c => c.models.includes(editingModelName))?.name || 'Uncategorized',
         target_hours: modelFormData,
         specs: { steelWeight: modelSpecData.steelWeight, axles: modelSpecData.axles }
       };
       setCatalogModels(prev => [...prev, newModel]);
-      await supabase.from('production_models').upsert(newModel);
+      const { error } = await supabase.from('production_models').insert(newModel);
+      if (error) {
+        console.error('Error saving model specs:', error);
+        setCatalogModels(prev => prev.filter(m => m.id !== newModel.id));
+        alert('Failed to save model: ' + error.message);
+      }
     }
     setEditingModelName(null);
   };
@@ -1607,6 +1668,7 @@ function getSuggestedBay(): StationId {
               handleUndo={handleUndo}
               redoStack={redoStack}
               handleRedo={handleRedo}
+              localModelCategories={localModelCategories}
             />} />
             <Route path="/backlog" element={<BacklogView trailers={trailers} onAddTrailer={addTrailer} onUpdateTrailer={updateTrailer} suggestedBay={suggestedBay} nextSuggestedSerial={nextSuggestedSerial} localModelCategories={localModelCategories} localTargetHours={localTargetHours} userRole={userRole} />} />
             <Route path="/stations" element={<StationView trailers={trailers} setTrailers={setTrailers} onUpdateTrailer={updateTrailer} bayCapacities={bayCapacities} onUpdateCapacity={updateCapacity} localTargetHours={localTargetHours} userRole={userRole} />} />
@@ -1615,7 +1677,7 @@ function getSuggestedBay(): StationId {
             <Route path="/tv/station2" element={<TVView trailers={trailers} monitorMode="station2" localTargetHours={localTargetHours} userRole={userRole} />} />
             <Route path="/archive" element={<ArchiveView trailers={trailers} onUpdateTrailer={updateTrailer} localTargetHours={localTargetHours} shippedTrailers={shippedTrailers} userRole={userRole} />} />
             <Route path="/schedule" element={<ScheduleView trailers={trailers} />} />
-            <Route path="/catalog" element={<CatalogView categories={localModelCategories} hours={localTargetHours} specs={localModelSpecs as any} onAddModel={handleAddModel} onEditModel={handleEditModel} onDeleteModel={handleDeleteModel} userRole={userRole} />} />
+            <Route path="/catalog" element={<CatalogView categories={localModelCategories} hours={localTargetHours} specs={localModelSpecs} onAddModel={handleAddModel} onEditModel={handleEditModel} onDeleteModel={handleDeleteModel} userRole={userRole} />} />
           </Routes>
 
           {/* Quick Model Spec Editor - Only for Managers */}
