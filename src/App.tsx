@@ -449,9 +449,6 @@ function Dashboard({
               <button className="btn btn-secondary btn-icon" onClick={handleUndo} disabled={undoStack.length === 0} title="Undo" style={{ width: '30px', height: '30px', borderRadius: '6px' }}><Undo2 size={12} /></button>
               <button className="btn btn-secondary btn-icon" onClick={handleRedo} disabled={redoStack.length === 0} title="Redo" style={{ width: '30px', height: '30px', borderRadius: '6px' }}><Redo2 size={12} /></button>
             </div>
-            <button className="btn btn-secondary btn-icon theme-toggle" onClick={onToggleTheme} style={{ width: '30px', height: '30px', borderRadius: '6px' }}>
-              {theme === 'light' ? <Moon size={14} color="#475569" /> : <Sun size={14} color="#fbbf24" />}
-            </button>
           </div>
 
           {userRole === 'manager' && (
