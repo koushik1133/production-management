@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, MapPin } from 'lucide-react';
+import { ArrowLeft, MapPin, Maximize, Minimize } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import {
   DndContext,
@@ -49,6 +49,26 @@ const StationView: React.FC<Props> = ({ trailers, setTrailers, onUpdateTrailer, 
   }, [activeId]);
 
   // Removed unused isMobileView
+
+  const [isFullscreen, setIsFullscreen] = useState(!!document.fullscreenElement);
+
+  useEffect(() => {
+    const handleFsChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', handleFsChange);
+    return () => document.removeEventListener('fullscreenchange', handleFsChange);
+  }, []);
+
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(err => {
+        console.error(`Error attempting to enable full-screen mode: ${err.message}`);
+      });
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      }
+    }
+  };
 
   const sensors = useSensors(
     useSensor(PointerSensor, { 
@@ -216,6 +236,11 @@ const StationView: React.FC<Props> = ({ trailers, setTrailers, onUpdateTrailer, 
             <MapPin size={18} color="var(--accent)" />
             <h1 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)' }}>Bay Management</h1>
           </div>
+        </div>
+        <div className="header-right">
+          <button className="btn btn-secondary btn-icon" onClick={toggleFullscreen} style={{ width: '36px', height: '36px', borderRadius: '10px' }} title="Full Screen">
+            {isFullscreen ? <Minimize size={16} /> : <Maximize size={16} />}
+          </button>
         </div>
       </header>
 

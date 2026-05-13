@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { format, isToday, isBefore, startOfDay } from 'date-fns';
-import { Calendar, ChevronRight, MapPin, Clock, AlertTriangle, CheckCircle2, LayoutDashboard, Archive, Plus } from 'lucide-react';
+import { Calendar, ChevronRight, MapPin, Clock, AlertTriangle, CheckCircle2, LayoutDashboard, Archive, Plus, Maximize, Minimize } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import type { Trailer } from './types';
 import { PHASES } from './types';
@@ -12,6 +12,25 @@ interface Props {
 export const ScheduleView: React.FC<Props> = ({ trailers }) => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
+  const [isFullscreen, setIsFullscreen] = useState(!!document.fullscreenElement);
+
+  useEffect(() => {
+    const handleFsChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', handleFsChange);
+    return () => document.removeEventListener('fullscreenchange', handleFsChange);
+  }, []);
+
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(err => {
+        console.error(`Error attempting to enable full-screen mode: ${err.message}`);
+      });
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      }
+    }
+  };
 
   const activeTrailers = trailers.filter(t => !t.isArchived && !t.isDeleted);
   
@@ -126,6 +145,9 @@ export const ScheduleView: React.FC<Props> = ({ trailers }) => {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <button className="btn btn-secondary btn-icon" onClick={toggleFullscreen} style={{ width: '40px', height: '40px', borderRadius: '12px' }} title="Full Screen">
+            {isFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
+          </button>
           <div className="header-search-container" style={{ maxWidth: '300px', flex: 1 }}>
             <input 
               type="text" 

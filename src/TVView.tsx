@@ -160,6 +160,12 @@ const TVView: React.FC<Props> = ({ trailers, monitorMode: initialMode = 'all', l
           </button>
           <button onClick={() => setMonitorMode('station1')} style={getMonitorBtnStyle('station1')}>STATION 1</button>
           <button onClick={() => setMonitorMode('station2')} style={getMonitorBtnStyle('station2')}>STATION 2</button>
+          
+          <div style={{ width: '1px', height: '16px', background: 'var(--border-default)', margin: 'auto 0.5rem' }} />
+          
+          <button className="btn btn-secondary btn-icon" onClick={toggleFullscreen} style={{ width: '32px', height: '32px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Full Screen">
+            {isFullscreen ? <Minimize size={14} /> : <Maximize size={14} />}
+          </button>
         </div>
 
         {/* Right Section: Utilities & Clock */}

@@ -50,7 +50,8 @@ import {
   Sun,
   Moon,
   Undo2,
-  Redo2
+  Redo2,
+  Maximize
 } from 'lucide-react';
 
 import { 
@@ -206,6 +207,18 @@ function Dashboard({
     if (mainContentRef.current) {
       const amount = 400;
       mainContentRef.current.scrollBy({ left: direction === 'left' ? -amount : amount, behavior: 'smooth' });
+    }
+  };
+
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(err => {
+        console.error(`Error attempting to enable full-screen mode: ${err.message}`);
+      });
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      }
     }
   };
 
@@ -377,6 +390,7 @@ function Dashboard({
           <div className="scroll-arrows-group hide-on-mobile" style={{ display: 'flex', gap: '0.2rem', marginLeft: '0.25rem' }}>
             <button className="btn btn-secondary btn-icon" onClick={() => scrollBoard('left')} style={{ width: '30px', height: '30px', borderRadius: '6px' }}><ChevronLeft size={12} /></button>
             <button className="btn btn-secondary btn-icon" onClick={() => scrollBoard('right')} style={{ width: '30px', height: '30px', borderRadius: '6px' }}><ChevronRight size={12} /></button>
+            <button className="btn btn-secondary btn-icon" onClick={toggleFullscreen} style={{ width: '30px', height: '30px', borderRadius: '6px' }} title="Full Screen"><Maximize size={12} /></button>
           </div>
         </div>
 
