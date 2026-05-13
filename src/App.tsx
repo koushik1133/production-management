@@ -364,8 +364,8 @@ function Dashboard({
               <span className="time-seconds">{format(currentTime, ':ss')}</span>
               {format(currentTime, ' a')}
             </span>
-            <span style={{ color: 'var(--text-muted)', fontSize: '0.6rem' }}>|</span>
-            <span style={{ fontWeight: 600, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>{format(currentTime, 'MMM d')}</span>
+            <span className="header-clock-divider" style={{ color: 'var(--text-muted)', fontSize: '0.6rem' }}>|</span>
+            <span className="header-date" style={{ fontWeight: 600, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>{format(currentTime, 'MMM d')}</span>
           </div>
 
           <div className="scroll-arrows-group hide-on-mobile" style={{ display: 'flex', gap: '0.2rem', marginLeft: '0.25rem' }}>
