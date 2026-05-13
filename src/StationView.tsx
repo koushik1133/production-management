@@ -215,7 +215,7 @@ const StationView: React.FC<Props> = ({ trailers, setTrailers, onUpdateTrailer, 
         </div>
       </header>
 
-      <main className="main-content" style={{ justifyContent: 'center', alignItems: 'stretch' }}>
+      <main className="main-content" style={{ justifyContent: 'flex-start', alignItems: 'stretch', paddingLeft: '2rem', paddingRight: '2rem' }}>
         <DndContext 
           sensors={sensors} 
           collisionDetection={closestCorners} 
