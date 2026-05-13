@@ -52,9 +52,7 @@ import {
   Redo2,
   Maximize,
   Minimize,
-  Settings,
-  Minus,
-  RotateCcw
+  Settings
 } from 'lucide-react';
 
 import { 
@@ -1044,20 +1042,7 @@ function App() {
   const [redoStack, setRedoStack] = useState<Array<Array<{ id: string } & Partial<Trailer>>>>([]);
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [zoomLevel, setZoomLevel] = useState(() => {
-    const saved = localStorage.getItem('lane-trailers-zoom');
-    return saved ? parseFloat(saved) : 1.0;
-  });
 
-  useEffect(() => {
-    localStorage.setItem('lane-trailers-zoom', zoomLevel.toString());
-  }, [zoomLevel]);
-
-  const adjustZoom = (delta: number) => {
-    setZoomLevel(prev => Math.min(Math.max(prev + delta, 0.5), 1.5));
-  };
-
-  const resetZoom = () => setZoomLevel(1.0);
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
@@ -1781,7 +1766,7 @@ function getSuggestedBay(): StationId {
   return (
     <AuthGate>
       {(userRole) => (
-        <div className="app-container" style={{ transform: `scale(${zoomLevel})`, width: `${100 / zoomLevel}%`, height: `${100 / zoomLevel}%` }}>
+        <div className="app-container">
           <div className="floating-settings-container">
             <button 
               className={`settings-fab ${isSettingsOpen ? 'active' : ''}`}
@@ -1815,21 +1800,6 @@ function getSuggestedBay(): StationId {
                         {theme === 'light' ? <><Moon size={14} /> Dark</> : <><Sun size={14} /> Light</>}
                       </button>
                     </div>
-                  </div>
-
-                  <div className="settings-group">
-                    <span className="settings-group-title">Screen Adjustment</span>
-                    <div className="settings-row">
-                      <span style={{ fontSize: '0.875rem', fontWeight: 600 }}>Zoom Level</span>
-                      <div className="zoom-controls">
-                        <button className="zoom-btn" onClick={() => adjustZoom(-0.1)}><Minus size={14} /></button>
-                        <span className="zoom-value">{Math.round(zoomLevel * 100)}%</span>
-                        <button className="zoom-btn" onClick={() => adjustZoom(0.1)}><Plus size={14} /></button>
-                      </div>
-                    </div>
-                    <button className="btn btn-secondary settings-action-btn" onClick={resetZoom}>
-                      <RotateCcw size={14} /> Back to Original
-                    </button>
                   </div>
 
                   <div className="settings-group">
