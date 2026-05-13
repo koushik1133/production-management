@@ -90,7 +90,7 @@ export const CatalogView: React.FC<Props> = ({ categories, hours, specs, onAddMo
           type="text" 
           placeholder="Search models, categories, or specifications..." 
           className="form-input"
-          style={{ paddingLeft: '3.5rem', height: '4rem', fontSize: '1.1rem', borderRadius: '16px', border: '1px solid var(--border-default)', background: 'var(--bg-card)', color: 'var(--text-primary)', fontWeight: 600 }}
+          style={{ paddingLeft: '3.5rem', height: '3rem', fontSize: '0.9rem', borderRadius: '12px', border: '1px solid var(--border-default)', background: 'var(--bg-card)', color: 'var(--text-primary)', fontWeight: 600 }}
           value={searchTerm}
           onChange={e => setSearchTerm(e.target.value)}
         />
@@ -125,9 +125,9 @@ export const CatalogView: React.FC<Props> = ({ categories, hours, specs, onAddMo
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
                     <div style={{ flex: 1 }}>
-                      <h3 style={{ fontSize: '1.35rem', fontWeight: 900, color: 'var(--text-primary)', marginBottom: '0.35rem', letterSpacing: '-0.01em' }}>{model}</h3>
+                      <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '0.25rem', letterSpacing: '-0.01em' }}>{model}</h3>
                       <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                        <span style={{ fontSize: '0.75rem', color: 'var(--accent)', fontWeight: 800, background: 'rgba(59, 130, 246, 0.1)', padding: '2px 8px', borderRadius: '99px' }}>{specs[model]?.axles}</span>
+                        <span style={{ fontSize: '0.7rem', color: 'var(--accent)', fontWeight: 700, background: 'rgba(59, 130, 246, 0.1)', padding: '2px 8px', borderRadius: '99px' }}>{specs[model]?.axles}</span>
                       </div>
                     </div>
                     {userRole === 'manager' && (
@@ -160,18 +160,18 @@ export const CatalogView: React.FC<Props> = ({ categories, hours, specs, onAddMo
                     {specs[model]?.description}
                   </p>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.25rem' }}>
-                    <div style={{ background: 'var(--bg-secondary)', padding: '0.85rem', borderRadius: '12px', border: '1px solid var(--border-default)' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--text-muted)', fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', marginBottom: '0.25rem' }}>
-                        <Weight size={14} /> Steel Usage
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '1rem' }}>
+                    <div style={{ background: 'var(--bg-secondary)', padding: '0.65rem', borderRadius: '10px', border: '1px solid var(--border-default)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--text-muted)', fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', marginBottom: '0.2rem' }}>
+                        <Weight size={12} /> Steel Usage
                       </div>
-                      <div style={{ fontSize: '1.05rem', fontWeight: 900, color: 'var(--text-primary)' }}>{specs[model]?.steelWeight}</div>
+                      <div style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-primary)' }}>{specs[model]?.steelWeight}</div>
                     </div>
-                    <div style={{ background: 'var(--glass-bg)', padding: '0.85rem', borderRadius: '12px', border: '1px solid var(--glass-border)' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--accent)', fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', marginBottom: '0.25rem' }}>
-                        <Clock size={14} /> Build Time
+                    <div style={{ background: 'var(--glass-bg)', padding: '0.65rem', borderRadius: '10px', border: '1px solid var(--glass-border)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--accent)', fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', marginBottom: '0.2rem' }}>
+                        <Clock size={12} /> Build Time
                       </div>
-                      <div style={{ fontSize: '1.05rem', fontWeight: 900, color: 'var(--accent)' }}>{calculateTotalHours(model)}h</div>
+                      <div style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--accent)' }}>{calculateTotalHours(model)}h</div>
                     </div>
                   </div>
 
@@ -182,16 +182,16 @@ export const CatalogView: React.FC<Props> = ({ categories, hours, specs, onAddMo
                   </div>
 
                   {selectedModel === model && (
-                    <div style={{ marginTop: '1.5rem', animation: 'slideDown 0.3s ease-out' }}>
-                      <h4 style={{ fontSize: '0.7rem', fontWeight: 900, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <div style={{ marginTop: '1.25rem', animation: 'slideDown 0.3s ease-out' }}>
+                      <h4 style={{ fontSize: '0.65rem', fontWeight: 900, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                         Phase Target Metrics
-                        <Info size={12} color="var(--text-muted)" />
+                        <Info size={11} color="var(--text-muted)" />
                       </h4>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
                         {PHASES.filter(p => !['backlog', 'shipping'].includes(p.id)).map(p => (
-                          <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.75rem 1rem', background: 'var(--bg-secondary)', borderRadius: '10px', border: '1px solid var(--border-default)' }}>
-                            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)' }}>{p.title}</span>
-                            <span style={{ fontSize: '0.75rem', fontWeight: 900, color: 'var(--text-primary)' }}>{hours[model]?.[p.id] || 0}h</span>
+                          <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0.75rem', background: 'var(--bg-secondary)', borderRadius: '8px', border: '1px solid var(--border-default)' }}>
+                            <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-secondary)' }}>{p.title}</span>
+                            <span style={{ fontSize: '0.7rem', fontWeight: 900, color: 'var(--text-primary)' }}>{hours[model]?.[p.id] || 0}h</span>
                           </div>
                         ))}
                       </div>

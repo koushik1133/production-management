@@ -443,9 +443,11 @@ function Dashboard({
             </button>
           </div>
 
+          {userRole === 'manager' && (
           <button className="btn btn-primary register-btn hide-on-mobile" onClick={() => setIsAddModalOpen(true)} style={{ height: '34px', padding: '0 0.75rem', borderRadius: '8px', fontWeight: 700, fontSize: '0.85rem', whiteSpace: 'nowrap' }}>
             <Plus size={14} /> <span className="btn-text">Register</span>
           </button>
+          )}
         </div>
 
         {/* MOBILE OVERHAUL NAV */}
@@ -471,9 +473,11 @@ function Dashboard({
               Catalog
             </button>
 
+            {userRole === 'manager' && (
             <button className="btn btn-primary" onClick={() => setIsAddModalOpen(true)} style={{ width: '38px', height: '38px', borderRadius: '8px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(37, 99, 235, 0.2)' }} title="Register Unit">
               <Plus size={18} strokeWidth={3} />
             </button>
+            )}
           </div>
 
           {/* Row 2: Nav Bar + Theme Toggle */}
@@ -898,7 +902,7 @@ function AuthGate({ children }: { children: (role: UserRole) => React.ReactNode 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
-        const role = session.user.email?.toLowerCase().includes('manager') ? 'manager' : 'worker';
+        const role = session.user.email?.toLowerCase() === 'manager@lanetrailers.com' ? 'manager' : 'worker';
         setAuth({ isAuthenticated: true, role });
       }
       setLoading(false);
@@ -906,7 +910,7 @@ function AuthGate({ children }: { children: (role: UserRole) => React.ReactNode 
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
-        const role = session.user.email?.toLowerCase().includes('manager') ? 'manager' : 'worker';
+        const role = session.user.email?.toLowerCase() === 'manager@lanetrailers.com' ? 'manager' : 'worker';
         setAuth({ isAuthenticated: true, role });
       } else {
         setAuth({ isAuthenticated: false, role: null });
