@@ -351,87 +351,152 @@ function Dashboard({
 
   return (
     <div className="app-container">
-      <header className="main-header">
-        <div className="header-left-group" style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, maxWidth: '600px' }}>
-          <Link to="/" className="header-logo-link" style={{ display: 'flex', alignItems: 'center', background: '#000', padding: '3px 8px', borderRadius: '6px', flexShrink: 0 }}>
+      <header className="main-header" style={{ height: '52px', minHeight: '52px', padding: '0 1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'nowrap', overflow: 'hidden', borderBottom: '1px solid var(--border-default)', background: 'var(--bg-header)' }}>
+        <div className="header-left-group hide-on-mobile" style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexShrink: 0 }}>
+          <Link to="/" className="header-logo-link" style={{ display: 'flex', alignItems: 'center', background: '#000', padding: '3px 8px', borderRadius: '6px' }}>
             <img src={logo} alt="Lane Trailers" className="header-logo-img" style={{ height: '32px' }} />
           </Link>
           
-          <div className="header-search-and-plus" style={{ 
+          <div className="header-clock-pill hide-on-mobile" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.2rem 0.6rem', borderRadius: '100px', background: 'var(--bg-secondary)', border: '1px solid var(--border-default)', fontSize: '0.75rem' }}>
+            <Clock size={12} color="var(--accent)" />
+            <span style={{ fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
+              {format(currentTime, 'hh:mm')}
+              <span className="time-seconds">{format(currentTime, ':ss')}</span>
+              {format(currentTime, ' a')}
+            </span>
+            <span style={{ color: 'var(--text-muted)', fontSize: '0.6rem' }}>|</span>
+            <span style={{ fontWeight: 600, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>{format(currentTime, 'MMM d')}</span>
+          </div>
+
+          <div className="scroll-arrows-group hide-on-mobile" style={{ display: 'flex', gap: '0.2rem', marginLeft: '0.25rem' }}>
+            <button className="btn btn-secondary btn-icon" onClick={() => scrollBoard('left')} style={{ width: '30px', height: '30px', borderRadius: '6px' }}><ChevronLeft size={12} /></button>
+            <button className="btn btn-secondary btn-icon" onClick={() => scrollBoard('right')} style={{ width: '30px', height: '30px', borderRadius: '6px' }}><ChevronRight size={12} /></button>
+          </div>
+        </div>
+
+        <div className="header-center-group hide-on-mobile" style={{ flex: '1 1 auto', display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: '100px', justifyContent: 'center' }}>
+          <div className="header-search-container" style={{ 
+            background: 'var(--glass-bg)', 
+            border: '1px solid var(--border-default)', 
+            borderRadius: '8px', 
+            padding: '0.35rem 0.6rem', 
+            width: '100%', 
+            maxWidth: '240px', 
+            minWidth: '80px',
             display: 'flex', 
             alignItems: 'center', 
-            gap: '0.5rem',
-            flex: 1,
-            marginLeft: '0.5rem'
+            gap: '0.4rem',
+            transition: 'all 0.2s ease'
           }}>
-            <div className="search-container-v3" style={{ 
-              background: 'var(--bg-secondary)', 
-              border: '1px solid var(--border-default)', 
-              borderRadius: '10px', 
-              padding: '0.4rem 0.8rem', 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '0.6rem',
-              flex: 1
-            }}>
-              <Search size={16} color="var(--text-muted)" />
-              <input 
-                type="text" 
-                placeholder="Search..." 
-                value={searchQuery} 
-                onChange={(e) => setSearchQuery(e.target.value)} 
-                style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)', outline: 'none', width: '100%', fontSize: '0.9rem', fontWeight: 600 }} 
-              />
-            </div>
-            <button className="btn btn-secondary" onClick={() => setIsAddModalOpen(true)} style={{ width: '38px', height: '38px', borderRadius: '10px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <Plus size={20} />
-            </button>
+            <Search size={12} color="var(--text-muted)" />
+            <input 
+              type="text" 
+              placeholder="Search..." 
+              value={searchQuery} 
+              onChange={(e) => setSearchQuery(e.target.value)} 
+              style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)', outline: 'none', width: '100%', fontSize: '0.8rem' }} 
+            />
           </div>
         </div>
 
         <div className="header-right-group hide-on-mobile" style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexShrink: 0 }}>
-          <div className="nav-box-v2" style={{ 
+          <div className="nav-box hide-on-mobile" style={{ 
             display: 'flex', 
-            background: 'var(--bg-secondary)', 
-            padding: '0.2rem', 
-            borderRadius: '10px', 
-            border: '1px solid var(--border-default)',
-            alignItems: 'center'
-          }}>
-            <button className="btn btn-secondary" onClick={() => navigate('/catalog')} style={{ height: '32px', padding: '0 0.75rem', fontSize: '0.75rem', borderRadius: '6px', border: 'none', background: 'transparent', fontWeight: 700 }}>Catalog</button>
-            <button className="btn btn-secondary" onClick={() => navigate('/schedule')} style={{ height: '32px', padding: '0 0.75rem', fontSize: '0.75rem', borderRadius: '6px', border: 'none', background: 'transparent', fontWeight: 700 }}>Timeline</button>
-            <button className="btn btn-secondary" onClick={() => navigate('/stations')} style={{ height: '32px', padding: '0 0.75rem', fontSize: '0.75rem', borderRadius: '6px', border: 'none', background: 'transparent', fontWeight: 700 }}>Bays</button>
-            <button className="btn btn-secondary" onClick={() => navigate('/backlog')} style={{ height: '32px', padding: '0 0.75rem', fontSize: '0.75rem', borderRadius: '6px', border: 'none', background: 'transparent', fontWeight: 700 }}>Backlog</button>
-            <button className="btn btn-primary" onClick={() => navigate('/archive')} style={{ height: '32px', padding: '0 0.8rem', fontSize: '0.75rem', borderRadius: '6px', border: 'none', background: 'var(--accent-gradient)', color: 'white', fontWeight: 800 }}>Shipping</button>
-          </div>
-          
-          <button className="btn btn-secondary theme-toggle" onClick={onToggleTheme} style={{ width: '32px', height: '32px', borderRadius: '6px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
-          </button>
-        </div>
-
-        {/* MOBILE BOTTOM ROW NAV BAR */}
-        <div className="show-on-mobile-only" style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.25rem' }}>
-          <div className="mobile-nav-pills" style={{ 
-            display: 'flex', 
-            flex: 1,
             gap: '0.15rem', 
             background: 'var(--bg-secondary)', 
             padding: '0.2rem', 
             borderRadius: '10px', 
             border: '1px solid var(--border-default)',
-            alignItems: 'center',
-            justifyContent: 'space-between'
+            boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.05)',
+            alignItems: 'center'
           }}>
-            <button className="btn btn-secondary" onClick={() => navigate('/catalog')} style={{ flex: 1, height: '32px', padding: '0 0.4rem', fontSize: '0.7rem', borderRadius: '6px', border: 'none', background: 'transparent', fontWeight: 700 }}>Catalog</button>
-            <button className="btn btn-secondary" onClick={() => navigate('/schedule')} style={{ flex: 1, height: '32px', padding: '0 0.4rem', fontSize: '0.7rem', borderRadius: '6px', border: 'none', background: 'transparent', fontWeight: 700 }}>Timeline</button>
-            <button className="btn btn-secondary" onClick={() => navigate('/stations')} style={{ flex: 1, height: '32px', padding: '0 0.4rem', fontSize: '0.7rem', borderRadius: '6px', border: 'none', background: 'transparent', fontWeight: 700 }}>Bays</button>
-            <button className="btn btn-secondary" onClick={() => navigate('/backlog')} style={{ flex: 1, height: '32px', padding: '0 0.4rem', fontSize: '0.7rem', borderRadius: '6px', border: 'none', background: 'transparent', fontWeight: 700 }}>Backlog</button>
-            <button className="btn btn-primary" onClick={() => navigate('/archive')} style={{ flex: 1.2, height: '32px', padding: '0 0.5rem', fontSize: '0.7rem', borderRadius: '6px', border: 'none', background: 'var(--accent-gradient)', color: 'white', fontWeight: 800 }}>Shipping</button>
+            <button className="btn btn-secondary" onClick={() => navigate('/catalog')} style={{ height: '28px', padding: '0 0.5rem', fontSize: '0.75rem', borderRadius: '6px', border: 'none', background: 'transparent' }}>
+              <BookOpen size={12} /> <span className="btn-text">Catalog</span>
+            </button>
+            <button className="btn btn-secondary" onClick={() => navigate('/schedule')} style={{ height: '28px', padding: '0 0.5rem', fontSize: '0.75rem', borderRadius: '6px', border: 'none', background: 'transparent' }}>
+              <Calendar size={12} /> <span className="btn-text">Timeline</span>
+            </button>
+            <button className="btn btn-secondary nav-tv-btn" onClick={() => navigate('/tv')} style={{ height: '28px', padding: '0 0.5rem', fontSize: '0.75rem', borderRadius: '6px', border: 'none', background: 'transparent' }}>
+              <Tv size={12} /> <span className="btn-text">TV Mode</span>
+            </button>
+            <button className="btn btn-secondary archive-btn shimmer" onClick={() => navigate('/archive')} style={{ height: '28px', padding: '0 0.5rem', fontSize: '0.75rem', borderRadius: '6px', border: 'none', background: 'var(--accent-gradient)', color: 'white' }}>
+              <Archive size={12} /> <span className="btn-text">Shipping</span>
+            </button>
           </div>
-          <button className="btn btn-secondary theme-toggle" onClick={onToggleTheme} style={{ width: '36px', height: '36px', borderRadius: '10px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            {theme === 'light' ? <Moon size={16} color="#475569" /> : <Sun size={16} color="#fbbf24" />}
+
+          <div className="secondary-nav hide-on-mobile" style={{ display: 'flex', gap: '0.3rem', alignItems: 'center' }}>
+            <button className="btn btn-secondary" onClick={() => navigate('/stations')} style={{ height: '30px', padding: '0 0.6rem', fontSize: '0.8rem', borderRadius: '6px' }}>
+              <MapPin size={12} /> <span className="btn-text">Bays</span>
+            </button>
+            <button className="btn btn-secondary" onClick={() => navigate('/backlog')} style={{ height: '30px', padding: '0 0.6rem', fontSize: '0.8rem', borderRadius: '6px' }}>
+              <Plus size={12} /> <span className="btn-text">Backlog</span>
+            </button>
+          </div>
+
+          <div className="util-group hide-on-mobile" style={{ display: 'flex', gap: '0.2rem', alignItems: 'center' }}>
+            <div className="undo-redo-subgroup" style={{ display: 'flex', gap: '0.2rem' }}>
+              <button className="btn btn-secondary btn-icon" onClick={handleUndo} disabled={undoStack.length === 0} title="Undo" style={{ width: '30px', height: '30px', borderRadius: '6px' }}><Undo2 size={12} /></button>
+              <button className="btn btn-secondary btn-icon" onClick={handleRedo} disabled={redoStack.length === 0} title="Redo" style={{ width: '30px', height: '30px', borderRadius: '6px' }}><Redo2 size={12} /></button>
+            </div>
+            <button className="btn btn-secondary btn-icon theme-toggle" onClick={onToggleTheme} style={{ width: '30px', height: '30px', borderRadius: '6px' }}>
+              {theme === 'light' ? <Moon size={14} color="#475569" /> : <Sun size={14} color="#fbbf24" />}
+            </button>
+          </div>
+
+          <button className="btn btn-primary register-btn hide-on-mobile" onClick={() => setIsAddModalOpen(true)} style={{ height: '34px', padding: '0 0.75rem', borderRadius: '8px', fontWeight: 700, fontSize: '0.85rem', whiteSpace: 'nowrap' }}>
+            <Plus size={14} /> <span className="btn-text">Register</span>
           </button>
+        </div>
+
+        {/* MOBILE OVERHAUL NAV */}
+        <div className="mobile-header-container show-on-mobile-only" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '0.75rem', padding: '0.5rem 0' }}>
+          {/* Row 1: Logo, Search, Catalog, Register */}
+          <div className="mobile-row-top" style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', width: '100%' }}>
+            <Link to="/" className="header-logo-link" style={{ background: '#000', padding: '4px 8px', borderRadius: '6px', flexShrink: 0 }}>
+              <img src={logo} alt="Lane Trailers" style={{ height: '24px' }} />
+            </Link>
+            
+            <div className="mobile-search-wrapper" style={{ flex: 1, position: 'relative' }}>
+              <Search size={14} style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+              <input 
+                type="text" 
+                placeholder="Search..." 
+                value={searchQuery} 
+                onChange={(e) => setSearchQuery(e.target.value)} 
+                style={{ width: '100%', background: 'var(--bg-secondary)', border: '1px solid var(--border-default)', borderRadius: '8px', padding: '0.4rem 0.5rem 0.4rem 1.8rem', fontSize: '0.85rem', color: 'var(--text-primary)', outline: 'none' }}
+              />
+            </div>
+
+            <button className="btn btn-secondary" onClick={() => navigate('/catalog')} style={{ padding: '0.5rem 0.75rem', borderRadius: '8px', flexShrink: 0, fontWeight: 700, fontSize: '0.75rem' }}>
+              Catalog
+            </button>
+
+            <button className="btn btn-primary" onClick={() => setIsAddModalOpen(true)} style={{ width: '38px', height: '38px', borderRadius: '8px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(37, 99, 235, 0.2)' }} title="Register Unit">
+              <Plus size={18} strokeWidth={3} />
+            </button>
+          </div>
+
+          {/* Row 2: Nav Bar + Theme Toggle */}
+          <div className="mobile-row-bottom" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', width: '100%' }}>
+            <div className="mobile-nav-pills" style={{ 
+              flex: 1, 
+              display: 'flex', 
+              gap: '0.4rem', 
+              overflowX: 'auto', 
+              paddingBottom: '2px',
+              scrollbarWidth: 'none',
+              msOverflowStyle: 'none'
+            }}>
+              <button className="btn btn-secondary mobile-nav-btn" onClick={() => navigate('/stations')}>Bays</button>
+              <button className="btn btn-secondary mobile-nav-btn" onClick={() => navigate('/backlog')}>Backlog</button>
+              <button className="btn btn-secondary mobile-nav-btn" onClick={() => navigate('/schedule')}>Timeline</button>
+              <button className="btn btn-secondary mobile-nav-btn" onClick={() => navigate('/archive')}>Shipping</button>
+            </div>
+            
+            <button className="btn btn-secondary btn-icon theme-toggle" onClick={onToggleTheme} style={{ width: '34px', height: '34px', borderRadius: '8px', flexShrink: 0 }}>
+              {theme === 'light' ? <Moon size={16} color="#475569" /> : <Sun size={16} color="#fbbf24" />}
+            </button>
+          </div>
         </div>
       </header>
 
