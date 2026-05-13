@@ -70,7 +70,7 @@ export const TrailerCard: React.FC<Props> = React.memo(({
     opacity: isDragging ? (isOverlay ? 1 : 0.3) : 1,
     zIndex: isDragging ? (isOverlay ? 1000 : 10) : 1,
     cursor: isDragging ? 'grabbing' : 'grab',
-    touchAction: 'none'
+    touchAction: isDragging ? 'none' : 'manipulation'
   };
 
   const currentLog = trailer.history.find(h => h.phase === trailer.currentPhase && !h.exitedAt);

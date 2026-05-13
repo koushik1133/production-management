@@ -49,15 +49,18 @@ const StationView: React.FC<Props> = ({ trailers, setTrailers, onUpdateTrailer, 
   }, [activeId]);
 
   const isMobileView = useMemo(() => {
-    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || (window.innerWidth <= 768);
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || (window.innerWidth <= 1024);
   }, []);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { 
-      activationConstraint: isMobileView ? { distance: 9999 } : { distance: 3 } 
+      activationConstraint: { distance: 5 } 
     }),
     useSensor(TouchSensor, {
-      activationConstraint: isMobileView ? { distance: 9999 } : { distance: 8 }
+      activationConstraint: {
+        delay: 250,
+        tolerance: 8
+      }
     }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );

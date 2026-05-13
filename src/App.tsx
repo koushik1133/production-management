@@ -1036,7 +1036,8 @@ function AuthGate({ children }: { children: (role: UserRole) => React.ReactNode 
 function App() {
   const [trailers, setTrailers] = useState<Trailer[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 1024); // Increased to include tablets
+  const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
@@ -1055,12 +1056,13 @@ function App() {
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: isMobile ? 10000 : 3,
+        distance: 5, // Small movement required for pointer devices
       },
     }),
     useSensor(TouchSensor, {
       activationConstraint: {
-        distance: isMobile ? 10000 : 8,
+        delay: 250, // 250ms hold to start drag on touch devices
+        tolerance: 8, // Allow 8px movement during hold before canceling
       },
     }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
