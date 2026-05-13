@@ -142,7 +142,7 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                   style={{ background: 'rgba(255,255,255,0.02)', fontWeight: 700 }}
                 />
               </div>
-              <div style={{ background: '#fff1f2', padding: '1rem', borderRadius: '12px', border: '1px solid #fecdd3', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <div style={{ background: 'var(--priority-bg)', padding: '1rem', borderRadius: '12px', border: '1px solid var(--priority-border)', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                 <input 
                   type="checkbox" 
                   checked={editForm.isPriority} 
@@ -156,11 +156,11 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
               <div style={{ background: 'rgba(217, 119, 6, 0.05)', padding: '1rem', borderRadius: '12px', border: '1px solid rgba(217, 119, 6, 0.2)' }}>
                 <label className="form-label" style={{ color: '#d97706', fontSize: '0.75rem', fontWeight: 800 }}>Sale Price ($)</label>
                 <div style={{ position: 'relative' }}>
-                  <input 
-                    type={isPriceUnlockedGlobally ? "number" : "password"}
-                    className="form-input" 
-                    placeholder="PIN required"
-                    style={{ borderColor: '#d97706', background: 'white', fontWeight: 700 }}
+                <input 
+                  type={isPriceUnlockedGlobally ? "number" : "password"}
+                  className="form-input" 
+                  placeholder="PIN required"
+                  style={{ borderColor: '#d97706', background: 'var(--bg-card)', fontWeight: 700, color: 'var(--text-primary)' }}
                     value={editForm.sale_price}
                     onChange={e => setEditForm({ ...editForm, sale_price: e.target.value })}
                     onFocus={() => {
@@ -228,8 +228,8 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                     {showDeleteConfirm ? (
                       <div className="delete-confirm-popover" style={{ 
                         position: 'absolute', right: 0, top: '100%', marginTop: '8px',
-                        background: 'white', padding: '12px', borderRadius: '12px', border: '1px solid #fecdd3',
-                        boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)', zIndex: 100, width: '180px'
+                        background: 'var(--bg-card)', padding: '12px', borderRadius: '12px', border: '1px solid var(--priority-border)',
+                        boxShadow: 'var(--shadow-lg)', zIndex: 100, width: '180px'
                       }}>
                         <p style={{ fontSize: '0.75rem', fontWeight: 700, color: '#9f1239', marginBottom: '8px', lineHeight: 1.2 }}>Delete this unit permanently?</p>
                         <div style={{ display: 'flex', gap: '6px' }}>
@@ -252,7 +252,7 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                     ) : (
                       <button 
                         onClick={() => setShowDeleteConfirm(true)}
-                        style={{ width: '30px', height: '30px', borderRadius: '8px', border: '1px solid #fee2e2', background: '#fff1f2', color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                        style={{ width: '30px', height: '30px', borderRadius: '8px', border: '1px solid var(--priority-border)', background: 'var(--priority-bg)', color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
                         title="Delete Trailer"
                       >
                         <Trash2 size={16} />
@@ -293,13 +293,13 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
               </div>
             </div>
 
-            <div style={{ padding: '1.25rem', background: '#f0fdfa', borderRadius: '16px', border: '1px solid #99f6e4' }}>
+            <div style={{ padding: '1.25rem', background: 'rgba(16, 185, 129, 0.05)', borderRadius: '16px', border: '1px solid rgba(16, 185, 129, 0.1)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                   <History size={16} color="#0d9488" />
                   <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#0d9488', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Production Hours</span>
                 </div>
-                <div style={{ fontSize: '0.8rem', fontWeight: 800, color: '#0d9488', background: 'white', padding: '2px 10px', borderRadius: '99px', border: '1px solid #99f6e4' }}>
+                <div style={{ fontSize: '0.8rem', fontWeight: 800, color: '#0d9488', background: 'var(--bg-card)', padding: '2px 10px', borderRadius: '99px', border: '1px solid rgba(16, 185, 129, 0.1)' }}>
                   Total: {totalTimeDisplay}
                 </div>
               </div>
@@ -320,13 +320,13 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                   };
 
                   return (
-                    <div key={phase.id} style={{ background: 'white', padding: '0.6rem', borderRadius: '12px', border: '1px solid #ccfbf1', boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)' }}>
-                      <div style={{ fontSize: '0.6rem', fontWeight: 800, color: '#134e4a', textTransform: 'uppercase', marginBottom: '6px', letterSpacing: '0.025em' }}>{phase.title}</div>
-                      <div style={{ display: 'flex', alignItems: 'center', background: '#f0fdfa', borderRadius: '6px', padding: '4px 8px', border: '1.5px solid #f0fdfa' }}>
+                    <div key={phase.id} style={{ background: 'var(--bg-card)', padding: '0.6rem', borderRadius: '12px', border: '1px solid var(--border-default)', boxShadow: 'var(--shadow-sm)' }}>
+                      <div style={{ fontSize: '0.6rem', fontWeight: 800, color: 'var(--text-primary)', textTransform: 'uppercase', marginBottom: '6px', letterSpacing: '0.025em' }}>{phase.title}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-secondary)', borderRadius: '6px', padding: '4px 8px', border: '1.5px solid var(--border-default)' }}>
                         <input 
                           type="text"
                           inputMode="numeric"
-                          style={{ width: '100%', border: 'none', background: 'transparent', fontSize: '1rem', fontWeight: 900, color: '#134e4a', textAlign: 'left', outline: 'none' }}
+                          style={{ width: '100%', border: 'none', background: 'transparent', fontSize: '1rem', fontWeight: 900, color: 'var(--text-primary)', textAlign: 'left', outline: 'none' }}
                           value={time.h || ''}
                           placeholder="0"
                           onChange={(e) => {
@@ -336,7 +336,7 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                             updateManualTime(v);
                           }}
                         />
-                        <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#94a3b8', marginLeft: '4px' }}>h</span>
+                        <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', marginLeft: '4px' }}>h</span>
                       </div>
                     </div>
                   );
@@ -411,10 +411,10 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
             })()}
 
             {trailer.name && (
-              <div style={{ padding: '1rem', background: '#f0fdf4', borderRadius: '12px', border: '1px solid #bbf7d0', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div style={{ padding: '1rem', background: 'rgba(34, 197, 94, 0.05)', borderRadius: '12px', border: '1px solid rgba(34, 197, 94, 0.1)', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 <div>
                    <span style={{ fontSize: '0.65rem', fontWeight: 800, color: '#15803d', textTransform: 'uppercase' }}>Customer Name</span>
-                   <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#14532d', display: 'block' }}>{trailer.name || '—'}</span>
+                   <span style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)', display: 'block' }}>{trailer.name || '—'}</span>
                 </div>
               </div>
             )}
@@ -426,7 +426,21 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
           {(['steel', 'tyres', 'parts'] as const).map(part => (
             <button
               key={part} onClick={() => togglePart(part)}
-              style={{ flex: 1, padding: '0.75rem', borderRadius: '12px', border: '1px solid', borderColor: editForm.partsStatus[part] ? '#22c55e' : '#e2e8f0', background: editForm.partsStatus[part] ? '#f0fdf4' : 'white', color: editForm.partsStatus[part] ? '#166534' : '#64748b', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.25rem', cursor: 'pointer' }}
+              style={{ 
+                flex: 1, 
+                padding: '0.75rem', 
+                borderRadius: '12px', 
+                border: '1px solid', 
+                borderColor: editForm.partsStatus[part] ? 'rgba(34, 197, 94, 0.3)' : 'var(--border-default)', 
+                background: editForm.partsStatus[part] ? 'rgba(34, 197, 94, 0.1)' : 'var(--bg-card)', 
+                color: editForm.partsStatus[part] ? '#166534' : 'var(--text-muted)', 
+                display: 'flex', 
+                flexDirection: 'column', 
+                alignItems: 'center', 
+                gap: '0.25rem', 
+                cursor: 'pointer',
+                transition: 'all 0.2s'
+              }}
             >
               <span style={{ fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase' }}>{part}</span>
               <span style={{ fontSize: '0.8rem', fontWeight: 700 }}>{editForm.partsStatus[part] ? 'READY' : 'WAITING'}</span>
@@ -435,7 +449,7 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
         </div>
 
         {!trailer.isArchived && (
-          <div className="details-priority-banner" style={{ background: trailer.isPriority ? '#fee2e2' : '#f8fafc', borderColor: trailer.isPriority ? '#fca5a5' : '#e2e8f0', marginBottom: '2rem' }}>
+          <div className="details-priority-banner" style={{ background: trailer.isPriority ? 'var(--priority-bg)' : 'var(--bg-secondary)', borderColor: trailer.isPriority ? 'var(--priority-border)' : 'var(--border-default)', marginBottom: '2rem' }}>
             <div className="priority-label" style={{ color: trailer.isPriority ? '#b91c1c' : 'var(--text-secondary)' }}>
               <Crown size={16} fill={trailer.isPriority ? '#b91c1c' : 'transparent'} />
               <span>{trailer.isPriority ? 'High Priority Unit' : 'Standard Priority'}</span>

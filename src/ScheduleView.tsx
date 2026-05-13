@@ -42,8 +42,8 @@ export const ScheduleView: React.FC<Props> = ({ trailers }) => {
       <div style={{ marginBottom: '2.5rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem', borderBottom: `2px solid ${color}20`, paddingBottom: '0.75rem' }}>
           {icon}
-          <h2 style={{ fontSize: '1rem', fontWeight: 800, color: '#1e293b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            {title} <span style={{ marginLeft: '0.5rem', color: '#64748b', fontWeight: 600 }}>({list.length})</span>
+          <h2 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            {title} <span style={{ marginLeft: '0.5rem', color: 'var(--text-muted)', fontWeight: 600 }}>({list.length})</span>
           </h2>
         </div>
         
@@ -55,11 +55,11 @@ export const ScheduleView: React.FC<Props> = ({ trailers }) => {
                 key={trailer.id}
                 className="schedule-card"
                 style={{
-                  background: 'white',
+                  background: 'var(--bg-card)',
                   borderRadius: '16px',
                   padding: '1.25rem',
-                  border: '1px solid #e2e8f0',
-                  boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)',
+                  border: '1px solid var(--border-default)',
+                  boxShadow: 'var(--shadow-md)',
                   display: 'flex',
                   flexDirection: 'column',
                   gap: '1rem'
@@ -67,32 +67,32 @@ export const ScheduleView: React.FC<Props> = ({ trailers }) => {
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
                   <div>
-                    <div style={{ fontSize: '1rem', fontWeight: 800, color: '#0f172a' }}>{trailer.model}</div>
-                    <div style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 600 }}>{trailer.name}</div>
+                    <div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)' }}>{trailer.model}</div>
+                    <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 600 }}>{trailer.name}</div>
                   </div>
-                  <div style={{ background: '#f1f5f9', padding: '0.25rem 0.6rem', borderRadius: '8px', fontSize: '0.7rem', fontWeight: 800, color: '#475569' }}>
+                  <div style={{ background: 'var(--bg-secondary)', padding: '0.25rem 0.6rem', borderRadius: '8px', fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-secondary)' }}>
                     #{trailer.serialNumber}
                   </div>
                 </div>
 
                 <div style={{ display: 'flex', gap: '1rem' }}>
-                  <div style={{ flex: 1, padding: '0.75rem', background: '#f8fafc', borderRadius: '12px', border: '1px solid #f1f5f9' }}>
-                    <span style={{ fontSize: '0.6rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', display: 'block', marginBottom: '0.25rem' }}>Current Phase</span>
+                  <div style={{ flex: 1, padding: '0.75rem', background: 'var(--bg-secondary)', borderRadius: '12px', border: '1px solid var(--border-default)' }}>
+                    <span style={{ fontSize: '0.6rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', display: 'block', marginBottom: '0.25rem' }}>Current Phase</span>
                     <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--accent)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                       <Clock size={14} />
                       {phase?.title}
                     </div>
                   </div>
-                  <div style={{ flex: 1, padding: '0.75rem', background: trailer.isPriority ? '#fff1f2' : '#f8fafc', borderRadius: '12px', border: '1px solid', borderColor: trailer.isPriority ? '#fecdd3' : '#f1f5f9' }}>
-                    <span style={{ fontSize: '0.6rem', fontWeight: 800, color: trailer.isPriority ? '#be123c' : '#94a3b8', textTransform: 'uppercase', display: 'block', marginBottom: '0.25rem' }}>Due Date</span>
-                    <div style={{ fontSize: '0.85rem', fontWeight: 800, color: trailer.isPriority ? '#e11d48' : '#0f172a' }}>
+                  <div style={{ flex: 1, padding: '0.75rem', background: trailer.isPriority ? 'var(--priority-bg)' : 'var(--bg-secondary)', borderRadius: '12px', border: '1px solid', borderColor: trailer.isPriority ? 'var(--priority-border)' : 'var(--border-default)' }}>
+                    <span style={{ fontSize: '0.6rem', fontWeight: 800, color: trailer.isPriority ? '#be123c' : 'var(--text-muted)', textTransform: 'uppercase', display: 'block', marginBottom: '0.25rem' }}>Due Date</span>
+                    <div style={{ fontSize: '0.85rem', fontWeight: 800, color: trailer.isPriority ? '#e11d48' : 'var(--text-primary)' }}>
                       {trailer.promisedShippingDate ? format(new Date(trailer.promisedShippingDate + 'T12:00:00'), 'MMM d, yyyy') : 'NOT SET'}
                     </div>
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '0.5rem', borderTop: '1px solid #f1f5f9' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#64748b' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '0.5rem', borderTop: '1px solid var(--border-default)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--text-secondary)' }}>
                     <MapPin size={14} />
                     <span style={{ fontSize: '0.75rem', fontWeight: 700 }}>Bay: {trailer.station}</span>
                   </div>
@@ -112,16 +112,16 @@ export const ScheduleView: React.FC<Props> = ({ trailers }) => {
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f8fafc', paddingBottom: '5rem' }}>
-      <header style={{ background: 'white', borderBottom: '1px solid #e2e8f0', padding: '1.25rem 2rem', position: 'sticky', top: 0, zIndex: 100, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--bg-main)', paddingBottom: '5rem', color: 'var(--text-primary)' }}>
+      <header style={{ background: 'var(--bg-header)', backdropFilter: 'var(--glass-blur)', borderBottom: '1px solid var(--border-default)', padding: '1.25rem 2rem', position: 'sticky', top: 0, zIndex: 100, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
           <button className="btn btn-secondary btn-icon" onClick={() => navigate('/')} title="Back to Dashboard">
             <LayoutDashboard size={20} />
           </button>
-          <div style={{ width: '1px', height: '24px', background: '#e2e8f0' }} />
+          <div style={{ width: '1px', height: '24px', background: 'var(--border-default)' }} />
           <div>
-            <h1 style={{ fontSize: '1.25rem', fontWeight: 900, color: '#0f172a', margin: 0 }}>Master Production Schedule</h1>
-            <p style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 600, margin: 0 }}>Factory-wide deadline tracking & prioritization</p>
+            <h1 style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--text-primary)', margin: 0 }}>Master Production Schedule</h1>
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 600, margin: 0 }}>Factory-wide deadline tracking & prioritization</p>
           </div>
         </div>
 
@@ -132,7 +132,8 @@ export const ScheduleView: React.FC<Props> = ({ trailers }) => {
               placeholder="Filter schedule..." 
               value={searchQuery} 
               onChange={(e) => setSearchQuery(e.target.value)} 
-              style={{ width: '100%', padding: '0.6rem 1rem', borderRadius: '10px', border: '1px solid #e2e8f0' }}
+              className="form-input"
+              style={{ width: '100%', padding: '0.6rem 1rem', borderRadius: '10px' }}
             />
           </div>
           <button className="btn btn-primary hide-on-mobile" onClick={() => navigate('/backlog')}>
@@ -142,22 +143,22 @@ export const ScheduleView: React.FC<Props> = ({ trailers }) => {
       </header>
 
       <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '2rem' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '3rem' }}>
-          <div style={{ background: '#fee2e2', padding: '1.25rem', borderRadius: '16px', border: '1px solid #fecdd3' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '3rem' }}>
+          <div style={{ background: 'var(--priority-bg)', padding: '1.25rem', borderRadius: '16px', border: '1px solid var(--priority-border)' }}>
             <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#b91c1c', textTransform: 'uppercase' }}>Overdue Units</span>
             <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#991b1b' }}>{groups.overdue.length}</div>
           </div>
-          <div style={{ background: '#fef9c3', padding: '1.25rem', borderRadius: '16px', border: '1px solid #fef08a' }}>
+          <div style={{ background: 'rgba(234, 179, 8, 0.1)', padding: '1.25rem', borderRadius: '16px', border: '1px solid rgba(234, 179, 8, 0.2)' }}>
             <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#854d0e', textTransform: 'uppercase' }}>Due Today</span>
             <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#713f12' }}>{groups.today.length}</div>
           </div>
-          <div style={{ background: '#dcfce7', padding: '1.25rem', borderRadius: '16px', border: '1px solid #bbf7d0' }}>
+          <div style={{ background: 'rgba(34, 197, 94, 0.1)', padding: '1.25rem', borderRadius: '16px', border: '1px solid rgba(34, 197, 94, 0.2)' }}>
             <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#166534', textTransform: 'uppercase' }}>Next 7 Days</span>
             <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#14532d' }}>{groups.upcoming.length}</div>
           </div>
-          <div style={{ background: '#f1f5f9', padding: '1.25rem', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
-            <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#475569', textTransform: 'uppercase' }}>Unscheduled</span>
-            <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#1e293b' }}>{groups.unscheduled.length}</div>
+          <div style={{ background: 'var(--bg-secondary)', padding: '1.25rem', borderRadius: '16px', border: '1px solid var(--border-default)' }}>
+            <span style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Unscheduled</span>
+            <div style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--text-primary)' }}>{groups.unscheduled.length}</div>
           </div>
         </div>
 

@@ -38,9 +38,9 @@ const ShippedRecord: React.FC<{ record: ShippedTrailer; onClose: () => void; use
           flexDirection: 'column', 
           gap: '1rem', 
           padding: '1.5rem', 
-          background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(99, 102, 241, 0.1) 100%)', 
+          background: 'var(--bg-secondary)', 
           borderRadius: '20px', 
-          border: '1px solid rgba(59, 130, 246, 0.2)',
+          border: '1px solid var(--border-default)',
           position: 'relative',
           overflow: 'hidden'
         }}>
@@ -130,7 +130,7 @@ const ShippedRecord: React.FC<{ record: ShippedTrailer; onClose: () => void; use
           <div style={{ 
             marginTop: '0.5rem',
             padding: '1.25rem', 
-            background: isPriceUnlockedGlobally ? 'rgba(234, 179, 8, 0.05)' : 'rgba(255, 255, 255, 0.02)', 
+            background: isPriceUnlockedGlobally ? 'rgba(234, 179, 8, 0.05)' : 'var(--bg-secondary)', 
             borderRadius: '20px', 
             border: `1px solid ${isPriceUnlockedGlobally ? 'rgba(234, 179, 8, 0.2)' : 'var(--border-default)'}`,
             transition: 'all 0.3s ease'
@@ -268,7 +268,8 @@ export const ArchiveView: React.FC<Props> = ({ trailers, onUpdateTrailer, localT
               placeholder="Filter archives..." 
               value={searchQuery} 
               onChange={(e) => setSearchQuery(e.target.value)} 
-              style={{ width: '100%', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-default)', borderRadius: '12px', padding: '0.6rem 1rem 0.6rem 2.5rem', fontSize: '0.85rem', color: 'white', fontWeight: 600, outline: 'none' }}
+              className="form-input"
+              style={{ width: '100%', paddingLeft: '2.5rem' }}
             />
           </div>
 
@@ -366,12 +367,12 @@ export const ArchiveView: React.FC<Props> = ({ trailers, onUpdateTrailer, localT
         </div>
 
         {/* Tab Selection */}
-        <div className="archive-tabs" style={{ display: 'flex', marginBottom: '2rem', gap: '0.5rem', background: 'rgba(255,255,255,0.02)', padding: '6px', borderRadius: '16px', border: '1px solid var(--border-default)', width: 'fit-content' }}>
+        <div className="archive-tabs" style={{ display: 'flex', marginBottom: '2rem', gap: '0.5rem', background: 'var(--bg-secondary)', padding: '6px', borderRadius: '16px', border: '1px solid var(--border-default)', width: 'fit-content' }}>
           {[{ id: 'shipped', label: '🚚 Shipped Units', count: filteredShipped.length }, { id: 'removed', label: '🗑 Deleted Units', count: removedTrailers.length }].map(({ id, label, count }) => (
             <button
               key={id}
               onClick={() => setTab(id as any)}
-              style={{ padding: '0.6rem 1.25rem', borderRadius: '12px', border: 'none', fontWeight: 800, fontSize: '0.85rem', cursor: 'pointer', background: tab === id ? 'var(--accent)' : 'transparent', color: tab === id ? 'white' : 'var(--text-secondary)', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '0.75rem' }}
+              style={{ padding: '0.6rem 1.25rem', borderRadius: '12px', border: 'none', fontWeight: 800, fontSize: '0.85rem', cursor: 'pointer', background: tab === id ? 'var(--accent)' : 'transparent', color: tab === id ? 'var(--bg-main)' : 'var(--text-secondary)', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '0.75rem' }}
             >
               {label}
               <span style={{ background: tab === id ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.05)', borderRadius: '8px', padding: '2px 8px', fontSize: '0.7rem' }}>{count}</span>
@@ -412,11 +413,11 @@ export const ArchiveView: React.FC<Props> = ({ trailers, onUpdateTrailer, localT
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.25rem' }}>
-                  <div style={{ background: 'rgba(255,255,255,0.02)', padding: '0.75rem', borderRadius: '12px', border: '1px solid var(--border-default)' }}>
+                  <div style={{ background: 'var(--bg-secondary)', padding: '0.75rem', borderRadius: '12px', border: '1px solid var(--border-default)' }}>
                     <div style={{ fontSize: '0.6rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>Shipped Date</div>
                     <div style={{ fontSize: '0.85rem', fontWeight: 700 }}>{format(new Date(t.shipped_at), 'MMM d, yyyy')}</div>
                   </div>
-                  <div style={{ background: 'rgba(255,255,255,0.02)', padding: '0.75rem', borderRadius: '12px', border: '1px solid var(--border-default)' }}>
+                  <div style={{ background: 'var(--bg-secondary)', padding: '0.75rem', borderRadius: '12px', border: '1px solid var(--border-default)' }}>
                     <div style={{ fontSize: '0.6rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>Total Hours</div>
                     <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#10b981' }}>{t.total_hours}h Built</div>
                   </div>
