@@ -915,6 +915,7 @@ function AuthGate({ children }: { children: (role: UserRole) => React.ReactNode 
       } else {
         setAuth({ isAuthenticated: false, role: null });
       }
+      setLoading(false);
     });
 
     return () => subscription.unsubscribe();
