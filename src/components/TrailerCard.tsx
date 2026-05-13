@@ -194,7 +194,7 @@ export const TrailerCard: React.FC<Props> = React.memo(({
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
             <span style={{ fontSize: '0.6rem', fontWeight: 800, color: 'var(--accent)', textTransform: 'uppercase' }}>Bay</span>
-            {!isTVMode ? (
+            {!isTVMode && userRole === 'manager' ? (
                 <select 
                   className="bay-select"
                   style={{
