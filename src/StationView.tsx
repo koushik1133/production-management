@@ -202,15 +202,16 @@ const StationView: React.FC<Props> = ({ trailers, setTrailers, onUpdateTrailer, 
 
   return (
     <div className="app-container bay-page">
-      <header className="header">
-        <div className="header-left">
+      <header className="header" style={{ paddingTop: '1.25rem', paddingBottom: '1.25rem' }}>
+        <div className="header-left" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <Link to="/" className="btn btn-secondary">
             <ArrowLeft size={16} />
             Back to Pipeline
           </Link>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginLeft: '1rem' }}>
-            <MapPin size={20} color="var(--accent)" />
-            <h1 style={{ fontSize: '1.25rem', fontWeight: 700 }}>Bay Management</h1>
+          <div style={{ width: '1px', height: '24px', background: 'var(--border-default)' }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <MapPin size={18} color="var(--accent)" />
+            <h1 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)' }}>Bay Management</h1>
           </div>
         </div>
       </header>
