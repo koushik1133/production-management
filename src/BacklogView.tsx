@@ -14,9 +14,11 @@ interface Props {
   localModelCategories: { name: string, models: string[] }[];
   localTargetHours: Record<string, Record<PhaseId, number>>;
   userRole: UserRole;
+  isPriceUnlockedGlobally?: boolean;
+  onUnlockPrices?: () => boolean;
 }
 
-export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, trailers, suggestedBay, nextSuggestedSerial, localModelCategories, localTargetHours, userRole }) => {
+export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, trailers, suggestedBay, nextSuggestedSerial, localModelCategories, localTargetHours, userRole, isPriceUnlockedGlobally, onUnlockPrices }) => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
@@ -59,7 +61,8 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
       steel: false,
       parts: false
     },
-    promisedShippingDate: ''
+    promisedShippingDate: '',
+    sale_price: ''
   });
 
   const selectedModelHours = formData.model ? localTargetHours[formData.model] : null;
@@ -82,7 +85,8 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
       promisedShippingDate: formData.promisedShippingDate,
       isArchived: false,
       isDeleted: false,
-      station: 'None'
+      station: 'None',
+      sale_price: formData.sale_price ? parseFloat(formData.sale_price) : undefined
     };
 
     onAddTrailer(newTrailer);
@@ -94,7 +98,8 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
       station: 'B1', 
       isPriority: false, 
       partsStatus: { tyres: false, steel: false, parts: false },
-      promisedShippingDate: ''
+      promisedShippingDate: '',
+      sale_price: ''
     });
   };
 
@@ -183,9 +188,25 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
                   </select>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1rem', padding: '1.25rem', background: 'var(--bg-secondary)', borderRadius: '12px', border: '1px solid var(--border-default)' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                   <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label className="form-label" style={{ fontSize: '0.65rem', color: 'var(--accent)' }}>Promised Shipping Date</label>
+                    <label className="form-label" style={{ fontSize: '0.65rem', color: '#d97706' }}>Sale Price ($)</label>
+                    <input 
+                      type={isPriceUnlockedGlobally ? "number" : "password"} 
+                      className="form-input" 
+                      style={{ height: '38px', fontSize: '0.9rem', borderColor: 'rgba(217, 119, 6, 0.2)', background: 'rgba(217, 119, 6, 0.05)' }}
+                      placeholder="PIN required"
+                      value={formData.sale_price} 
+                      onChange={e => setFormData({...formData, sale_price: e.target.value})} 
+                      onFocus={() => {
+                        if (!isPriceUnlockedGlobally && onUnlockPrices) {
+                          onUnlockPrices();
+                        }
+                      }}
+                    />
+                  </div>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label" style={{ fontSize: '0.65rem', color: 'var(--accent)' }}>Promised Shipping</label>
                     <input 
                       type="date" 
                       className="form-input" 
@@ -316,9 +337,30 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
                       <div key={t.id} className="backlog-item-card">
                         <div>
                           <div style={{ fontWeight: 800, fontSize: '0.95rem', color: '#0f172a' }}>{t.model}</div>
-                          <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
                             {t.serialNumber} • {t.name}
                             <span style={{ background: '#000', color: '#fff', padding: '1px 5px', borderRadius: '4px', fontSize: '0.6rem', fontWeight: 900 }}>RECO: {suggestedBay}</span>
+                            {userRole === 'manager' && t.sale_price !== undefined && (
+                              <span 
+                                onClick={(e) => {
+                                  if (!isPriceUnlockedGlobally && onUnlockPrices) {
+                                    e.stopPropagation();
+                                    onUnlockPrices();
+                                  }
+                                }}
+                                style={{ 
+                                  color: '#10b981', 
+                                  fontWeight: 900, 
+                                  background: 'rgba(16, 185, 129, 0.1)', 
+                                  padding: '1px 5px', 
+                                  borderRadius: '4px', 
+                                  fontSize: '0.75rem',
+                                  cursor: isPriceUnlockedGlobally ? 'default' : 'pointer'
+                                }}
+                              >
+                                {isPriceUnlockedGlobally ? `$${t.sale_price.toLocaleString()}` : '••••••'}
+                              </span>
+                            )}
                           </div>
                         </div>
 

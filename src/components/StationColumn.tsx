@@ -14,9 +14,11 @@ interface Props {
   onUpdateCapacity?: (capacity: number) => void;
   localTargetHours: Record<string, Record<PhaseId, number>>;
   userRole: UserRole;
+  isPriceUnlockedGlobally?: boolean;
+  onUnlockPrices?: () => boolean;
 }
 
-export const StationColumn: React.FC<Props> = ({ id, trailers, onUpdateTrailer, onCardClick, workload, capacity, onUpdateCapacity, localTargetHours, userRole }) => {
+export const StationColumn: React.FC<Props> = ({ id, trailers, onUpdateTrailer, onCardClick, workload, capacity, onUpdateCapacity, localTargetHours, userRole, isPriceUnlockedGlobally, onUnlockPrices }) => {
   const { setNodeRef } = useDroppable({
     id,
   });
@@ -109,6 +111,8 @@ export const StationColumn: React.FC<Props> = ({ id, trailers, onUpdateTrailer, 
                 showPhaseBadge={true}
                 localTargetHours={localTargetHours}
                 userRole={userRole}
+                isPriceUnlockedGlobally={isPriceUnlockedGlobally}
+                onUnlockPrices={onUnlockPrices}
               />
           ))}
         </SortableContext>
