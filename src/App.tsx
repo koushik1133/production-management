@@ -299,7 +299,8 @@ function Dashboard({
     station: 'None' as StationId, 
     isPriority: false,
     promisedShippingDate: '',
-    partsStatus: { tyres: false, steel: false, parts: false }
+    partsStatus: { tyres: false, steel: false, parts: false },
+    sale_price: ''
   });
 
   const handleAddTrailer = async (e: React.FormEvent) => {
@@ -318,11 +319,12 @@ function Dashboard({
         currentPhase: 'backlog',
         history: [{ phase: 'backlog', enteredAt: Date.now() }],
         promisedShippingDate: newTrailerData.promisedShippingDate,
-        partsStatus: newTrailerData.partsStatus
+        partsStatus: newTrailerData.partsStatus,
+        sale_price: newTrailerData.sale_price ? parseFloat(newTrailerData.sale_price) : undefined
       };
       await addTrailer(newTrailer);
       setIsAddModalOpen(false);
-      setNewTrailerData({ serialNumber: '', name: '', model: '', station: 'None', isPriority: false, promisedShippingDate: '', partsStatus: { tyres: false, steel: false, parts: false } });
+      setNewTrailerData({ serialNumber: '', name: '', model: '', station: 'None', isPriority: false, promisedShippingDate: '', partsStatus: { tyres: false, steel: false, parts: false }, sale_price: '' });
     } finally { setIsAdding(false); }
   };
 
@@ -624,11 +626,38 @@ function Dashboard({
               {localModelCategories.map(cat => <optgroup key={cat.name} label={cat.name}>{cat.models.map(m => <option key={m} value={m}>{m}</option>)}</optgroup>)}
             </select>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1rem', marginTop: '1rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
             <div className="form-group">
               <label className="form-label">Promised Shipping Date</label>
               <input type="date" className="form-input" value={newTrailerData.promisedShippingDate} onChange={e => setNewTrailerData({...newTrailerData, promisedShippingDate: e.target.value})} />
             </div>
+            {userRole === 'manager' && (
+              <div className="form-group">
+                <label className="form-label" style={{ color: '#d97706' }}>Sale Price ($)</label>
+                <div style={{ position: 'relative' }}>
+                  <input 
+                    type="password" 
+                    className="form-input" 
+                    placeholder="Enter PIN to unlock"
+                    style={{ borderColor: '#d97706', background: 'rgba(217,119,6,0.05)' }}
+                    onFocus={(e) => {
+                      if (e.target.type === 'password') {
+                        const pin = prompt('Enter Manager PIN to view/edit price:');
+                        if (pin === '0000') {
+                          e.target.type = 'number';
+                        } else {
+                          alert('Invalid PIN');
+                          e.target.blur();
+                        }
+                      }
+                    }}
+                    value={newTrailerData.sale_price}
+                    onChange={e => setNewTrailerData({...newTrailerData, sale_price: e.target.value})}
+                  />
+                  <DollarSign size={14} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: '#d97706' }} />
+                </div>
+              </div>
+            )}
           </div>
           
           <div className="form-group priority-checkbox-container" style={{ 
