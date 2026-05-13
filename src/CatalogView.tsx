@@ -63,23 +63,23 @@ export const CatalogView: React.FC<Props> = ({ categories, hours, specs, onAddMo
 
   return (
     <div className="catalog-container" style={{ padding: '2rem', maxWidth: '1400px', margin: '0 auto', minHeight: '100vh', background: 'var(--bg-main)' }}>
-      <header style={{ marginBottom: '2.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <header style={{ marginBottom: '3rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-          <button className="btn btn-secondary" onClick={() => navigate('/')} style={{ borderRadius: '12px', padding: '0.75rem' }}>
-            <LayoutGrid size={20} />
+          <button className="btn btn-secondary" onClick={() => navigate('/')} style={{ borderRadius: '12px', padding: '0.85rem' }}>
+            <LayoutGrid size={22} />
           </button>
           <div>
-            <h1 style={{ fontSize: '1.875rem', fontWeight: 900, color: 'var(--text-primary)', letterSpacing: '-0.025em', marginBottom: '0.25rem' }}>Production Catalog</h1>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem' }}>Master library of all trailer models and production specifications.</p>
+            <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.03em', marginBottom: '0.15rem' }}>Production Catalog</h1>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', fontWeight: 500 }}>Master library of all trailer models and production specifications.</p>
           </div>
         </div>
         {userRole === 'manager' && (
           <button 
             className="btn btn-primary shimmer" 
-            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem 1.5rem', borderRadius: '12px', fontWeight: 700 }}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.85rem 1.75rem', borderRadius: '14px', fontWeight: 800, fontSize: '0.95rem' }}
             onClick={() => setIsAddingModel(true)}
           >
-            <Plus size={20} /> Define New Model
+            <Plus size={20} strokeWidth={3} /> Define New Model
           </button>
         )}
       </header>

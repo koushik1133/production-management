@@ -143,21 +143,21 @@ export const ScheduleView: React.FC<Props> = ({ trailers }) => {
 
       <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '2rem' }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '3rem' }}>
-          <div style={{ background: '#fee2e2', padding: '1.5rem', borderRadius: '20px', border: '1px solid #fecdd3' }}>
-            <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#b91c1c', textTransform: 'uppercase' }}>Overdue Units</span>
-            <div style={{ fontSize: '2rem', fontWeight: 900, color: '#991b1b' }}>{groups.overdue.length}</div>
+          <div style={{ background: '#fee2e2', padding: '1.25rem', borderRadius: '16px', border: '1px solid #fecdd3' }}>
+            <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#b91c1c', textTransform: 'uppercase' }}>Overdue Units</span>
+            <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#991b1b' }}>{groups.overdue.length}</div>
           </div>
-          <div style={{ background: '#fef9c3', padding: '1.5rem', borderRadius: '20px', border: '1px solid #fef08a' }}>
-            <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#854d0e', textTransform: 'uppercase' }}>Due Today</span>
-            <div style={{ fontSize: '2rem', fontWeight: 900, color: '#713f12' }}>{groups.today.length}</div>
+          <div style={{ background: '#fef9c3', padding: '1.25rem', borderRadius: '16px', border: '1px solid #fef08a' }}>
+            <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#854d0e', textTransform: 'uppercase' }}>Due Today</span>
+            <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#713f12' }}>{groups.today.length}</div>
           </div>
-          <div style={{ background: '#dcfce7', padding: '1.5rem', borderRadius: '20px', border: '1px solid #bbf7d0' }}>
-            <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#166534', textTransform: 'uppercase' }}>Next 7 Days</span>
-            <div style={{ fontSize: '2rem', fontWeight: 900, color: '#14532d' }}>{groups.upcoming.length}</div>
+          <div style={{ background: '#dcfce7', padding: '1.25rem', borderRadius: '16px', border: '1px solid #bbf7d0' }}>
+            <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#166534', textTransform: 'uppercase' }}>Next 7 Days</span>
+            <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#14532d' }}>{groups.upcoming.length}</div>
           </div>
-          <div style={{ background: '#f1f5f9', padding: '1.5rem', borderRadius: '20px', border: '1px solid #e2e8f0' }}>
-            <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#475569', textTransform: 'uppercase' }}>Unscheduled</span>
-            <div style={{ fontSize: '2rem', fontWeight: 900, color: '#1e293b' }}>{groups.unscheduled.length}</div>
+          <div style={{ background: '#f1f5f9', padding: '1.25rem', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
+            <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#475569', textTransform: 'uppercase' }}>Unscheduled</span>
+            <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#1e293b' }}>{groups.unscheduled.length}</div>
           </div>
         </div>
 
