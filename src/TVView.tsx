@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Tv, Share2, Maximize, Minimize, Sun, Moon } from 'lucide-react';
+import { ArrowLeft, Tv, Share2 } from 'lucide-react';
 import { Modal } from './components/Modal';
 import type { Trailer, PhaseId, UserRole } from './types';
 import { PHASES } from './types';
@@ -20,32 +20,14 @@ const TVView: React.FC<Props> = ({ trailers, monitorMode: initialMode = 'all', l
   const scrollRef = useRef<HTMLDivElement>(null);
   const [monitorMode, setMonitorMode] = useState(initialMode);
   const [isCastModalOpen, setIsCastModalOpen] = useState(false);
-  const [isFullscreen, setIsFullscreen] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [isDarkMode, setIsDarkMode] = useState(true);
+  const isDarkMode = true;
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
 
-  useEffect(() => {
-    const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
-    };
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
-    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
-  }, []);
-
-  const toggleFullscreen = () => {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().catch(err => {
-        alert(`Error attempting to enable fullscreen mode: ${err.message}`);
-      });
-    } else {
-      document.exitFullscreen();
-    }
-  };
   
   const filteredTrailers = trailers.filter(t => !t.isArchived);
   type Column = { id: string; title: string; type: 'phase' | 'station' };
@@ -160,12 +142,6 @@ const TVView: React.FC<Props> = ({ trailers, monitorMode: initialMode = 'all', l
           </button>
           <button onClick={() => setMonitorMode('station1')} style={getMonitorBtnStyle('station1')}>STATION 1</button>
           <button onClick={() => setMonitorMode('station2')} style={getMonitorBtnStyle('station2')}>STATION 2</button>
-          
-          <div style={{ width: '1px', height: '16px', background: 'var(--border-default)', margin: 'auto 0.5rem' }} />
-          
-          <button className="btn btn-secondary btn-icon" onClick={toggleFullscreen} style={{ width: '32px', height: '32px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Full Screen">
-            {isFullscreen ? <Minimize size={14} /> : <Maximize size={14} />}
-          </button>
         </div>
 
         {/* Right Section: Utilities & Clock */}
@@ -186,25 +162,6 @@ const TVView: React.FC<Props> = ({ trailers, monitorMode: initialMode = 'all', l
             <span style={{ fontSize: '0.75rem', fontWeight: 400, opacity: 0.3 }}>|</span>
             <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--accent)' }}>{format(currentTime, 'ss')}</span>
           </div>
-
-          <div style={{ display: 'flex', background: 'var(--bg-secondary)', padding: '3px', borderRadius: '10px', border: '1px solid var(--border-default)' }}>
-            <button onClick={() => setIsDarkMode(false)} className="btn btn-icon" style={{ padding: '6px', borderRadius: '8px' }}>
-              <Sun size={14} />
-            </button>
-            <button onClick={() => setIsDarkMode(true)} className="btn btn-icon" style={{ padding: '6px', borderRadius: '8px', background: isDarkMode ? 'var(--accent)' : 'transparent', color: isDarkMode ? 'var(--bg-main)' : undefined }}>
-              <Moon size={14} />
-            </button>
-          </div>
-          
-          <div style={{ display: 'flex', gap: '0.4rem' }}>
-            <button 
-              className="btn btn-secondary btn-icon" 
-              onClick={toggleFullscreen}
-              style={{ padding: '0.5rem', borderRadius: '10px' }}
-            >
-              {isFullscreen ? <Minimize size={16} /> : <Maximize size={16} />}
-            </button>
-            
             <button 
               className="btn btn-secondary btn-icon" 
               onClick={() => setIsCastModalOpen(true)}
@@ -212,7 +169,6 @@ const TVView: React.FC<Props> = ({ trailers, monitorMode: initialMode = 'all', l
             >
               <Share2 size={16} />
             </button>
-          </div>
         </div>
       </header>
 

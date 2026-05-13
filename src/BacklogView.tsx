@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LayoutGrid, ArrowRight, Clock, Trash2, Calendar, Maximize, Minimize } from 'lucide-react';
+import { LayoutGrid, ArrowRight, Clock, Trash2, Calendar } from 'lucide-react';
 import { PHASES, PHASE_METADATA } from './types';
 import type { Trailer, StationId, PhaseId, UserRole } from './types';
 import { addHours, format } from 'date-fns';
@@ -22,25 +22,6 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
-  const [isFullscreen, setIsFullscreen] = useState(!!document.fullscreenElement);
-
-  useEffect(() => {
-    const handleFsChange = () => setIsFullscreen(!!document.fullscreenElement);
-    document.addEventListener('fullscreenchange', handleFsChange);
-    return () => document.removeEventListener('fullscreenchange', handleFsChange);
-  }, []);
-
-  const toggleFullscreen = () => {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().catch(err => {
-        console.error(`Error attempting to enable full-screen mode: ${err.message}`);
-      });
-    } else {
-      if (document.exitFullscreen) {
-        document.exitFullscreen();
-      }
-    }
-  };
 
   const activeFloorTrailers = trailers.filter(t => !t.isArchived && t.currentPhase !== 'backlog');
   const factoryWorkloadHours = activeFloorTrailers.reduce((sum, t) => {
@@ -327,9 +308,6 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', gap: '1rem' }}>
              <h2 style={{ fontSize: '1rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)' }}>Existing Backlog ({backlogTrailers.length})</h2>
              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-               <button className="btn btn-secondary btn-icon" onClick={toggleFullscreen} style={{ width: '36px', height: '36px', borderRadius: '8px' }} title="Full Screen">
-                 {isFullscreen ? <Minimize size={14} /> : <Maximize size={14} />}
-               </button>
                <input 
                  type="text" 
                  placeholder="Filter backlog..." 
