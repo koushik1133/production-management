@@ -470,6 +470,17 @@
   transition: all 0.2s;
 }
 
+.form-select option, .form-select optgroup {
+  background: #121212; /* Explicit dark background for dropdown items */
+  color: #fafafa;
+}
+
+[data-theme='light'] .form-select option, 
+[data-theme='light'] .form-select optgroup {
+  background: #ffffff;
+  color: #0f172a;
+}
+
 .form-input:focus, .form-select:focus {
   background: rgba(255, 255, 255, 0.05);
   border-color: var(--accent);
