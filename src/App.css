@@ -98,7 +98,7 @@
   overflow-y: auto;
   min-height: 0;
   min-width: 0;
-  padding: 0.85rem 1.5vw 1rem 1.5vw; /* Reduced top padding to minimize gap with header */
+  padding: 0.5rem 1.5vw 1rem 1.5vw; /* Further reduced top padding */
   gap: 1.25rem;
   scrollbar-width: auto;
   scrollbar-color: var(--accent) transparent;
@@ -130,7 +130,7 @@
   border-radius: var(--radius-lg);
   display: flex;
   flex-direction: column;
-  padding: 1rem;
+  padding: 0.6rem 1rem 1rem 1rem; /* Reduced top padding */
   height: calc(100vh - 120px); /* Reduced offset to minimize gap with footer */
   transition: all 0.3s ease;
   box-shadow: var(--shadow-md);
@@ -184,7 +184,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin: 0.75rem 0.75rem 1.25rem 0.75rem;
+  margin: 0.4rem 0.75rem 0.85rem 0.75rem; /* Reduced vertical margins */
 }
 
 .column-title {
