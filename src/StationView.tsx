@@ -48,9 +48,7 @@ const StationView: React.FC<Props> = ({ trailers, setTrailers, onUpdateTrailer, 
     activeIdRef.current = activeId;
   }, [activeId]);
 
-  const isMobileView = useMemo(() => {
-    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || (window.innerWidth <= 1024);
-  }, []);
+  // Removed unused isMobileView
 
   const sensors = useSensors(
     useSensor(PointerSensor, { 

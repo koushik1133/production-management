@@ -141,7 +141,7 @@ const TVView: React.FC<Props> = ({ trailers, monitorMode: initialMode = 'all', l
                   <span style={{ fontSize: '0.65rem', fontWeight: 800, color: '#22c55e' }}>LIVE</span>
                 </div>
               </div>
-              <span style={{ fontSize: '0.65rem', fontWeight: 600, color: themeStyles.textMuted, letterSpacing: '0.05em' }}>PRODUCTION STREAM</span>
+              <span style={{ fontSize: '0.65rem', fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.05em' }}>PRODUCTION STREAM</span>
             </div>
           </div>
         </div>
@@ -325,7 +325,7 @@ const TVView: React.FC<Props> = ({ trailers, monitorMode: initialMode = 'all', l
                     />
                   ))}
                 {trailersInCol.length === 0 && (
-                  <div style={{ padding: '2rem', textAlign: 'center', color: themeStyles.textMuted, fontSize: '0.8rem', fontStyle: 'italic', border: '1px dashed #cbd5e1', borderRadius: '12px' }}>
+                  <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.8rem', fontStyle: 'italic', border: '1px dashed var(--border-default)', borderRadius: '12px' }}>
                     No units in this stage
                   </div>
                 )}
