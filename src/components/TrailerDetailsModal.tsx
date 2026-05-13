@@ -173,6 +173,16 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                   <DollarSign size={14} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: '#d97706' }} />
                 </div>
               </div>
+              <div style={{ gridColumn: 'span 2', marginTop: '1rem' }}>
+                <button 
+                  className="btn btn-primary" 
+                  style={{ width: '100%', padding: '0.85rem', borderRadius: '12px', fontWeight: 900, fontSize: '0.9rem' }}
+                  onClick={handleSaveAll}
+                  disabled={isDuplicateSerial}
+                >
+                  {isDuplicateSerial ? 'SERIAL ALREADY EXISTS!' : 'SAVE CHANGES'}
+                </button>
+              </div>
           </div>
         ) : (
           <div style={{ marginBottom: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
