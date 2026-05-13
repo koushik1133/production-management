@@ -95,14 +95,14 @@ export const TrailerCard: React.FC<Props> = React.memo(({
       {...listeners}
       onClick={() => onCardClick?.()}
     >
-      <div className="card-header-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.4rem' }}>
+      <div className="card-header-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.3rem' }}>
         <div className="card-title" style={{ flex: 1, minWidth: 0 }}>
           <span className="card-model" style={{ 
             display: 'block', 
             whiteSpace: 'nowrap', 
             overflow: 'hidden', 
             textOverflow: 'ellipsis',
-            fontSize: '0.95rem'
+            fontSize: '0.9rem'
           }}>{trailer.model}</span>
           {!hideCustomerName && (
             <span className="card-customer" style={{ 
@@ -110,7 +110,7 @@ export const TrailerCard: React.FC<Props> = React.memo(({
               whiteSpace: 'nowrap', 
               overflow: 'hidden', 
               textOverflow: 'ellipsis',
-              fontSize: '0.75rem'
+              fontSize: '0.725rem'
             }}>{trailer.name}</span>
           )}
         </div>
