@@ -159,6 +159,8 @@ function Dashboard({
     prefab: '0', build: '0', paint: '0', outsource: '0', trim: '0'
   });
   const [isShipping, setIsShipping] = useState(false);
+  const [isNewTrailerPriceUnlocked, setIsNewTrailerPriceUnlocked] = useState(false);
+  const [isShippingPriceUnlocked, setIsShippingPriceUnlocked] = useState(false);
 
   useEffect(() => {
     if (pendingShippingTrailer) {
@@ -183,8 +185,9 @@ function Dashboard({
         customer_name: pendingShippingTrailer.name || prev.customer_name,
         invoice_number: pendingShippingTrailer.invoiceNumber || prev.invoice_number,
         vin_date: pendingShippingTrailer.vinDate || prev.vin_date,
-        sale_price: '' // trailer table doesn't have sale_price
+        sale_price: pendingShippingTrailer.sale_price?.toString() || ''
       }));
+      setIsShippingPriceUnlocked(false);
     }
   }, [pendingShippingTrailer]);
 
@@ -325,6 +328,7 @@ function Dashboard({
       await addTrailer(newTrailer);
       setIsAddModalOpen(false);
       setNewTrailerData({ serialNumber: '', name: '', model: '', station: 'None', isPriority: false, promisedShippingDate: '', partsStatus: { tyres: false, steel: false, parts: false }, sale_price: '' });
+      setIsNewTrailerPriceUnlocked(false);
     } finally { setIsAdding(false); }
   };
 
@@ -636,18 +640,17 @@ function Dashboard({
                 <label className="form-label" style={{ color: '#d97706' }}>Sale Price ($)</label>
                 <div style={{ position: 'relative' }}>
                   <input 
-                    type="password" 
+                    type={isNewTrailerPriceUnlocked ? "number" : "password"} 
                     className="form-input" 
                     placeholder="Enter PIN to unlock"
                     style={{ borderColor: '#d97706', background: 'rgba(217,119,6,0.05)' }}
-                    onFocus={(e) => {
-                      if (e.target.type === 'password') {
-                        const pin = prompt('Enter Manager PIN to view/edit price:');
+                    onFocus={() => {
+                      if (!isNewTrailerPriceUnlocked) {
+                        const pin = prompt('Enter Manager PIN to unlock price:');
                         if (pin === '0000') {
-                          e.target.type = 'number';
+                          setIsNewTrailerPriceUnlocked(true);
                         } else {
                           alert('Invalid PIN');
-                          e.target.blur();
                         }
                       }
                     }}
@@ -827,9 +830,20 @@ function Dashboard({
             <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr', gap: '1rem' }}>
               <div className="form-group" style={{ margin: 0 }}>
                 <label className="form-label" style={{ color: '#d97706', fontSize: '0.65rem' }}>Final Sale Price ($)</label>
-                <input type="number" className="form-input" style={{ borderColor: 'rgba(217, 119, 6, 0.3)', background: 'rgba(217, 119, 6, 0.05)' }} placeholder="0.00"
+                <input 
+                  type={isShippingPriceUnlocked ? "number" : "password"} 
+                  className="form-input" 
+                  style={{ borderColor: 'rgba(217, 119, 6, 0.3)', background: 'white', fontWeight: 700 }} 
+                  placeholder="PIN required"
                   value={shippingForm.sale_price}
                   onChange={e => setShippingForm(prev => ({ ...prev, sale_price: e.target.value }))}
+                  onFocus={() => {
+                    if (!isShippingPriceUnlocked) {
+                      const pin = prompt('Enter Manager PIN to unlock price:');
+                      if (pin === '0000') setIsShippingPriceUnlocked(true);
+                      else alert('Invalid PIN');
+                    }
+                  }}
                 />
               </div>
               <div className="form-group" style={{ margin: 0 }}>
