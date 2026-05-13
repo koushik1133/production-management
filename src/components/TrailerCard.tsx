@@ -20,6 +20,8 @@ interface Props {
   localTargetHours: Record<string, Record<PhaseId, number>>;
   isOverlay?: boolean;
   userRole: UserRole;
+  isPriceUnlockedGlobally?: boolean;
+  onUnlockPrices?: () => boolean;
 }
 
 export const TrailerCard: React.FC<Props> = React.memo(({ 
@@ -35,7 +37,9 @@ export const TrailerCard: React.FC<Props> = React.memo(({
   isTVMode,
   localTargetHours,
   isOverlay,
-  userRole
+  userRole,
+  isPriceUnlockedGlobally,
+  onUnlockPrices
 }) => {
   const cardRef = useRef<HTMLDivElement>(null);
   const {
@@ -160,6 +164,29 @@ export const TrailerCard: React.FC<Props> = React.memo(({
         <div className="card-meta-item">
           <Hash className="card-meta-icon" />
           <span>{trailer.serialNumber}</span>
+          {userRole === 'manager' && trailer.sale_price !== undefined && (
+            <span 
+              onClick={(e) => {
+                if (!isPriceUnlockedGlobally && onUnlockPrices) {
+                  e.stopPropagation();
+                  onUnlockPrices();
+                }
+              }}
+              style={{ 
+                marginLeft: 'auto', 
+                color: '#10b981', 
+                fontWeight: 900, 
+                fontSize: '0.8rem',
+                background: 'rgba(16, 185, 129, 0.1)',
+                padding: '1px 6px',
+                borderRadius: '6px',
+                border: '1px solid rgba(16, 185, 129, 0.2)',
+                cursor: isPriceUnlockedGlobally ? 'default' : 'pointer'
+              }}
+            >
+              {isPriceUnlockedGlobally ? `$${trailer.sale_price.toLocaleString()}` : '••••••'}
+            </span>
+          )}
           {showPhaseBadge && (
              <div style={{
                marginLeft: '0.5rem',

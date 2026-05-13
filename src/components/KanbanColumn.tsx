@@ -16,9 +16,11 @@ interface Props {
   suggestedBay?: StationId;
   localTargetHours: Record<string, Record<PhaseId, number>>;
   userRole: UserRole;
+  isPriceUnlockedGlobally?: boolean;
+  onUnlockPrices?: () => boolean;
 }
 
-export const KanbanColumn: React.FC<Props> = React.memo(({ id, title, trailers, onCardClick, onUpdateTrailer, onShipRequest, workload, highlightedId, suggestedBay, localTargetHours, userRole }) => {
+export const KanbanColumn: React.FC<Props> = React.memo(({ id, title, trailers, onCardClick, onUpdateTrailer, onShipRequest, workload, highlightedId, suggestedBay, localTargetHours, userRole, isPriceUnlockedGlobally, onUnlockPrices }) => {
   const { setNodeRef } = useDroppable({ id });
 
   // Sort within column by vertical_order so real-time updates render in correct order
@@ -48,6 +50,8 @@ export const KanbanColumn: React.FC<Props> = React.memo(({ id, title, trailers, 
                 suggestedBay={suggestedBay}
                 localTargetHours={localTargetHours}
                 userRole={userRole}
+                isPriceUnlockedGlobally={isPriceUnlockedGlobally}
+                onUnlockPrices={onUnlockPrices}
               />
           ))}
         </SortableContext>

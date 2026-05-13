@@ -15,9 +15,11 @@ interface Props {
   onDeleteTrailer?: (id: string) => void;
   shippedTrailers?: ShippedTrailer[];
   userRole: UserRole;
+  isPriceUnlockedGlobally?: boolean;
+  onUnlockPrices?: () => boolean;
 }
 
-export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose, onUpdate, allTrailers = [], localTargetHours, onDeleteTrailer, shippedTrailers = [], userRole }) => {
+export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose, onUpdate, allTrailers = [], localTargetHours, onDeleteTrailer, shippedTrailers = [], userRole, isPriceUnlockedGlobally, onUnlockPrices }) => {
   const [isEditing, setIsEditing] = React.useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false);
   const [editForm, setEditForm] = useState({
@@ -29,7 +31,6 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
     partsStatus: trailer.partsStatus || { steel: false, tyres: false, parts: false },
     sale_price: trailer.sale_price !== undefined ? trailer.sale_price.toString() : ''
   });
-  const [isPriceUnlocked, setIsPriceUnlocked] = React.useState(false);
   const [localNotes, setLocalNotes] = React.useState(trailer.notes || '');
 
   const phaseTimes = React.useMemo(() => {
@@ -156,17 +157,15 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                 <label className="form-label" style={{ color: '#d97706', fontSize: '0.75rem', fontWeight: 800 }}>Sale Price ($)</label>
                 <div style={{ position: 'relative' }}>
                   <input 
-                    type={isPriceUnlocked ? "number" : "password"}
+                    type={isPriceUnlockedGlobally ? "number" : "password"}
                     className="form-input" 
                     placeholder="PIN required"
                     style={{ borderColor: '#d97706', background: 'white', fontWeight: 700 }}
                     value={editForm.sale_price}
                     onChange={e => setEditForm({ ...editForm, sale_price: e.target.value })}
                     onFocus={() => {
-                      if (!isPriceUnlocked) {
-                        const pin = prompt('Enter Manager PIN to unlock price:');
-                        if (pin === '0000') setIsPriceUnlocked(true);
-                        else alert('Invalid PIN');
+                      if (!isPriceUnlockedGlobally && onUnlockPrices) {
+                        onUnlockPrices();
                       }
                     }}
                   />
@@ -268,10 +267,8 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
               {userRole === 'manager' && (
                 <div 
                   onClick={() => {
-                    if (!isPriceUnlocked) {
-                      const pin = prompt('Enter Manager PIN to view price:');
-                      if (pin === '0000') setIsPriceUnlocked(true);
-                      else alert('Invalid PIN');
+                    if (!isPriceUnlockedGlobally && onUnlockPrices) {
+                      onUnlockPrices();
                     }
                   }}
                   style={{ background: 'rgba(217, 119, 6, 0.05)', padding: '0.75rem 1.25rem', borderRadius: '16px', border: '1px solid rgba(217, 119, 6, 0.2)', textAlign: 'right', cursor: 'pointer' }}
@@ -280,7 +277,7 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                     <DollarSign size={10} /> Sale Price
                   </div>
                   <div style={{ fontSize: '1rem', fontWeight: 900, color: '#d97706' }}>
-                    {isPriceUnlocked ? (trailer.sale_price ? `$${trailer.sale_price.toLocaleString()}` : 'NOT SET') : '••••••'}
+                    {isPriceUnlockedGlobally ? (trailer.sale_price ? `$${trailer.sale_price.toLocaleString()}` : 'NOT SET') : '••••••'}
                   </div>
                 </div>
               )}

@@ -28,9 +28,11 @@ interface Props {
   onUpdateCapacity: (id: StationId, capacity: number) => void;
   localTargetHours: Record<string, Record<PhaseId, number>>;
   userRole: UserRole;
+  isPriceUnlockedGlobally?: boolean;
+  onUnlockPrices?: () => boolean;
 }
 
-const StationView: React.FC<Props> = ({ trailers, setTrailers, onUpdateTrailer, bayCapacities, onUpdateCapacity, localTargetHours, userRole }) => {
+const StationView: React.FC<Props> = ({ trailers, setTrailers, onUpdateTrailer, bayCapacities, onUpdateCapacity, localTargetHours, userRole, isPriceUnlockedGlobally, onUnlockPrices }) => {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [selectedTrailerId, setSelectedTrailerId] = useState<string | null>(null);
 
@@ -238,11 +240,13 @@ const StationView: React.FC<Props> = ({ trailers, setTrailers, onUpdateTrailer, 
                 onUpdateCapacity={(cap) => onUpdateCapacity(station, cap)}
                 localTargetHours={localTargetHours}
                 userRole={userRole}
+                isPriceUnlockedGlobally={isPriceUnlockedGlobally}
+                onUnlockPrices={onUnlockPrices}
               />
             );
           })}
           <DragOverlay>
-            {activeTrailer ? <TrailerCard trailer={activeTrailer} localTargetHours={localTargetHours} userRole={userRole} /> : null}
+            {activeTrailer ? <TrailerCard trailer={activeTrailer} localTargetHours={localTargetHours} userRole={userRole} isPriceUnlockedGlobally={isPriceUnlockedGlobally} onUnlockPrices={onUnlockPrices} /> : null}
           </DragOverlay>
         </DndContext>
       </main>
@@ -255,6 +259,8 @@ const StationView: React.FC<Props> = ({ trailers, setTrailers, onUpdateTrailer, 
           onUpdate={onUpdateTrailer} 
           localTargetHours={localTargetHours}
           userRole={userRole}
+          isPriceUnlockedGlobally={isPriceUnlockedGlobally}
+          onUnlockPrices={onUnlockPrices}
         />
       )}
 

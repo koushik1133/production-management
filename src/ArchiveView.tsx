@@ -13,6 +13,8 @@ interface Props {
   localTargetHours: Record<string, Record<PhaseId, number>>;
   shippedTrailers?: ShippedTrailer[];
   userRole: UserRole;
+  isPriceUnlockedGlobally?: boolean;
+  onUnlockPrices?: () => boolean;
 }
 
 const PHASE_LABELS = [
@@ -23,8 +25,7 @@ const PHASE_LABELS = [
   { key: 'trim_hours', label: 'Trim', color: '#10b981' },
 ];
 
-const ShippedRecord: React.FC<{ record: ShippedTrailer; onClose: () => void; userRole: UserRole }> = ({ record, onClose, userRole }) => {
-  const [showPrices, setShowPrices] = useState(false);
+const ShippedRecord: React.FC<{ record: ShippedTrailer; onClose: () => void; userRole: UserRole; isPriceUnlockedGlobally?: boolean; onUnlockPrices?: () => boolean }> = ({ record, onClose, userRole, isPriceUnlockedGlobally, onUnlockPrices }) => {
   const photos = [record.photo_1_url, record.photo_2_url, record.photo_3_url].filter(Boolean) as string[];
 
   return (
@@ -129,35 +130,39 @@ const ShippedRecord: React.FC<{ record: ShippedTrailer; onClose: () => void; use
           <div style={{ 
             marginTop: '0.5rem',
             padding: '1.25rem', 
-            background: showPrices ? 'rgba(234, 179, 8, 0.05)' : 'rgba(255, 255, 255, 0.02)', 
+            background: isPriceUnlockedGlobally ? 'rgba(234, 179, 8, 0.05)' : 'rgba(255, 255, 255, 0.02)', 
             borderRadius: '20px', 
-            border: `1px solid ${showPrices ? 'rgba(234, 179, 8, 0.2)' : 'var(--border-default)'}`,
+            border: `1px solid ${isPriceUnlockedGlobally ? 'rgba(234, 179, 8, 0.2)' : 'var(--border-default)'}`,
             transition: 'all 0.3s ease'
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                <DollarSign size={16} color={showPrices ? '#eab308' : 'var(--text-muted)'} />
-                <span style={{ fontSize: '0.85rem', fontWeight: 800, color: showPrices ? '#eab308' : 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Financial Data</span>
+                <DollarSign size={16} color={isPriceUnlockedGlobally ? '#eab308' : 'var(--text-muted)'} />
+                <span style={{ fontSize: '0.85rem', fontWeight: 800, color: isPriceUnlockedGlobally ? '#eab308' : 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Financial Data</span>
               </div>
               <button
-                onClick={() => setShowPrices(p => !p)}
+                onClick={() => {
+                  if (!isPriceUnlockedGlobally && onUnlockPrices) {
+                    onUnlockPrices();
+                  }
+                }}
                 style={{ 
                   display: 'flex', 
                   alignItems: 'center', 
                   gap: '0.5rem', 
-                  background: showPrices ? 'rgba(234, 179, 8, 0.15)' : 'rgba(255,255,255,0.05)', 
+                  background: isPriceUnlockedGlobally ? 'rgba(234, 179, 8, 0.15)' : 'rgba(255,255,255,0.05)', 
                 border: 'none', 
                 borderRadius: '10px', 
                 padding: '6px 14px', 
                 fontSize: '0.75rem', 
                 fontWeight: 700, 
-                color: showPrices ? '#eab308' : 'var(--text-secondary)'
+                color: isPriceUnlockedGlobally ? '#eab308' : 'var(--text-secondary)'
               }}
             >
-              {showPrices ? <><EyeOff size={14} /> Hide Pricing</> : <><Eye size={14} /> Reveal Pricing</>}
+              {isPriceUnlockedGlobally ? <><EyeOff size={14} /> Hide Pricing</> : <><Eye size={14} /> Reveal Pricing</>}
             </button>
           </div>
-          {showPrices && (
+          {isPriceUnlockedGlobally && (
             <div style={{ marginTop: '1.25rem' }}>
               <div style={{ fontSize: '0.65rem', fontWeight: 800, color: '#eab308', textTransform: 'uppercase', marginBottom: '4px' }}>Final Sale Price</div>
               <div style={{ fontSize: '2rem', fontWeight: 900, color: '#eab308', letterSpacing: '-0.03em' }}>
@@ -173,7 +178,7 @@ const ShippedRecord: React.FC<{ record: ShippedTrailer; onClose: () => void; use
   );
 };
 
-export const ArchiveView: React.FC<Props> = ({ trailers, onUpdateTrailer, localTargetHours, shippedTrailers = [], userRole }) => {
+export const ArchiveView: React.FC<Props> = ({ trailers, onUpdateTrailer, localTargetHours, shippedTrailers = [], userRole, isPriceUnlockedGlobally, onUnlockPrices }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'shipped' | 'serial'>('shipped');
   const [selectedTrailerId, setSelectedTrailerId] = useState<string | null>(null);
@@ -486,11 +491,19 @@ export const ArchiveView: React.FC<Props> = ({ trailers, onUpdateTrailer, localT
           localTargetHours={localTargetHours}
           shippedTrailers={shippedTrailers}
           userRole={userRole}
+          isPriceUnlockedGlobally={isPriceUnlockedGlobally}
+          onUnlockPrices={onUnlockPrices}
         />
       )}
 
       {selectedShipped && (
-        <ShippedRecord record={selectedShipped} onClose={() => setSelectedSerial(null)} userRole={userRole} />
+        <ShippedRecord 
+          record={selectedShipped} 
+          onClose={() => setSelectedSerial(null)} 
+          userRole={userRole} 
+          isPriceUnlockedGlobally={isPriceUnlockedGlobally}
+          onUnlockPrices={onUnlockPrices}
+        />
       )}
 
       {/* Hover Lift Style Injection + Mobile Responsive */}

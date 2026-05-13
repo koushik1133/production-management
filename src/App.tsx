@@ -99,7 +99,9 @@ function Dashboard({
   handleUndo,
   redoStack,
   handleRedo,
-  localModelCategories
+  localModelCategories,
+  isPriceUnlockedGlobally,
+  onUnlockPrices
 }: {
   trailers: Trailer[], 
   updateTrailer: (id: string, updates: Partial<Trailer>) => void,
@@ -128,7 +130,9 @@ function Dashboard({
   handleUndo: () => void,
   redoStack: Array<Array<{ id: string } & Partial<Trailer>>>,
   handleRedo: () => void,
-  localModelCategories: { name: string; models: string[] }[]
+  localModelCategories: { name: string; models: string[] }[],
+  isPriceUnlockedGlobally?: boolean,
+  onUnlockPrices?: () => boolean
 }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const highlightedTrailerId = searchParams.get('highlight');
@@ -159,8 +163,6 @@ function Dashboard({
     prefab: '0', build: '0', paint: '0', outsource: '0', trim: '0'
   });
   const [isShipping, setIsShipping] = useState(false);
-  const [isNewTrailerPriceUnlocked, setIsNewTrailerPriceUnlocked] = useState(false);
-  const [isShippingPriceUnlocked, setIsShippingPriceUnlocked] = useState(false);
 
   useEffect(() => {
     if (pendingShippingTrailer) {
@@ -532,10 +534,12 @@ function Dashboard({
               suggestedBay={suggestedBay}
               localTargetHours={localTargetHours}
               userRole={userRole}
+              isPriceUnlockedGlobally={isPriceUnlockedGlobally}
+              onUnlockPrices={onUnlockPrices}
             />
           ))}
           <DragOverlay>
-            {activeTrailer ? <TrailerCard trailer={activeTrailer} localTargetHours={localTargetHours} isOverlay userRole={userRole} /> : null}
+            {activeTrailer ? <TrailerCard trailer={activeTrailer} localTargetHours={localTargetHours} isOverlay userRole={userRole} isPriceUnlockedGlobally={isPriceUnlockedGlobally} onUnlockPrices={onUnlockPrices} /> : null}
           </DragOverlay>
         </DndContext>
       </main>
@@ -640,18 +644,13 @@ function Dashboard({
                 <label className="form-label" style={{ color: '#d97706' }}>Sale Price ($)</label>
                 <div style={{ position: 'relative' }}>
                   <input 
-                    type={isNewTrailerPriceUnlocked ? "number" : "password"} 
+                    type={isPriceUnlockedGlobally ? "number" : "password"} 
                     className="form-input" 
                     placeholder="Enter PIN to unlock"
                     style={{ borderColor: '#d97706', background: 'rgba(217,119,6,0.05)' }}
                     onFocus={() => {
-                      if (!isNewTrailerPriceUnlocked) {
-                        const pin = prompt('Enter Manager PIN to unlock price:');
-                        if (pin === '0000') {
-                          setIsNewTrailerPriceUnlocked(true);
-                        } else {
-                          alert('Invalid PIN');
-                        }
+                      if (!isPriceUnlockedGlobally && onUnlockPrices) {
+                        onUnlockPrices();
                       }
                     }}
                     value={newTrailerData.sale_price}
@@ -740,6 +739,8 @@ function Dashboard({
           }}
           shippedTrailers={shippedTrailers}
           userRole={userRole}
+          isPriceUnlockedGlobally={isPriceUnlockedGlobally}
+          onUnlockPrices={onUnlockPrices}
         />
       )}
       
@@ -831,17 +832,15 @@ function Dashboard({
               <div className="form-group" style={{ margin: 0 }}>
                 <label className="form-label" style={{ color: '#d97706', fontSize: '0.65rem' }}>Final Sale Price ($)</label>
                 <input 
-                  type={isShippingPriceUnlocked ? "number" : "password"} 
+                  type={isPriceUnlockedGlobally ? "number" : "password"} 
                   className="form-input" 
                   style={{ borderColor: 'rgba(217, 119, 6, 0.3)', background: 'white', fontWeight: 700 }} 
                   placeholder="PIN required"
                   value={shippingForm.sale_price}
                   onChange={e => setShippingForm(prev => ({ ...prev, sale_price: e.target.value }))}
                   onFocus={() => {
-                    if (!isShippingPriceUnlocked) {
-                      const pin = prompt('Enter Manager PIN to unlock price:');
-                      if (pin === '0000') setIsShippingPriceUnlocked(true);
-                      else alert('Invalid PIN');
+                    if (!isPriceUnlockedGlobally && onUnlockPrices) {
+                      onUnlockPrices();
                     }
                   }}
                 />
@@ -1081,6 +1080,22 @@ function App() {
 
   const [catalogModels, setCatalogModels] = useState<CatalogModel[]>([]);
   const [shippedTrailers, setShippedTrailers] = useState<ShippedTrailer[]>([]);
+
+  const [isPriceUnlockedGlobally, setIsPriceUnlockedGlobally] = useState(() => {
+    return localStorage.getItem('lanetrailers_price_unlocked') === 'true';
+  });
+
+  const unlockPricesGlobally = () => {
+    const pin = prompt('Enter Manager PIN to unlock ALL prices:');
+    if (pin === '0000') {
+      setIsPriceUnlockedGlobally(true);
+      localStorage.setItem('lanetrailers_price_unlocked', 'true');
+      return true;
+    } else {
+      alert('Invalid PIN');
+      return false;
+    }
+  };
 
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     const saved = localStorage.getItem('lane-trailers-theme');
@@ -1786,13 +1801,15 @@ function getSuggestedBay(): StationId {
               redoStack={redoStack}
               handleRedo={handleRedo}
               localModelCategories={localModelCategories}
+              isPriceUnlockedGlobally={isPriceUnlockedGlobally}
+              onUnlockPrices={unlockPricesGlobally}
             />} />
-            <Route path="/backlog" element={<BacklogView trailers={trailers} onAddTrailer={addTrailer} onUpdateTrailer={updateTrailer} suggestedBay={suggestedBay} nextSuggestedSerial={nextSuggestedSerial} localModelCategories={localModelCategories} localTargetHours={localTargetHours} userRole={userRole} />} />
-            <Route path="/stations" element={<StationView trailers={trailers} setTrailers={setTrailers} onUpdateTrailer={updateTrailer} bayCapacities={bayCapacities} onUpdateCapacity={updateCapacity} localTargetHours={localTargetHours} userRole={userRole} />} />
+            <Route path="/backlog" element={<BacklogView trailers={trailers} onAddTrailer={addTrailer} onUpdateTrailer={updateTrailer} suggestedBay={suggestedBay} nextSuggestedSerial={nextSuggestedSerial} localModelCategories={localModelCategories} localTargetHours={localTargetHours} userRole={userRole} isPriceUnlockedGlobally={isPriceUnlockedGlobally} onUnlockPrices={unlockPricesGlobally} />} />
+            <Route path="/stations" element={<StationView trailers={trailers} setTrailers={setTrailers} onUpdateTrailer={updateTrailer} bayCapacities={bayCapacities} onUpdateCapacity={updateCapacity} localTargetHours={localTargetHours} userRole={userRole} isPriceUnlockedGlobally={isPriceUnlockedGlobally} onUnlockPrices={unlockPricesGlobally} />} />
             <Route path="/tv" element={<TVView trailers={trailers} localTargetHours={localTargetHours} userRole={userRole} />} />
             <Route path="/tv/station1" element={<TVView trailers={trailers} monitorMode="station1" localTargetHours={localTargetHours} userRole={userRole} />} />
             <Route path="/tv/station2" element={<TVView trailers={trailers} monitorMode="station2" localTargetHours={localTargetHours} userRole={userRole} />} />
-            <Route path="/archive" element={<ArchiveView trailers={trailers} onUpdateTrailer={updateTrailer} localTargetHours={localTargetHours} shippedTrailers={shippedTrailers} userRole={userRole} />} />
+            <Route path="/archive" element={<ArchiveView trailers={trailers} onUpdateTrailer={updateTrailer} localTargetHours={localTargetHours} shippedTrailers={shippedTrailers} userRole={userRole} isPriceUnlockedGlobally={isPriceUnlockedGlobally} onUnlockPrices={unlockPricesGlobally} />} />
             <Route path="/schedule" element={<ScheduleView trailers={trailers} />} />
             <Route path="/catalog" element={<CatalogView categories={localModelCategories} hours={localTargetHours} specs={localModelSpecs} onAddModel={handleAddModel} onEditModel={handleEditModel} onDeleteModel={handleDeleteModel} userRole={userRole} />} />
           </Routes>
