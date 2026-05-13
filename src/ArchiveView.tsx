@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import * as XLSX from 'xlsx';
-import { ArrowLeft, Clock, Truck, Search, ChevronRight, Package, Eye, EyeOff, Image, Hash, User, DollarSign, BarChart3, Download, Upload, Maximize, Minimize } from 'lucide-react';
+import { ArrowLeft, Clock, Truck, Search, ChevronRight, Package, Eye, EyeOff, Image, Hash, User, DollarSign, BarChart3, Download, Upload } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import type { Trailer, PhaseId, ShippedTrailer, UserRole } from './types';
 import { TrailerDetailsModal } from './components/TrailerDetailsModal';
@@ -204,25 +204,6 @@ export const ArchiveView: React.FC<Props> = ({ trailers, onUpdateTrailer, localT
       t.model.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
-  const [isFullscreen, setIsFullscreen] = useState(!!document.fullscreenElement);
-
-  useEffect(() => {
-    const handleFsChange = () => setIsFullscreen(!!document.fullscreenElement);
-    document.addEventListener('fullscreenchange', handleFsChange);
-    return () => document.removeEventListener('fullscreenchange', handleFsChange);
-  }, []);
-
-  const toggleFullscreen = () => {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().catch(err => {
-        console.error(`Error attempting to enable full-screen mode: ${err.message}`);
-      });
-    } else {
-      if (document.exitFullscreen) {
-        document.exitFullscreen();
-      }
-    }
-  };
 
   const selectedTrailer = trailers.find(t => t.id === selectedTrailerId);
   const selectedShipped = shippedTrailers.find(t => t.serial_number === selectedSerial);
@@ -269,11 +250,6 @@ export const ArchiveView: React.FC<Props> = ({ trailers, onUpdateTrailer, localT
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <button className="btn btn-secondary btn-icon" onClick={toggleFullscreen} style={{ width: '38px', height: '38px', borderRadius: '12px' }} title="Full Screen">
-            {isFullscreen ? <Minimize size={16} /> : <Maximize size={16} />}
-          </button>
-        </div>
 
         <div className="archive-header-right" style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(255,255,255,0.03)', padding: '0.4rem 0.75rem', borderRadius: '10px', border: '1px solid var(--border-default)' }}>

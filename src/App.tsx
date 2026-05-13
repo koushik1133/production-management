@@ -41,7 +41,6 @@ import {
   Clock,
   Archive,
   Crown,
-  BarChart3,
   ChevronLeft,
   ChevronRight,
   Calendar,
@@ -51,7 +50,11 @@ import {
   Moon,
   Undo2,
   Redo2,
-  Maximize
+  Maximize,
+  Minimize,
+  Settings,
+  Minus,
+  RotateCcw
 } from 'lucide-react';
 
 import { 
@@ -210,17 +213,6 @@ function Dashboard({
     }
   };
 
-  const toggleFullscreen = () => {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().catch(err => {
-        console.error(`Error attempting to enable full-screen mode: ${err.message}`);
-      });
-    } else {
-      if (document.exitFullscreen) {
-        document.exitFullscreen();
-      }
-    }
-  };
 
   const handleShipSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -390,7 +382,6 @@ function Dashboard({
           <div className="scroll-arrows-group hide-on-mobile" style={{ display: 'flex', gap: '0.2rem', marginLeft: '0.25rem' }}>
             <button className="btn btn-secondary btn-icon" onClick={() => scrollBoard('left')} style={{ width: '30px', height: '30px', borderRadius: '6px' }}><ChevronLeft size={12} /></button>
             <button className="btn btn-secondary btn-icon" onClick={() => scrollBoard('right')} style={{ width: '30px', height: '30px', borderRadius: '6px' }}><ChevronRight size={12} /></button>
-            <button className="btn btn-secondary btn-icon" onClick={toggleFullscreen} style={{ width: '30px', height: '30px', borderRadius: '6px' }} title="Full Screen"><Maximize size={12} /></button>
           </div>
         </div>
 
@@ -561,45 +552,38 @@ function Dashboard({
           <Clock size={16} style={{ color: '#fbbf24', flexShrink: 0 }} />
 
           <div className="strip-item">
-            <span className="strip-label desktop-label">WORKLOAD REMAINING:</span>
-            <span className="strip-label mobile-label">WORKLOAD:</span>
+            <span className="strip-label">WORKLOAD REMAINING:</span>
             <span className="strip-value highlight">{Math.round(totalWorkRemaining)}h</span>
           </div>
 
           <div className="strip-divider" />
 
           <div className="strip-item">
-            <span className="strip-label desktop-label">PRODUCTION RUNWAY:</span>
-            <span className="strip-label mobile-label">RUNWAY:</span>
+            <span className="strip-label">PRODUCTION RUNWAY:</span>
             <span className="strip-value">~{runwayWeeks < 1 ? '<1' : Math.round(runwayWeeks)}w</span>
           </div>
 
           <div className="strip-divider" />
 
           <div className="strip-item">
-            <span className="strip-label desktop-label">TOTAL PIPELINE UNITS:</span>
-            <span className="strip-label mobile-label">UNITS:</span>
+            <span className="strip-label">TOTAL UNITS:</span>
             <span className="strip-value">{trailers.filter(t => !t.isArchived && !t.isDeleted).length}</span>
           </div>
-        </div>
 
-        <div className="strip-stats hide-on-mobile">
-          <span>Active: {trailers.filter(t => !t.isArchived && t.currentPhase !== 'shipping').length}</span>
-          <span>Avg: {trailers.filter(t => !t.isArchived && t.currentPhase !== 'shipping').length > 0 ? Math.round(totalProductionTime / Math.max(trailers.filter(t => !t.isArchived && t.currentPhase !== 'shipping').length, 1)) : 0}h/unit</span>
-        </div>
+          <div className="strip-divider hide-on-mobile" />
 
+          <div className="strip-stats hide-on-mobile">
+            <div className="strip-item">
+              <span className="strip-label">ACTIVE:</span>
+              <span className="strip-value">{trailers.filter(t => !t.isArchived && t.currentPhase !== 'shipping').length}</span>
+            </div>
+            <div className="strip-item">
+              <span className="strip-label">AVG TIME:</span>
+              <span className="strip-value">{trailers.filter(t => !t.isArchived && t.currentPhase !== 'shipping').length > 0 ? Math.round(totalProductionTime / Math.max(trailers.filter(t => !t.isArchived && t.currentPhase !== 'shipping').length, 1)) : 0}h/unit</span>
+            </div>
+          </div>
+        </div>
       </div>
-
-      <footer className="dashboard-footer">
-        <div className="footer-legend">
-          <span><span className="dot delay">●</span> Bottleneck Delay</span>
-          <span><Crown size={12} className="priority-icon" /> High Priority</span>
-        </div>
-        <span style={{ flex: 1 }}></span>
-        <button className="btn btn-secondary stats-btn" onClick={() => setIsStatsModalOpen(true)}>
-          <BarChart3 size={14} /> Production Stats
-        </button>
-      </footer>
 
       <Modal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} title="Quick Unit Registration">
         <form onSubmit={handleAddTrailer}>
@@ -1062,6 +1046,34 @@ function App() {
   // Undo/Redo stacks
   const [undoStack, setUndoStack] = useState<Array<Array<{ id: string } & Partial<Trailer>>>>([]);
   const [redoStack, setRedoStack] = useState<Array<Array<{ id: string } & Partial<Trailer>>>>([]);
+
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [zoomLevel, setZoomLevel] = useState(() => {
+    const saved = localStorage.getItem('lane-trailers-zoom');
+    return saved ? parseFloat(saved) : 1.0;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('lane-trailers-zoom', zoomLevel.toString());
+  }, [zoomLevel]);
+
+  const adjustZoom = (delta: number) => {
+    setZoomLevel(prev => Math.min(Math.max(prev + delta, 0.5), 1.5));
+  };
+
+  const resetZoom = () => setZoomLevel(1.0);
+
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(err => {
+        console.error(`Error attempting to enable full-screen mode: ${err.message}`);
+      });
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      }
+    }
+  };
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -1773,7 +1785,52 @@ function getSuggestedBay(): StationId {
   return (
     <AuthGate>
       {(userRole) => (
-        <>
+        <div className="app-container" style={{ transform: `scale(${zoomLevel})`, width: `${100 / zoomLevel}%`, height: `${100 / zoomLevel}%` }}>
+          <div className="floating-settings-container">
+            <button 
+              className={`settings-fab ${isSettingsOpen ? 'active' : ''}`}
+              onClick={() => setIsSettingsOpen(!isSettingsOpen)}
+              title="Settings"
+            >
+              <Settings size={24} />
+            </button>
+
+            {isSettingsOpen && (
+              <div className="settings-menu-panel">
+                <div className="settings-group">
+                  <span className="settings-group-title">Display Settings</span>
+                  <div className="settings-row">
+                    <span style={{ fontSize: '0.875rem', fontWeight: 600 }}>Theme Mode</span>
+                    <button className="btn btn-secondary" onClick={() => setTheme(prev => prev === 'light' ? 'dark' : 'light')} style={{ padding: '0.4rem 0.8rem' }}>
+                      {theme === 'light' ? <><Moon size={14} /> Dark</> : <><Sun size={14} /> Light</>}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="settings-group">
+                  <span className="settings-group-title">Screen Adjustment</span>
+                  <div className="settings-row">
+                    <span style={{ fontSize: '0.875rem', fontWeight: 600 }}>Zoom Level</span>
+                    <div className="zoom-controls">
+                      <button className="zoom-btn" onClick={() => adjustZoom(-0.1)}><Minus size={14} /></button>
+                      <span className="zoom-value">{Math.round(zoomLevel * 100)}%</span>
+                      <button className="zoom-btn" onClick={() => adjustZoom(0.1)}><Plus size={14} /></button>
+                    </div>
+                  </div>
+                  <button className="btn btn-secondary settings-action-btn" onClick={resetZoom}>
+                    <RotateCcw size={14} /> Back to Original
+                  </button>
+                </div>
+
+                <div className="settings-group">
+                  <span className="settings-group-title">System</span>
+                  <button className="btn btn-secondary settings-action-btn" onClick={toggleFullscreen}>
+                    {document.fullscreenElement ? <><Minimize size={14} /> Exit Fullscreen</> : <><Maximize size={14} /> Go Fullscreen</>}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
           <Routes>
             <Route path="/" element={<Dashboard 
               trailers={trailers} 
@@ -1873,7 +1930,7 @@ function getSuggestedBay(): StationId {
               </div>
             </Modal>
           )}
-        </>
+        </div>
       )}
     </AuthGate>
   );
