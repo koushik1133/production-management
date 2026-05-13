@@ -98,7 +98,7 @@
   overflow-y: auto;
   min-height: 0;
   min-width: 0;
-  padding: 1.5rem 1.5vw 1rem 1.5vw; /* Reduced bottom padding to remove extra space */
+  padding: 0.85rem 1.5vw 1rem 1.5vw; /* Reduced top padding to minimize gap with header */
   gap: 1.25rem;
   scrollbar-width: auto;
   scrollbar-color: var(--accent) transparent;
@@ -751,10 +751,13 @@
   .kanban-column { min-width: 260px; flex: 1 1 280px; }
 }
 
+@media (max-width: 1281px) {
+  .scroll-arrows-group { display: none !important; }
+}
+
 @media (max-width: 1024px) {
   .header-left { gap: 1rem; }
   .header-logo-img { height: 32px !important; }
-  .scroll-arrows-group { display: none !important; }
 }
 
 @media (max-width: 768px) {
@@ -1746,7 +1749,7 @@
   }
 
   .stats-btn {
-    display: none !important;
+    display: flex !important; /* Force show the stats button on mobile/tablet footer */
   }
 
   .hide-on-mobile {
