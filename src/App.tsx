@@ -1080,8 +1080,8 @@ function App() {
     }),
     useSensor(TouchSensor, {
       activationConstraint: {
-        delay: 1000, // 1 second hold to start drag on touch devices
-        tolerance: 5, // Very strict tolerance during hold
+        delay: 400, // 0.4 second hold to start drag (better responsiveness)
+        tolerance: 15, // More forgiving tolerance for finger movement
       },
     }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
@@ -1793,39 +1793,54 @@ function getSuggestedBay(): StationId {
             </button>
 
             {isSettingsOpen && (
-              <div className="settings-menu-panel">
-                <div className="settings-group">
-                  <span className="settings-group-title">Display Settings</span>
-                  <div className="settings-row">
-                    <span style={{ fontSize: '0.875rem', fontWeight: 600 }}>Theme Mode</span>
-                    <button className="btn btn-secondary" onClick={() => setTheme(prev => prev === 'light' ? 'dark' : 'light')} style={{ padding: '0.4rem 0.8rem' }}>
-                      {theme === 'light' ? <><Moon size={14} /> Dark</> : <><Sun size={14} /> Light</>}
+              <>
+                <div 
+                  className="settings-backdrop" 
+                  onClick={() => setIsSettingsOpen(false)} 
+                  style={{ 
+                    position: 'fixed', 
+                    top: 0, 
+                    left: 0, 
+                    right: 0, 
+                    bottom: 0, 
+                    zIndex: 1050,
+                    background: 'transparent'
+                  }} 
+                />
+                <div className="settings-menu-panel" style={{ zIndex: 1100 }}>
+                  <div className="settings-group">
+                    <span className="settings-group-title">Display Settings</span>
+                    <div className="settings-row">
+                      <span style={{ fontSize: '0.875rem', fontWeight: 600 }}>Theme Mode</span>
+                      <button className="btn btn-secondary" onClick={() => setTheme(prev => prev === 'light' ? 'dark' : 'light')} style={{ padding: '0.4rem 0.8rem' }}>
+                        {theme === 'light' ? <><Moon size={14} /> Dark</> : <><Sun size={14} /> Light</>}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="settings-group">
+                    <span className="settings-group-title">Screen Adjustment</span>
+                    <div className="settings-row">
+                      <span style={{ fontSize: '0.875rem', fontWeight: 600 }}>Zoom Level</span>
+                      <div className="zoom-controls">
+                        <button className="zoom-btn" onClick={() => adjustZoom(-0.1)}><Minus size={14} /></button>
+                        <span className="zoom-value">{Math.round(zoomLevel * 100)}%</span>
+                        <button className="zoom-btn" onClick={() => adjustZoom(0.1)}><Plus size={14} /></button>
+                      </div>
+                    </div>
+                    <button className="btn btn-secondary settings-action-btn" onClick={resetZoom}>
+                      <RotateCcw size={14} /> Back to Original
+                    </button>
+                  </div>
+
+                  <div className="settings-group">
+                    <span className="settings-group-title">System</span>
+                    <button className="btn btn-secondary settings-action-btn" onClick={toggleFullscreen}>
+                      {document.fullscreenElement ? <><Minimize size={14} /> Exit Fullscreen</> : <><Maximize size={14} /> Go Fullscreen</>}
                     </button>
                   </div>
                 </div>
-
-                <div className="settings-group">
-                  <span className="settings-group-title">Screen Adjustment</span>
-                  <div className="settings-row">
-                    <span style={{ fontSize: '0.875rem', fontWeight: 600 }}>Zoom Level</span>
-                    <div className="zoom-controls">
-                      <button className="zoom-btn" onClick={() => adjustZoom(-0.1)}><Minus size={14} /></button>
-                      <span className="zoom-value">{Math.round(zoomLevel * 100)}%</span>
-                      <button className="zoom-btn" onClick={() => adjustZoom(0.1)}><Plus size={14} /></button>
-                    </div>
-                  </div>
-                  <button className="btn btn-secondary settings-action-btn" onClick={resetZoom}>
-                    <RotateCcw size={14} /> Back to Original
-                  </button>
-                </div>
-
-                <div className="settings-group">
-                  <span className="settings-group-title">System</span>
-                  <button className="btn btn-secondary settings-action-btn" onClick={toggleFullscreen}>
-                    {document.fullscreenElement ? <><Minimize size={14} /> Exit Fullscreen</> : <><Maximize size={14} /> Go Fullscreen</>}
-                  </button>
-                </div>
-              </div>
+              </>
             )}
           </div>
           <Routes>
