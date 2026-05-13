@@ -52,7 +52,8 @@ import {
   Redo2,
   Maximize,
   Minimize,
-  Settings
+  Settings,
+  BarChart2
 } from 'lucide-react';
 
 import { 
@@ -576,6 +577,29 @@ function Dashboard({
             <span className="strip-label">AVG TIME:</span>
             <span className="strip-value">{trailers.filter(t => !t.isArchived && t.currentPhase !== 'shipping').length > 0 ? Math.round(totalProductionTime / Math.max(trailers.filter(t => !t.isArchived && t.currentPhase !== 'shipping').length, 1)) : 0}h/unit</span>
           </div>
+          
+          <button 
+            className="btn btn-secondary stats-btn" 
+            onClick={() => setIsStatsModalOpen(true)}
+            style={{ 
+              height: '26px', 
+              padding: '0 0.6rem', 
+              fontSize: '0.65rem', 
+              borderRadius: '6px',
+              marginLeft: '0.75rem',
+              background: 'rgba(59, 130, 246, 0.1)',
+              borderColor: 'rgba(59, 130, 246, 0.2)',
+              color: '#60a5fa',
+              fontWeight: 800,
+              textTransform: 'uppercase',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px'
+            }}
+          >
+            <BarChart2 size={12} />
+            Stats
+          </button>
         </div>
       </div>
 
