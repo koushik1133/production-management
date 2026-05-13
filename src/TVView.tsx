@@ -5,6 +5,7 @@ import { Modal } from './components/Modal';
 import type { Trailer, PhaseId, UserRole } from './types';
 import { PHASES } from './types';
 import { TrailerCard } from './components/TrailerCard';
+import { format } from 'date-fns';
 
 interface Props {
   trailers: Trailer[];
@@ -12,6 +13,8 @@ interface Props {
   localTargetHours: Record<string, Record<PhaseId, number>>;
   userRole: UserRole;
 }
+
+import logo from './assets/lane-logo-v4.png';
 
 const TVView: React.FC<Props> = ({ trailers, monitorMode: initialMode = 'all', localTargetHours, userRole }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -64,30 +67,20 @@ const TVView: React.FC<Props> = ({ trailers, monitorMode: initialMode = 'all', l
     return PHASES.map(p => ({ id: p.id, title: p.title, type: 'phase' }));
   })();
 
-  const monitorTitle = monitorMode === 'station1' ? 'Station 1 Progress' : monitorMode === 'station2' ? 'Station 2 Progress' : 'Live Production Stream';
+  const monitorTitle = monitorMode === 'station1' ? 'STATION 1' : monitorMode === 'station2' ? 'STATION 2' : 'FULL PIPELINE';
 
   useEffect(() => {
-    // Disable auto-scroll on mobile/tablet to avoid 'skipping' behavior
     if (window.innerWidth < 1024) return;
-
     const scrollContainer = scrollRef.current;
     if (!scrollContainer) return;
-    
     let direction = 1;
     const scrollInterval = setInterval(() => {
       const { scrollLeft, scrollWidth, clientWidth } = scrollContainer;
-      
       if (scrollWidth <= clientWidth) return;
-
-      if (scrollLeft + clientWidth >= scrollWidth - 2) {
-        direction = -1;
-      } else if (scrollLeft <= 0) {
-        direction = 1;
-      }
-      
+      if (scrollLeft + clientWidth >= scrollWidth - 2) direction = -1;
+      else if (scrollLeft <= 0) direction = 1;
       scrollContainer.scrollBy({ left: 2 * direction, behavior: 'auto' });
     }, 40);
-    
     return () => clearInterval(scrollInterval);
   }, [monitorMode]);
 
@@ -102,7 +95,7 @@ const TVView: React.FC<Props> = ({ trailers, monitorMode: initialMode = 'all', l
       overflow: 'hidden'
     },
     header: {
-      background: isDarkMode ? '#18181b' : 'white',
+      background: isDarkMode ? '#111114' : 'white',
       borderBottom: `1px solid ${isDarkMode ? '#27272a' : '#e2e8f0'}`,
     },
     column: {
@@ -113,84 +106,130 @@ const TVView: React.FC<Props> = ({ trailers, monitorMode: initialMode = 'all', l
   };
 
   const getMonitorBtnStyle = (mode: string) => ({
-    padding: '0.4rem 0.8rem',
-    borderRadius: '6px',
+    padding: '0.4rem 1rem',
+    borderRadius: '8px',
     fontSize: '0.75rem',
-    fontWeight: 700,
+    fontWeight: 800,
     cursor: 'pointer',
-    background: monitorMode === mode ? '#3b82f6' : 'transparent',
-    color: monitorMode === mode ? 'white' : themeStyles.textMuted,
-    border: `1px solid ${monitorMode === mode ? '#3b82f6' : isDarkMode ? '#3f3f46' : '#e2e8f0'}`,
-    transition: 'all 0.2s'
+    background: monitorMode === mode ? (isDarkMode ? '#27272a' : '#fff') : 'transparent',
+    color: monitorMode === mode ? (isDarkMode ? 'white' : '#1e293b') : themeStyles.textMuted,
+    border: 'none',
+    boxShadow: monitorMode === mode ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+    transition: 'all 0.2s',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.4rem'
   });
 
   return (
     <div className="tv-view-container" style={themeStyles.app}>
-      <header className="header" style={{ ...themeStyles.header, padding: '0.5rem 1rem', height: 'auto', flexWrap: 'wrap', gap: '0.5rem' }}>
-        <div className="header-left" style={{ flex: 1, minWidth: '200px' }}>
+      <header className="header" style={{ 
+        ...themeStyles.header, 
+        padding: '0 1.5rem', 
+        height: '64px', 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'space-between',
+        flexWrap: 'nowrap',
+        gap: '2rem'
+      }}>
+        {/* Left Section: Branding & Title */}
+        <div className="header-left" style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexShrink: 0 }}>
           <Link to="/" className="btn btn-secondary" style={{ 
-            padding: '0.4rem 0.6rem',
-            color: isDarkMode ? 'white' : '#1e293b', 
-            borderColor: isDarkMode ? '#3f3f46' : '#e2e8f0',
-            background: isDarkMode ? 'transparent' : 'white'
+            padding: '0.4rem 0.75rem',
+            borderRadius: '10px',
+            color: isDarkMode ? '#a1a1aa' : '#64748b', 
+            borderColor: isDarkMode ? '#27272a' : '#e2e8f0',
+            background: isDarkMode ? '#18181b' : 'white',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            fontSize: '0.75rem',
+            fontWeight: 700
           }}>
-            <ArrowLeft size={16} /> <span style={{ fontSize: '0.8rem' }}>Exit</span>
+            <ArrowLeft size={14} /> Exit
           </Link>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginLeft: '0.75rem' }}>
-            <Tv size={24} color="#3b82f6" />
-            <h1 style={{ fontSize: '1.25rem', fontWeight: 800, letterSpacing: '-0.02em', whiteSpace: 'nowrap' }}>{monitorTitle}</h1>
+          
+          <div style={{ width: '1px', height: '24px', background: isDarkMode ? '#27272a' : '#e2e8f0' }} />
+          
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <div style={{ background: '#000', padding: '3px 6px', borderRadius: '6px', display: 'flex', alignItems: 'center' }}>
+              <img src={logo} alt="Logo" style={{ height: '32px' }} />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <h1 style={{ fontSize: '0.9rem', fontWeight: 900, letterSpacing: '0.02em', color: isDarkMode ? 'white' : '#1e293b', margin: 0 }}>{monitorTitle}</h1>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'rgba(34, 197, 94, 0.1)', padding: '2px 6px', borderRadius: '4px' }}>
+                  <div style={{ width: '6px', height: '6px', background: '#22c55e', borderRadius: '50%', animation: 'pulse 2s infinite' }} />
+                  <span style={{ fontSize: '0.65rem', fontWeight: 800, color: '#22c55e' }}>LIVE</span>
+                </div>
+              </div>
+              <span style={{ fontSize: '0.65rem', fontWeight: 600, color: themeStyles.textMuted, letterSpacing: '0.05em' }}>PRODUCTION STREAM</span>
+            </div>
           </div>
         </div>
 
-        <div className="header-center" style={{ display: 'flex', gap: '0.25rem', background: isDarkMode ? '#09090b' : '#f1f5f9', padding: '3px', borderRadius: '8px', overflowX: 'auto' }}>
-          <button onClick={() => setMonitorMode('all')} style={getMonitorBtnStyle('all')}>ALL</button>
-          <button onClick={() => setMonitorMode('station1')} style={getMonitorBtnStyle('station1')}>ST 1</button>
-          <button onClick={() => setMonitorMode('station2')} style={getMonitorBtnStyle('station2')}>ST 2</button>
+        {/* Center Section: Monitor Selection */}
+        <div className="header-center" style={{ 
+          display: 'flex', 
+          gap: '0.25rem', 
+          background: isDarkMode ? '#09090b' : '#f1f5f9', 
+          padding: '4px', 
+          borderRadius: '12px',
+          border: `1px solid ${isDarkMode ? '#27272a' : '#e2e8f0'}`
+        }}>
+          <button onClick={() => setMonitorMode('all')} style={getMonitorBtnStyle('all')}>
+            <Tv size={14} /> ALL STATIONS
+          </button>
+          <button onClick={() => setMonitorMode('station1')} style={getMonitorBtnStyle('station1')}>STATION 1</button>
+          <button onClick={() => setMonitorMode('station2')} style={getMonitorBtnStyle('station2')}>STATION 2</button>
         </div>
 
-        <div className="header-right" style={{ gap: '0.5rem', marginLeft: 'auto' }}>
-          <div style={{ display: 'flex', background: isDarkMode ? '#27272a' : '#f1f5f9', padding: '3px', borderRadius: '10px' }}>
-            <button onClick={() => setIsDarkMode(false)} style={{ background: !isDarkMode ? 'white' : 'transparent', border: 'none', padding: '4px 8px', borderRadius: '8px', cursor: 'pointer', color: isDarkMode ? '#a1a1aa' : '#1e293b' }}>
+        {/* Right Section: Utilities & Clock */}
+        <div className="header-right" style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexShrink: 0 }}>
+          <div className="clock-pill" style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '0.75rem', 
+            background: isDarkMode ? '#18181b' : 'white', 
+            padding: '0.4rem 0.8rem', 
+            borderRadius: '10px',
+            border: `1px solid ${isDarkMode ? '#27272a' : '#e2e8f0'}`,
+            fontSize: '0.9rem',
+            fontWeight: 800,
+            color: isDarkMode ? 'white' : '#1e293b'
+          }}>
+            <span style={{ color: themeStyles.textMuted, fontSize: '0.75rem', fontWeight: 600 }}>{format(currentTime, 'hh:mm')}</span>
+            <span style={{ fontSize: '0.75rem', fontWeight: 400, opacity: 0.3 }}>|</span>
+            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--accent)' }}>{format(currentTime, 'ss')}</span>
+          </div>
+
+          <div style={{ display: 'flex', background: isDarkMode ? '#18181b' : 'white', padding: '3px', borderRadius: '10px', border: `1px solid ${isDarkMode ? '#27272a' : '#e2e8f0'}` }}>
+            <button onClick={() => setIsDarkMode(false)} style={{ background: !isDarkMode ? (isDarkMode ? '#3f3f46' : '#f1f5f9') : 'transparent', border: 'none', padding: '6px', borderRadius: '8px', cursor: 'pointer', color: isDarkMode ? '#a1a1aa' : '#1e293b', display: 'flex' }}>
               <Sun size={14} />
             </button>
-            <button onClick={() => setIsDarkMode(true)} style={{ background: isDarkMode ? '#3f3f46' : 'transparent', border: 'none', padding: '4px 8px', borderRadius: '8px', cursor: 'pointer', color: isDarkMode ? 'white' : '#64748b' }}>
+            <button onClick={() => setIsDarkMode(true)} style={{ background: isDarkMode ? '#27272a' : 'transparent', border: 'none', padding: '6px', borderRadius: '8px', cursor: 'pointer', color: isDarkMode ? 'white' : '#64748b', display: 'flex' }}>
               <Moon size={14} />
             </button>
           </div>
-          <div style={{ fontSize: '1rem', fontWeight: 800, color: themeStyles.textMuted, background: isDarkMode ? '#27272a' : '#f1f5f9', padding: '0.4rem 0.75rem', borderRadius: '8px' }}>
-            {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          
+          <div style={{ display: 'flex', gap: '0.4rem' }}>
+            <button 
+              className="btn btn-secondary" 
+              onClick={toggleFullscreen}
+              style={{ padding: '0.5rem', borderRadius: '10px', background: isDarkMode ? '#18181b' : 'white', borderColor: isDarkMode ? '#27272a' : '#e2e8f0' }}
+            >
+              {isFullscreen ? <Minimize size={16} /> : <Maximize size={16} />}
+            </button>
+            
+            <button 
+              className="btn btn-secondary" 
+              onClick={() => setIsCastModalOpen(true)}
+              style={{ padding: '0.5rem', borderRadius: '10px', background: isDarkMode ? '#18181b' : 'white', borderColor: isDarkMode ? '#27272a' : '#e2e8f0' }}
+            >
+              <Share2 size={16} />
+            </button>
           </div>
-          
-          <button 
-            className="btn btn-secondary" 
-            onClick={toggleFullscreen}
-            style={{ 
-              padding: '0.4rem',
-              color: isDarkMode ? 'white' : '#1e293b', 
-              borderColor: isDarkMode ? '#3f3f46' : '#e2e8f0',
-              background: isDarkMode ? 'transparent' : 'white',
-              borderRadius: '8px'
-            }}
-          >
-            {isFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
-          </button>
-          
-          <button 
-            className="btn btn-secondary" 
-            onClick={() => setIsCastModalOpen(true)}
-            style={{ 
-              padding: '0.4rem', 
-              borderRadius: '8px', 
-              color: isDarkMode ? 'white' : '#1e293b',
-              background: isDarkMode ? '#27272a' : 'white',
-              borderColor: isDarkMode ? '#3f3f46' : '#e2e8f0',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}
-          >
-            <Share2 size={18} />
-          </button>
         </div>
       </header>
 
