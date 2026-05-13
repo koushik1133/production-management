@@ -1061,8 +1061,8 @@ function App() {
     }),
     useSensor(TouchSensor, {
       activationConstraint: {
-        delay: 250, // 250ms hold to start drag on touch devices
-        tolerance: 8, // Allow 8px movement during hold before canceling
+        delay: 1000, // 1 second hold to start drag on touch devices
+        tolerance: 5, // Very strict tolerance during hold
       },
     }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
