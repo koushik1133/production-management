@@ -567,17 +567,16 @@ function Dashboard({
             <span className="strip-value">{trailers.filter(t => !t.isArchived && !t.isDeleted).length}</span>
           </div>
 
-          <div className="strip-divider hide-on-mobile" />
+        </div>
 
-          <div className="strip-stats hide-on-mobile">
-            <div className="strip-item">
-              <span className="strip-label">ACTIVE:</span>
-              <span className="strip-value">{trailers.filter(t => !t.isArchived && t.currentPhase !== 'shipping').length}</span>
-            </div>
-            <div className="strip-item">
-              <span className="strip-label">AVG TIME:</span>
-              <span className="strip-value">{trailers.filter(t => !t.isArchived && t.currentPhase !== 'shipping').length > 0 ? Math.round(totalProductionTime / Math.max(trailers.filter(t => !t.isArchived && t.currentPhase !== 'shipping').length, 1)) : 0}h/unit</span>
-            </div>
+        <div className="strip-stats hide-on-mobile">
+          <div className="strip-item">
+            <span className="strip-label">ACTIVE:</span>
+            <span className="strip-value">{trailers.filter(t => !t.isArchived && t.currentPhase !== 'shipping').length}</span>
+          </div>
+          <div className="strip-item">
+            <span className="strip-label">AVG TIME:</span>
+            <span className="strip-value">{trailers.filter(t => !t.isArchived && t.currentPhase !== 'shipping').length > 0 ? Math.round(totalProductionTime / Math.max(trailers.filter(t => !t.isArchived && t.currentPhase !== 'shipping').length, 1)) : 0}h/unit</span>
           </div>
         </div>
       </div>
