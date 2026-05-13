@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { formatDistanceToNow, format } from 'date-fns';
-import { History, FileText, Send, Crown, Trash2, Image as ImageIcon } from 'lucide-react';
+import { History, FileText, Send, Crown, Trash2, Image as ImageIcon, DollarSign, Lock } from 'lucide-react';
 import type { Trailer, PhaseId, ShippedTrailer, UserRole } from '../types';
 import { BAY_WEEKLY_HOURS, calculateTrailerRemainingHours, PHASES } from '../types';
 import { Modal } from './Modal';
@@ -26,8 +26,10 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
     isPriority: trailer.isPriority || false,
     promisedShippingDate: trailer.promisedShippingDate || '',
     serialNumber: trailer.serialNumber || '',
-    partsStatus: trailer.partsStatus || { steel: false, tyres: false, parts: false }
+    partsStatus: trailer.partsStatus || { steel: false, tyres: false, parts: false },
+    sale_price: trailer.sale_price !== undefined ? trailer.sale_price.toString() : ''
   });
+  const [isPriceUnlocked, setIsPriceUnlocked] = React.useState(false);
   const [localNotes, setLocalNotes] = React.useState(trailer.notes || '');
 
   const phaseTimes = React.useMemo(() => {
@@ -89,6 +91,7 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
     if (isDuplicateSerial) return;
     const updates: Partial<Trailer> = {
       ...editForm,
+      sale_price: editForm.sale_price ? parseFloat(editForm.sale_price) : undefined,
       notes: localNotes 
     };
     onUpdate(trailer.id, updates);
@@ -148,6 +151,27 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                 <label style={{ fontSize: '0.85rem', fontWeight: 800, color: '#be123c', letterSpacing: '0.02em', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                   <Crown size={18} /> SET AS HIGH PRIORITY UNIT
                 </label>
+              </div>
+              <div style={{ background: 'rgba(217, 119, 6, 0.05)', padding: '1rem', borderRadius: '12px', border: '1px solid rgba(217, 119, 6, 0.2)' }}>
+                <label className="form-label" style={{ color: '#d97706', fontSize: '0.75rem', fontWeight: 800 }}>Sale Price ($)</label>
+                <div style={{ position: 'relative' }}>
+                  <input 
+                    type={isPriceUnlocked ? "number" : "password"}
+                    className="form-input" 
+                    placeholder="PIN required"
+                    style={{ borderColor: '#d97706', background: 'white', fontWeight: 700 }}
+                    value={editForm.sale_price}
+                    onChange={e => setEditForm({ ...editForm, sale_price: e.target.value })}
+                    onFocus={() => {
+                      if (!isPriceUnlocked) {
+                        const pin = prompt('Enter Manager PIN to unlock price:');
+                        if (pin === '0000') setIsPriceUnlocked(true);
+                        else alert('Invalid PIN');
+                      }
+                    }}
+                  />
+                  <DollarSign size={14} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: '#d97706' }} />
+                </div>
               </div>
           </div>
         ) : (
@@ -230,7 +254,26 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: userRole === 'manager' ? '1fr 1fr 1fr' : '1fr 1fr', gap: '1rem' }}>
+              {userRole === 'manager' && (
+                <div 
+                  onClick={() => {
+                    if (!isPriceUnlocked) {
+                      const pin = prompt('Enter Manager PIN to view price:');
+                      if (pin === '0000') setIsPriceUnlocked(true);
+                      else alert('Invalid PIN');
+                    }
+                  }}
+                  style={{ background: 'rgba(217, 119, 6, 0.05)', padding: '0.75rem 1.25rem', borderRadius: '16px', border: '1px solid rgba(217, 119, 6, 0.2)', textAlign: 'right', cursor: 'pointer' }}
+                >
+                  <div style={{ fontSize: '0.65rem', fontWeight: 800, color: '#d97706', textTransform: 'uppercase', marginBottom: '4px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.4rem' }}>
+                    <DollarSign size={10} /> Sale Price
+                  </div>
+                  <div style={{ fontSize: '1rem', fontWeight: 900, color: '#d97706' }}>
+                    {isPriceUnlocked ? (trailer.sale_price ? `$${trailer.sale_price.toLocaleString()}` : 'NOT SET') : '••••••'}
+                  </div>
+                </div>
+              )}
               <div style={{ background: 'rgba(255,255,255,0.03)', padding: '0.75rem 1.25rem', borderRadius: '16px', border: '1px solid var(--border-default)', textAlign: 'right' }}>
                 <div style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>Promised Date</div>
                 <div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)' }}>
