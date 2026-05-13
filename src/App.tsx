@@ -66,7 +66,7 @@ import type { Trailer, PhaseId, StationId, ModelSpec, CatalogModel, ShippedTrail
 const staticModelCategories = MODEL_CATEGORIES;
 
 
-import logo from './assets/logo.jpeg';
+import logo from './assets/lane-logo-v4.png';
 import './App.css';
 
 import { supabase } from './lib/supabase';
@@ -352,113 +352,85 @@ function Dashboard({
   return (
     <div className="app-container">
       <header className="main-header">
-        <div className="header-left">
-          <Link to="/" className="header-logo-link">
-            <img src={logo} alt="Lane Trailers" className="header-logo-img" style={{ height: '36px', filter: 'drop-shadow(0 0 8px rgba(59, 130, 246, 0.3))' }} />
+        <div className="header-left-group" style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, maxWidth: '600px' }}>
+          <Link to="/" className="header-logo-link" style={{ display: 'flex', alignItems: 'center', background: '#000', padding: '3px 8px', borderRadius: '6px', flexShrink: 0 }}>
+            <img src={logo} alt="Lane Trailers" className="header-logo-img" style={{ height: '32px' }} />
           </Link>
-          <div className="header-divider" />
-          <div className="header-clock-section">
-            <div className="header-date">{format(currentTime, 'EEE, MMM d')}</div>
-            <div className="header-time-live">{format(currentTime, 'hh:mm:ss a')}</div>
-          </div>
           
-          <div className="header-search-container mobile-search-inline" style={{ background: 'var(--glass-bg)', border: '1px solid var(--border-default)', borderRadius: '12px' }}>
-            <Search size={14} color="var(--text-muted)" />
-            <input type="text" placeholder="Search..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)', outline: 'none', width: '100%' }} />
-          </div>
-
-          {/* DESKTOP ONLY NAV SCROLL */}
-          <div className="header-nav-scroll hide-on-mobile" style={{ marginLeft: '1rem' }}>
-            <button className="btn btn-secondary btn-icon" onClick={() => scrollBoard('left')} style={{ borderRadius: '10px' }}>
-              <ChevronLeft size={18} />
-            </button>
-            <button className="btn btn-secondary btn-icon" onClick={() => scrollBoard('right')} style={{ borderRadius: '10px' }}>
-              <ChevronRight size={18} />
+          <div className="header-search-and-plus" style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '0.5rem',
+            flex: 1,
+            marginLeft: '0.5rem'
+          }}>
+            <div className="search-container-v3" style={{ 
+              background: 'var(--bg-secondary)', 
+              border: '1px solid var(--border-default)', 
+              borderRadius: '10px', 
+              padding: '0.4rem 0.8rem', 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '0.6rem',
+              flex: 1
+            }}>
+              <Search size={16} color="var(--text-muted)" />
+              <input 
+                type="text" 
+                placeholder="Search..." 
+                value={searchQuery} 
+                onChange={(e) => setSearchQuery(e.target.value)} 
+                style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)', outline: 'none', width: '100%', fontSize: '0.9rem', fontWeight: 600 }} 
+              />
+            </div>
+            <button className="btn btn-secondary" onClick={() => setIsAddModalOpen(true)} style={{ width: '38px', height: '38px', borderRadius: '10px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <Plus size={20} />
             </button>
           </div>
         </div>
 
-        <div className="header-right hide-on-mobile">
-          <button
-            className="btn btn-secondary btn-icon"
-            onClick={handleUndo}
-            disabled={undoStack.length === 0}
-            title="Undo last move"
-            style={{ borderRadius: '10px', opacity: undoStack.length === 0 ? 0.4 : 1 }}
-          >
-            <Undo2 size={16} />
-          </button>
-          <button
-            className="btn btn-secondary btn-icon"
-            onClick={handleRedo}
-            disabled={redoStack.length === 0}
-            title="Redo"
-            style={{ borderRadius: '10px', opacity: redoStack.length === 0 ? 0.4 : 1 }}
-          >
-            <Redo2 size={16} />
-          </button>
+        <div className="header-right-group hide-on-mobile" style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexShrink: 0 }}>
+          <div className="nav-box-v2" style={{ 
+            display: 'flex', 
+            background: 'var(--bg-secondary)', 
+            padding: '0.2rem', 
+            borderRadius: '10px', 
+            border: '1px solid var(--border-default)',
+            alignItems: 'center'
+          }}>
+            <button className="btn btn-secondary" onClick={() => navigate('/catalog')} style={{ height: '32px', padding: '0 0.75rem', fontSize: '0.75rem', borderRadius: '6px', border: 'none', background: 'transparent', fontWeight: 700 }}>Catalog</button>
+            <button className="btn btn-secondary" onClick={() => navigate('/schedule')} style={{ height: '32px', padding: '0 0.75rem', fontSize: '0.75rem', borderRadius: '6px', border: 'none', background: 'transparent', fontWeight: 700 }}>Timeline</button>
+            <button className="btn btn-secondary" onClick={() => navigate('/stations')} style={{ height: '32px', padding: '0 0.75rem', fontSize: '0.75rem', borderRadius: '6px', border: 'none', background: 'transparent', fontWeight: 700 }}>Bays</button>
+            <button className="btn btn-secondary" onClick={() => navigate('/backlog')} style={{ height: '32px', padding: '0 0.75rem', fontSize: '0.75rem', borderRadius: '6px', border: 'none', background: 'transparent', fontWeight: 700 }}>Backlog</button>
+            <button className="btn btn-primary" onClick={() => navigate('/archive')} style={{ height: '32px', padding: '0 0.8rem', fontSize: '0.75rem', borderRadius: '6px', border: 'none', background: 'var(--accent-gradient)', color: 'white', fontWeight: 800 }}>Shipping</button>
+          </div>
           
-          <button className="btn btn-secondary" onClick={() => navigate('/stations')}>
-            <MapPin size={14} /> <span className="btn-text">Bays</span>
-          </button>
-          <button className="btn btn-secondary nav-tv-btn" onClick={() => navigate('/tv')}>
-            <Tv size={14} /> <span className="btn-text">TV Mode</span>
-          </button>
-          <button className="btn btn-secondary" onClick={() => navigate('/catalog')}>
-            <BookOpen size={14} /> <span className="btn-text">Catalog</span>
-          </button>
-          <button className="btn btn-primary register-btn" onClick={() => setIsAddModalOpen(true)}>
-            <Plus size={14} /> <span className="btn-text">Register Unit</span>
-          </button>
-          
-          <div className="header-divider" />
-
-          <button 
-            className="btn btn-secondary btn-icon theme-toggle" 
-            onClick={onToggleTheme}
-            style={{ borderRadius: '12px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-default)' }}
-          >
-            {theme === 'light' ? <Moon size={18} color="#475569" /> : <Sun size={18} color="#fbbf24" />}
-          </button>
-          
-          <button className="btn btn-secondary" onClick={() => navigate('/schedule')}>
-             <Calendar size={14} /> <span className="btn-text">Timeline</span>
-          </button>
-          
-          <button className="btn btn-secondary" onClick={() => navigate('/backlog')}>
-             <Plus size={14} /> <span className="btn-text">Backlog</span>
-          </button>
-          
-          <div className="header-divider" />
-          
-          <button className="btn btn-secondary btn-icon archive-btn shimmer" title="Production Archive" onClick={() => navigate('/archive')} style={{ background: 'var(--accent-gradient)', border: 'none', color: 'white' }}>
-            <Archive size={18} />
-          </button>
-        </div>
-
-        {/* MOBILE ONLY NAV (Restored buttons) */}
-        <div className="header-right show-on-mobile-only" style={{ display: 'none' }}>
-          <button className="btn btn-secondary" onClick={() => navigate('/stations')}>
-            <MapPin size={14} /> <span className="btn-text">Bays</span>
-          </button>
-          <button className="btn btn-secondary" onClick={() => navigate('/catalog')}>
-            <BookOpen size={14} /> <span className="btn-text">Catalog</span>
-          </button>
-          <button className="btn btn-primary register-btn" onClick={() => setIsAddModalOpen(true)}>
-            <Plus size={14} /> <span className="btn-text">Register</span>
-          </button>
-          <button className="btn btn-secondary" onClick={() => navigate('/schedule')}>
-             <Calendar size={14} /> <span className="btn-text">Timeline</span>
-          </button>
-          <button className="btn btn-secondary" onClick={() => navigate('/archive')}>
-             <Archive size={14} /> <span className="btn-text">Shipped</span>
-          </button>
-          <button 
-            className="btn btn-secondary btn-icon theme-toggle" 
-            onClick={onToggleTheme}
-            style={{ borderRadius: '12px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-default)' }}
-          >
+          <button className="btn btn-secondary theme-toggle" onClick={onToggleTheme} style={{ width: '32px', height: '32px', borderRadius: '6px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
+          </button>
+        </div>
+
+        {/* MOBILE BOTTOM ROW NAV BAR */}
+        <div className="show-on-mobile-only" style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.25rem' }}>
+          <div className="mobile-nav-pills" style={{ 
+            display: 'flex', 
+            flex: 1,
+            gap: '0.15rem', 
+            background: 'var(--bg-secondary)', 
+            padding: '0.2rem', 
+            borderRadius: '10px', 
+            border: '1px solid var(--border-default)',
+            alignItems: 'center',
+            justifyContent: 'space-between'
+          }}>
+            <button className="btn btn-secondary" onClick={() => navigate('/catalog')} style={{ flex: 1, height: '32px', padding: '0 0.4rem', fontSize: '0.7rem', borderRadius: '6px', border: 'none', background: 'transparent', fontWeight: 700 }}>Catalog</button>
+            <button className="btn btn-secondary" onClick={() => navigate('/schedule')} style={{ flex: 1, height: '32px', padding: '0 0.4rem', fontSize: '0.7rem', borderRadius: '6px', border: 'none', background: 'transparent', fontWeight: 700 }}>Timeline</button>
+            <button className="btn btn-secondary" onClick={() => navigate('/stations')} style={{ flex: 1, height: '32px', padding: '0 0.4rem', fontSize: '0.7rem', borderRadius: '6px', border: 'none', background: 'transparent', fontWeight: 700 }}>Bays</button>
+            <button className="btn btn-secondary" onClick={() => navigate('/backlog')} style={{ flex: 1, height: '32px', padding: '0 0.4rem', fontSize: '0.7rem', borderRadius: '6px', border: 'none', background: 'transparent', fontWeight: 700 }}>Backlog</button>
+            <button className="btn btn-primary" onClick={() => navigate('/archive')} style={{ flex: 1.2, height: '32px', padding: '0 0.5rem', fontSize: '0.7rem', borderRadius: '6px', border: 'none', background: 'var(--accent-gradient)', color: 'white', fontWeight: 800 }}>Shipping</button>
+          </div>
+          <button className="btn btn-secondary theme-toggle" onClick={onToggleTheme} style={{ width: '36px', height: '36px', borderRadius: '10px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {theme === 'light' ? <Moon size={16} color="#475569" /> : <Sun size={16} color="#fbbf24" />}
           </button>
         </div>
       </header>
@@ -852,82 +824,100 @@ function Dashboard({
 }
 
 function AuthGate({ children }: { children: (role: UserRole) => React.ReactNode }) {
-  const [auth, setAuth] = useState<{ isAuthenticated: boolean; role: UserRole | null }>(() => {
-    const isAuthed = localStorage.getItem('lane-trailers-auth') === 'true';
-    const role = localStorage.getItem('lane-trailers-role') as UserRole;
-    return { isAuthenticated: isAuthed, role: isAuthed ? role : null };
-  });
-  const [pin, setPin] = useState('');
-  const [error, setError] = useState(false);
-  
-  const ROLES_CONFIG: Record<string, UserRole> = {
-    '1234': 'manager',
-    '5678': 'worker'
-  };
+  const [auth, setAuth] = useState<{ isAuthenticated: boolean; role: UserRole | null }>({ isAuthenticated: false, role: null });
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  const handlePinEntry = (digit: string) => {
-    setError(false);
-    if (pin.length < 4) {
-      const newPin = pin + digit;
-      setPin(newPin);
-      if (newPin.length === 4) {
-        const assignedRole = ROLES_CONFIG[newPin];
-        if (assignedRole) {
-          localStorage.setItem('lane-trailers-auth', 'true');
-          localStorage.setItem('lane-trailers-role', assignedRole);
-          setAuth({ isAuthenticated: true, role: assignedRole });
-        } else {
-          setError(true);
-          setTimeout(() => setPin(''), 500);
-        }
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        const role = session.user.email?.toLowerCase().includes('manager') ? 'manager' : 'worker';
+        setAuth({ isAuthenticated: true, role });
       }
+      setLoading(false);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        const role = session.user.email?.toLowerCase().includes('manager') ? 'manager' : 'worker';
+        setAuth({ isAuthenticated: true, role });
+      } else {
+        setAuth({ isAuthenticated: false, role: null });
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+    
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (signInError) {
+      setError(signInError.message);
+      setLoading(false);
     }
   };
+
+  if (loading) {
+    return (
+      <div style={{ height: '100vh', width: '100vw', background: '#09090b', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div className="loading-spinner"></div>
+      </div>
+    );
+  }
 
   if (auth.isAuthenticated && auth.role) return <>{children(auth.role)}</>;
 
   return (
     <div className="auth-gate-container">
-      <div className="auth-gate-header">
-        <img src={logo} alt="Lane Trailers" className="auth-gate-logo" />
-        <h1 className="auth-gate-title">Production Security</h1>
-        <p className="auth-gate-subtitle">Please enter your access PIN to continue.</p>
-      </div>
+      <div className="auth-card">
+        <div className="auth-header">
+          <img src={logo} alt="Lane Trailers" className="auth-logo" />
+          <h1 className="auth-title">Production Portal</h1>
+          <p className="auth-subtitle">Secure access for authorized personnel only.</p>
+        </div>
 
-      <div className="pin-indicator-row">
-        {[0, 1, 2, 3].map(i => (
-          <div key={i} className={`pin-dot ${pin.length > i ? 'active' : ''} ${error ? 'error' : ''}`} />
-        ))}
+        <form onSubmit={handleLogin} className="auth-form">
+          {error && <div className="auth-error">{error}</div>}
+          
+          <div className="form-group">
+            <label className="form-label">Email Address</label>
+            <input 
+              type="email" 
+              className="form-input" 
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              placeholder="e.g. john@company.com"
+              required
+            />
+          </div>
+          
+          <div className="form-group" style={{ marginTop: '1.25rem' }}>
+            <label className="form-label">Password</label>
+            <input 
+              type="password" 
+              className="form-input" 
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              placeholder="••••••••"
+              required
+            />
+          </div>
+          
+          <button type="submit" className="btn btn-primary auth-submit-btn" disabled={loading} style={{ width: '100%', marginTop: '2rem', padding: '0.85rem' }}>
+            {loading ? 'Authenticating...' : 'Sign In'}
+          </button>
+        </form>
       </div>
-
-      <div className="keypad-grid">
-        {['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', '⌫'].map((btn, i) => {
-          if (btn === '') return <div key={i} />;
-          return (
-            <button
-              key={i}
-              className="keypad-button"
-              onClick={() => {
-                if (btn === '⌫') setPin(prev => prev.slice(0, -1));
-                else handlePinEntry(btn);
-              }}
-            >
-              {btn}
-            </button>
-          )
-        })}
-      </div>
-      {error && (
-        <p style={{ marginTop: '2rem', color: '#ef4444', fontWeight: 600, animation: 'shake 0.4s' }}>Incorrect PIN. Please try again.</p>
-      )}
-
-      <style>{`
-        @keyframes shake {
-          0%, 100% { transform: translateX(0); }
-          25% { transform: translateX(-5px); }
-          75% { transform: translateX(5px); }
-        }
-      `}</style>
     </div>
   );
 }
