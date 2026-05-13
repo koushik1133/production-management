@@ -84,26 +84,7 @@ const TVView: React.FC<Props> = ({ trailers, monitorMode: initialMode = 'all', l
     return () => clearInterval(scrollInterval);
   }, [monitorMode]);
 
-  const themeStyles = {
-    app: {
-      background: isDarkMode ? '#09090b' : '#f8fafc',
-      color: isDarkMode ? 'white' : '#1e293b',
-      transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-      minHeight: '100vh',
-      display: 'flex',
-      flexDirection: 'column' as const,
-      overflow: 'hidden'
-    },
-    header: {
-      background: isDarkMode ? '#111114' : 'white',
-      borderBottom: `1px solid ${isDarkMode ? '#27272a' : '#e2e8f0'}`,
-    },
-    column: {
-      background: isDarkMode ? '#18181b' : 'white',
-      border: `1px solid ${isDarkMode ? '#27272a' : '#e2e8f0'}`,
-    },
-    textMuted: isDarkMode ? '#a1a1aa' : '#64748b',
-  };
+  // themeStyles removed in favor of CSS variables
 
   const getMonitorBtnStyle = (mode: string) => ({
     padding: '0.4rem 1rem',
@@ -111,8 +92,8 @@ const TVView: React.FC<Props> = ({ trailers, monitorMode: initialMode = 'all', l
     fontSize: '0.75rem',
     fontWeight: 800,
     cursor: 'pointer',
-    background: monitorMode === mode ? (isDarkMode ? '#27272a' : '#fff') : 'transparent',
-    color: monitorMode === mode ? (isDarkMode ? 'white' : '#1e293b') : themeStyles.textMuted,
+    background: monitorMode === mode ? 'var(--accent)' : 'transparent',
+    color: monitorMode === mode ? 'var(--bg-main)' : 'var(--text-secondary)',
     border: 'none',
     boxShadow: monitorMode === mode ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
     transition: 'all 0.2s',
@@ -122,9 +103,11 @@ const TVView: React.FC<Props> = ({ trailers, monitorMode: initialMode = 'all', l
   });
 
   return (
-    <div className="tv-view-container" style={themeStyles.app}>
+    <div className="tv-view-container" style={{ minHeight: '100vh', background: 'var(--bg-main)', color: 'var(--text-primary)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <header className="header" style={{ 
-        ...themeStyles.header, 
+        background: 'var(--bg-header)',
+        backdropFilter: 'var(--glass-blur)',
+        borderBottom: '1px solid var(--border-default)',
         padding: '0 1.5rem', 
         height: '64px', 
         display: 'flex', 
@@ -138,12 +121,6 @@ const TVView: React.FC<Props> = ({ trailers, monitorMode: initialMode = 'all', l
           <Link to="/" className="btn btn-secondary" style={{ 
             padding: '0.4rem 0.75rem',
             borderRadius: '10px',
-            color: isDarkMode ? '#a1a1aa' : '#64748b', 
-            borderColor: isDarkMode ? '#27272a' : '#e2e8f0',
-            background: isDarkMode ? '#18181b' : 'white',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem',
             fontSize: '0.75rem',
             fontWeight: 700
           }}>
@@ -191,41 +168,41 @@ const TVView: React.FC<Props> = ({ trailers, monitorMode: initialMode = 'all', l
             display: 'flex', 
             alignItems: 'center', 
             gap: '0.75rem', 
-            background: isDarkMode ? '#18181b' : 'white', 
+            background: 'var(--bg-secondary)', 
             padding: '0.4rem 0.8rem', 
             borderRadius: '10px',
-            border: `1px solid ${isDarkMode ? '#27272a' : '#e2e8f0'}`,
+            border: '1px solid var(--border-default)',
             fontSize: '0.9rem',
             fontWeight: 800,
-            color: isDarkMode ? 'white' : '#1e293b'
+            color: 'var(--text-primary)'
           }}>
-            <span style={{ color: themeStyles.textMuted, fontSize: '0.75rem', fontWeight: 600 }}>{format(currentTime, 'hh:mm')}</span>
+            <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 600 }}>{format(currentTime, 'hh:mm')}</span>
             <span style={{ fontSize: '0.75rem', fontWeight: 400, opacity: 0.3 }}>|</span>
             <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--accent)' }}>{format(currentTime, 'ss')}</span>
           </div>
 
-          <div style={{ display: 'flex', background: isDarkMode ? '#18181b' : 'white', padding: '3px', borderRadius: '10px', border: `1px solid ${isDarkMode ? '#27272a' : '#e2e8f0'}` }}>
-            <button onClick={() => setIsDarkMode(false)} style={{ background: !isDarkMode ? (isDarkMode ? '#3f3f46' : '#f1f5f9') : 'transparent', border: 'none', padding: '6px', borderRadius: '8px', cursor: 'pointer', color: isDarkMode ? '#a1a1aa' : '#1e293b', display: 'flex' }}>
+          <div style={{ display: 'flex', background: 'var(--bg-secondary)', padding: '3px', borderRadius: '10px', border: '1px solid var(--border-default)' }}>
+            <button onClick={() => setIsDarkMode(false)} className="btn btn-icon" style={{ padding: '6px', borderRadius: '8px' }}>
               <Sun size={14} />
             </button>
-            <button onClick={() => setIsDarkMode(true)} style={{ background: isDarkMode ? '#27272a' : 'transparent', border: 'none', padding: '6px', borderRadius: '8px', cursor: 'pointer', color: isDarkMode ? 'white' : '#64748b', display: 'flex' }}>
+            <button onClick={() => setIsDarkMode(true)} className="btn btn-icon" style={{ padding: '6px', borderRadius: '8px', background: isDarkMode ? 'var(--accent)' : 'transparent', color: isDarkMode ? 'var(--bg-main)' : undefined }}>
               <Moon size={14} />
             </button>
           </div>
           
           <div style={{ display: 'flex', gap: '0.4rem' }}>
             <button 
-              className="btn btn-secondary" 
+              className="btn btn-secondary btn-icon" 
               onClick={toggleFullscreen}
-              style={{ padding: '0.5rem', borderRadius: '10px', background: isDarkMode ? '#18181b' : 'white', borderColor: isDarkMode ? '#27272a' : '#e2e8f0' }}
+              style={{ padding: '0.5rem', borderRadius: '10px' }}
             >
               {isFullscreen ? <Minimize size={16} /> : <Maximize size={16} />}
             </button>
             
             <button 
-              className="btn btn-secondary" 
+              className="btn btn-secondary btn-icon" 
               onClick={() => setIsCastModalOpen(true)}
-              style={{ padding: '0.5rem', borderRadius: '10px', background: isDarkMode ? '#18181b' : 'white', borderColor: isDarkMode ? '#27272a' : '#e2e8f0' }}
+              style={{ padding: '0.5rem', borderRadius: '10px' }}
             >
               <Share2 size={16} />
             </button>
@@ -317,7 +294,8 @@ const TVView: React.FC<Props> = ({ trailers, monitorMode: initialMode = 'all', l
               key={col.id} 
               className="tv-column" 
               style={{ 
-                ...themeStyles.column, 
+                background: 'var(--bg-card)', 
+                border: '1px solid var(--border-default)',
                 minWidth: window.innerWidth < 1024 ? '350px' : (columns.length > 4 ? 'calc(20% - 1.6rem)' : '420px'),
                 flex: columns.length > 4 ? '1' : '0 0 auto',
                 height: '100%', 
@@ -325,12 +303,12 @@ const TVView: React.FC<Props> = ({ trailers, monitorMode: initialMode = 'all', l
                 flexDirection: 'column',
                 padding: '1.25rem',
                 borderRadius: '20px',
-                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                boxShadow: 'var(--shadow-md)'
               }}
             >
               <div className="column-header" style={{ marginBottom: '1.25rem', flexShrink: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span className="column-title" style={{ color: themeStyles.textMuted, fontSize: '1.1rem', fontWeight: 800 }}>{col.title}</span>
-                <span className="column-count" style={{ background: isDarkMode ? '#27272a' : '#f1f5f9', color: isDarkMode ? 'white' : '#1e293b', fontSize: '1rem', padding: '0.2rem 0.6rem', borderRadius: '8px', fontWeight: 700 }}>
+                <span className="column-title" style={{ color: 'var(--text-muted)', fontSize: '1.1rem', fontWeight: 800 }}>{col.title}</span>
+                <span className="column-count" style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: '1rem', padding: '0.2rem 0.6rem', borderRadius: '8px', fontWeight: 700 }}>
                   {trailersInCol.length}
                 </span>
               </div>
@@ -363,10 +341,10 @@ const TVView: React.FC<Props> = ({ trailers, monitorMode: initialMode = 'all', l
         display: 'flex', 
         alignItems: 'center', 
         justifyContent: 'center',
-        background: themeStyles.header.background, 
-        borderTop: themeStyles.header.borderBottom,
+        background: 'var(--bg-header)', 
+        borderTop: '1px solid var(--border-default)',
         fontSize: '0.75rem',
-        color: themeStyles.textMuted
+        color: 'var(--text-muted)'
       }}>
         <span>Live Production Stream</span>
       </footer>

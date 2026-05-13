@@ -228,7 +228,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
                         onChange={e => setFormData({...formData, isPriority: e.target.checked})}
                         style={{ width: '16px', height: '16px' }}
                       />
-                      <label htmlFor="priority-check" style={{ fontSize: '0.7rem', fontWeight: 800, color: '#be123c', cursor: 'pointer' }}>HIGH PRIORITY</label>
+                      <label htmlFor="priority-check" style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-primary)', cursor: 'pointer' }}>HIGH PRIORITY</label>
                     </div>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem' }}>
@@ -254,18 +254,18 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
                   disabled={trailers.some(t => t.serialNumber === formData.serialNumber)}
                 >
                   Confirm Registration <ArrowRight size={18} />
-                  <div style={{ 
+                  <div className="reco-badge-tag" style={{ 
                     position: 'absolute', 
                     top: '-12px', 
                     right: '12px', 
-                    background: '#000', 
-                    color: '#fff', 
-                    padding: '2px 8px', 
-                    borderRadius: '6px', 
+                    background: 'var(--bg-main)', 
+                    color: 'var(--text-primary)', 
+                    padding: '4px 10px', 
+                    borderRadius: '8px', 
                     fontSize: '0.65rem', 
                     fontWeight: 900,
-                    border: '2px solid #fff',
-                    boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+                    border: '1.5px solid var(--accent)',
+                    boxShadow: 'var(--shadow-md)'
                   }}>
                     RECOMMENDED: BAY {suggestedBay}
                   </div>
@@ -336,10 +336,10 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
                     return (
                       <div key={t.id} className="backlog-item-card">
                         <div>
-                          <div style={{ fontWeight: 800, fontSize: '0.95rem', color: '#0f172a' }}>{t.model}</div>
-                          <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                          <div style={{ fontWeight: 800, fontSize: '0.95rem', color: 'var(--text-primary)' }}>{t.model}</div>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
                             {t.serialNumber} • {t.name}
-                            <span style={{ background: '#000', color: '#fff', padding: '1px 5px', borderRadius: '4px', fontSize: '0.6rem', fontWeight: 900 }}>RECO: {suggestedBay}</span>
+                            <span className="reco-badge-tag" style={{ marginLeft: '0.2rem' }}>RECO: {suggestedBay}</span>
                             {userRole === 'manager' && t.sale_price !== undefined && (
                               <span 
                                 onClick={(e) => {
@@ -372,12 +372,12 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
                               style={{ 
                                 padding: '0.3rem 0.6rem', 
                                 borderRadius: '6px', 
-                                background: val ? '#dcfce7' : '#fee2e2', 
+                                background: val ? 'rgba(34, 197, 94, 0.1)' : 'var(--priority-bg)', 
                                 color: val ? '#166534' : '#991b1b', 
                                 fontSize: '0.65rem', 
                                 fontWeight: 800, 
                                 textTransform: 'uppercase', 
-                                border: `1px solid ${val ? '#22c55e' : '#ef4444'}`,
+                                border: `1px solid ${val ? 'rgba(34, 197, 94, 0.2)' : 'var(--priority-border)'}`,
                                 cursor: 'pointer',
                                 transition: 'all 0.15s ease',
                                 userSelect: 'none',
@@ -390,7 +390,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
                           ))}
                         </div>
 
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#64748b' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--text-secondary)' }}>
                           <Clock size={14} />
                           <span style={{ fontSize: '0.8rem', fontWeight: 700 }}>{actualBuildHours}h Build</span>
                         </div>

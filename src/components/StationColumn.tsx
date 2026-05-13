@@ -41,21 +41,21 @@ export const StationColumn: React.FC<Props> = ({ id, trailers, onUpdateTrailer, 
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
           <span style={{ color: 'var(--accent)', fontWeight: 800, fontSize: '0.8rem', letterSpacing: '0.05em' }}>BAY</span>
           <span style={{ 
-            border: '1px solid #e2e8f0', 
-            background: '#f8fafc', 
-            color: '#0f172a', 
+            border: '1px solid var(--border-default)', 
+            background: 'var(--bg-secondary)', 
+            color: 'var(--text-primary)', 
             padding: '4px 10px', 
             borderRadius: '6px', 
             fontWeight: 800, 
             fontSize: '0.8rem',
             lineHeight: 1,
-            boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+            boxShadow: 'var(--shadow-sm)',
             textTransform: 'uppercase'
           }}>{id}</span>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.1rem' }}>
-          <span style={{ fontSize: '0.6rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>Weekly Cap</span>
+          <span style={{ fontSize: '0.6rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Weekly Cap</span>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
             <input 
               type="number" 
@@ -67,9 +67,10 @@ export const StationColumn: React.FC<Props> = ({ id, trailers, onUpdateTrailer, 
                 fontSize: '0.75rem', 
                 fontWeight: 700, 
                 textAlign: 'center', 
-                border: '1px solid #cbd5e1', 
+                border: '1px solid var(--border-default)', 
                 borderRadius: '4px',
-                background: userRole !== 'manager' ? '#f1f5f9' : '#fff',
+                background: userRole !== 'manager' ? 'var(--bg-secondary)' : 'var(--bg-card)',
+                color: 'var(--text-primary)',
                 cursor: userRole !== 'manager' ? 'not-allowed' : 'text'
               }}
               value={localCapacity}
