@@ -754,7 +754,7 @@
 @media (max-width: 1024px) {
   .header-left { gap: 1rem; }
   .header-logo-img { height: 32px !important; }
-  .nav-tv-btn { display: none !important; }
+  .scroll-arrows-group { display: none !important; }
 }
 
 @media (max-width: 768px) {
@@ -1518,7 +1518,7 @@
 }
 
 @media (max-width: 768px) {
-  .hide-on-mobile {
+  .hide-on-mobile, .nav-tv-btn {
     display: none !important;
   }
 
