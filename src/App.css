@@ -119,9 +119,9 @@
 /* Kanban Columns */
 .kanban-column {
   width: 100%;
-  max-width: 450px;
-  min-width: 300px;
-  flex: 1 1 320px;
+  max-width: 650px;
+  min-width: 340px;
+  flex: 1 1 420px;
   background: var(--bg-card);
   border: 1px solid var(--border-default);
   backdrop-filter: var(--glass-blur);
@@ -138,7 +138,6 @@
   height: auto;
   max-width: 320px;
   flex: 1 1 280px;
-  min-width: 260px;
 }
 
 .bay-page .main-content {
@@ -1381,7 +1380,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 0 1.5rem;
-  font-size: 0.875rem;
+  font-size: 0.75rem;
   z-index: 90;
   box-shadow: 0 -4px 12px rgba(0,0,0,0.2);
   border-top: 2px solid #fbbf24;
@@ -1408,7 +1407,7 @@
 }
 
 .strip-label {
-  font-size: 0.9rem;
+  font-size: 0.75rem;
   font-weight: 600;
   color: #fbbf24;
   letter-spacing: 0.04em;
@@ -1416,7 +1415,7 @@
 }
 
 .strip-value {
-  font-size: 0.95rem;
+  font-size: 0.85rem;
   font-weight: 800;
   color: white;
   white-space: nowrap;
@@ -1461,7 +1460,7 @@
     display: flex;
     align-items: center;
     padding: 0 1.5rem;
-    font-size: 0.85rem;
+    font-size: 0.75rem;
     color: var(--text-muted);
     position: fixed;
     bottom: 0;
