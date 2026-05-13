@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { formatDistanceToNow, format } from 'date-fns';
-import { History, FileText, Send, Crown, Trash2, Image as ImageIcon, DollarSign, Lock } from 'lucide-react';
+import { History, FileText, Send, Crown, Trash2, Image as ImageIcon, DollarSign } from 'lucide-react';
 import type { Trailer, PhaseId, ShippedTrailer, UserRole } from '../types';
 import { BAY_WEEKLY_HOURS, calculateTrailerRemainingHours, PHASES } from '../types';
 import { Modal } from './Modal';

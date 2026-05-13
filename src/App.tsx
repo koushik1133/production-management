@@ -189,7 +189,6 @@ function Dashboard({
         vin_date: pendingShippingTrailer.vinDate || prev.vin_date,
         sale_price: pendingShippingTrailer.sale_price?.toString() || ''
       }));
-      setIsShippingPriceUnlocked(false);
     }
   }, [pendingShippingTrailer]);
 
@@ -330,7 +329,6 @@ function Dashboard({
       await addTrailer(newTrailer);
       setIsAddModalOpen(false);
       setNewTrailerData({ serialNumber: '', name: '', model: '', station: 'None', isPriority: false, promisedShippingDate: '', partsStatus: { tyres: false, steel: false, parts: false }, sale_price: '' });
-      setIsNewTrailerPriceUnlocked(false);
     } finally { setIsAdding(false); }
   };
 
