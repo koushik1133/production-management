@@ -206,11 +206,6 @@ export const TrailerCard: React.FC<Props> = React.memo(({
                {PHASE_METADATA[trailer.currentPhase].title}
              </div>
           )}
-          {trailer.currentPhase === 'backlog' && trailer.station === 'None' && suggestedBay && (
-            <span className="reco-badge-tag" style={{ marginLeft: '0.5rem' }}>
-              RECO: {suggestedBay}
-            </span>
-          )}
         </div>
         
         <div 
@@ -253,6 +248,11 @@ export const TrailerCard: React.FC<Props> = React.memo(({
                 border: '1px solid var(--border-default)'
               }}>
                 {trailer.station === 'None' ? 'Off' : trailer.station}
+              </span>
+            )}
+            {trailer.currentPhase === 'backlog' && trailer.station === 'None' && suggestedBay && (
+              <span className="reco-badge-tag" style={{ marginLeft: '0.2rem', padding: '2px 6px', fontSize: '0.6rem' }}>
+                RECO: {suggestedBay}
               </span>
             )}
           </div>
