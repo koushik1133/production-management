@@ -848,7 +848,7 @@ function Dashboard({
                 <input 
                   type={isPriceUnlockedGlobally ? "number" : "password"} 
                   className="form-input" 
-                  style={{ borderColor: 'rgba(217, 119, 6, 0.3)', background: 'white', fontWeight: 700 }} 
+                  style={{ borderColor: 'rgba(217, 119, 6, 0.3)', background: 'var(--bg-secondary)', fontWeight: 700 }} 
                   placeholder="PIN required"
                   value={shippingForm.sale_price}
                   onChange={e => setShippingForm(prev => ({ ...prev, sale_price: e.target.value }))}
