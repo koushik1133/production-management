@@ -29,7 +29,7 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
     promisedShippingDate: trailer.promisedShippingDate || '',
     serialNumber: trailer.serialNumber || '',
     partsStatus: trailer.partsStatus || { steel: false, tyres: false, parts: false },
-    sale_price: trailer.sale_price !== undefined ? trailer.sale_price.toString() : ''
+    sale_price: trailer.sale_price != null ? trailer.sale_price.toString() : ''
   });
   const [localNotes, setLocalNotes] = React.useState(trailer.notes || '');
 
