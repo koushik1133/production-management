@@ -92,7 +92,7 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
     if (isDuplicateSerial) return;
     const updates: Partial<Trailer> = {
       ...editForm,
-      sale_price: editForm.sale_price ? parseFloat(editForm.sale_price) : undefined,
+      sale_price: editForm.sale_price ? parseFloat(editForm.sale_price) : (editForm.sale_price === '' ? null : undefined),
       notes: localNotes 
     };
     onUpdate(trailer.id, updates);
@@ -267,18 +267,19 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
             <div style={{ display: 'grid', gridTemplateColumns: userRole === 'manager' ? '1fr 1fr 1fr' : '1fr 1fr', gap: '1rem' }}>
               {userRole === 'manager' && (
                 <div 
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.stopPropagation();
                     if (!isPriceUnlockedGlobally && onUnlockPrices) {
                       onUnlockPrices();
                     }
                   }}
-                  style={{ background: 'rgba(217, 119, 6, 0.05)', padding: '0.75rem 1.25rem', borderRadius: '16px', border: '1px solid rgba(217, 119, 6, 0.2)', textAlign: 'right', cursor: 'pointer' }}
+                  style={{ background: 'rgba(217, 119, 6, 0.05)', padding: '0.75rem 1.25rem', borderRadius: '16px', border: '1px solid rgba(217, 119, 6, 0.2)', textAlign: 'right', cursor: isPriceUnlockedGlobally ? 'default' : 'pointer' }}
                 >
                   <div style={{ fontSize: '0.65rem', fontWeight: 800, color: '#d97706', textTransform: 'uppercase', marginBottom: '4px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.4rem' }}>
                     <DollarSign size={10} /> Sale Price
                   </div>
                   <div style={{ fontSize: '1rem', fontWeight: 900, color: '#d97706' }}>
-                    {isPriceUnlockedGlobally ? (trailer.sale_price ? `$${trailer.sale_price.toLocaleString()}` : 'NOT SET') : '••••••'}
+                    {isPriceUnlockedGlobally ? (trailer.sale_price != null ? `$${trailer.sale_price.toLocaleString()}` : 'NOT SET') : '••••••'}
                   </div>
                 </div>
               )}
