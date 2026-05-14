@@ -274,7 +274,7 @@ export const ArchiveView: React.FC<Props> = ({ trailers, onUpdateTrailer, localT
             />
           </div>
 
-          <div className="hide-on-mobile" style={{ display: 'flex', gap: '0.5rem' }}>
+          <div className="hide-on-mobile hide-under-900" style={{ display: 'flex', gap: '0.5rem' }}>
             <button 
               className="btn btn-secondary" 
               onClick={() => {
