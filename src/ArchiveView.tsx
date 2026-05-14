@@ -181,7 +181,7 @@ const ShippedRecord: React.FC<{ record: ShippedTrailer; notes?: string; onClose:
                 color: isPriceUnlockedGlobally ? '#eab308' : 'var(--text-secondary)'
               }}
             >
-              {isPriceUnlockedGlobally ? <><EyeOff size={14} /> Hide Pricing</> : <><Eye size={14} /> Reveal Pricing</>}
+              {isPriceUnlockedGlobally ? <><EyeOff size={14} /> Hide Details</> : <><Eye size={14} /> View Details</>}
             </button>
           </div>
           {isPriceUnlockedGlobally && (
