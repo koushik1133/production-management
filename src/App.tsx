@@ -1120,15 +1120,24 @@ function App() {
     return localStorage.getItem('lanetrailers_price_unlocked') === 'true';
   });
 
+  const [isPinModalOpen, setIsPinModalOpen] = useState(false);
+  const [pinInput, setPinInput] = useState('');
+  const [pinError, setPinError] = useState('');
+
   const unlockPricesGlobally = () => {
-    const pin = prompt('Enter Manager PIN to unlock ALL prices:');
-    if (pin === '0000') {
+    setIsPinModalOpen(true);
+    setPinInput('');
+    setPinError('');
+    return false;
+  };
+
+  const handlePinSubmit = () => {
+    if (pinInput === '0000') {
       setIsPriceUnlockedGlobally(true);
       localStorage.setItem('lanetrailers_price_unlocked', 'true');
-      return true;
+      setIsPinModalOpen(false);
     } else {
-      alert('Invalid PIN');
-      return false;
+      setPinError('Invalid PIN. Please try again.');
     }
   };
 
@@ -1943,6 +1952,33 @@ function getSuggestedBay(): StationId {
               </div>
             </Modal>
           )}
+
+          {/* PIN Unlock Modal */}
+          <Modal isOpen={isPinModalOpen} onClose={() => setIsPinModalOpen(false)} title="Manager Access">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', padding: '1rem' }}>
+              <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', margin: 0 }}>
+                Enter Manager PIN to unlock ALL prices:
+              </p>
+              <div>
+                <input
+                  type="password"
+                  className="form-input"
+                  placeholder="Enter PIN"
+                  value={pinInput}
+                  onChange={(e) => setPinInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handlePinSubmit();
+                  }}
+                  autoFocus
+                />
+                {pinError && <p style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '0.5rem', fontWeight: 600 }}>{pinError}</p>}
+              </div>
+              <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setIsPinModalOpen(false)}>Cancel</button>
+                <button className="btn btn-primary" style={{ flex: 1 }} onClick={handlePinSubmit}>Unlock</button>
+              </div>
+            </div>
+          </Modal>
         </div>
       )}
     </AuthGate>
