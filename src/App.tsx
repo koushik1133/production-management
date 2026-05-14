@@ -53,7 +53,8 @@ import {
   Maximize,
   Minimize,
   Settings,
-  BarChart2
+  BarChart2,
+  LogOut
 } from 'lucide-react';
 
 import { 
@@ -1881,6 +1882,9 @@ function getSuggestedBay(): StationId {
                     <span className="settings-group-title">System</span>
                     <button className="btn btn-secondary settings-action-btn" onClick={toggleFullscreen}>
                       {isFullscreen ? <><Minimize size={14} /> Exit Fullscreen</> : <><Maximize size={14} /> Go Fullscreen</>}
+                    </button>
+                    <button className="btn btn-secondary settings-action-btn logout-btn" onClick={() => supabase.auth.signOut()} style={{ marginTop: '0.5rem', borderColor: 'rgba(239, 68, 68, 0.2)', color: '#ef4444' }}>
+                      <LogOut size={14} /> Logout
                     </button>
                   </div>
                 </div>
