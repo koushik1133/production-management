@@ -874,7 +874,8 @@ function Dashboard({
             </div>
           </div>
 
-          <div style={{ padding: '1.25rem', background: 'rgba(217, 119, 6, 0.05)', borderRadius: '16px', border: '1px solid rgba(217, 119, 6, 0.2)', marginBottom: '2rem' }}>
+          {userRole === 'manager' && (
+            <div style={{ padding: '1.25rem', background: 'rgba(217, 119, 6, 0.05)', borderRadius: '16px', border: '1px solid rgba(217, 119, 6, 0.2)', marginBottom: '2rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '1.25rem' }}>
               <DollarSign size={16} color="#d97706" />
               <span style={{ fontSize: '0.75rem', fontWeight: 900, color: '#d97706', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Financial Settlement (Private)</span>
@@ -906,7 +907,8 @@ function Dashboard({
                 <input type="number" disabled className="form-input" style={{ opacity: 0.3 }} placeholder="---" />
               </div>
             </div>
-          </div>
+            </div>
+          )}
 
           <div className="form-footer">
             {!isShipping && (
