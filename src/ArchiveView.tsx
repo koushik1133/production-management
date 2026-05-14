@@ -245,7 +245,6 @@ export const ArchiveView: React.FC<Props> = ({ trailers, onUpdateTrailer, localT
             </div>
             <div>
               <h1 style={{ fontSize: '1.1rem', fontWeight: 900, letterSpacing: '-0.01em' }}>Production Archive</h1>
-              <p style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Historical Unit Intelligence</p>
             </div>
           </div>
         </div>
