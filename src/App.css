@@ -1221,8 +1221,8 @@
 
 /* Backlog Responsive Items */
 .backlog-item-card {
-  background: white;
-  border: 1px solid #e2e8f0;
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
   border-radius: 12px;
   padding: 1.25rem;
   display: grid;
