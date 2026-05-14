@@ -375,7 +375,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
                                 padding: '0.3rem 0.6rem', 
                                 borderRadius: '6px', 
                                 background: val ? 'rgba(34, 197, 94, 0.1)' : 'var(--priority-bg)', 
-                                color: val ? '#166534' : '#991b1b', 
+                                color: val ? '#22c55e' : '#ef4444', 
                                 fontSize: '0.65rem', 
                                 fontWeight: 800, 
                                 textTransform: 'uppercase', 
