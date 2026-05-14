@@ -44,7 +44,7 @@ export interface Trailer {
   photo_1_url?: string;
   photo_2_url?: string;
   photo_3_url?: string;
-  sale_price?: number;
+  sale_price?: number | null;
 }
 
 export interface ShippedTrailer {
