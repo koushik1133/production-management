@@ -1520,6 +1520,12 @@
   justify-content: center;
 }
 
+@media (max-width: 900px) {
+  .hide-under-900 {
+    display: none !important;
+  }
+}
+
 @media (max-width: 768px) {
   .hide-on-mobile, .nav-tv-btn {
     display: none !important;
