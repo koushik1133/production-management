@@ -53,6 +53,8 @@ const TVView: React.FC<Props> = ({ trailers, monitorMode: initialMode = 'all', l
 
   useEffect(() => {
     if (window.innerWidth < 1024) return;
+    if (monitorMode === 'station2') return;
+    
     const scrollContainer = scrollRef.current;
     if (!scrollContainer) return;
     let direction = 1;
