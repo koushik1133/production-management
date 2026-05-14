@@ -21,7 +21,7 @@ const TVView: React.FC<Props> = ({ trailers, monitorMode: initialMode = 'all', l
   const [monitorMode, setMonitorMode] = useState(initialMode);
   const [isCastModalOpen, setIsCastModalOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
-  const isDarkMode = true;
+
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -109,7 +109,7 @@ const TVView: React.FC<Props> = ({ trailers, monitorMode: initialMode = 'all', l
             <ArrowLeft size={14} /> Exit
           </Link>
           
-          <div style={{ width: '1px', height: '24px', background: isDarkMode ? '#27272a' : '#e2e8f0' }} />
+          <div style={{ width: '1px', height: '24px', background: 'var(--border-default)' }} />
           
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <div style={{ background: '#000', padding: '3px 6px', borderRadius: '6px', display: 'flex', alignItems: 'center' }}>
@@ -117,7 +117,7 @@ const TVView: React.FC<Props> = ({ trailers, monitorMode: initialMode = 'all', l
             </div>
             <div style={{ display: 'flex', flexDirection: 'column' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <h1 style={{ fontSize: '0.9rem', fontWeight: 900, letterSpacing: '0.02em', color: isDarkMode ? 'white' : '#1e293b', margin: 0 }}>{monitorTitle}</h1>
+                <h1 style={{ fontSize: '0.9rem', fontWeight: 900, letterSpacing: '0.02em', color: 'var(--text-primary)', margin: 0 }}>{monitorTitle}</h1>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'rgba(34, 197, 94, 0.1)', padding: '2px 6px', borderRadius: '4px' }}>
                   <div style={{ width: '6px', height: '6px', background: '#22c55e', borderRadius: '50%', animation: 'pulse 2s infinite' }} />
                   <span style={{ fontSize: '0.65rem', fontWeight: 800, color: '#22c55e' }}>LIVE</span>
@@ -132,10 +132,10 @@ const TVView: React.FC<Props> = ({ trailers, monitorMode: initialMode = 'all', l
         <div className="header-center" style={{ 
           display: 'flex', 
           gap: '0.25rem', 
-          background: isDarkMode ? '#09090b' : '#f1f5f9', 
+          background: 'var(--bg-secondary)', 
           padding: '4px', 
           borderRadius: '12px',
-          border: `1px solid ${isDarkMode ? '#27272a' : '#e2e8f0'}`
+          border: '1px solid var(--border-default)'
         }}>
           <button onClick={() => setMonitorMode('all')} style={getMonitorBtnStyle('all')}>
             <Tv size={14} /> ALL STATIONS
@@ -172,24 +172,23 @@ const TVView: React.FC<Props> = ({ trailers, monitorMode: initialMode = 'all', l
         </div>
       </header>
 
-      <Modal isOpen={isCastModalOpen} onClose={() => setIsCastModalOpen(false)} title="Monitor Setup" darkMode={isDarkMode}>
+      <Modal isOpen={isCastModalOpen} onClose={() => setIsCastModalOpen(false)} title="Monitor Setup">
          <div style={{ 
            display: 'flex', 
            flexDirection: 'column', 
            gap: '1.25rem', 
            padding: '1.5rem',
          }}>
-            <p style={{ fontSize: '0.9rem', color: isDarkMode ? '#a1a1aa' : '#64748b', fontWeight: 500, lineHeight: 1.5 }}>
+            <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: 500, lineHeight: 1.5 }}>
               Connect your shop floor displays to this live production stream. 
               Open this link on any Smart TV or Tablet:
             </p>
             
             <div style={{ 
-              background: isDarkMode ? 'rgba(0,0,0,0.3)' : '#f8fafc', 
+              background: 'var(--bg-secondary)', 
               padding: '1rem', 
               borderRadius: '12px', 
-              border: '1px solid',
-              borderColor: isDarkMode ? '#27272a' : '#e2e8f0',
+              border: '1px solid var(--border-default)',
               textAlign: 'center'
             }}>
               <a 
@@ -199,7 +198,7 @@ const TVView: React.FC<Props> = ({ trailers, monitorMode: initialMode = 'all', l
                 style={{ 
                   fontSize: '1rem', 
                   fontWeight: 900, 
-                  color: isDarkMode ? '#60a5fa' : '#2563eb', 
+                  color: 'var(--accent)', 
                   textDecoration: 'underline',
                   wordBreak: 'break-all'
                 }}
@@ -221,7 +220,7 @@ const TVView: React.FC<Props> = ({ trailers, monitorMode: initialMode = 'all', l
               </button>
               <button 
                 className="btn btn-secondary" 
-                style={{ flex: 1, padding: '0.75rem', fontSize: '0.85rem', color: isDarkMode ? '#fafafa' : 'inherit', borderColor: isDarkMode ? '#3f3f46' : 'inherit' }}
+                style={{ flex: 1, padding: '0.75rem', fontSize: '0.85rem' }}
                 onClick={() => setIsCastModalOpen(false)}
               >
                 Dismiss
