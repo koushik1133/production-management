@@ -20,7 +20,7 @@ export const Modal: React.FC<Props> = ({ isOpen, onClose, title, children, darkM
         style={darkMode ? { background: '#18181b', borderColor: '#27272a', color: '#fafafa' } : {}}
       >
         <div className="modal-header" style={darkMode ? { borderBottomColor: '#27272a' } : {}}>
-          <h2 className="modal-title">{title}</h2>
+          <h2 className="modal-title" style={darkMode ? { color: '#fafafa' } : {}}>{title}</h2>
           <button className="modal-close" onClick={onClose} style={darkMode ? { color: '#a1a1aa' } : {}}>
             <X size={20} />
           </button>

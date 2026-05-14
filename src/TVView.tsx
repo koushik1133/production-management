@@ -221,7 +221,7 @@ const TVView: React.FC<Props> = ({ trailers, monitorMode: initialMode = 'all', l
               </button>
               <button 
                 className="btn btn-secondary" 
-                style={{ flex: 1, padding: '0.75rem', fontSize: '0.85rem' }}
+                style={{ flex: 1, padding: '0.75rem', fontSize: '0.85rem', color: isDarkMode ? '#fafafa' : 'inherit', borderColor: isDarkMode ? '#3f3f46' : 'inherit' }}
                 onClick={() => setIsCastModalOpen(false)}
               >
                 Dismiss
