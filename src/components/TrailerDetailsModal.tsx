@@ -139,6 +139,7 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                   className="form-input" 
                   value={editForm.promisedShippingDate} 
                   onChange={e => setEditForm({ ...editForm, promisedShippingDate: e.target.value })}
+                  onFocus={(e) => e.target.showPicker()}
                   style={{ background: 'rgba(255,255,255,0.02)', fontWeight: 700 }}
                 />
               </div>

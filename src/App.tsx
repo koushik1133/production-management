@@ -651,7 +651,13 @@ function Dashboard({
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
             <div className="form-group">
               <label className="form-label">Promised Shipping Date</label>
-              <input type="date" className="form-input" value={newTrailerData.promisedShippingDate} onChange={e => setNewTrailerData({...newTrailerData, promisedShippingDate: e.target.value})} />
+              <input 
+                type="date" 
+                className="form-input" 
+                value={newTrailerData.promisedShippingDate} 
+                onChange={e => setNewTrailerData({...newTrailerData, promisedShippingDate: e.target.value})}
+                onFocus={(e) => e.target.showPicker()}
+              />
             </div>
             {userRole === 'manager' && (
               <div className="form-group">
@@ -772,9 +778,13 @@ function Dashboard({
               </div>
               <div className="form-group" style={{ margin: 0 }}>
                 <label className="form-label" style={{ fontSize: '0.65rem' }}>VIN Date</label>
-                <input required type="date" className="form-input"
+                <input 
+                  required 
+                  type="date" 
+                  className="form-input"
                   value={shippingForm.vin_date}
                   onChange={e => setShippingForm(prev => ({ ...prev, vin_date: e.target.value }))}
+                  onFocus={(e) => e.target.showPicker()}
                 />
               </div>
               <div className="form-group" style={{ gridColumn: 'span 2', margin: 0, marginTop: '1rem' }}>
