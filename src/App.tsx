@@ -505,6 +505,7 @@ function Dashboard({
               <button className="btn btn-secondary mobile-nav-btn" onClick={() => navigate('/backlog')}>Backlog</button>
               <button className="btn btn-secondary mobile-nav-btn" onClick={() => navigate('/schedule')}>Timeline</button>
               <button className="btn btn-secondary mobile-nav-btn" onClick={() => navigate('/archive')}>Shipping</button>
+              <button className="btn btn-secondary mobile-nav-btn" onClick={() => navigate('/tv')}>TV Mode</button>
             </div>
             
             <button className="btn btn-secondary btn-icon theme-toggle" onClick={onToggleTheme} style={{ width: '34px', height: '34px', borderRadius: '8px', flexShrink: 0 }}>

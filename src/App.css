@@ -1464,11 +1464,7 @@
   display: none !important;
 }
 
-@media (max-width: 1260px) {
-  .nav-tv-btn {
-    display: none !important;
-  }
-}
+/* .nav-tv-btn visible at all resolutions */
 
 @media (max-width: 1170px) {
   .time-seconds {
@@ -1527,7 +1523,7 @@
 }
 
 @media (max-width: 768px) {
-  .hide-on-mobile, .nav-tv-btn {
+  .hide-on-mobile {
     display: none !important;
   }
 
