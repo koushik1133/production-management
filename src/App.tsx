@@ -1066,7 +1066,15 @@ function App() {
   const [redoStack, setRedoStack] = useState<Array<Array<{ id: string } & Partial<Trailer>>>>([]);
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
@@ -1829,7 +1837,7 @@ function getSuggestedBay(): StationId {
                   <div className="settings-group">
                     <span className="settings-group-title">System</span>
                     <button className="btn btn-secondary settings-action-btn" onClick={toggleFullscreen}>
-                      {document.fullscreenElement ? <><Minimize size={14} /> Exit Fullscreen</> : <><Maximize size={14} /> Go Fullscreen</>}
+                      {isFullscreen ? <><Minimize size={14} /> Exit Fullscreen</> : <><Maximize size={14} /> Go Fullscreen</>}
                     </button>
                   </div>
                 </div>
