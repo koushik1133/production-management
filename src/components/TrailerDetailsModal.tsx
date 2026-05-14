@@ -154,26 +154,28 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                   <Crown size={18} /> SET AS HIGH PRIORITY UNIT
                 </label>
               </div>
-              <div style={{ background: 'rgba(217, 119, 6, 0.05)', padding: '1rem', borderRadius: '12px', border: '1px solid rgba(217, 119, 6, 0.2)' }}>
-                <label className="form-label" style={{ color: '#d97706', fontSize: '0.75rem', fontWeight: 800 }}>Sale Price ($)</label>
-                <div style={{ position: 'relative' }}>
-                <input 
-                  key={isPriceUnlockedGlobally ? 'unlocked-edit' : 'locked-edit'}
-                  type={isPriceUnlockedGlobally ? "number" : "password"}
-                  className="form-input" 
-                  placeholder={isPriceUnlockedGlobally ? "0.00" : "••••••"}
-                  style={{ borderColor: '#d97706', background: 'var(--bg-card)', fontWeight: 700, color: 'var(--text-primary)' }}
-                    value={editForm.sale_price}
-                    onChange={e => setEditForm({ ...editForm, sale_price: e.target.value })}
-                    onFocus={() => {
-                      if (!isPriceUnlockedGlobally && onUnlockPrices) {
-                        onUnlockPrices();
-                      }
-                    }}
-                  />
-                  <DollarSign size={14} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: '#d97706' }} />
+              {userRole === 'manager' && (
+                <div style={{ background: 'rgba(217, 119, 6, 0.05)', padding: '1rem', borderRadius: '12px', border: '1px solid rgba(217, 119, 6, 0.2)' }}>
+                  <label className="form-label" style={{ color: '#d97706', fontSize: '0.75rem', fontWeight: 800 }}>Sale Price ($)</label>
+                  <div style={{ position: 'relative' }}>
+                    <input 
+                      key={isPriceUnlockedGlobally ? 'unlocked-edit' : 'locked-edit'}
+                      type={isPriceUnlockedGlobally ? "number" : "password"}
+                      className="form-input" 
+                      placeholder={isPriceUnlockedGlobally ? "0.00" : "••••••"}
+                      style={{ borderColor: '#d97706', background: 'var(--bg-card)', fontWeight: 700, color: 'var(--text-primary)' }}
+                      value={editForm.sale_price}
+                      onChange={e => setEditForm({ ...editForm, sale_price: e.target.value })}
+                      onFocus={() => {
+                        if (!isPriceUnlockedGlobally && onUnlockPrices) {
+                          onUnlockPrices();
+                        }
+                      }}
+                    />
+                    <DollarSign size={14} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: '#d97706' }} />
+                  </div>
                 </div>
-              </div>
+              )}
               <div style={{ gridColumn: 'span 2', marginTop: '1rem' }}>
                 <button 
                   className="btn btn-primary" 

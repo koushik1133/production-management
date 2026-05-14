@@ -189,23 +189,25 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                  <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label className="form-label" style={{ fontSize: '0.65rem', color: '#d97706' }}>Sale Price ($)</label>
-                    <input 
-                      key={isPriceUnlockedGlobally ? 'unlocked-backlog' : 'locked-backlog'}
-                      type={isPriceUnlockedGlobally ? "number" : "password"} 
-                      className="form-input" 
-                      style={{ height: '38px', fontSize: '0.9rem', borderColor: 'rgba(217, 119, 6, 0.2)', background: 'rgba(217, 119, 6, 0.05)' }}
-                      placeholder={isPriceUnlockedGlobally ? "0.00" : "••••••"}
-                      value={formData.sale_price} 
-                      onChange={e => setFormData({...formData, sale_price: e.target.value})} 
-                      onFocus={() => {
-                        if (!isPriceUnlockedGlobally && onUnlockPrices) {
-                          onUnlockPrices();
-                        }
-                      }}
-                    />
-                  </div>
+                  {userRole === 'manager' && (
+                    <div className="form-group" style={{ marginBottom: 0 }}>
+                      <label className="form-label" style={{ fontSize: '0.65rem', color: '#d97706' }}>Sale Price ($)</label>
+                      <input 
+                        key={isPriceUnlockedGlobally ? 'unlocked-backlog' : 'locked-backlog'}
+                        type={isPriceUnlockedGlobally ? "number" : "password"} 
+                        className="form-input" 
+                        style={{ height: '38px', fontSize: '0.9rem', borderColor: 'rgba(217, 119, 6, 0.2)', background: 'rgba(217, 119, 6, 0.05)' }}
+                        placeholder={isPriceUnlockedGlobally ? "0.00" : "••••••"}
+                        value={formData.sale_price} 
+                        onChange={e => setFormData({...formData, sale_price: e.target.value})} 
+                        onFocus={() => {
+                          if (!isPriceUnlockedGlobally && onUnlockPrices) {
+                            onUnlockPrices();
+                          }
+                        }}
+                      />
+                    </div>
+                  )}
                   <div className="form-group" style={{ marginBottom: 0 }}>
                     <label className="form-label" style={{ fontSize: '0.65rem', color: 'var(--accent)' }}>Promised Shipping</label>
                     <input 
