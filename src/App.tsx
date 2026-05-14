@@ -1963,11 +1963,11 @@ function getSuggestedBay(): StationId {
             </Modal>
           )}
 
-          {/* PIN Unlock Modal */}
-          <Modal isOpen={isPinModalOpen} onClose={() => setIsPinModalOpen(false)} title="Manager Access">
+          {/* PIN Verification Modal */}
+          <Modal isOpen={isPinModalOpen} onClose={() => setIsPinModalOpen(false)} title="Manager Verification">
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', padding: '1rem' }}>
               <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', margin: 0 }}>
-                Enter Manager PIN to unlock ALL prices:
+                Please enter your manager PIN:
               </p>
               <div>
                 <input
@@ -1985,7 +1985,7 @@ function getSuggestedBay(): StationId {
               </div>
               <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
                 <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setIsPinModalOpen(false)}>Cancel</button>
-                <button className="btn btn-primary" style={{ flex: 1 }} onClick={handlePinSubmit}>Unlock</button>
+                <button className="btn btn-primary" style={{ flex: 1 }} onClick={handlePinSubmit}>Confirm</button>
               </div>
             </div>
           </Modal>
