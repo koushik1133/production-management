@@ -360,7 +360,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
                                   cursor: isPriceUnlockedGlobally ? 'default' : 'pointer'
                                 }}
                               >
-                                {isPriceUnlockedGlobally ? `$${t.sale_price.toLocaleString()}` : '••••••'}
+                                {isPriceUnlockedGlobally ? (t.sale_price != null ? `$${t.sale_price.toLocaleString()}` : 'NOT SET') : '••••••'}
                               </span>
                             )}
                           </div>
