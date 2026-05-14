@@ -184,7 +184,7 @@ export const TrailerCard: React.FC<Props> = React.memo(({
                 cursor: isPriceUnlockedGlobally ? 'default' : 'pointer'
               }}
             >
-              {isPriceUnlockedGlobally ? `$${trailer.sale_price.toLocaleString()}` : '••••••'}
+              {isPriceUnlockedGlobally ? (trailer.sale_price != null ? `$${trailer.sale_price.toLocaleString()}` : 'NOT SET') : '••••••'}
             </span>
           )}
           {showPhaseBadge && (
