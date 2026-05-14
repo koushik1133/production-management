@@ -445,10 +445,12 @@ function Dashboard({
           </div>
 
           <div className="util-group hide-on-mobile" style={{ display: 'flex', gap: '0.2rem', alignItems: 'center' }}>
-            <div className="undo-redo-subgroup" style={{ display: 'flex', gap: '0.2rem' }}>
-              <button className="btn btn-secondary btn-icon" onClick={handleUndo} disabled={undoStack.length === 0} title="Undo" style={{ width: '30px', height: '30px', borderRadius: '6px' }}><Undo2 size={12} /></button>
-              <button className="btn btn-secondary btn-icon" onClick={handleRedo} disabled={redoStack.length === 0} title="Redo" style={{ width: '30px', height: '30px', borderRadius: '6px' }}><Redo2 size={12} /></button>
-            </div>
+            {userRole === 'manager' && (
+              <div className="undo-redo-subgroup" style={{ display: 'flex', gap: '0.2rem' }}>
+                <button className="btn btn-secondary btn-icon" onClick={handleUndo} disabled={undoStack.length === 0} title="Undo" style={{ width: '30px', height: '30px', borderRadius: '6px' }}><Undo2 size={12} /></button>
+                <button className="btn btn-secondary btn-icon" onClick={handleRedo} disabled={redoStack.length === 0} title="Redo" style={{ width: '30px', height: '30px', borderRadius: '6px' }}><Redo2 size={12} /></button>
+              </div>
+            )}
           </div>
 
           {userRole === 'manager' && (
