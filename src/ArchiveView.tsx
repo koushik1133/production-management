@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import * as XLSX from 'xlsx';
-import { ArrowLeft, Clock, Truck, Search, ChevronRight, Package, Eye, EyeOff, Image, Hash, User, DollarSign, BarChart3, Download, Upload } from 'lucide-react';
+import { ArrowLeft, Clock, Truck, Search, ChevronRight, Package, Eye, EyeOff, Image, Hash, User, DollarSign, BarChart3, Download, Upload, FileText } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import type { Trailer, PhaseId, ShippedTrailer, UserRole } from './types';
 import { TrailerDetailsModal } from './components/TrailerDetailsModal';
@@ -25,7 +25,7 @@ const PHASE_LABELS = [
   { key: 'trim_hours', label: 'Trim', color: '#10b981' },
 ];
 
-const ShippedRecord: React.FC<{ record: ShippedTrailer; onClose: () => void; userRole: UserRole; isPriceUnlockedGlobally?: boolean; onUnlockPrices?: () => boolean }> = ({ record, onClose, userRole, isPriceUnlockedGlobally, onUnlockPrices }) => {
+const ShippedRecord: React.FC<{ record: ShippedTrailer; notes?: string; onClose: () => void; userRole: UserRole; isPriceUnlockedGlobally?: boolean; onUnlockPrices?: () => boolean }> = ({ record, notes, onClose, userRole, isPriceUnlockedGlobally, onUnlockPrices }) => {
   const photos = [record.photo_1_url, record.photo_2_url, record.photo_3_url].filter(Boolean) as string[];
 
   return (
@@ -100,6 +100,28 @@ const ShippedRecord: React.FC<{ record: ShippedTrailer; onClose: () => void; use
             ))}
           </div>
         </div>
+
+        {/* Production Notes */}
+        {notes && (
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '1rem' }}>
+              <FileText size={16} color="var(--accent)" />
+              <h3 style={{ fontSize: '0.9rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Production Notes</h3>
+            </div>
+            <div style={{ 
+              background: 'rgba(234, 179, 8, 0.05)', 
+              padding: '1.25rem', 
+              borderRadius: '16px', 
+              border: '1px solid rgba(234, 179, 8, 0.2)',
+              color: 'var(--text-secondary)',
+              fontSize: '0.9rem',
+              lineHeight: 1.6,
+              whiteSpace: 'pre-wrap'
+            }}>
+              {notes}
+            </div>
+          </div>
+        )}
 
         {/* Photo Gallery */}
         <div>
@@ -501,6 +523,7 @@ export const ArchiveView: React.FC<Props> = ({ trailers, onUpdateTrailer, localT
       {selectedShipped && (
         <ShippedRecord 
           record={selectedShipped} 
+          notes={trailers.find(t => t.serialNumber === selectedShipped.serial_number)?.notes}
           onClose={() => setSelectedSerial(null)} 
           userRole={userRole} 
           isPriceUnlockedGlobally={isPriceUnlockedGlobally}
