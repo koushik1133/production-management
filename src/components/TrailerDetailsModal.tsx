@@ -158,9 +158,10 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                 <label className="form-label" style={{ color: '#d97706', fontSize: '0.75rem', fontWeight: 800 }}>Sale Price ($)</label>
                 <div style={{ position: 'relative' }}>
                 <input 
+                  key={isPriceUnlockedGlobally ? 'unlocked-edit' : 'locked-edit'}
                   type={isPriceUnlockedGlobally ? "number" : "password"}
                   className="form-input" 
-                  placeholder="PIN required"
+                  placeholder={isPriceUnlockedGlobally ? "0.00" : "••••••"}
                   style={{ borderColor: '#d97706', background: 'var(--bg-card)', fontWeight: 700, color: 'var(--text-primary)' }}
                     value={editForm.sale_price}
                     onChange={e => setEditForm({ ...editForm, sale_price: e.target.value })}

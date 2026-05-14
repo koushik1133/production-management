@@ -664,9 +664,10 @@ function Dashboard({
                 <label className="form-label" style={{ color: '#d97706' }}>Sale Price ($)</label>
                 <div style={{ position: 'relative' }}>
                   <input 
+                    key={isPriceUnlockedGlobally ? 'unlocked-reg' : 'locked-reg'}
                     type={isPriceUnlockedGlobally ? "number" : "password"} 
                     className="form-input" 
-                    placeholder="Enter PIN to unlock"
+                    placeholder={isPriceUnlockedGlobally ? "0.00" : "••••••"}
                     style={{ borderColor: '#d97706', background: 'rgba(217,119,6,0.05)' }}
                     onFocus={() => {
                       if (!isPriceUnlockedGlobally && onUnlockPrices) {
@@ -856,10 +857,11 @@ function Dashboard({
               <div className="form-group" style={{ margin: 0 }}>
                 <label className="form-label" style={{ color: '#d97706', fontSize: '0.65rem' }}>Final Sale Price ($)</label>
                 <input 
+                  key={isPriceUnlockedGlobally ? 'unlocked-ship' : 'locked-ship'}
                   type={isPriceUnlockedGlobally ? "number" : "password"} 
                   className="form-input" 
                   style={{ borderColor: 'rgba(217, 119, 6, 0.3)', background: 'var(--bg-secondary)', fontWeight: 700 }} 
-                  placeholder="PIN required"
+                  placeholder={isPriceUnlockedGlobally ? "0.00" : "••••••"}
                   value={shippingForm.sale_price}
                   onChange={e => setShippingForm(prev => ({ ...prev, sale_price: e.target.value }))}
                   onFocus={() => {
