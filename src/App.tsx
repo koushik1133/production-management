@@ -565,7 +565,7 @@ function Dashboard({
 
           <div className="strip-divider" />
 
-          <div className="strip-item">
+          <div className="strip-item hide-under-980">
             <span className="strip-label">TOTAL UNITS:</span>
             <span className="strip-value">{trailers.filter(t => !t.isArchived && !t.isDeleted).length}</span>
           </div>

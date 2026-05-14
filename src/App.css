@@ -1464,6 +1464,12 @@
   display: none !important;
 }
 
+@media (max-width: 980px) {
+  .hide-under-980 {
+    display: none !important;
+  }
+}
+
 @media (max-width: 890px) {
   .nav-tv-btn, .mobile-tv-btn {
     display: none !important;
