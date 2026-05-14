@@ -829,22 +829,44 @@ function Dashboard({
           <div style={{ marginBottom: '1.5rem' }}>
             <label className="form-label">Shipping Documentation Photos</label>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem' }}>
-              {(['p1', 'p2', 'p3'] as const).map(slot => (
-                <div key={slot}>
-                  {shippingPhotos[slot] ? (
-                    <div style={{ position: 'relative', borderRadius: '12px', overflow: 'hidden', border: '2px solid var(--accent)' }}>
-                      <img src={URL.createObjectURL(shippingPhotos[slot]!)} alt="" style={{ width: '100%', height: '80px', objectFit: 'cover', display: 'block' }} />
-                      <button type="button" onClick={() => setShippingPhotos(prev => ({ ...prev, [slot]: null }))} style={{ position: 'absolute', top: '6px', right: '6px', background: 'rgba(0,0,0,0.7)', border: 'none', borderRadius: '50%', color: 'white', width: '24px', height: '24px', cursor: 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>✕</button>
-                    </div>
-                  ) : (
-                    <label style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '80px', background: 'var(--bg-secondary)', borderRadius: '12px', border: '2px dashed var(--border-default)', cursor: 'pointer', color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 700, gap: '6px', transition: 'all 0.2s' }} className="hover-shimmer">
-                      <ImageIcon size={18} color="var(--text-muted)" /> 
-                      <span>Upload</span>
-                      <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) setShippingPhotos(prev => ({ ...prev, [slot]: f })); }} />
-                    </label>
-                  )}
-                </div>
-              ))}
+              {(['p1', 'p2', 'p3'] as const).map((slot, index) => {
+                const existingUrl = pendingShippingTrailer?.[`photo_${index + 1}_url` as keyof Trailer];
+                const currentFile = shippingPhotos[slot];
+                
+                return (
+                  <div key={slot}>
+                    {currentFile || existingUrl ? (
+                      <div style={{ position: 'relative', borderRadius: '12px', overflow: 'hidden', border: '2px solid var(--accent)' }}>
+                        <img 
+                          src={currentFile ? URL.createObjectURL(currentFile) : (existingUrl as string)} 
+                          alt="" 
+                          style={{ width: '100%', height: '80px', objectFit: 'cover', display: 'block' }} 
+                        />
+                        <button 
+                          type="button" 
+                          onClick={() => {
+                            if (currentFile) {
+                              setShippingPhotos(prev => ({ ...prev, [slot]: null }));
+                            } else {
+                              // If it's an existing URL, we can't "delete" it from here easily, 
+                              // but we could let the user upload over it.
+                            }
+                          }} 
+                          style={{ position: 'absolute', top: '6px', right: '6px', background: 'rgba(0,0,0,0.7)', border: 'none', borderRadius: '50%', color: 'white', width: '24px', height: '24px', cursor: 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ) : (
+                      <label style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '80px', background: 'var(--bg-secondary)', borderRadius: '12px', border: '2px dashed var(--border-default)', cursor: 'pointer', color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 700, gap: '6px', transition: 'all 0.2s' }} className="hover-shimmer">
+                        <ImageIcon size={18} color="var(--text-muted)" /> 
+                        <span>Upload</span>
+                        <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) setShippingPhotos(prev => ({ ...prev, [slot]: f })); }} />
+                      </label>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
 

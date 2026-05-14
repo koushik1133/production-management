@@ -451,7 +451,7 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
           ))}
         </div>
 
-        {!trailer.isArchived && (
+        {!trailer.isArchived && !isEditing && (
           <div className="details-priority-banner" style={{ background: trailer.isPriority ? 'var(--priority-bg)' : 'var(--bg-secondary)', borderColor: trailer.isPriority ? 'var(--priority-border)' : 'var(--border-default)', marginBottom: '2rem' }}>
             <div className="priority-label" style={{ color: trailer.isPriority ? '#b91c1c' : 'var(--text-secondary)' }}>
               <Crown size={16} fill={trailer.isPriority ? '#b91c1c' : 'transparent'} />
