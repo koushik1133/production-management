@@ -91,6 +91,7 @@ body {
   line-height: 1.6; /* More airy and professional */
   overflow: auto;
   letter-spacing: -0.01em;
+  overscroll-behavior: none;
 }
 
 h1, h2, h3, h4, h5, h6 {
