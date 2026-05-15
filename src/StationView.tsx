@@ -50,7 +50,6 @@ const StationView: React.FC<Props> = ({ trailers, setTrailers, onUpdateTrailer, 
   // Removed unused isMobileView
 
 
-  const isTablet = typeof window !== 'undefined' && window.innerWidth > 480 && window.innerWidth <= 1024;
 
   const sensors = useSensors(
     useSensor(PointerSensor, { 
