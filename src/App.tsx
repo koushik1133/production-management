@@ -4,7 +4,7 @@ import { format } from 'date-fns';
 import {
   DndContext,
   DragOverlay,
-  rectIntersection,
+  closestCorners,
   KeyboardSensor,
   PointerSensor,
   useSensor,
