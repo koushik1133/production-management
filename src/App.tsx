@@ -7,7 +7,6 @@ import {
   closestCorners,
   KeyboardSensor,
   PointerSensor,
-  TouchSensor,
   useSensor,
   useSensors,
   MeasuringStrategy,
@@ -521,8 +520,8 @@ function Dashboard({
           sensors={sensors} 
           collisionDetection={closestCorners} 
           autoScroll={{
-            acceleration: 80,
-            threshold: 0.1, // 10% from the edge
+            acceleration: 40,
+            threshold: { x: 0.1, y: 180 },
           }}
           measuring={{
             droppable: {
@@ -1151,12 +1150,6 @@ function App() {
         distance: 5,
       },
     }),
-    useSensor(TouchSensor, {
-      activationConstraint: {
-        delay: 50, // Tiny delay to ensure we distinguish from tap
-        tolerance: 5,
-      },
-    }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
@@ -1711,22 +1704,41 @@ function App() {
     if (!activeTrailer) return;
 
     const isOverColumn = PHASES.some(p => p.id === overId);
-    let overPhase: PhaseId | null = null;
-    if (isOverColumn) overPhase = overId as PhaseId;
-    else {
-      const overTrailer = trailers.find(t => t.id === overId);
-      if (overTrailer) overPhase = overTrailer.currentPhase;
-    }
+    const overTrailer = trailers.find(t => t.id === overId);
+    const overPhase = isOverColumn ? (overId as PhaseId) : overTrailer?.currentPhase;
+    
+    if (!overPhase) return;
 
-    if (overPhase && activeTrailer.currentPhase !== overPhase) {
+    // Trigger update if phase changed OR if we are over a DIFFERENT trailer in the same phase
+    if (activeTrailer.currentPhase !== overPhase || (overTrailer && activeId !== overId)) {
       setTrailers(prev => {
         const activeIdx = prev.findIndex(t => t.id === activeId);
         if (activeIdx === -1) return prev;
         
-        // Only update currentPhase for visual feedback during drag
-        const updatedTrailer = { ...prev[activeIdx], currentPhase: overPhase as PhaseId };
         const newTrailers = [...prev];
-        newTrailers[activeIdx] = updatedTrailer;
+        const updatedActive = { ...newTrailers[activeIdx], currentPhase: overPhase };
+        newTrailers[activeIdx] = updatedActive;
+
+        // Get sorted items in the target phase
+        const phaseItems = newTrailers
+          .filter(t => t.currentPhase === overPhase && !t.isArchived && !t.isDeleted)
+          .sort((a, b) => (a.vertical_order ?? 0) - (b.vertical_order ?? 0));
+
+        const oldIdx = phaseItems.findIndex(t => t.id === activeId);
+        let newIdx = overTrailer ? phaseItems.findIndex(t => t.id === overId) : phaseItems.length - 1;
+        if (newIdx === -1) newIdx = phaseItems.length - 1;
+
+        if (oldIdx !== -1 && oldIdx !== newIdx) {
+          const reorderedPhase = arrayMove(phaseItems, oldIdx, newIdx);
+          // Update vertical_orders globally
+          reorderedPhase.forEach((t, idx) => {
+            const globalIdx = newTrailers.findIndex(gt => gt.id === t.id);
+            if (globalIdx !== -1) {
+              newTrailers[globalIdx] = { ...newTrailers[globalIdx], vertical_order: idx * 1000 };
+            }
+          });
+        }
+
         trailersRef.current = newTrailers;
         return newTrailers;
       });
