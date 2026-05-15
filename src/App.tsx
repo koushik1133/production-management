@@ -520,7 +520,7 @@ function Dashboard({
           sensors={sensors} 
           collisionDetection={closestCenter} 
           autoScroll={{
-            acceleration: 900,
+            acceleration: 5000,
             threshold: { x: 0.1, y: 0.5 },
           }}
           measuring={{
@@ -1147,7 +1147,7 @@ function App() {
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 5,
+        distance: 1,
       },
     }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
