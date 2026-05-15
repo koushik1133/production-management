@@ -64,7 +64,7 @@ export const TrailerCard: React.FC<Props> = React.memo(({
   }, [isHighlighted]);
 
   const style = {
-    transition: isDragging ? 'none' : 'transform 150ms cubic-bezier(0, 0, 0.2, 1), opacity 150ms ease',
+    transition: isDragging ? 'none' : 'transform 80ms cubic-bezier(0, 0, 0.2, 1), opacity 80ms ease',
     transform: CSS.Transform.toString(transform ? {
       ...transform,
       scaleX: isOverlay ? 1.05 : transform.scaleX,
