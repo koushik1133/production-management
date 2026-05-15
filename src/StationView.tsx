@@ -240,8 +240,8 @@ const StationView: React.FC<Props> = ({ trailers, setTrailers, onUpdateTrailer, 
           sensors={sensors} 
           collisionDetection={closestCenter} 
           autoScroll={{
-            acceleration: 120,
-            threshold: { x: 0.1, y: 0.45 },
+            acceleration: 80,
+            threshold: { x: 0.1, y: 0.4 },
           }}
           measuring={{
             droppable: {
