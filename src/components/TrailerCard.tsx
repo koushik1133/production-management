@@ -89,7 +89,10 @@ export const TrailerCard: React.FC<Props> = React.memo(({
 
   const timeToShipping = calculateTrailerRemainingHours(trailer, localTargetHours);
 
-  const isTablet = typeof window !== 'undefined' && window.innerWidth > 480 && window.innerWidth <= 1024;
+  const isTablet = typeof window !== 'undefined' && 
+    window.innerWidth > 480 && 
+    window.innerWidth <= 1366 && 
+    (window.matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0);
 
   return (
     <div
@@ -114,13 +117,18 @@ export const TrailerCard: React.FC<Props> = React.memo(({
                 margin: '-0.2rem 0 -0.2rem -0.2rem',
                 cursor: 'grab',
                 touchAction: 'none',
-                color: 'var(--text-muted)',
+                color: 'var(--accent)',
+                opacity: 0.8,
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center'
+                justifyContent: 'center',
+                background: 'rgba(255, 255, 255, 0.05)',
+                borderRadius: '6px',
+                width: '24px',
+                height: '24px'
               }}
             >
-              <GripVertical size={18} />
+              <GripVertical size={20} strokeWidth={3} />
             </div>
           )}
           <div className="card-title" style={{ flex: 1, minWidth: 0 }}>
