@@ -520,14 +520,9 @@ function Dashboard({
         <DndContext 
           sensors={sensors} 
           collisionDetection={closestCorners} 
-          measuring={{
-            droppable: {
-              strategy: MeasuringStrategy.Always,
-            },
-          }}
           autoScroll={{
-            acceleration: 25,
-            threshold: { x: 0, y: 0.1 },
+            acceleration: 50,
+            threshold: { x: 0, y: 0.15 },
           }}
           onDragStart={handleDragStart} 
           onDragOver={handleDragOver} 
