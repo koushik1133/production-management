@@ -7,6 +7,7 @@ import {
   closestCorners,
   KeyboardSensor,
   PointerSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   MeasuringStrategy,
@@ -520,8 +521,8 @@ function Dashboard({
           sensors={sensors} 
           collisionDetection={closestCorners} 
           autoScroll={{
-            acceleration: 40,
-            threshold: { x: 0.1, y: 180 },
+            acceleration: 80,
+            threshold: 0.1, // 10% from the edge
           }}
           measuring={{
             droppable: {
@@ -1148,6 +1149,12 @@ function App() {
     useSensor(PointerSensor, {
       activationConstraint: {
         distance: 5,
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 50, // Tiny delay to ensure we distinguish from tap
+        tolerance: 5,
       },
     }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })

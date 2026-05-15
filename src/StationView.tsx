@@ -8,6 +8,7 @@ import {
   closestCorners,
   KeyboardSensor,
   PointerSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   MeasuringStrategy,
@@ -57,6 +58,12 @@ const StationView: React.FC<Props> = ({ trailers, setTrailers, onUpdateTrailer, 
       activationConstraint: { 
         distance: 5 
       } 
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 50,
+        tolerance: 5,
+      },
     }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
@@ -222,8 +229,8 @@ const StationView: React.FC<Props> = ({ trailers, setTrailers, onUpdateTrailer, 
           sensors={sensors} 
           collisionDetection={closestCorners} 
           autoScroll={{
-            acceleration: 40,
-            threshold: { x: 0.1, y: 180 },
+            acceleration: 80,
+            threshold: 0.1,
           }}
           measuring={{
             droppable: {
