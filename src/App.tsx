@@ -7,7 +7,6 @@ import {
   closestCorners,
   KeyboardSensor,
   PointerSensor,
-  TouchSensor,
   useSensor,
   useSensors,
 } from '@dnd-kit/core';
@@ -1137,16 +1136,15 @@ function App() {
     }
   };
 
+  const isTablet = typeof window !== 'undefined' && window.innerWidth > 480 && window.innerWidth <= 1024;
+
   const sensors = useSensors(
     useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 3, 
-      },
-    }),
-    useSensor(TouchSensor, {
-      activationConstraint: {
-        delay: 250, 
+      activationConstraint: isTablet ? {
+        delay: 250,
         tolerance: 5,
+      } : {
+        distance: 3, 
       },
     }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
