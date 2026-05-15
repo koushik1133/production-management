@@ -55,7 +55,7 @@ const StationView: React.FC<Props> = ({ trailers, setTrailers, onUpdateTrailer, 
   const sensors = useSensors(
     useSensor(PointerSensor, { 
       activationConstraint: { 
-        distance: 5 
+        distance: 1 
       } 
     }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
@@ -240,7 +240,7 @@ const StationView: React.FC<Props> = ({ trailers, setTrailers, onUpdateTrailer, 
           sensors={sensors} 
           collisionDetection={closestCenter} 
           autoScroll={{
-            acceleration: 900,
+            acceleration: 5000,
             threshold: { x: 0.1, y: 0.5 },
           }}
           measuring={{
