@@ -47,7 +47,6 @@ export const TrailerCard: React.FC<Props> = React.memo(({
     listeners,
     setNodeRef,
     transform,
-    transition,
     isDragging
   } = useSortable({
     id: trailer.id,
