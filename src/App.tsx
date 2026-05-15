@@ -4,9 +4,7 @@ import { format } from 'date-fns';
 import {
   DndContext,
   DragOverlay,
-  pointerWithin,
   closestCorners,
-  rectIntersection,
   KeyboardSensor,
   PointerSensor,
   TouchSensor,
@@ -1731,8 +1729,7 @@ function App() {
     // 1. Immediately clear activeId to prevent "blurred out" state
     setActiveId(null);
     
-    // 2. Use the Ref to get the trailers AFTER handleDragOver updates them locally
-    const initialTrailer = trailers.find(t => t.id === activeId);
+
     const trailer = trailersRef.current.find(t => t.id === activeId);
     
     if (trailer && over) {
