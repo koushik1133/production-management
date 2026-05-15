@@ -5,7 +5,7 @@ import { supabase } from './lib/supabase';
 import {
   DndContext,
   DragOverlay,
-  rectIntersection,
+  closestCorners,
   KeyboardSensor,
   PointerSensor,
   useSensor,
