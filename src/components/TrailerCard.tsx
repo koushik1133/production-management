@@ -64,7 +64,7 @@ export const TrailerCard: React.FC<Props> = React.memo(({
   }, [isHighlighted]);
 
   const style = {
-    transition: isDragging ? 'none' : 'transform 200ms cubic-bezier(0.2, 0, 0, 1), opacity 200ms ease',
+    transition: isDragging ? 'none' : 'transform 150ms cubic-bezier(0, 0, 0.2, 1), opacity 150ms ease',
     transform: CSS.Transform.toString(transform ? {
       ...transform,
       scaleX: isOverlay ? 1.05 : transform.scaleX,
@@ -77,6 +77,7 @@ export const TrailerCard: React.FC<Props> = React.memo(({
     boxShadow: isOverlay ? '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)' : undefined,
     // @ts-ignore
     rotate: isOverlay ? '2deg' : undefined,
+    willChange: 'transform',
   };
 
   const currentLog = trailer.history.find(h => h.phase === trailer.currentPhase && !h.exitedAt);
