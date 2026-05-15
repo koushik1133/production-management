@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Clock, Hash, Calendar, Crown, StickyNote, Truck, Layers } from 'lucide-react';
+import { Clock, Hash, Calendar, Crown, StickyNote, Truck, Layers, GripVertical } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import type { Trailer, StationId, PhaseId, UserRole } from '../types';
 import { STATIONS, PHASE_METADATA, calculateTrailerRemainingHours } from '../types';
@@ -89,6 +89,8 @@ export const TrailerCard: React.FC<Props> = React.memo(({
 
   const timeToShipping = calculateTrailerRemainingHours(trailer, localTargetHours);
 
+  const isTablet = typeof window !== 'undefined' && window.innerWidth > 480 && window.innerWidth <= 1024;
+
   return (
     <div
       ref={(node) => {
@@ -98,27 +100,47 @@ export const TrailerCard: React.FC<Props> = React.memo(({
       style={style}
       className={`trailer-card hover-lift ${isBottleneck ? 'is-bottleneck' : ''} ${isHighlighted ? 'is-highlighted' : ''}`}
       {...attributes}
-      {...listeners}
+      {...(!isTablet ? listeners : {})}
       onClick={() => onCardClick?.()}
     >
       <div className="card-header-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.3rem' }}>
-        <div className="card-title" style={{ flex: 1, minWidth: 0 }}>
-          <span className="card-model" style={{ 
-            display: 'block', 
-            whiteSpace: 'nowrap', 
-            overflow: 'hidden', 
-            textOverflow: 'ellipsis',
-            fontSize: '0.9rem'
-          }}>{trailer.model}</span>
-          {!hideCustomerName && (
-            <span className="card-customer" style={{ 
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start', flex: 1, minWidth: 0 }}>
+          {isTablet && (
+            <div 
+              {...listeners}
+              className="drag-handle"
+              style={{ 
+                padding: '0.2rem',
+                margin: '-0.2rem 0 -0.2rem -0.2rem',
+                cursor: 'grab',
+                touchAction: 'none',
+                color: 'var(--text-muted)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            >
+              <GripVertical size={18} />
+            </div>
+          )}
+          <div className="card-title" style={{ flex: 1, minWidth: 0 }}>
+            <span className="card-model" style={{ 
               display: 'block', 
               whiteSpace: 'nowrap', 
               overflow: 'hidden', 
               textOverflow: 'ellipsis',
-              fontSize: '0.725rem'
-            }}>{trailer.name}</span>
-          )}
+              fontSize: '0.9rem'
+            }}>{trailer.model}</span>
+            {!hideCustomerName && (
+              <span className="card-customer" style={{ 
+                display: 'block', 
+                whiteSpace: 'nowrap', 
+                overflow: 'hidden', 
+                textOverflow: 'ellipsis',
+                fontSize: '0.725rem'
+              }}>{trailer.name}</span>
+            )}
+          </div>
         </div>
         
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.4rem', marginLeft: '0.75rem' }}>
