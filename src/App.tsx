@@ -5,6 +5,8 @@ import {
   DndContext,
   DragOverlay,
   pointerWithin,
+  closestCorners,
+  rectIntersection,
   KeyboardSensor,
   PointerSensor,
   TouchSensor,
@@ -516,7 +518,13 @@ function Dashboard({
       </header>
 
       <main className="main-content" ref={mainContentRef}>
-        <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd}>
+        <DndContext 
+          sensors={sensors} 
+          collisionDetection={closestCorners} 
+          onDragStart={handleDragStart} 
+          onDragOver={handleDragOver} 
+          onDragEnd={handleDragEnd}
+        >
           {PHASES.map((phase) => (
             <KanbanColumn 
               key={phase.id} 
@@ -1131,13 +1139,13 @@ function App() {
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 5, // Small movement required for pointer devices
+        distance: 3, 
       },
     }),
     useSensor(TouchSensor, {
       activationConstraint: {
-        delay: 400, // 0.4 second hold to start drag (better responsiveness)
-        tolerance: 15, // More forgiving tolerance for finger movement
+        delay: 150, 
+        tolerance: 10,
       },
     }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
@@ -1568,6 +1576,7 @@ function App() {
   // Stable reference for trailers to avoid stale closures in async DnD handlers
   const trailersRef = useRef(trailers);
   const activeIdRef = useRef(activeId);
+  const dragStartPhaseRef = useRef<PhaseId | null>(null);
   useEffect(() => {
     trailersRef.current = trailers;
   }, [trailers]);
@@ -1664,11 +1673,10 @@ function App() {
   const handleDragStart = (event: DragStartEvent) => {
     const dragId = event.active.id as string;
     setActiveId(dragId);
-
-    // Snapshot at drag START — this is the only point where state is guaranteed to be original.
-    // handleDragOver will mutate it before handleDragEnd, so we can't snapshot there.
+    
     const draggedTrailer = trailersRef.current.find(t => t.id === dragId);
     if (draggedTrailer) {
+      dragStartPhaseRef.current = draggedTrailer.currentPhase;
       const snapshot = trailersRef.current
         .filter(t => t.currentPhase === draggedTrailer.currentPhase && !t.isArchived && !t.isDeleted)
         .map(t => ({
@@ -1690,7 +1698,6 @@ function App() {
     const activeId = active.id as string;
     const overId = over.id as string;
     
-    // Find active trailer from the living state to ensure immediate reaction
     const activeTrailer = trailers.find(t => t.id === activeId);
     if (!activeTrailer) return;
 
@@ -1707,24 +1714,11 @@ function App() {
         const activeIdx = prev.findIndex(t => t.id === activeId);
         if (activeIdx === -1) return prev;
         
-        const now = Date.now();
-        const updatedHistory = [...prev[activeIdx].history];
-        const currentLogIndex = updatedHistory.findIndex(h => h.phase === prev[activeIdx].currentPhase && !h.exitedAt);
-        
-        if (currentLogIndex !== -1) {
-          const prevLog = updatedHistory[currentLogIndex];
-          updatedHistory[currentLogIndex] = { ...prevLog, exitedAt: now, duration: now - prevLog.enteredAt };
-        }
-        updatedHistory.push({ phase: overPhase as PhaseId, enteredAt: now });
-
-        const updatedTrailer = { ...prev[activeIdx], currentPhase: overPhase as PhaseId, history: updatedHistory };
+        // Only update currentPhase for visual feedback during drag
+        const updatedTrailer = { ...prev[activeIdx], currentPhase: overPhase as PhaseId };
         const newTrailers = [...prev];
         newTrailers[activeIdx] = updatedTrailer;
-
-        // CRITICAL: sync ref immediately so handleDragEnd reads the correct phase.
-        // useEffect([trailers]) runs after paint — too late for the DnD event chain.
         trailersRef.current = newTrailers;
-
         return newTrailers;
       });
     }
@@ -1738,10 +1732,28 @@ function App() {
     setActiveId(null);
     
     // 2. Use the Ref to get the trailers AFTER handleDragOver updates them locally
+    const initialTrailer = trailers.find(t => t.id === activeId);
     const trailer = trailersRef.current.find(t => t.id === activeId);
     
     if (trailer && over) {
       try {
+        // Handle history update if phase changed
+        let finalHistory = trailer.history;
+        const phaseChanged = dragStartPhaseRef.current && trailer.currentPhase !== dragStartPhaseRef.current;
+        
+        if (phaseChanged) {
+          const now = Date.now();
+          const updatedHistory = [...trailer.history];
+          const currentLogIndex = updatedHistory.findIndex(h => h.phase === dragStartPhaseRef.current && !h.exitedAt);
+          
+          if (currentLogIndex !== -1) {
+            const prevLog = updatedHistory[currentLogIndex];
+            updatedHistory[currentLogIndex] = { ...prevLog, exitedAt: now, duration: now - prevLog.enteredAt };
+          }
+          updatedHistory.push({ phase: trailer.currentPhase, enteredAt: now });
+          finalHistory = updatedHistory;
+        }
+
         // Work only with active trailers in the destination PHASE
         // (trailer.currentPhase is already the destination after handleDragOver)
         const overId = over.id as string;
@@ -1763,12 +1775,14 @@ function App() {
         const reordered = arrayMove([...phaseTrailers], currentIdx, targetIdx)
           .map((t, idx) => ({ ...t, vertical_order: idx * 1000 }));
 
-        // Instant local update
-        // Instant local update with re-sorting
+        // Instant local update with re-sorting and final history
         setTrailers(prev => {
           const updatedList = prev.map(t => {
             const updated = reordered.find(r => r.id === t.id);
-            return updated ? updated : t;
+            if (updated) {
+              return t.id === activeId ? { ...updated, history: finalHistory } : updated;
+            }
+            return t;
           });
           
           // Re-sort the entire list to ensure the UI respects the new vertical_order
@@ -1786,9 +1800,8 @@ function App() {
         await Promise.all([
           supabase.from('trailers').update({
             currentPhase: trailer.currentPhase,
-            history: trailer.history,
-            dateStarted: trailer.dateStarted,
             vertical_order: reordered.find(r => r.id === activeId)?.vertical_order ?? 0,
+            history: finalHistory
           }).eq('id', activeId),
           ...reordered
             .filter(t => t.id !== activeId)
@@ -1796,9 +1809,10 @@ function App() {
         ]);
 
       } catch (err) {
-        console.error('DragEnd Execution Error:', err);
+        console.error('DragEnd Sync Error:', err);
       }
     }
+    dragStartPhaseRef.current = null;
   };
 
 

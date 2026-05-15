@@ -53,12 +53,12 @@ const StationView: React.FC<Props> = ({ trailers, setTrailers, onUpdateTrailer, 
 
   const sensors = useSensors(
     useSensor(PointerSensor, { 
-      activationConstraint: { distance: 5 } 
+      activationConstraint: { distance: 3 } 
     }),
     useSensor(TouchSensor, {
       activationConstraint: {
-        delay: 1000,
-        tolerance: 5
+        delay: 150,
+        tolerance: 8
       }
     }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })

@@ -132,8 +132,16 @@
   flex-direction: column;
   padding: 0.6rem 1rem 1rem 1rem; /* Reduced top padding */
   height: calc(100vh - 120px); /* Reduced offset to minimize gap with footer */
-  transition: all 0.3s ease;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: var(--shadow-md);
+  position: relative;
+}
+
+.kanban-column.column-is-over {
+  border-color: #3b82f6 !important;
+  background: rgba(59, 130, 246, 0.04) !important;
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.15);
+  transform: translateY(-2px);
 }
 
 .bay-page .kanban-column {
@@ -261,6 +269,13 @@
 
 .trailer-card:active {
   cursor: grabbing;
+  transform: scale(1.02);
+}
+
+.trailer-card:hover {
+  border-color: var(--accent);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
 }
 
 .trailer-card.is-highlighted {
