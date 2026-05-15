@@ -21,13 +21,23 @@ interface Props {
 }
 
 export const KanbanColumn: React.FC<Props> = React.memo(({ id, title, trailers, onCardClick, onUpdateTrailer, onShipRequest, workload, highlightedId, suggestedBay, localTargetHours, userRole, isPriceUnlockedGlobally, onUnlockPrices }) => {
-  const { setNodeRef } = useDroppable({ id });
+  const { setNodeRef, isOver } = useDroppable({ id });
 
   // Sort within column by vertical_order so real-time updates render in correct order
   const sortedTrailers = [...trailers].sort((a, b) => (a.vertical_order ?? 0) - (b.vertical_order ?? 0));
 
   return (
-    <div className="kanban-column" id={id} data-droppable-id={id} ref={setNodeRef}>
+    <div 
+      className={`kanban-column ${isOver ? 'column-is-over' : ''}`} 
+      id={id} 
+      data-droppable-id={id} 
+      ref={setNodeRef}
+      style={{
+        backgroundColor: isOver ? 'rgba(59, 130, 246, 0.05)' : undefined,
+        borderColor: isOver ? '#3b82f6' : undefined,
+        transition: 'all 0.2s ease'
+      }}
+    >
       <div className="column-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <span className="column-title" style={{ fontSize: '0.85rem', fontWeight: 900, letterSpacing: '0.05em' }}>{title}</span>

@@ -19,7 +19,7 @@ interface Props {
 }
 
 export const StationColumn: React.FC<Props> = ({ id, trailers, onUpdateTrailer, onCardClick, workload, capacity, onUpdateCapacity, localTargetHours, userRole, isPriceUnlockedGlobally, onUnlockPrices }) => {
-  const { setNodeRef } = useDroppable({
+  const { setNodeRef, isOver } = useDroppable({
     id,
   });
 
@@ -36,7 +36,15 @@ export const StationColumn: React.FC<Props> = ({ id, trailers, onUpdateTrailer, 
   };
 
   return (
-    <div className="kanban-column" ref={setNodeRef}>
+    <div 
+      className={`kanban-column ${isOver ? 'column-is-over' : ''}`} 
+      ref={setNodeRef}
+      style={{
+        backgroundColor: isOver ? 'rgba(59, 130, 246, 0.05)' : undefined,
+        borderColor: isOver ? '#3b82f6' : undefined,
+        transition: 'all 0.2s ease'
+      }}
+    >
       <div className="column-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem 1rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
           <span style={{ color: 'var(--accent)', fontWeight: 800, fontSize: '0.8rem', letterSpacing: '0.05em' }}>BAY</span>
