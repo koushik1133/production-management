@@ -519,7 +519,8 @@ function Dashboard({
           sensors={sensors} 
           collisionDetection={closestCorners} 
           autoScroll={{
-            acceleration: 30,
+            acceleration: 80,
+            threshold: 120,
           }}
           onDragStart={handleDragStart} 
           onDragOver={handleDragOver} 
