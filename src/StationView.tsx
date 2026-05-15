@@ -11,7 +11,6 @@ import {
   TouchSensor,
   useSensor,
   useSensors,
-  MeasuringStrategy,
 } from '@dnd-kit/core';
 import type { DragStartEvent, DragOverEvent } from '@dnd-kit/core';
 import { sortableKeyboardCoordinates, arrayMove } from '@dnd-kit/sortable';
