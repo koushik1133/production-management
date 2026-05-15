@@ -520,8 +520,8 @@ function Dashboard({
           sensors={sensors} 
           collisionDetection={closestCorners} 
           autoScroll={{
-            acceleration: 40,
-            threshold: { x: 0.1, y: 180 },
+            acceleration: 100,
+            threshold: { x: 0.1, y: 250 },
           }}
           measuring={{
             droppable: {
@@ -1709,8 +1709,8 @@ function App() {
     
     if (!overPhase) return;
 
-    // Trigger update if phase changed OR if we are over a DIFFERENT trailer in the same phase
-    if (activeTrailer.currentPhase !== overPhase || (overTrailer && activeId !== overId)) {
+    // Trigger update if phase changed OR if we are reordering
+    if (activeTrailer.currentPhase !== overPhase || activeId !== overId) {
       setTrailers(prev => {
         const activeIdx = prev.findIndex(t => t.id === activeId);
         if (activeIdx === -1) return prev;
