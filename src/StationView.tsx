@@ -88,8 +88,8 @@ const StationView: React.FC<Props> = ({ trailers, setTrailers, onUpdateTrailer, 
     
     if (!overStation) return;
 
-    // Trigger update if station changed OR if we are over a DIFFERENT trailer in the same station
-    if (activeTrailer.station !== overStation || (overTrailer && activeId !== overId)) {
+    // Trigger update if station changed OR if we are reordering
+    if (activeTrailer.station !== overStation || activeId !== overId) {
       setTrailers(prev => {
         const activeIdx = prev.findIndex(t => t.id === activeId);
         if (activeIdx === -1) return prev;
@@ -240,8 +240,8 @@ const StationView: React.FC<Props> = ({ trailers, setTrailers, onUpdateTrailer, 
           sensors={sensors} 
           collisionDetection={closestCorners} 
           autoScroll={{
-            acceleration: 40,
-            threshold: { x: 0.1, y: 180 },
+            acceleration: 100,
+            threshold: { x: 0.1, y: 250 },
           }}
           measuring={{
             droppable: {
