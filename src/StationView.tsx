@@ -8,7 +8,6 @@ import {
   closestCorners,
   KeyboardSensor,
   PointerSensor,
-  TouchSensor,
   useSensor,
   useSensors,
   MeasuringStrategy,
@@ -59,12 +58,6 @@ const StationView: React.FC<Props> = ({ trailers, setTrailers, onUpdateTrailer, 
         distance: 5 
       } 
     }),
-    useSensor(TouchSensor, {
-      activationConstraint: {
-        delay: 50,
-        tolerance: 5,
-      },
-    }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
@@ -90,23 +83,41 @@ const StationView: React.FC<Props> = ({ trailers, setTrailers, onUpdateTrailer, 
     if (!activeTrailer) return;
 
     const isOverStation = STATIONS.some(s => s === overId);
-    let overStation: StationId | null = null;
-    if (isOverStation) overStation = overId as StationId;
-    else {
-      const overTrailer = trailers.find(t => t.id === overId);
-      if (overTrailer) overStation = overTrailer.station;
-    }
+    const overTrailer = trailers.find(t => t.id === overId);
+    const overStation = isOverStation ? (overId as StationId) : overTrailer?.station;
+    
+    if (!overStation) return;
 
-    if (overStation && activeTrailer.station !== overStation) {
+    // Trigger update if station changed OR if we are over a DIFFERENT trailer in the same station
+    if (activeTrailer.station !== overStation || (overTrailer && activeId !== overId)) {
       setTrailers(prev => {
         const activeIdx = prev.findIndex(t => t.id === activeId);
         if (activeIdx === -1) return prev;
         
-        const updatedTrailer = { ...prev[activeIdx], station: overStation as StationId };
         const newTrailers = [...prev];
-        newTrailers[activeIdx] = updatedTrailer;
+        const updatedActive = { ...newTrailers[activeIdx], station: overStation };
+        newTrailers[activeIdx] = updatedActive;
 
-        // Sync ref immediately
+        // Get sorted items in target station
+        const stationItems = newTrailers
+          .filter(t => t.station === overStation && !t.isArchived && !t.isDeleted)
+          .sort((a, b) => (a.vertical_order ?? 0) - (b.vertical_order ?? 0));
+
+        const oldIdx = stationItems.findIndex(t => t.id === activeId);
+        let newIdx = overTrailer ? stationItems.findIndex(t => t.id === overId) : stationItems.length - 1;
+        if (newIdx === -1) newIdx = stationItems.length - 1;
+
+        if (oldIdx !== -1 && oldIdx !== newIdx) {
+          const reorderedStation = arrayMove(stationItems, oldIdx, newIdx);
+          // Update vertical_orders globally
+          reorderedStation.forEach((t, idx) => {
+            const globalIdx = newTrailers.findIndex(gt => gt.id === t.id);
+            if (globalIdx !== -1) {
+              newTrailers[globalIdx] = { ...newTrailers[globalIdx], vertical_order: idx * 1000 };
+            }
+          });
+        }
+
         trailersRef.current = newTrailers;
         return newTrailers;
       });
@@ -229,8 +240,8 @@ const StationView: React.FC<Props> = ({ trailers, setTrailers, onUpdateTrailer, 
           sensors={sensors} 
           collisionDetection={closestCorners} 
           autoScroll={{
-            acceleration: 80,
-            threshold: 0.1,
+            acceleration: 40,
+            threshold: { x: 0.1, y: 180 },
           }}
           measuring={{
             droppable: {
