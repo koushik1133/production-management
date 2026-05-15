@@ -225,8 +225,7 @@ const StationView: React.FC<Props> = ({ trailers, setTrailers, onUpdateTrailer, 
           sensors={sensors} 
           collisionDetection={closestCorners} 
           autoScroll={{
-            acceleration: 50,
-            threshold: { x: 0, y: 0.15 },
+            acceleration: 30,
           }}
           onDragStart={handleDragStart} 
           onDragOver={handleDragOver} 
