@@ -9,6 +9,8 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
+  MeasuringStrategy,
+  rectIntersection,
 } from '@dnd-kit/core';
 import type {
   DragStartEvent,
@@ -517,10 +519,15 @@ function Dashboard({
       <main className="main-content" ref={mainContentRef}>
         <DndContext 
           sensors={sensors} 
-          collisionDetection={closestCorners} 
+          collisionDetection={rectIntersection} 
           autoScroll={{
-            acceleration: 80,
-            threshold: { x: 120, y: 120 },
+            acceleration: 100,
+            threshold: 150,
+          }}
+          measuring={{
+            droppable: {
+              strategy: MeasuringStrategy.Always,
+            },
           }}
           onDragStart={handleDragStart} 
           onDragOver={handleDragOver} 

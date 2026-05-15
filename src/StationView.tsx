@@ -10,6 +10,8 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
+  MeasuringStrategy,
+  rectIntersection,
 } from '@dnd-kit/core';
 import type { DragStartEvent, DragOverEvent } from '@dnd-kit/core';
 import { sortableKeyboardCoordinates, arrayMove } from '@dnd-kit/sortable';
@@ -219,10 +221,15 @@ const StationView: React.FC<Props> = ({ trailers, setTrailers, onUpdateTrailer, 
       <main className="main-content" style={{ justifyContent: 'flex-start', alignItems: 'stretch', paddingLeft: '2rem', paddingRight: '2rem' }}>
         <DndContext 
           sensors={sensors} 
-          collisionDetection={closestCorners} 
+          collisionDetection={rectIntersection} 
           autoScroll={{
-            acceleration: 80,
-            threshold: { x: 120, y: 120 },
+            acceleration: 100,
+            threshold: 150,
+          }}
+          measuring={{
+            droppable: {
+              strategy: MeasuringStrategy.Always,
+            },
           }}
           onDragStart={handleDragStart} 
           onDragOver={handleDragOver} 
