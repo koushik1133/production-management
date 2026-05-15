@@ -1140,11 +1140,8 @@ function App() {
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
-      activationConstraint: isTablet ? {
-        delay: 250,
-        tolerance: 5,
-      } : {
-        distance: 3, 
+      activationConstraint: {
+        distance: 5,
       },
     }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
