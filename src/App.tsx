@@ -10,7 +10,6 @@ import {
   TouchSensor,
   useSensor,
   useSensors,
-  MeasuringStrategy,
 } from '@dnd-kit/core';
 import type {
   DragStartEvent,
