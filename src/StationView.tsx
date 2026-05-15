@@ -5,7 +5,7 @@ import { supabase } from './lib/supabase';
 import {
   DndContext,
   DragOverlay,
-  closestCorners,
+  closestCenter,
   KeyboardSensor,
   PointerSensor,
   useSensor,
@@ -238,10 +238,10 @@ const StationView: React.FC<Props> = ({ trailers, setTrailers, onUpdateTrailer, 
       <main className="main-content" style={{ justifyContent: 'flex-start', alignItems: 'stretch', paddingLeft: '2rem', paddingRight: '2rem' }}>
         <DndContext 
           sensors={sensors} 
-          collisionDetection={closestCorners} 
+          collisionDetection={closestCenter} 
           autoScroll={{
             acceleration: 100,
-            threshold: { x: 0.1, y: 250 },
+            threshold: { x: 0.1, y: 300 },
           }}
           measuring={{
             droppable: {

@@ -4,7 +4,7 @@ import { format } from 'date-fns';
 import {
   DndContext,
   DragOverlay,
-  closestCorners,
+  closestCenter,
   KeyboardSensor,
   PointerSensor,
   useSensor,
@@ -518,10 +518,10 @@ function Dashboard({
       <main className="main-content" ref={mainContentRef}>
         <DndContext 
           sensors={sensors} 
-          collisionDetection={closestCorners} 
+          collisionDetection={closestCenter} 
           autoScroll={{
             acceleration: 100,
-            threshold: { x: 0.1, y: 250 },
+            threshold: { x: 0.1, y: 300 },
           }}
           measuring={{
             droppable: {
