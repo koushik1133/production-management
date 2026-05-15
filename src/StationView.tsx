@@ -220,10 +220,10 @@ const StationView: React.FC<Props> = ({ trailers, setTrailers, onUpdateTrailer, 
       <main className="main-content" style={{ justifyContent: 'flex-start', alignItems: 'stretch', paddingLeft: '2rem', paddingRight: '2rem' }}>
         <DndContext 
           sensors={sensors} 
-          collisionDetection={rectIntersection} 
+          collisionDetection={closestCorners} 
           autoScroll={{
-            acceleration: 100,
-            threshold: { x: 0.1, y: 150 },
+            acceleration: 40,
+            threshold: { x: 0.1, y: 180 },
           }}
           measuring={{
             droppable: {

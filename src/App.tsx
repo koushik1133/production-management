@@ -518,10 +518,10 @@ function Dashboard({
       <main className="main-content" ref={mainContentRef}>
         <DndContext 
           sensors={sensors} 
-          collisionDetection={rectIntersection} 
+          collisionDetection={closestCorners} 
           autoScroll={{
-            acceleration: 100,
-            threshold: { x: 0.1, y: 150 },
+            acceleration: 40,
+            threshold: { x: 0.1, y: 180 },
           }}
           measuring={{
             droppable: {

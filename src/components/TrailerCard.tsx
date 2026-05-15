@@ -77,6 +77,7 @@ export const TrailerCard: React.FC<Props> = React.memo(({
     // @ts-ignore
     rotate: isOverlay ? '2deg' : undefined,
     willChange: 'transform',
+    touchAction: isDragging ? 'none' : 'auto',
   };
 
   const currentLog = trailer.history.find(h => h.phase === trailer.currentPhase && !h.exitedAt);
