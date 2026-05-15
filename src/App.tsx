@@ -4,13 +4,12 @@ import { format } from 'date-fns';
 import {
   DndContext,
   DragOverlay,
-  closestCorners,
+  rectIntersection,
   KeyboardSensor,
   PointerSensor,
   useSensor,
   useSensors,
   MeasuringStrategy,
-  rectIntersection,
 } from '@dnd-kit/core';
 import type {
   DragStartEvent,
@@ -522,7 +521,7 @@ function Dashboard({
           collisionDetection={rectIntersection} 
           autoScroll={{
             acceleration: 100,
-            threshold: 150,
+            threshold: { x: 0.1, y: 150 },
           }}
           measuring={{
             droppable: {

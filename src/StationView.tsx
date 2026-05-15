@@ -5,13 +5,12 @@ import { supabase } from './lib/supabase';
 import {
   DndContext,
   DragOverlay,
-  closestCorners,
+  rectIntersection,
   KeyboardSensor,
   PointerSensor,
   useSensor,
   useSensors,
   MeasuringStrategy,
-  rectIntersection,
 } from '@dnd-kit/core';
 import type { DragStartEvent, DragOverEvent } from '@dnd-kit/core';
 import { sortableKeyboardCoordinates, arrayMove } from '@dnd-kit/sortable';
@@ -224,7 +223,7 @@ const StationView: React.FC<Props> = ({ trailers, setTrailers, onUpdateTrailer, 
           collisionDetection={rectIntersection} 
           autoScroll={{
             acceleration: 100,
-            threshold: 150,
+            threshold: { x: 0.1, y: 150 },
           }}
           measuring={{
             droppable: {
