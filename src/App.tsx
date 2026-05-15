@@ -520,7 +520,7 @@ function Dashboard({
           sensors={sensors} 
           collisionDetection={closestCenter} 
           autoScroll={{
-            acceleration: 300,
+            acceleration: 900,
             threshold: { x: 0.1, y: 0.5 },
           }}
           measuring={{
