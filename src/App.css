@@ -1,3 +1,21 @@
+/* Global Scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-default);
+  border: 2px solid var(--bg-main);
+  border-radius: 999px;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
 .app-container {
   display: flex;
   flex-direction: column;
@@ -105,17 +123,23 @@
 }
 
 .main-content::-webkit-scrollbar {
-  height: 12px;
+  height: 10px;
+  width: 10px;
+}
+
+.main-content::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 .main-content::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border: 3px solid var(--bg-main);
+  background: var(--border-default);
+  border: 2px solid var(--bg-main);
   border-radius: 999px;
+  background-clip: padding-box;
 }
 
 .main-content::-webkit-scrollbar-thumb:hover {
-  background: var(--accent);
+  background: var(--text-muted);
 }
 
 /* Kanban Columns */
@@ -232,7 +256,7 @@
 }
 
 .cards-container::-webkit-scrollbar {
-  width: 6px;
+  width: 10px;
 }
 
 .cards-container::-webkit-scrollbar-track {
@@ -240,12 +264,14 @@
 }
 
 .cards-container::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 10px;
+  background: var(--border-default);
+  border: 2px solid var(--bg-card);
+  border-radius: 999px;
+  background-clip: padding-box;
 }
 
 .cards-container::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: var(--text-muted);
 }
 
 /* Trailer Card - Light Mode */
