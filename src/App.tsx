@@ -1353,7 +1353,7 @@ function App() {
   const fetchInitialData = useCallback(async () => {
     setLoading(true);
     try {
-      const [trailersRes, bayRes, modelsRes, shippedRes] = await Promise.all([
+      const [trailersRes, bayRes, modelsRes, shippedRes, dealersRes] = await Promise.all([
         // Exclude spec_sheet_file from bulk fetch — it's a huge base64 blob that causes query timeouts.
         // It is fetched on-demand when a trailer is opened for editing.
         supabase.from('trailers').select('id,name,model,serialNumber,station,dateStarted,currentPhase,history,partsStatus,finishingType,isArchived,archivedAt,isDeleted,invoiceNumber,vinDate,expectedDueDate,promisedShippingDate,notes,isPriority,updated_at,vertical_order,bay_vertical_order,photo_1_url,photo_2_url,photo_3_url,sale_price,trailer_color,trailer_plug'),
