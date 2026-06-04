@@ -48,6 +48,9 @@ export interface Trailer {
   spec_sheet_file?: string;
   trailer_color?: string;
   trailer_plug?: string;
+  salesPerson?: string;
+  dealerLocation?: string;
+  dealerCommonAddress?: string;
 }
 
 export interface ShippedTrailer {
@@ -73,6 +76,8 @@ export interface ShippedTrailer {
 export interface Dealer {
   id: string;
   name: string;
+  addresses?: string[];
+  common_address?: string;
 }
 
 export const STATIONS: StationId[] = ['B1', 'B2', 'B3', 'B4'];

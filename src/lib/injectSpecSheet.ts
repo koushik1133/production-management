@@ -12,7 +12,10 @@ export async function injectTrailerDataIntoSpec(
   trailerName?: string,
   trailerColor?: string,
   trailerPlug?: string,
-  salePrice?: string | number
+  salePrice?: string | number,
+  salesPerson?: string,
+  dealerLocation?: string,
+  dealerCommonAddress?: string
 ): Promise<string> {
   const base64Data = base64File.includes(',') ? base64File.split(',')[1] : base64File;
   
@@ -26,10 +29,31 @@ export async function injectTrailerDataIntoSpec(
   // Map of which sheets get which updates
   // Based on standard template layout: Price=B15, Name=G4 (Trim Build), etc.
   const updates: Record<string, Record<string, string | number | undefined>> = {
-    'xl/worksheets/sheet1.xml': { 'H4': serialNumber, 'I53': today },
-    'xl/worksheets/sheet2.xml': { 'B2': serialNumber, 'B4': today, 'B13': trailerColor, 'B14': trailerPlug, 'B15': salePrice },
+    'xl/worksheets/sheet1.xml': {
+      'H4': serialNumber,
+      'I53': today,
+      'I49': trailerName || '',
+      'I51': salesPerson || ''
+    },
+    'xl/worksheets/sheet2.xml': {
+      'B2': serialNumber,
+      'B4': today,
+      'B13': trailerColor || '',
+      'B14': trailerPlug || '',
+      'B15': salePrice || '',
+      'B6': trailerName || '',
+      'B7': dealerCommonAddress || '',
+      'B8': dealerCommonAddress || '',
+      'B9': dealerLocation || '',
+      'B12': salesPerson || ''
+    },
     'xl/worksheets/sheet3.xml': { 'H4': serialNumber },
-    'xl/worksheets/sheet4.xml': { 'G5': serialNumber, 'A9': trailerColor, 'A12': trailerPlug, 'G4': trailerName },
+    'xl/worksheets/sheet4.xml': {
+      'G5': serialNumber,
+      'A9': trailerColor || '',
+      'A12': trailerPlug || '',
+      'G4': trailerName || ''
+    },
     'xl/worksheets/sheet5.xml': { 'B2': serialNumber }
   };
 
