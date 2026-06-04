@@ -74,7 +74,6 @@ export const TrailerCard: React.FC<Props> = React.memo(({
     zIndex: isDragging ? (isOverlay ? 1000 : 10) : 1,
     cursor: isDragging ? 'grabbing' : 'grab',
     boxShadow: isOverlay ? '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)' : (isDragging ? 'none' : undefined),
-    // @ts-expect-error dnd-kit refs are complex
     rotate: isOverlay ? '2deg' : undefined,
     willChange: 'transform',
     touchAction: isDragging ? 'none' : 'auto',

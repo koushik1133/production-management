@@ -46,7 +46,6 @@ export async function injectTrailerDataIntoSpec(
       if (value === undefined || value === '') continue;
 
       const rowNum = cellRef.replace(/[A-Z]/g, '');
-      const colLetter = cellRef.replace(/[0-9]/g, '');
       
       let row = doc.querySelector(`row[r="${rowNum}"]`);
       if (!row) continue; // If row doesn't exist, skip.

@@ -4,7 +4,6 @@ import { History, FileText, Send, Crown, Trash2, Image as ImageIcon, DollarSign 
 import type { Trailer, PhaseId, ShippedTrailer, UserRole } from '../types';
 import { BAY_WEEKLY_HOURS, calculateTrailerRemainingHours, PHASES } from '../types';
 import { Modal } from './Modal';
-import * as XLSX from 'xlsx';
 import { MicrosoftExcelEditor } from './MicrosoftExcelEditor';
 import { injectTrailerDataIntoSpec } from '../lib/injectSpecSheet';
 
@@ -28,7 +27,6 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
   const [isEditing, setIsEditing] = React.useState(initialMode === 'edit');
   const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false);
   const [showGridEditor, setShowGridEditor] = React.useState(false);
-  const [version, setVersion] = useState(0); // Force re-render when cells change
   const [editForm, setEditForm] = useState({
     name: trailer.name || '',
     notes: trailer.notes || '',

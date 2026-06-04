@@ -179,9 +179,7 @@ function Dashboard({
       .single()
       .then(({ data }) => {
         if (data) {
-          setTrailers(prev => prev.map(t =>
-            t.id === selectedTrailerId ? { ...t, spec_sheet_file: data.spec_sheet_file } : t
-          ));
+          updateTrailer(selectedTrailerId, { spec_sheet_file: data.spec_sheet_file });
         }
       });
   }, [selectedTrailerId]);
@@ -1360,7 +1358,7 @@ function App() {
         supabase.from('trailers').select('id,name,model,serialNumber,station,dateStarted,currentPhase,history,partsStatus,finishingType,isArchived,archivedAt,isDeleted,invoiceNumber,vinDate,expectedDueDate,promisedShippingDate,notes,isPriority,updated_at,vertical_order,bay_vertical_order,photo_1_url,photo_2_url,photo_3_url,sale_price,trailer_color,trailer_plug'),
         supabase.from('bay_settings').select('*'),
         supabase.from('production_models').select('*'),
-        supabase.from('shipped_trailers').select('id,name,model,serialNumber,station,dateStarted,currentPhase,history,partsStatus,finishingType,isArchived,archivedAt,isDeleted,invoiceNumber,vinDate,expectedDueDate,promisedShippingDate,notes,isPriority,updated_at,vertical_order,bay_vertical_order,photo_1_url,photo_2_url,photo_3_url,sale_price,shipped_at,customer_name,destination').order('shipped_at', { ascending: false })
+        supabase.from('shipped_trailers').select('*').order('shipped_at', { ascending: false })
       ]);
       
       if (trailersRes.data) {

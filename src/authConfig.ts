@@ -2,7 +2,6 @@ import type { Configuration, PopupRequest } from "@azure/msal-browser";
 
 // Default to placeholders so the app doesn't crash, but it won't work until configured
 const clientId = import.meta.env.VITE_AZURE_CLIENT_ID || "YOUR_AZURE_CLIENT_ID_HERE";
-const tenantId = import.meta.env.VITE_AZURE_TENANT_ID || "common";
 
 export const msalConfig: Configuration = {
   auth: {
@@ -13,7 +12,6 @@ export const msalConfig: Configuration = {
   },
   cache: {
     cacheLocation: "sessionStorage", 
-    storeAuthStateInCookie: false, 
   }
 };
 
