@@ -4,6 +4,9 @@ import { History, FileText, Send, Crown, Trash2, Image as ImageIcon, DollarSign 
 import type { Trailer, PhaseId, ShippedTrailer, UserRole } from '../types';
 import { BAY_WEEKLY_HOURS, calculateTrailerRemainingHours, PHASES } from '../types';
 import { Modal } from './Modal';
+import * as XLSX from 'xlsx';
+import { MicrosoftExcelEditor } from './MicrosoftExcelEditor';
+import { injectTrailerDataIntoSpec } from '../lib/injectSpecSheet';
 
 interface Props {
   trailer: Trailer;
@@ -12,16 +15,20 @@ interface Props {
   onUpdate: (id: string, updates: Partial<Trailer>) => void;
   allTrailers?: Trailer[];
   localTargetHours: Record<string, Record<PhaseId, number>>;
+  localSpecSheetTemplates?: Record<string, string>;
   onDeleteTrailer?: (id: string) => void;
   shippedTrailers?: ShippedTrailer[];
   userRole: UserRole;
   isPriceUnlockedGlobally?: boolean;
   onUnlockPrices?: () => boolean;
+  initialMode?: 'view' | 'edit';
 }
 
-export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose, onUpdate, allTrailers = [], localTargetHours, onDeleteTrailer, shippedTrailers = [], userRole, isPriceUnlockedGlobally, onUnlockPrices }) => {
-  const [isEditing, setIsEditing] = React.useState(false);
+export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose, onUpdate, allTrailers = [], localTargetHours, localSpecSheetTemplates = {}, onDeleteTrailer, shippedTrailers = [], userRole, isPriceUnlockedGlobally, onUnlockPrices, initialMode = 'view' }) => {
+  const [isEditing, setIsEditing] = React.useState(initialMode === 'edit');
   const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false);
+  const [showGridEditor, setShowGridEditor] = React.useState(false);
+  const [version, setVersion] = useState(0); // Force re-render when cells change
   const [editForm, setEditForm] = useState({
     name: trailer.name || '',
     notes: trailer.notes || '',
@@ -29,9 +36,29 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
     promisedShippingDate: trailer.promisedShippingDate || '',
     serialNumber: trailer.serialNumber || '',
     partsStatus: trailer.partsStatus || { steel: false, tyres: false, parts: false },
-    sale_price: trailer.sale_price != null ? trailer.sale_price.toString() : ''
+    sale_price: trailer.sale_price?.toString() || '',
+    spec_sheet_file: trailer.spec_sheet_file || undefined
   });
   const [localNotes, setLocalNotes] = React.useState(trailer.notes || '');
+
+  const handleGenerateSpecSheet = async () => {
+    const templateBase64 = localSpecSheetTemplates[trailer.model];
+    if (!templateBase64) return;
+    try {
+      const injected = await injectTrailerDataIntoSpec(
+        templateBase64,
+        trailer.serialNumber,
+        trailer.name,
+        trailer.trailer_color,
+        trailer.trailer_plug,
+        trailer.sale_price || undefined
+      );
+      setEditForm({ ...editForm, spec_sheet_file: injected });
+      onUpdate(trailer.id, { spec_sheet_file: injected });
+    } catch (error) {
+      console.error("Failed to generate spec sheet", error);
+    }
+  };
 
   const phaseTimes = React.useMemo(() => {
     const result: Record<string, { h: number, m: number }> = {};
@@ -104,7 +131,8 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
   };
 
   return (
-    <Modal 
+    <>
+      <Modal 
       isOpen={isOpen} 
       onClose={onClose} 
       title={isEditing ? `Editing: ${trailer.serialNumber}` : `${trailer.serialNumber} • ${trailer.model}`}
@@ -125,13 +153,16 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
               </div>
               <div>
                 <label className="form-label" style={{ color: 'var(--text-muted)' }}>Serial Number</label>
-                <input 
-                  className="form-input" 
-                  value={editForm.serialNumber} 
-                  onChange={e => setEditForm({ ...editForm, serialNumber: e.target.value })}
-                  style={{ background: 'rgba(255,255,255,0.02)', fontWeight: 700 }}
-                />
-              </div>
+                  <input 
+                    className="form-input" 
+                    value={editForm.serialNumber} 
+                    onChange={e => {
+                      const val = e.target.value;
+                      setEditForm({ ...editForm, serialNumber: val });
+                    }}
+                    style={{ background: 'rgba(255,255,255,0.02)', fontWeight: 700 }}
+                  />
+                </div>
               <div>
                 <label className="form-label" style={{ color: 'var(--text-muted)' }}>Promised Shipping Date</label>
                 <input 
@@ -176,6 +207,88 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                   </div>
                 </div>
               )}
+              <div style={{ gridColumn: 'span 2', background: 'rgba(59, 130, 246, 0.05)', padding: '1.25rem', borderRadius: '12px', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
+                <label className="form-label" style={{ fontSize: '0.65rem', color: '#1d4ed8', marginBottom: '1rem', display: 'block', fontWeight: 800 }}>SPEC SHEET (EXCEL)</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  {editForm.spec_sheet_file ? (
+                    <div style={{ display: 'flex', gap: '0.5rem', width: '100%' }}>
+                      <button 
+                        type="button"
+                        className="btn btn-secondary" 
+                        onClick={() => {
+                          const a = document.createElement('a');
+                          a.href = editForm.spec_sheet_file!;
+                          a.download = `${editForm.serialNumber}_SpecSheet.xlsx`;
+                          a.click();
+                        }}
+                        style={{ padding: '0.5rem', fontSize: '0.8rem', flex: 1 }}
+                      >
+                        Download
+                      </button>
+                      <button 
+                        type="button"
+                        className="btn btn-primary shimmer" 
+                        onClick={() => setShowGridEditor(true)}
+                        style={{ padding: '0.5rem', fontSize: '0.8rem', flex: 1, background: '#107c41' }}
+                      >
+                        Edit in Excel
+                      </button>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                      <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>No spec sheet available.</span>
+                      {localSpecSheetTemplates[trailer.model] && (
+                        <button
+                          type="button"
+                          className="btn btn-primary shimmer"
+                          onClick={handleGenerateSpecSheet}
+                          style={{ padding: '0.5rem', fontSize: '0.8rem', width: '100%' }}
+                        >
+                          Generate from Model Template
+                        </button>
+                      )}
+                    </div>
+                  )}
+                  
+                  <label style={{ display: 'block' }}>
+                    <span className="btn btn-primary" style={{ display: 'block', width: '100%', padding: '0.5rem', fontSize: '0.8rem', textAlign: 'center', cursor: 'pointer' }}>
+                      Upload Edited Excel Sheet
+                    </span>
+                    <input 
+                      type="file" 
+                      accept=".xlsx" 
+                      style={{ display: 'none' }} 
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onload = async (evt) => {
+                            if (evt.target?.result) {
+                              try {
+                                // Auto-inject serial, date, color, plug into the uploaded file
+                                const injected = await injectTrailerDataIntoSpec(
+                                  evt.target.result as string,
+                                  trailer.serialNumber,
+                                  trailer.name,
+                                  trailer.trailer_color,
+                                  trailer.trailer_plug,
+                                  trailer.sale_price || undefined
+                                );
+                                setEditForm({ ...editForm, spec_sheet_file: injected });
+                              } catch {
+                                // Fallback: save as-is if injection fails
+                                setEditForm({ ...editForm, spec_sheet_file: evt.target.result as string });
+                              }
+                            }
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
+              </div>
+
               <div style={{ gridColumn: 'span 2', marginTop: '1rem' }}>
                 <button 
                   className="btn btn-primary" 
@@ -426,6 +539,46 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
           </div>
         )}
 
+        {!isEditing && (trailer.spec_sheet_file || localSpecSheetTemplates[trailer.model]) && (
+          <>
+            <div className="section-title" style={{ marginTop: '2rem' }}><FileText size={16} /><span>Spec Sheet (Excel)</span></div>
+            <div style={{ marginBottom: '2rem', background: 'rgba(59, 130, 246, 0.05)', padding: '1.25rem', borderRadius: '12px', border: '1px solid rgba(59, 130, 246, 0.2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>Excel Spec Sheet</span>
+              {trailer.spec_sheet_file ? (
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <button 
+                    className="btn btn-secondary" 
+                    onClick={() => {
+                      const a = document.createElement('a');
+                      a.href = trailer.spec_sheet_file!;
+                      a.download = `${trailer.serialNumber}_SpecSheet.xlsx`;
+                      a.click();
+                    }}
+                    style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
+                  >
+                    Download
+                  </button>
+                  <button 
+                    className="btn btn-primary shimmer" 
+                    onClick={() => setShowGridEditor(true)}
+                    style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', background: '#107c41' }}
+                  >
+                    Edit in Excel
+                  </button>
+                </div>
+              ) : (
+                <button 
+                  className="btn btn-primary shimmer" 
+                  onClick={handleGenerateSpecSheet}
+                  style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
+                >
+                  Generate from Template
+                </button>
+              )}
+            </div>
+          </>
+        )}
+
         <div className="section-title"><span>Parts Readiness Status</span></div>
         <div className="parts-container" style={{ display: 'flex', gap: '1rem', marginBottom: '2rem' }}>
           {(['steel', 'tyres', 'parts'] as const).map(part => (
@@ -586,5 +739,30 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
         </div>
       </div>
     </Modal>
+
+      {showGridEditor && editForm.spec_sheet_file && (
+        <MicrosoftExcelEditor 
+          base64File={editForm.spec_sheet_file} 
+          serialNumber={trailer.serialNumber}
+          onSave={(newBase64) => {
+            setEditForm({ ...editForm, spec_sheet_file: newBase64 });
+            onUpdate(trailer.id, { spec_sheet_file: newBase64 });
+            setShowGridEditor(false);
+          }} 
+          onClose={() => setShowGridEditor(false)} 
+        />
+      )}
+      {showGridEditor && !isEditing && trailer.spec_sheet_file && (
+        <MicrosoftExcelEditor 
+          base64File={trailer.spec_sheet_file} 
+          serialNumber={trailer.serialNumber}
+          onSave={(newBase64) => {
+            onUpdate(trailer.id, { spec_sheet_file: newBase64 });
+            setShowGridEditor(false);
+          }} 
+          onClose={() => setShowGridEditor(false)} 
+        />
+      )}
+    </>
   );
 };

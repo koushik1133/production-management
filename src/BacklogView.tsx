@@ -4,6 +4,8 @@ import { LayoutGrid, ArrowRight, Clock, Trash2, Calendar } from 'lucide-react';
 import { PHASES, PHASE_METADATA } from './types';
 import type { Trailer, StationId, PhaseId, UserRole } from './types';
 import { addHours, format } from 'date-fns';
+import * as XLSX from 'xlsx';
+import { injectTrailerDataIntoSpec } from './lib/injectSpecSheet';
 
 interface Props {
   onAddTrailer: (trailer: Trailer) => void;
@@ -13,12 +15,13 @@ interface Props {
   nextSuggestedSerial?: string;
   localModelCategories: { name: string, models: string[] }[];
   localTargetHours: Record<string, Record<PhaseId, number>>;
+  localSpecSheetTemplates: Record<string, string>;
   userRole: UserRole;
   isPriceUnlockedGlobally?: boolean;
   onUnlockPrices?: () => boolean;
 }
 
-export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, trailers, suggestedBay, nextSuggestedSerial, localModelCategories, localTargetHours, userRole, isPriceUnlockedGlobally, onUnlockPrices }) => {
+export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, trailers, suggestedBay, nextSuggestedSerial, localModelCategories, localTargetHours, localSpecSheetTemplates, userRole, isPriceUnlockedGlobally, onUnlockPrices }) => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
@@ -62,21 +65,43 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
       parts: false
     },
     promisedShippingDate: '',
-    sale_price: ''
+    sale_price: '',
+    trailer_color: '',
+    trailer_plug: ''
   });
 
   const selectedModelHours = formData.model ? localTargetHours[formData.model] : null;
   const totalHours = selectedModelHours ? Object.entries(selectedModelHours).reduce((a, [p, h]) => (p !== 'shipping' && p !== 'backlog') ? a + (h as number) : a, 0) : 0;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.model) return;
+
+    const serialNum = formData.serialNumber || `UNIT-${Math.floor(10000 + Math.random() * 90000)}`;
+
+    let finalSpecSheetFile = undefined;
+    const templateBase64 = localSpecSheetTemplates[formData.model];
+    
+    if (templateBase64) {
+      try {
+        finalSpecSheetFile = await injectTrailerDataIntoSpec(
+          templateBase64,
+          serialNum,
+          formData.name || undefined,
+          formData.trailer_color || undefined,
+          formData.trailer_plug || undefined,
+          formData.sale_price ? parseFloat(formData.sale_price) : undefined
+        );
+      } catch (error) {
+        console.error("Failed to generate spec sheet", error);
+      }
+    }
 
     const newTrailer: Trailer = {
       id: crypto.randomUUID(),
       name: formData.name || '---',
       model: formData.model,
-      serialNumber: formData.serialNumber || `UNIT-${Math.floor(10000 + Math.random() * 90000)}`,
+      serialNumber: serialNum,
       isPriority: formData.isPriority,
       dateStarted: Date.now(),
       currentPhase: 'backlog',
@@ -86,7 +111,10 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
       isArchived: false,
       isDeleted: false,
       station: 'None',
-      sale_price: formData.sale_price ? parseFloat(formData.sale_price) : undefined
+      sale_price: formData.sale_price ? parseFloat(formData.sale_price) : undefined,
+      spec_sheet_file: finalSpecSheetFile,
+      trailer_color: formData.trailer_color || undefined,
+      trailer_plug: formData.trailer_plug || undefined,
     };
 
     onAddTrailer(newTrailer);
@@ -99,7 +127,9 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
       isPriority: false, 
       partsStatus: { tyres: false, steel: false, parts: false },
       promisedShippingDate: '',
-      sale_price: ''
+      sale_price: '',
+      trailer_color: '',
+      trailer_plug: ''
     });
   };
 
@@ -217,6 +247,36 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
                       value={formData.promisedShippingDate} 
                       onChange={e => setFormData({...formData, promisedShippingDate: e.target.value})} 
                     />
+                  </div>
+                </div>
+
+                {/* Color & Plug */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label" style={{ fontSize: '0.65rem' }}>🎨 Trailer Color</label>
+                    <input 
+                      type="text" 
+                      className="form-input" 
+                      style={{ height: '38px', fontSize: '0.9rem' }}
+                      placeholder="e.g. White, Red" 
+                      value={formData.trailer_color} 
+                      onChange={e => setFormData({...formData, trailer_color: e.target.value})} 
+                    />
+                  </div>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label" style={{ fontSize: '0.65rem' }}>🔌 Trailer Plug</label>
+                    <select 
+                      className="form-select"
+                      style={{ height: '38px', fontSize: '0.85rem' }}
+                      value={formData.trailer_plug}
+                      onChange={e => setFormData({...formData, trailer_plug: e.target.value})}
+                    >
+                      <option value="">Select Plug...</option>
+                      <option value="7-Way Round">7-Way Round</option>
+                      <option value="4-Way Flat">4-Way Flat</option>
+                      <option value="5-Way Flat">5-Way Flat</option>
+                      <option value="6-Way Round">6-Way Round</option>
+                    </select>
                   </div>
                 </div>
 

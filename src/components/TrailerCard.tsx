@@ -9,7 +9,7 @@ import { STATIONS, PHASE_METADATA, calculateTrailerRemainingHours } from '../typ
 interface Props {
   trailer: Trailer;
   onUpdateTrailer?: (id: string, updates: Partial<Trailer>) => void;
-  onCardClick?: () => void;
+  onCardClick?: (mode?: 'view' | 'edit') => void;
   onShipRequest?: (trailer: Trailer) => void;
   hideCustomerName?: boolean;
   hideShipButton?: boolean;
@@ -74,7 +74,7 @@ export const TrailerCard: React.FC<Props> = React.memo(({
     zIndex: isDragging ? (isOverlay ? 1000 : 10) : 1,
     cursor: isDragging ? 'grabbing' : 'grab',
     boxShadow: isOverlay ? '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)' : (isDragging ? 'none' : undefined),
-    // @ts-ignore
+    // @ts-expect-error dnd-kit refs are complex
     rotate: isOverlay ? '2deg' : undefined,
     willChange: 'transform',
     touchAction: isDragging ? 'none' : 'auto',
@@ -83,6 +83,7 @@ export const TrailerCard: React.FC<Props> = React.memo(({
   const currentLog = trailer.history.find(h => h.phase === trailer.currentPhase && !h.exitedAt);
   const timeInPhase = currentLog ? formatDistanceToNow(currentLog.enteredAt) : '0m';
 
+  // eslint-disable-next-line react-hooks/purity
   const hoursRemaining = currentLog ? (Date.now() - currentLog.enteredAt) / (1000 * 60 * 60) : 0;
   const targetHours = localTargetHours[trailer.model]?.[trailer.currentPhase] 
     || PHASE_METADATA[trailer.currentPhase].defaultTargetHours;
@@ -105,7 +106,7 @@ export const TrailerCard: React.FC<Props> = React.memo(({
       className={`trailer-card hover-lift ${isBottleneck ? 'is-bottleneck' : ''} ${isHighlighted ? 'is-highlighted' : ''}`}
       {...attributes}
       {...(!isTablet ? listeners : {})}
-      onClick={() => onCardClick?.()}
+      onClick={() => onCardClick?.('view')}
     >
       <div className="card-header-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.3rem' }}>
         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start', flex: 1, minWidth: 0 }}>
@@ -352,6 +353,26 @@ export const TrailerCard: React.FC<Props> = React.memo(({
                 {trailer.finishingType}
               </span>
             )}
+            <button 
+              className="btn btn-secondary" 
+              style={{ padding: '0.2rem 0.6rem', fontSize: '0.65rem', borderRadius: '6px', fontWeight: 700 }}
+              onClick={(e) => {
+                e.stopPropagation();
+                onCardClick?.('edit');
+              }}
+            >
+              Edit
+            </button>
+            <button 
+              className="btn btn-secondary" 
+              style={{ padding: '0.2rem 0.6rem', fontSize: '0.65rem', borderRadius: '6px', fontWeight: 700 }}
+              onClick={(e) => {
+                e.stopPropagation();
+                onCardClick?.('view');
+              }}
+            >
+              Open
+            </button>
           </div>
         </div>
       )}

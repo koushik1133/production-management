@@ -9,13 +9,14 @@ interface Props {
   categories: { name: string, models: string[] }[];
   hours: Record<string, Record<PhaseId, number>>;
   specs: Record<string, ModelSpec>;
-  onAddModel: (model: { name: string, category: string, hours: Record<PhaseId, number>, spec: ModelSpec }) => void;
-  onEditModel: (name: string, spec: { targetHours: Record<PhaseId, number> }) => void;
+  templates: Record<string, string>;
+  onAddModel: (model: { name: string, category: string, hours: Record<PhaseId, number>, spec: ModelSpec, spec_sheet_template?: string }) => void;
+  onEditModel: (name: string, spec: { targetHours?: Record<PhaseId, number>, spec_sheet_template?: string }) => void;
   onDeleteModel: (name: string) => void;
   userRole: UserRole;
 }
 
-export const CatalogView: React.FC<Props> = ({ categories, hours, specs, onAddModel, onEditModel, onDeleteModel, userRole }) => {
+export const CatalogView: React.FC<Props> = ({ categories, hours, specs, templates, onAddModel, onEditModel, onDeleteModel, userRole }) => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = React.useState('');
   const [selectedModel, setSelectedModel] = React.useState<string | null>(null);
@@ -28,7 +29,8 @@ export const CatalogView: React.FC<Props> = ({ categories, hours, specs, onAddMo
     name: '',
     category: categories[0]?.name || '',
     hours: {} as Record<PhaseId, number>,
-    spec: { steelWeight: '0 lbs', description: '', axles: 'Standard' }
+    spec: { steelWeight: '0 lbs', description: '', axles: 'Standard' },
+    spec_sheet_template: undefined as string | undefined
   });
 
   const calculateTotalHours = (model: string) => {
@@ -57,7 +59,8 @@ export const CatalogView: React.FC<Props> = ({ categories, hours, specs, onAddMo
       name: '',
       category: categories[0]?.name || '',
       hours: {} as Record<PhaseId, number>,
-      spec: { steelWeight: '0 lbs', description: '', axles: 'Standard' }
+      spec: { steelWeight: '0 lbs', description: '', axles: 'Standard' },
+      spec_sheet_template: undefined
     });
   };
 
@@ -183,6 +186,53 @@ export const CatalogView: React.FC<Props> = ({ categories, hours, specs, onAddMo
 
                   {selectedModel === model && (
                     <div style={{ marginTop: '1.25rem', animation: 'slideDown 0.3s ease-out' }}>
+                      <div style={{ marginBottom: '1.5rem', background: 'rgba(59, 130, 246, 0.05)', padding: '1rem', borderRadius: '12px', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
+                        <h4 style={{ fontSize: '0.65rem', fontWeight: 900, color: '#1d4ed8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.5rem' }}>Spec Sheet Template</h4>
+                        {templates[model] ? (
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontSize: '0.8rem', color: 'var(--text-primary)', fontWeight: 700 }}>Template Attached</span>
+                            <button 
+                              className="btn btn-sm btn-secondary" 
+                              onClick={() => {
+                                const a = document.createElement('a');
+                                a.href = templates[model];
+                                a.download = `${model}_Template.xlsx`;
+                                a.click();
+                              }}
+                              style={{ padding: '0.3rem 0.6rem', fontSize: '0.7rem' }}
+                            >
+                              Download
+                            </button>
+                          </div>
+                        ) : (
+                          <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>No template uploaded.</span>
+                        )}
+                        {userRole === 'manager' && (
+                          <label style={{ display: 'block', marginTop: '0.75rem' }}>
+                            <span className="btn btn-sm btn-primary" style={{ display: 'inline-block', padding: '0.3rem 0.6rem', fontSize: '0.7rem', cursor: 'pointer' }}>
+                              {templates[model] ? 'Replace Template' : 'Upload Template'}
+                            </span>
+                            <input 
+                              type="file" 
+                              accept=".xlsx" 
+                              style={{ display: 'none' }} 
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  const reader = new FileReader();
+                                  reader.onload = (evt) => {
+                                    if (evt.target?.result) {
+                                      onEditModel(model, { spec_sheet_template: evt.target.result as string });
+                                    }
+                                  };
+                                  reader.readAsDataURL(file);
+                                }
+                              }}
+                            />
+                          </label>
+                        )}
+                      </div>
+
                       <h4 style={{ fontSize: '0.65rem', fontWeight: 900, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                         Phase Target Metrics
                         <Info size={11} color="var(--text-muted)" />
@@ -296,6 +346,35 @@ export const CatalogView: React.FC<Props> = ({ categories, hours, specs, onAddMo
                   />
                 </div>
               ))}
+            </div>
+          </div>
+
+          <div style={{ marginBottom: '1.5rem', background: 'rgba(59, 130, 246, 0.05)', padding: '1.25rem', borderRadius: '12px', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
+            <label className="form-label" style={{ marginBottom: '0.75rem', color: '#1d4ed8', fontWeight: 800 }}>Spec Sheet Template (Excel)</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <label>
+                <span className="btn btn-sm btn-primary" style={{ padding: '0.5rem 1rem', cursor: 'pointer' }}>
+                  {newModelForm.spec_sheet_template ? 'Replace Template' : 'Upload Template'}
+                </span>
+                <input 
+                  type="file" 
+                  accept=".xlsx" 
+                  style={{ display: 'none' }} 
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onload = (evt) => {
+                        if (evt.target?.result) {
+                          setNewModelForm({...newModelForm, spec_sheet_template: evt.target.result as string});
+                        }
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }}
+                />
+              </label>
+              {newModelForm.spec_sheet_template && <span style={{ fontSize: '0.8rem', color: 'var(--text-primary)', fontWeight: 700 }}>Template Attached</span>}
             </div>
           </div>
 

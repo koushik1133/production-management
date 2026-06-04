@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS public.trailers (
   "promisedShippingDate" text,
   notes text,
   "isPriority" boolean DEFAULT false,
+  "spec_sheet_file" text,
   updated_at timestamptz DEFAULT timezone('utc', now()) NOT NULL
 );
 
@@ -37,6 +38,7 @@ ALTER TABLE public.trailers ADD COLUMN IF NOT EXISTS bay_vertical_order int8 DEF
 ALTER TABLE public.trailers ADD COLUMN IF NOT EXISTS photo_1_url text;
 ALTER TABLE public.trailers ADD COLUMN IF NOT EXISTS photo_2_url text;
 ALTER TABLE public.trailers ADD COLUMN IF NOT EXISTS photo_3_url text;
+ALTER TABLE public.trailers ADD COLUMN IF NOT EXISTS spec_sheet_file text;
 
 -- 2. BAY SETTINGS TABLE
 CREATE TABLE IF NOT EXISTS public.bay_settings (
@@ -67,7 +69,8 @@ CREATE TABLE IF NOT EXISTS public.shipped_trailers (
   photo_1_url text,
   photo_2_url text,
   photo_3_url text,
-  sale_price numeric DEFAULT 0
+  sale_price numeric DEFAULT 0,
+  spec_sheet_file text
 );
 
 -- 4. PRODUCTION MODELS TABLE
@@ -76,14 +79,37 @@ CREATE TABLE IF NOT EXISTS public.production_models (
   name text NOT NULL,
   category text,
   target_hours jsonb,
-  specs jsonb DEFAULT '{}'::jsonb
+  specs jsonb DEFAULT '{}'::jsonb,
+  spec_sheet_template text
 );
 
--- 5. DISABLE ROW LEVEL SECURITY (open access for all tables)
-ALTER TABLE public.trailers DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.bay_settings DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.shipped_trailers DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.production_models DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.production_models ADD COLUMN IF NOT EXISTS spec_sheet_template text;
+ALTER TABLE public.shipped_trailers ADD COLUMN IF NOT EXISTS spec_sheet_file text;
+
+-- 5. ENABLE ROW LEVEL SECURITY (with open access policy)
+ALTER TABLE public.trailers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.bay_settings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.shipped_trailers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.production_models ENABLE ROW LEVEL SECURITY;
+
+-- Drop existing policies if they exist to prevent duplicates
+DROP POLICY IF EXISTS "Enable all access for all users" ON public.trailers;
+DROP POLICY IF EXISTS "Enable all access for all users" ON public.bay_settings;
+DROP POLICY IF EXISTS "Enable all access for all users" ON public.shipped_trailers;
+DROP POLICY IF EXISTS "Enable all access for all users" ON public.production_models;
+
+-- Create policies to allow all actions for all users
+CREATE POLICY "Enable all access for all users" 
+ON public.trailers FOR ALL USING (true) WITH CHECK (true);
+
+CREATE POLICY "Enable all access for all users" 
+ON public.bay_settings FOR ALL USING (true) WITH CHECK (true);
+
+CREATE POLICY "Enable all access for all users" 
+ON public.shipped_trailers FOR ALL USING (true) WITH CHECK (true);
+
+CREATE POLICY "Enable all access for all users" 
+ON public.production_models FOR ALL USING (true) WITH CHECK (true);
 
 -- 6. ENABLE REAL-TIME FOR ALL TABLES
 --    Uses ALTER PUBLICATION ... ADD TABLE instead of DROP/CREATE
