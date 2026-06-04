@@ -4,7 +4,6 @@ import { LayoutGrid, ArrowRight, Clock, Trash2, Calendar } from 'lucide-react';
 import { PHASES, PHASE_METADATA } from './types';
 import type { Trailer, StationId, PhaseId, UserRole } from './types';
 import { addHours, format } from 'date-fns';
-import * as XLSX from 'xlsx';
 import { injectTrailerDataIntoSpec } from './lib/injectSpecSheet';
 
 interface Props {
