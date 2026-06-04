@@ -70,6 +70,11 @@ export interface ShippedTrailer {
   spec_sheet_file?: string;
 }
 
+export interface Dealer {
+  id: string;
+  name: string;
+}
+
 export const STATIONS: StationId[] = ['B1', 'B2', 'B3', 'B4'];
 
 export const BAY_WEEKLY_HOURS: Partial<Record<StationId, number>> = {

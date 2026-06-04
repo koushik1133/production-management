@@ -18,9 +18,10 @@ interface Props {
   userRole: UserRole;
   isPriceUnlockedGlobally?: boolean;
   onUnlockPrices?: () => boolean;
+  dealers?: { id: string; name: string; }[];
 }
 
-export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, trailers, suggestedBay, nextSuggestedSerial, localModelCategories, localTargetHours, localSpecSheetTemplates, userRole, isPriceUnlockedGlobally, onUnlockPrices }) => {
+export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, trailers, suggestedBay, nextSuggestedSerial, localModelCategories, localTargetHours, localSpecSheetTemplates, userRole, isPriceUnlockedGlobally, onUnlockPrices, dealers = [] }) => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
@@ -194,8 +195,14 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
                       style={{ height: '38px', fontSize: '0.9rem' }}
                       value={formData.name} 
                       onChange={e => setFormData({...formData, name: e.target.value})} 
-                      placeholder="e.g. Stock" 
+                      placeholder="e.g. John Doe / PO# 12345"
+                      list="dealers-list"
                     />
+                    <datalist id="dealers-list">
+                      {dealers.map(d => (
+                        <option key={d.id} value={d.name} />
+                      ))}
+                    </datalist>
                   </div>
                 </div>
 

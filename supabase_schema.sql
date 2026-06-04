@@ -86,6 +86,15 @@ CREATE TABLE IF NOT EXISTS public.production_models (
 ALTER TABLE public.production_models ADD COLUMN IF NOT EXISTS spec_sheet_template text;
 ALTER TABLE public.shipped_trailers ADD COLUMN IF NOT EXISTS spec_sheet_file text;
 
+-- 4.5. DEALERS TABLE
+CREATE TABLE IF NOT EXISTS public.dealers (
+  id text PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  name text NOT NULL,
+  updated_at timestamptz DEFAULT timezone('utc', now()) NOT NULL
+);
+
+INSERT INTO public.dealers (name) VALUES ('Test 1'), ('Test 2') ON CONFLICT DO NOTHING;
+
 -- 5. ENABLE ROW LEVEL SECURITY (with open access policy)
 ALTER TABLE public.trailers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.bay_settings ENABLE ROW LEVEL SECURITY;
@@ -97,6 +106,7 @@ DROP POLICY IF EXISTS "Enable all access for all users" ON public.trailers;
 DROP POLICY IF EXISTS "Enable all access for all users" ON public.bay_settings;
 DROP POLICY IF EXISTS "Enable all access for all users" ON public.shipped_trailers;
 DROP POLICY IF EXISTS "Enable all access for all users" ON public.production_models;
+DROP POLICY IF EXISTS "Enable all access for all users" ON public.dealers;
 
 -- Create policies to allow all actions for all users
 CREATE POLICY "Enable all access for all users" 
@@ -110,6 +120,9 @@ ON public.shipped_trailers FOR ALL USING (true) WITH CHECK (true);
 
 CREATE POLICY "Enable all access for all users" 
 ON public.production_models FOR ALL USING (true) WITH CHECK (true);
+
+CREATE POLICY "Enable all access for all users" 
+ON public.dealers FOR ALL USING (true) WITH CHECK (true);
 
 -- 6. ENABLE REAL-TIME FOR ALL TABLES
 --    Uses ALTER PUBLICATION ... ADD TABLE instead of DROP/CREATE
@@ -144,6 +157,11 @@ BEGIN
     ALTER PUBLICATION supabase_realtime ADD TABLE public.production_models;
   EXCEPTION WHEN duplicate_object THEN NULL;
   END;
+
+  BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.dealers;
+  EXCEPTION WHEN duplicate_object THEN NULL;
+  END;
 END;
 $$;
 
@@ -152,3 +170,4 @@ GRANT ALL ON public.trailers TO anon, authenticated;
 GRANT ALL ON public.bay_settings TO anon, authenticated;
 GRANT ALL ON public.shipped_trailers TO anon, authenticated;
 GRANT ALL ON public.production_models TO anon, authenticated;
+GRANT ALL ON public.dealers TO anon, authenticated;
