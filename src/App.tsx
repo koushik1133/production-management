@@ -1226,6 +1226,7 @@ function App() {
 
   const [catalogModels, setCatalogModels] = useState<CatalogModel[]>([]);
   const [shippedTrailers, setShippedTrailers] = useState<ShippedTrailer[]>([]);
+  const [dealers, setDealers] = useState<{ id: string; name: string; }[]>([]);
 
   const [isPriceUnlockedGlobally, setIsPriceUnlockedGlobally] = useState(() => {
     return localStorage.getItem('lanetrailers_price_unlocked') === 'true';
@@ -1358,7 +1359,8 @@ function App() {
         supabase.from('trailers').select('id,name,model,serialNumber,station,dateStarted,currentPhase,history,partsStatus,finishingType,isArchived,archivedAt,isDeleted,invoiceNumber,vinDate,expectedDueDate,promisedShippingDate,notes,isPriority,updated_at,vertical_order,bay_vertical_order,photo_1_url,photo_2_url,photo_3_url,sale_price,trailer_color,trailer_plug'),
         supabase.from('bay_settings').select('*'),
         supabase.from('production_models').select('*'),
-        supabase.from('shipped_trailers').select('*').order('shipped_at', { ascending: false })
+        supabase.from('shipped_trailers').select('*').order('shipped_at', { ascending: false }),
+        supabase.from('dealers').select('*').order('name')
       ]);
       
       if (trailersRes.data) {
@@ -1377,6 +1379,7 @@ function App() {
       }
       if (modelsRes.data) setCatalogModels(modelsRes.data);
       if (shippedRes.data) setShippedTrailers(shippedRes.data);
+      if (dealersRes.data) setDealers(dealersRes.data);
       if (bayRes.data) {
         // Start with a clean slate — only 'None' gets a fixed 0
         const caps: Record<StationId, number> = {
@@ -1482,7 +1485,28 @@ function App() {
           }
         });
 
-      return { trailerChannel, capChannel, modelChannel };
+      const dealerChannel = supabase
+        .channel('dealers-changes')
+        .on(
+          'postgres_changes' as any,
+          { event: '*', schema: 'public', table: 'dealers' },
+          (payload: any) => {
+            if (payload.eventType === 'INSERT') {
+              setDealers(prev => prev.find(d => d.id === payload.new.id) ? prev : [...prev, payload.new as {id:string, name:string}].sort((a,b)=>a.name.localeCompare(b.name)));
+            } else if (payload.eventType === 'UPDATE') {
+              setDealers(prev => prev.map(d => d.id === payload.new.id ? { ...d, ...payload.new } : d).sort((a,b)=>a.name.localeCompare(b.name)));
+            } else if (payload.eventType === 'DELETE') {
+              setDealers(prev => prev.filter(d => d.id !== payload.old.id));
+            }
+          }
+        )
+        .subscribe((status: string) => {
+          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+            console.warn('Dealers channel error, will retry...');
+          }
+        });
+
+      return { trailerChannel, capChannel, modelChannel, dealerChannel };
     };
 
     const channels = setupSubscriptions();
@@ -1492,6 +1516,7 @@ function App() {
       supabase.removeChannel(channels.trailerChannel);
       supabase.removeChannel(channels.capChannel);
       supabase.removeChannel(channels.modelChannel);
+      supabase.removeChannel(channels.dealerChannel);
     };
   }, []);
 
@@ -2069,7 +2094,7 @@ function getSuggestedBay(): StationId {
               onUnlockPrices={unlockPricesGlobally}
               localSpecSheetTemplates={localSpecSheetTemplates}
             />} />
-            <Route path="/backlog" element={<BacklogView trailers={trailers} onAddTrailer={addTrailer} onUpdateTrailer={updateTrailer} suggestedBay={suggestedBay} nextSuggestedSerial={nextSuggestedSerial} localModelCategories={localModelCategories} localTargetHours={localTargetHours} localSpecSheetTemplates={localSpecSheetTemplates} userRole={userRole} isPriceUnlockedGlobally={isPriceUnlockedGlobally} onUnlockPrices={unlockPricesGlobally} />} />
+            <Route path="/backlog" element={<BacklogView trailers={trailers} onAddTrailer={addTrailer} onUpdateTrailer={updateTrailer} suggestedBay={suggestedBay} nextSuggestedSerial={nextSuggestedSerial} localModelCategories={localModelCategories} localTargetHours={localTargetHours} localSpecSheetTemplates={localSpecSheetTemplates} dealers={dealers} userRole={userRole} isPriceUnlockedGlobally={isPriceUnlockedGlobally} onUnlockPrices={unlockPricesGlobally} />} />
             <Route path="/stations" element={<StationView trailers={trailers} setTrailers={setTrailers} onUpdateTrailer={updateTrailer} bayCapacities={bayCapacities} onUpdateCapacity={updateCapacity} localTargetHours={localTargetHours} userRole={userRole} isPriceUnlockedGlobally={isPriceUnlockedGlobally} onUnlockPrices={unlockPricesGlobally} />} />
             <Route path="/tv" element={<TVView trailers={trailers} localTargetHours={localTargetHours} userRole={userRole} />} />
             <Route path="/tv/station1" element={<TVView trailers={trailers} monitorMode="station1" localTargetHours={localTargetHours} userRole={userRole} />} />
