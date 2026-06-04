@@ -49,7 +49,10 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
         trailer.name,
         trailer.trailer_color,
         trailer.trailer_plug,
-        trailer.sale_price || undefined
+        trailer.sale_price || undefined,
+        trailer.salesPerson,
+        trailer.dealerLocation,
+        trailer.dealerCommonAddress
       );
       setEditForm({ ...editForm, spec_sheet_file: injected });
       onUpdate(trailer.id, { spec_sheet_file: injected });

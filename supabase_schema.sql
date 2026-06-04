@@ -39,6 +39,9 @@ ALTER TABLE public.trailers ADD COLUMN IF NOT EXISTS photo_1_url text;
 ALTER TABLE public.trailers ADD COLUMN IF NOT EXISTS photo_2_url text;
 ALTER TABLE public.trailers ADD COLUMN IF NOT EXISTS photo_3_url text;
 ALTER TABLE public.trailers ADD COLUMN IF NOT EXISTS spec_sheet_file text;
+ALTER TABLE public.trailers ADD COLUMN IF NOT EXISTS sales_person text;
+ALTER TABLE public.trailers ADD COLUMN IF NOT EXISTS dealer_location text;
+ALTER TABLE public.trailers ADD COLUMN IF NOT EXISTS dealer_common_address text;
 
 -- 2. BAY SETTINGS TABLE
 CREATE TABLE IF NOT EXISTS public.bay_settings (
@@ -90,10 +93,15 @@ ALTER TABLE public.shipped_trailers ADD COLUMN IF NOT EXISTS spec_sheet_file tex
 CREATE TABLE IF NOT EXISTS public.dealers (
   id text PRIMARY KEY DEFAULT gen_random_uuid()::text,
   name text NOT NULL,
+  addresses jsonb DEFAULT '[]'::jsonb,
+  common_address text,
   updated_at timestamptz DEFAULT timezone('utc', now()) NOT NULL
 );
 
-INSERT INTO public.dealers (name) VALUES ('Test 1'), ('Test 2') ON CONFLICT DO NOTHING;
+INSERT INTO public.dealers (name, addresses, common_address) VALUES 
+  ('Test 1', '["Address 1", "Address 2"]'::jsonb, '123 Common St, Test 1 HQ'), 
+  ('Test 2', '["Address A", "Address B"]'::jsonb, '456 Default Blvd, Test 2 Base') 
+ON CONFLICT DO NOTHING;
 
 -- 5. ENABLE ROW LEVEL SECURITY (with open access policy)
 ALTER TABLE public.trailers ENABLE ROW LEVEL SECURITY;

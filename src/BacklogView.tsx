@@ -18,7 +18,7 @@ interface Props {
   userRole: UserRole;
   isPriceUnlockedGlobally?: boolean;
   onUnlockPrices?: () => boolean;
-  dealers?: { id: string; name: string; }[];
+  dealers?: { id: string; name: string; addresses?: string[]; common_address?: string; }[];
 }
 
 export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, trailers, suggestedBay, nextSuggestedSerial, localModelCategories, localTargetHours, localSpecSheetTemplates, userRole, isPriceUnlockedGlobally, onUnlockPrices, dealers = [] }) => {
@@ -67,7 +67,9 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
     promisedShippingDate: '',
     sale_price: '',
     trailer_color: '',
-    trailer_plug: ''
+    trailer_plug: '',
+    salesPerson: '',
+    dealerLocation: ''
   });
 
   const selectedModelHours = formData.model ? localTargetHours[formData.model] : null;
@@ -81,6 +83,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
 
     let finalSpecSheetFile = undefined;
     const templateBase64 = localSpecSheetTemplates[formData.model];
+    const selectedDealer = dealers.find(d => d.name === formData.name);
     
     if (templateBase64) {
       try {
@@ -90,7 +93,10 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
           formData.name || undefined,
           formData.trailer_color || undefined,
           formData.trailer_plug || undefined,
-          formData.sale_price ? parseFloat(formData.sale_price) : undefined
+          formData.sale_price ? parseFloat(formData.sale_price) : undefined,
+          formData.salesPerson || undefined,
+          formData.dealerLocation || undefined,
+          selectedDealer?.common_address || undefined
         );
       } catch (error) {
         console.error("Failed to generate spec sheet", error);
@@ -115,6 +121,9 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
       spec_sheet_file: finalSpecSheetFile,
       trailer_color: formData.trailer_color || undefined,
       trailer_plug: formData.trailer_plug || undefined,
+      salesPerson: formData.salesPerson || undefined,
+      dealerLocation: formData.dealerLocation || undefined,
+      dealerCommonAddress: selectedDealer?.common_address || undefined
     };
 
     onAddTrailer(newTrailer);
@@ -129,7 +138,9 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
       promisedShippingDate: '',
       sale_price: '',
       trailer_color: '',
-      trailer_plug: ''
+      trailer_plug: '',
+      salesPerson: '',
+      dealerLocation: ''
     });
   };
 
@@ -188,21 +199,49 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
                   />
                 </div>
                   <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label className="form-label" style={{ fontSize: '0.65rem' }}>Customer / PO</label>
+                    <label className="form-label" style={{ fontSize: '0.65rem' }}>Dealer Name</label>
+                    <select 
+                      className="form-select" 
+                      style={{ height: '38px', fontSize: '0.9rem' }}
+                      value={formData.name} 
+                      onChange={e => setFormData({...formData, name: e.target.value, dealerLocation: ''})} 
+                      required
+                    >
+                      <option value="">Select Dealer...</option>
+                      {dealers.map(d => (
+                        <option key={d.id} value={d.name}>{d.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label" style={{ fontSize: '0.65rem' }}>Dealer Address</label>
+                    <select 
+                      className="form-select" 
+                      style={{ height: '38px', fontSize: '0.9rem' }}
+                      value={formData.dealerLocation} 
+                      onChange={e => setFormData({...formData, dealerLocation: e.target.value})} 
+                      disabled={!formData.name}
+                    >
+                      <option value="">Select Address...</option>
+                      {dealers.find(d => d.name === formData.name)?.addresses?.map(addr => (
+                        <option key={addr} value={addr}>{addr}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label" style={{ fontSize: '0.65rem' }}>Sales Person</label>
                     <input 
                       type="text" 
                       className="form-input" 
                       style={{ height: '38px', fontSize: '0.9rem' }}
-                      value={formData.name} 
-                      onChange={e => setFormData({...formData, name: e.target.value})} 
-                      placeholder="e.g. John Doe / PO# 12345"
-                      list="dealers-list"
+                      placeholder="e.g. John Doe"
+                      value={formData.salesPerson} 
+                      onChange={e => setFormData({...formData, salesPerson: e.target.value})} 
                     />
-                    <datalist id="dealers-list">
-                      {dealers.map(d => (
-                        <option key={d.id} value={d.name} />
-                      ))}
-                    </datalist>
                   </div>
                 </div>
 
