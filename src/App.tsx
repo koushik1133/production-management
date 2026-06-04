@@ -162,7 +162,8 @@ function Dashboard({
     customer_name: '',
     sale_price: '',
     dealer_price: '',
-    cost_price: ''
+    cost_price: '',
+    shipped_date: new Date().toISOString().split('T')[0]
   });
   const selectedTrailer = useMemo(() => trailers.find(t => t.id === selectedTrailerId), [trailers, selectedTrailerId]);
 
@@ -288,7 +289,7 @@ function Dashboard({
         customer_name: shippingForm.customer_name,
         invoice_number: shippingForm.invoice_number,
         vin_date: shippingForm.vin_date,
-        shipped_at: new Date().toISOString(),
+        shipped_at: shippingForm.shipped_date ? `${shippingForm.shipped_date}T12:00:00Z` : new Date().toISOString(),
         total_hours: total_h,
         prefab_hours: hours.prefab,
         build_hours: hours.build,
@@ -311,7 +312,7 @@ function Dashboard({
 
       setPendingShippingTrailer(null);
       setShippingPhotos({ p1: null, p2: null, p3: null });
-      setShippingForm({ invoice_number: '', vin_date: '', customer_name: '', sale_price: '', dealer_price: '', cost_price: '' });
+      setShippingForm({ invoice_number: '', vin_date: '', customer_name: '', sale_price: '', dealer_price: '', cost_price: '', shipped_date: new Date().toISOString().split('T')[0] });
       setShippingHours({ prefab: '0', build: '0', paint: '0', outsource: '0', trim: '0' });
     } catch (err) {
       console.error(err);
@@ -868,11 +869,22 @@ function Dashboard({
                   onFocus={(e) => e.target.showPicker()}
                 />
               </div>
-              <div className="form-group" style={{ gridColumn: 'span 2', margin: 0, marginTop: '1rem' }}>
+              <div className="form-group" style={{ margin: 0, marginTop: '1rem' }}>
                 <label className="form-label" style={{ fontSize: '0.65rem' }}>Customer Name</label>
                 <input required className="form-input" placeholder="e.g. Acme Logistics"
                   value={shippingForm.customer_name}
                   onChange={e => setShippingForm(prev => ({ ...prev, customer_name: e.target.value }))}
+                />
+              </div>
+              <div className="form-group" style={{ margin: 0, marginTop: '1rem' }}>
+                <label className="form-label" style={{ fontSize: '0.65rem' }}>Shipped Date</label>
+                <input 
+                  required 
+                  type="date" 
+                  className="form-input"
+                  value={shippingForm.shipped_date}
+                  onChange={e => setShippingForm(prev => ({ ...prev, shipped_date: e.target.value }))}
+                  onFocus={(e) => e.target.showPicker()}
                 />
               </div>
             </div>
