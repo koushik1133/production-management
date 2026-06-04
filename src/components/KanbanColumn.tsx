@@ -8,7 +8,7 @@ interface Props {
   id: PhaseId;
   title: string;
   trailers: Trailer[];
-  onCardClick?: (trailer: Trailer) => void;
+  onCardClick?: (trailer: Trailer, mode?: 'view' | 'edit') => void;
   onUpdateTrailer?: (id: string, updates: Partial<Trailer>) => void;
   onShipRequest?: (trailer: Trailer) => void;
   workload?: { stage: number; pipeline: number };
@@ -55,7 +55,7 @@ export const KanbanColumn: React.FC<Props> = React.memo(({ id, title, trailers, 
                 trailer={trailer} 
                 onUpdateTrailer={onUpdateTrailer}
                 onShipRequest={onShipRequest}
-                onCardClick={() => onCardClick?.(trailer)}
+                onCardClick={(mode) => onCardClick?.(trailer, mode)}
                 isHighlighted={trailer.id === highlightedId}
                 suggestedBay={suggestedBay}
                 localTargetHours={localTargetHours}

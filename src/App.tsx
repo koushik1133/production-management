@@ -105,7 +105,8 @@ function Dashboard({
   handleRedo,
   localModelCategories,
   isPriceUnlockedGlobally,
-  onUnlockPrices
+  onUnlockPrices,
+  localSpecSheetTemplates
 }: {
   trailers: Trailer[], 
   updateTrailer: (id: string, updates: Partial<Trailer>) => void,
@@ -136,7 +137,8 @@ function Dashboard({
   handleRedo: () => void,
   localModelCategories: { name: string; models: string[] }[],
   isPriceUnlockedGlobally?: boolean,
-  onUnlockPrices?: () => boolean
+  onUnlockPrices?: () => boolean,
+  localSpecSheetTemplates?: Record<string, string>
 }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const highlightedTrailerId = searchParams.get('highlight');
@@ -152,6 +154,7 @@ function Dashboard({
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isStatsModalOpen, setIsStatsModalOpen] = useState(false);
   const [selectedTrailerId, setSelectedTrailerId] = useState<string | null>(null);
+  const [selectedTrailerMode, setSelectedTrailerMode] = useState<'view' | 'edit'>('view');
   const [pendingShippingTrailer, setPendingShippingTrailer] = useState<Trailer | null>(null);
   const [shippingForm, setShippingForm] = useState({ 
     invoice_number: '', 
@@ -162,6 +165,26 @@ function Dashboard({
     cost_price: ''
   });
   const selectedTrailer = useMemo(() => trailers.find(t => t.id === selectedTrailerId), [trailers, selectedTrailerId]);
+
+  // Fetch spec_sheet_file on-demand when a trailer is opened (not loaded in bulk to avoid timeouts)
+  useEffect(() => {
+    if (!selectedTrailerId) return;
+    const trailer = trailers.find(t => t.id === selectedTrailerId);
+    if (!trailer || trailer.spec_sheet_file !== undefined) return; // already fetched
+
+    supabase
+      .from('trailers')
+      .select('spec_sheet_file')
+      .eq('id', selectedTrailerId)
+      .single()
+      .then(({ data }) => {
+        if (data) {
+          setTrailers(prev => prev.map(t =>
+            t.id === selectedTrailerId ? { ...t, spec_sheet_file: data.spec_sheet_file } : t
+          ));
+        }
+      });
+  }, [selectedTrailerId]);
   const [shippingPhotos, setShippingPhotos] = useState<{ p1: File | null, p2: File | null, p3: File | null }>({ p1: null, p2: null, p3: null });
   const [shippingHours, setShippingHours] = useState<Record<string, string>>({
     prefab: '0', build: '0', paint: '0', outsource: '0', trim: '0'
@@ -309,7 +332,9 @@ function Dashboard({
     isPriority: false,
     promisedShippingDate: '',
     partsStatus: { tyres: false, steel: false, parts: false },
-    sale_price: ''
+    sale_price: '',
+    trailer_color: '',
+    trailer_plug: ''
   });
 
   const handleAddTrailer = async (e: React.FormEvent) => {
@@ -329,11 +354,13 @@ function Dashboard({
         history: [{ phase: 'backlog', enteredAt: Date.now() }],
         promisedShippingDate: newTrailerData.promisedShippingDate,
         partsStatus: newTrailerData.partsStatus,
-        sale_price: newTrailerData.sale_price ? parseFloat(newTrailerData.sale_price) : undefined
+        sale_price: newTrailerData.sale_price ? parseFloat(newTrailerData.sale_price) : undefined,
+        trailer_color: newTrailerData.trailer_color || undefined,
+        trailer_plug: newTrailerData.trailer_plug || undefined,
       };
       await addTrailer(newTrailer);
       setIsAddModalOpen(false);
-      setNewTrailerData({ serialNumber: '', name: '', model: '', station: 'None', isPriority: false, promisedShippingDate: '', partsStatus: { tyres: false, steel: false, parts: false }, sale_price: '' });
+      setNewTrailerData({ serialNumber: '', name: '', model: '', station: 'None', isPriority: false, promisedShippingDate: '', partsStatus: { tyres: false, steel: false, parts: false }, sale_price: '', trailer_color: '', trailer_plug: '' });
     } finally { setIsAdding(false); }
   };
 
@@ -546,7 +573,10 @@ function Dashboard({
                   setPendingShippingTrailer(t);
                 }
               }}
-              onCardClick={(t) => setSelectedTrailerId(t.id)}
+              onCardClick={(t, mode = 'view') => {
+                setSelectedTrailerId(t.id);
+                setSelectedTrailerMode(mode);
+              }}
               workload={getPhaseWorkload(phase.id)}
               highlightedId={highlightedTrailerId}
               suggestedBay={suggestedBay}
@@ -701,7 +731,34 @@ function Dashboard({
               </div>
             )}
           </div>
-          
+          {/* Color & Plug fields */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
+            <div className="form-group">
+              <label className="form-label">🎨 Trailer Color</label>
+              <input 
+                type="text" 
+                className="form-input" 
+                placeholder="e.g. White, Red" 
+                value={newTrailerData.trailer_color}
+                onChange={e => setNewTrailerData({...newTrailerData, trailer_color: e.target.value})}
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">🔌 Trailer Plug</label>
+              <select 
+                className="form-select"
+                value={newTrailerData.trailer_plug}
+                onChange={e => setNewTrailerData({...newTrailerData, trailer_plug: e.target.value})}
+              >
+                <option value="">Select Plug...</option>
+                <option value="7-Way Round">7-Way Round</option>
+                <option value="4-Way Flat">4-Way Flat</option>
+                <option value="5-Way Flat">5-Way Flat</option>
+                <option value="6-Way Round">6-Way Round</option>
+              </select>
+            </div>
+          </div>
+
           <div className="form-group priority-checkbox-container" style={{ 
             marginTop: '1rem', 
             display: 'flex', 
@@ -712,6 +769,7 @@ function Dashboard({
             border: '1px solid var(--priority-border)',
             background: 'var(--priority-bg)'
           }}>
+
             <input 
               type="checkbox" 
               id="quick-priority" 
@@ -768,11 +826,16 @@ function Dashboard({
       {selectedTrailer && (
         <TrailerDetailsModal 
           trailer={selectedTrailer} 
-          isOpen={true} 
-          onClose={() => setSelectedTrailerId(null)} 
+          isOpen={!!selectedTrailerId}
+          initialMode={selectedTrailerMode}
+          onClose={() => {
+            setSelectedTrailerId(null);
+            setSelectedTrailerMode('view');
+          }} 
           onUpdate={updateTrailer} 
           allTrailers={trailers}
           localTargetHours={localTargetHours}
+          localSpecSheetTemplates={localSpecSheetTemplates}
           onDeleteTrailer={(id) => {
             onDeleteTrailer(id);
             setSelectedTrailerId(null);
@@ -1220,6 +1283,16 @@ function App() {
     return specsMap;
   }, [catalogModels]);
 
+  const localSpecSheetTemplates = useMemo(() => {
+    const templatesMap: Record<string, string> = {};
+    catalogModels.forEach(m => {
+      if (m.spec_sheet_template) {
+        templatesMap[m.name] = m.spec_sheet_template;
+      }
+    });
+    return templatesMap;
+  }, [catalogModels]);
+
   // Dynamically merge static categories with any new models stored in Supabase
   const localModelCategories = useMemo(() => {
     const merged = staticModelCategories.map(cat => ({ ...cat, models: [...cat.models] }));
@@ -1282,10 +1355,12 @@ function App() {
     setLoading(true);
     try {
       const [trailersRes, bayRes, modelsRes, shippedRes] = await Promise.all([
-        supabase.from('trailers').select('*'),
+        // Exclude spec_sheet_file from bulk fetch — it's a huge base64 blob that causes query timeouts.
+        // It is fetched on-demand when a trailer is opened for editing.
+        supabase.from('trailers').select('id,name,model,serialNumber,station,dateStarted,currentPhase,history,partsStatus,finishingType,isArchived,archivedAt,isDeleted,invoiceNumber,vinDate,expectedDueDate,promisedShippingDate,notes,isPriority,updated_at,vertical_order,bay_vertical_order,photo_1_url,photo_2_url,photo_3_url,sale_price,trailer_color,trailer_plug'),
         supabase.from('bay_settings').select('*'),
         supabase.from('production_models').select('*'),
-        supabase.from('shipped_trailers').select('*').order('shipped_at', { ascending: false })
+        supabase.from('shipped_trailers').select('id,name,model,serialNumber,station,dateStarted,currentPhase,history,partsStatus,finishingType,isArchived,archivedAt,isDeleted,invoiceNumber,vinDate,expectedDueDate,promisedShippingDate,notes,isPriority,updated_at,vertical_order,bay_vertical_order,photo_1_url,photo_2_url,photo_3_url,sale_price,shipped_at,customer_name,destination').order('shipped_at', { ascending: false })
       ]);
       
       if (trailersRes.data) {
@@ -1463,13 +1538,14 @@ function App() {
     if (error) console.error('Error deleting trailer:', error);
   };
 
-  const handleAddModel = async (data: { name: string, category: string, hours: Record<PhaseId, number>, spec: ModelSpec }) => {
+  const handleAddModel = async (data: { name: string, category: string, hours: Record<PhaseId, number>, spec: ModelSpec, spec_sheet_template?: string }) => {
     const newModel: CatalogModel = {
       id: crypto.randomUUID(),
       name: data.name,
       category: data.category,
       target_hours: data.hours,
-      specs: data.spec
+      specs: data.spec,
+      spec_sheet_template: data.spec_sheet_template
     };
 
     // Optimistic update
@@ -1487,15 +1563,39 @@ function App() {
     }
   };
 
-  const handleEditModel = (name: string, spec: { targetHours: Record<PhaseId, number> }) => {
-    setEditingModelName(name);
-    setModelFormData(spec.targetHours);
-    // Pre-populate steel weight and axles from existing catalogModels entry
-    const existing = catalogModels.find(m => m.name === name);
-    setModelSpecData({
-      steelWeight: existing?.specs?.steelWeight || '',
-      axles: existing?.specs?.axles || '',
-    });
+  const handleEditModel = async (name: string, spec: { targetHours?: Record<PhaseId, number>, spec_sheet_template?: string }) => {
+    if (spec.spec_sheet_template) {
+      // Immediate save for spec sheet templates without opening the modal
+      const existing = catalogModels.find(m => m.name === name);
+      if (existing) {
+        const updatedModel = { ...existing, spec_sheet_template: spec.spec_sheet_template };
+        setCatalogModels(prev => prev.map(m => m.name === name ? updatedModel : m));
+        await supabase.from('production_models').upsert(updatedModel);
+      } else {
+        const newModel: CatalogModel = {
+          id: crypto.randomUUID(),
+          name: name,
+          category: localModelCategories.find(c => c.models.includes(name))?.name || 'Uncategorized',
+          target_hours: localTargetHours[name] || { prefab: PHASE_METADATA.prefab.defaultTargetHours, build: PHASE_METADATA.build.defaultTargetHours, paint: PHASE_METADATA.paint.defaultTargetHours, outsource: PHASE_METADATA.outsource.defaultTargetHours, trim: PHASE_METADATA.trim.defaultTargetHours, shipping: 0 }, // fallback
+          specs: {},
+          spec_sheet_template: spec.spec_sheet_template
+        };
+        setCatalogModels(prev => [...prev, newModel]);
+        await supabase.from('production_models').insert(newModel);
+      }
+      return;
+    }
+
+    if (spec.targetHours) {
+      setEditingModelName(name);
+      setModelFormData(spec.targetHours);
+      // Pre-populate steel weight and axles from existing catalogModels entry
+      const existing = catalogModels.find(m => m.name === name);
+      setModelSpecData({
+        steelWeight: existing?.specs?.steelWeight || '',
+        axles: existing?.specs?.axles || '',
+      });
+    }
   };
 
   const handleDeleteModel = async (name: string) => {
@@ -1969,15 +2069,16 @@ function getSuggestedBay(): StationId {
               localModelCategories={localModelCategories}
               isPriceUnlockedGlobally={isPriceUnlockedGlobally}
               onUnlockPrices={unlockPricesGlobally}
+              localSpecSheetTemplates={localSpecSheetTemplates}
             />} />
-            <Route path="/backlog" element={<BacklogView trailers={trailers} onAddTrailer={addTrailer} onUpdateTrailer={updateTrailer} suggestedBay={suggestedBay} nextSuggestedSerial={nextSuggestedSerial} localModelCategories={localModelCategories} localTargetHours={localTargetHours} userRole={userRole} isPriceUnlockedGlobally={isPriceUnlockedGlobally} onUnlockPrices={unlockPricesGlobally} />} />
+            <Route path="/backlog" element={<BacklogView trailers={trailers} onAddTrailer={addTrailer} onUpdateTrailer={updateTrailer} suggestedBay={suggestedBay} nextSuggestedSerial={nextSuggestedSerial} localModelCategories={localModelCategories} localTargetHours={localTargetHours} localSpecSheetTemplates={localSpecSheetTemplates} userRole={userRole} isPriceUnlockedGlobally={isPriceUnlockedGlobally} onUnlockPrices={unlockPricesGlobally} />} />
             <Route path="/stations" element={<StationView trailers={trailers} setTrailers={setTrailers} onUpdateTrailer={updateTrailer} bayCapacities={bayCapacities} onUpdateCapacity={updateCapacity} localTargetHours={localTargetHours} userRole={userRole} isPriceUnlockedGlobally={isPriceUnlockedGlobally} onUnlockPrices={unlockPricesGlobally} />} />
             <Route path="/tv" element={<TVView trailers={trailers} localTargetHours={localTargetHours} userRole={userRole} />} />
             <Route path="/tv/station1" element={<TVView trailers={trailers} monitorMode="station1" localTargetHours={localTargetHours} userRole={userRole} />} />
             <Route path="/tv/station2" element={<TVView trailers={trailers} monitorMode="station2" localTargetHours={localTargetHours} userRole={userRole} />} />
             <Route path="/archive" element={<ArchiveView trailers={trailers} onUpdateTrailer={updateTrailer} localTargetHours={localTargetHours} shippedTrailers={shippedTrailers} userRole={userRole} isPriceUnlockedGlobally={isPriceUnlockedGlobally} onUnlockPrices={unlockPricesGlobally} />} />
             <Route path="/schedule" element={<ScheduleView trailers={trailers} />} />
-            <Route path="/catalog" element={<CatalogView categories={localModelCategories} hours={localTargetHours} specs={localModelSpecs} onAddModel={handleAddModel} onEditModel={handleEditModel} onDeleteModel={handleDeleteModel} userRole={userRole} />} />
+            <Route path="/catalog" element={<CatalogView categories={localModelCategories} hours={localTargetHours} specs={localModelSpecs} templates={localSpecSheetTemplates} onAddModel={handleAddModel} onEditModel={handleEditModel} onDeleteModel={handleDeleteModel} userRole={userRole} />} />
           </Routes>
 
           {/* Quick Model Spec Editor - Only for Managers */}

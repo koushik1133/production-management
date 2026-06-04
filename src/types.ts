@@ -45,6 +45,9 @@ export interface Trailer {
   photo_2_url?: string;
   photo_3_url?: string;
   sale_price?: number | null;
+  spec_sheet_file?: string;
+  trailer_color?: string;
+  trailer_plug?: string;
 }
 
 export interface ShippedTrailer {
@@ -64,6 +67,7 @@ export interface ShippedTrailer {
   photo_2_url?: string;
   photo_3_url?: string;
   sale_price: number;
+  spec_sheet_file?: string;
 }
 
 export const STATIONS: StationId[] = ['B1', 'B2', 'B3', 'B4'];
@@ -113,6 +117,7 @@ export interface CatalogModel {
   category: string;
   target_hours: Record<PhaseId, number>;
   specs: ModelSpec;
+  spec_sheet_template?: string;
 }
 
 /**

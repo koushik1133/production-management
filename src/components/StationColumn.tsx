@@ -8,7 +8,7 @@ interface Props {
   id: StationId;
   trailers: Trailer[];
   onUpdateTrailer?: (id: string, updates: Partial<Trailer>) => void;
-  onCardClick?: (trailer: Trailer) => void;
+  onCardClick?: (trailer: Trailer, mode?: 'view' | 'edit') => void;
   workload?: { stage: number; pipeline: number; leadTime: number; leadTimeDisplay?: string };
   capacity?: number;
   onUpdateCapacity?: (capacity: number) => void;
@@ -116,7 +116,7 @@ export const StationColumn: React.FC<Props> = ({ id, trailers, onUpdateTrailer, 
                 key={trailer.id} 
                 trailer={trailer} 
                 onUpdateTrailer={onUpdateTrailer}
-                onCardClick={() => onCardClick?.(trailer)}
+                onCardClick={(mode) => onCardClick?.(trailer, mode)}
                 showPhaseBadge={true}
                 localTargetHours={localTargetHours}
                 userRole={userRole}
