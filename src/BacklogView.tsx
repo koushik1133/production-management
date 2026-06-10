@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LayoutGrid, ArrowRight, Clock, Trash2, Calendar } from 'lucide-react';
+import { LayoutGrid, ArrowRight, Clock, Trash2, Calendar, AlertCircle } from 'lucide-react';
 import { PHASES, PHASE_METADATA } from './types';
 import type { Trailer, StationId, PhaseId, UserRole } from './types';
 import { addHours, format } from 'date-fns';
@@ -75,6 +75,64 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
   const selectedModelHours = formData.model ? localTargetHours[formData.model] : null;
   const totalHours = selectedModelHours ? Object.entries(selectedModelHours).reduce((a, [p, h]) => (p !== 'shipping' && p !== 'backlog') ? a + (h as number) : a, 0) : 0;
 
+  const handleGenerateQuote = async () => {
+    if (!formData.model) {
+      alert("Please select a Trailer Model first.");
+      return;
+    }
+
+    const templateBase64 = localSpecSheetTemplates[formData.model];
+    if (!templateBase64) {
+      alert("No Excel template is available for this model.");
+      return;
+    }
+
+    const dateStr = format(new Date(), 'MMddyyyy');
+    const quoteId = `${dateStr}-${formData.serialNumber || 'QUOTE'}`;
+    const selectedDealer = dealers.find(d => d.name === formData.name);
+
+    try {
+      const injected = await injectTrailerDataIntoSpec(
+        templateBase64,
+        quoteId,
+        formData.name || undefined,
+        formData.trailer_color || undefined,
+        formData.trailer_plug || undefined,
+        formData.sale_price ? parseFloat(formData.sale_price) : undefined,
+        formData.salesPerson || undefined,
+        formData.dealerLocation || undefined,
+        selectedDealer?.common_address || undefined
+      );
+
+      const a = document.createElement('a');
+      a.href = injected;
+      a.download = `${quoteId}_Quote.xlsx`;
+      a.click();
+
+      setFormData({
+        name: '',
+        model: '',
+        serialNumber: nextSuggestedSerial || '',
+        station: 'B1' as StationId,
+        isPriority: false,
+        partsStatus: {
+          tyres: false,
+          steel: false,
+          parts: false
+        },
+        promisedShippingDate: '',
+        sale_price: '',
+        trailer_color: '',
+        trailer_plug: '',
+        salesPerson: '',
+        dealerLocation: ''
+      });
+    } catch (error) {
+      console.error("Failed to generate quote sheet", error);
+      alert("Failed to generate quote sheet.");
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.model) return;
@@ -123,7 +181,8 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
       trailer_plug: formData.trailer_plug || undefined,
       salesPerson: formData.salesPerson || undefined,
       dealerLocation: formData.dealerLocation || undefined,
-      dealerCommonAddress: selectedDealer?.common_address || undefined
+      dealerCommonAddress: selectedDealer?.common_address || undefined,
+      dealerId: selectedDealer?.id || undefined
     };
 
     onAddTrailer(newTrailer);
@@ -224,6 +283,11 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
                             </optgroup>
                           ))}
                         </select>
+                        {formData.model && !localSpecSheetTemplates[formData.model] && (
+                          <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: '#ea580c', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                            <AlertCircle size={14} /> No Excel template available for this model.
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -321,7 +385,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
                             style={{ padding: '0.75rem 1rem', fontSize: '0.95rem', borderColor: 'rgba(217, 119, 6, 0.3)', background: 'rgba(217, 119, 6, 0.05)', color: '#d97706', fontWeight: 800 }}
                             placeholder={isPriceUnlockedGlobally ? "0.00" : "••••••"}
                             value={formData.sale_price} 
-                            onChange={e => setFormData({...formData, sale_price: e.target.value})} 
+                            onChange={e => setFormData({...formData, sale_price: e.target.value.replace(/[^0-9.]/g, '')})} 
                             onFocus={() => {
                               if (!isPriceUnlockedGlobally && onUnlockPrices) {
                                 onUnlockPrices();
@@ -334,6 +398,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
                         <label className="form-label" style={{ fontSize: '0.75rem', color: 'var(--accent)' }}>Promised Shipping</label>
                         <input 
                           type="date" 
+                          min={new Date().toISOString().split('T')[0]}
                           className="form-input" 
                           style={{ padding: '0.75rem 1rem', fontSize: '0.95rem', background: 'var(--bg-card)' }}
                           value={formData.promisedShippingDate} 
@@ -369,35 +434,53 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
                   </div>
                 </div>
 
-                <button 
-                  type="submit" 
-                  className="btn btn-primary" 
-                  style={{ 
-                    height: '3.5rem', 
-                    fontSize: '1rem', 
-                    borderRadius: '12px', 
-                    position: 'relative',
-                    opacity: trailers.some(t => t.serialNumber === formData.serialNumber) ? 0.6 : 1
-                  }}
-                  disabled={trailers.some(t => t.serialNumber === formData.serialNumber)}
-                >
-                  Confirm Registration <ArrowRight size={18} />
-                  <div className="reco-badge-tag" style={{ 
-                    position: 'absolute', 
-                    top: '-12px', 
-                    right: '12px', 
-                    background: 'var(--bg-main)', 
-                    color: 'var(--text-primary)', 
-                    padding: '4px 10px', 
-                    borderRadius: '8px', 
-                    fontSize: '0.65rem', 
-                    fontWeight: 900,
-                    border: '1.5px solid var(--accent)',
-                    boxShadow: 'var(--shadow-md)'
-                  }}>
-                    RECOMMENDED: BAY {suggestedBay}
-                  </div>
-                </button>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                  <button 
+                    type="button" 
+                    className="btn btn-secondary" 
+                    onClick={handleGenerateQuote}
+                    style={{ 
+                      height: '3.5rem', 
+                      fontSize: '1rem', 
+                      borderRadius: '12px', 
+                      border: '2px solid var(--accent)',
+                      color: 'var(--accent)',
+                      background: 'transparent',
+                      fontWeight: 700
+                    }}
+                  >
+                    Get Quote (Excel Only)
+                  </button>
+                  <button 
+                    type="submit" 
+                    className="btn btn-primary" 
+                    style={{ 
+                      height: '3.5rem', 
+                      fontSize: '1rem', 
+                      borderRadius: '12px', 
+                      position: 'relative',
+                      opacity: trailers.some(t => t.serialNumber === formData.serialNumber) ? 0.6 : 1
+                    }}
+                    disabled={trailers.some(t => t.serialNumber === formData.serialNumber)}
+                  >
+                    Confirm Registration <ArrowRight size={18} />
+                    <div className="reco-badge-tag" style={{ 
+                      position: 'absolute', 
+                      top: '-12px', 
+                      right: '12px', 
+                      background: 'var(--bg-main)', 
+                      color: 'var(--text-primary)', 
+                      padding: '4px 10px', 
+                      borderRadius: '8px', 
+                      fontSize: '0.65rem', 
+                      fontWeight: 900,
+                      border: '1.5px solid var(--accent)',
+                      boxShadow: 'var(--shadow-md)'
+                    }}>
+                      RECOMMENDED: BAY {suggestedBay}
+                    </div>
+                  </button>
+                </div>
               </form>
 
               {formData.model && (

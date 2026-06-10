@@ -69,7 +69,7 @@ const StationView: React.FC<Props> = ({ trailers, setTrailers, onUpdateTrailer, 
     const draggedTrailer = trailersRef.current.find(t => t.id === dragId);
     if (draggedTrailer) {
       // We can implement local snapshotting here if needed, 
-      // but for now we focus on vertical_order sync.
+      // but for now we focus on bay_vertical_order sync.
     }
   };
 
@@ -101,7 +101,7 @@ const StationView: React.FC<Props> = ({ trailers, setTrailers, onUpdateTrailer, 
         // Get sorted items in target station
         const stationItems = newTrailers
           .filter(t => t.station === overStation && !t.isArchived && !t.isDeleted)
-          .sort((a, b) => (a.vertical_order ?? 0) - (b.vertical_order ?? 0));
+          .sort((a, b) => (a.bay_vertical_order ?? 0) - (b.bay_vertical_order ?? 0));
 
         const oldIdx = stationItems.findIndex(t => t.id === activeId);
         let newIdx = overTrailer ? stationItems.findIndex(t => t.id === overId) : stationItems.length - 1;
@@ -109,11 +109,11 @@ const StationView: React.FC<Props> = ({ trailers, setTrailers, onUpdateTrailer, 
 
         if (oldIdx !== -1 && oldIdx !== newIdx) {
           const reorderedStation = arrayMove(stationItems, oldIdx, newIdx);
-          // Update vertical_orders globally
+          // Update bay_vertical_orders globally
           reorderedStation.forEach((t, idx) => {
             const globalIdx = newTrailers.findIndex(gt => gt.id === t.id);
             if (globalIdx !== -1) {
-              newTrailers[globalIdx] = { ...newTrailers[globalIdx], vertical_order: idx * 1000 };
+              newTrailers[globalIdx] = { ...newTrailers[globalIdx], bay_vertical_order: idx * 1000 };
             }
           });
         }
@@ -137,10 +137,10 @@ const StationView: React.FC<Props> = ({ trailers, setTrailers, onUpdateTrailer, 
         const overId = over.id as string;
         const currentItems = trailersRef.current;
         
-        // Get units in target station, sorted by vertical_order
+        // Get units in target station, sorted by bay_vertical_order
         const stationTrailers = currentItems
           .filter(t => t.station === trailer.station && !t.isArchived && !t.isDeleted)
-          .sort((a, b) => (a.vertical_order ?? 0) - (b.vertical_order ?? 0));
+          .sort((a, b) => (a.bay_vertical_order ?? 0) - (b.bay_vertical_order ?? 0));
 
         const currentIdx = stationTrailers.findIndex(t => t.id === activeId);
         const overIsCard = stationTrailers.some(t => t.id === overId);
@@ -150,9 +150,9 @@ const StationView: React.FC<Props> = ({ trailers, setTrailers, onUpdateTrailer, 
 
         if (currentIdx === -1) return;
 
-        // Reorder and assign sequential whole-number vertical_orders
+        // Reorder and assign sequential whole-number bay_vertical_orders
         const reordered = arrayMove([...stationTrailers], currentIdx, targetIdx)
-          .map((t, idx) => ({ ...t, vertical_order: idx * 1000 }));
+          .map((t, idx) => ({ ...t, bay_vertical_order: idx * 1000 }));
 
         // Optimistic local update
         setTrailers(prev => {
@@ -162,8 +162,8 @@ const StationView: React.FC<Props> = ({ trailers, setTrailers, onUpdateTrailer, 
           });
           
           return [...updatedList].sort((a, b) => {
-            if (a.station === b.station && a.vertical_order !== undefined && b.vertical_order !== undefined) {
-              return a.vertical_order - b.vertical_order;
+            if (a.station === b.station && a.bay_vertical_order !== undefined && b.bay_vertical_order !== undefined) {
+              return a.bay_vertical_order - b.bay_vertical_order;
             }
             return 0;
           });
@@ -173,11 +173,11 @@ const StationView: React.FC<Props> = ({ trailers, setTrailers, onUpdateTrailer, 
         await Promise.all([
           supabase.from('trailers').update({
             station: trailer.station,
-            vertical_order: reordered.find(r => r.id === activeId)?.vertical_order ?? 0,
+            bay_vertical_order: reordered.find(r => r.id === activeId)?.bay_vertical_order ?? 0,
           }).eq('id', activeId),
           ...reordered
             .filter(t => t.id !== activeId)
-            .map(t => supabase.from('trailers').update({ vertical_order: t.vertical_order }).eq('id', t.id))
+            .map(t => supabase.from('trailers').update({ bay_vertical_order: t.bay_vertical_order }).eq('id', t.id))
         ]);
 
       } catch (err) {
