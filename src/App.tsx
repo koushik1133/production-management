@@ -1440,7 +1440,16 @@ function App() {
               });
             } else if (payload.eventType === 'UPDATE') {
               setTrailers(prev => {
-                const updated = prev.map(t => t.id === payload.new.id ? { ...t, ...payload.new } as Trailer : t);
+                const updated = prev.map(t => {
+                  if (t.id === payload.new.id) {
+                    return {
+                      ...t,
+                      ...payload.new,
+                      spec_sheet_file: payload.new.spec_sheet_file || t.spec_sheet_file
+                    } as Trailer;
+                  }
+                  return t;
+                });
                 return [...updated].sort((a, b) => (a.vertical_order ?? 0) - (b.vertical_order ?? 0));
               });
             } else if (payload.eventType === 'DELETE') {
@@ -1485,7 +1494,16 @@ function App() {
             if (payload.eventType === 'INSERT') {
               setCatalogModels(prev => prev.find(m => m.id === payload.new.id) ? prev : [...prev, payload.new as CatalogModel]);
             } else if (payload.eventType === 'UPDATE') {
-              setCatalogModels(prev => prev.map(m => m.id === payload.new.id ? { ...m, ...payload.new } : m));
+              setCatalogModels(prev => prev.map(m => {
+                if (m.id === payload.new.id) {
+                  return {
+                    ...m,
+                    ...payload.new,
+                    spec_sheet_template: payload.new.spec_sheet_template || m.spec_sheet_template
+                  };
+                }
+                return m;
+              }));
             } else if (payload.eventType === 'DELETE') {
               setCatalogModels(prev => prev.filter(m => m.id !== payload.old.id));
             }

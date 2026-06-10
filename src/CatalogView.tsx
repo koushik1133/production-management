@@ -411,6 +411,7 @@ export const CatalogView: React.FC<Props> = ({ categories, hours, specs, templat
                                   };
                                   reader.readAsDataURL(file);
                                 }
+                                e.target.value = '';
                               }}
                             />
                           </label>
@@ -617,6 +618,7 @@ export const CatalogView: React.FC<Props> = ({ categories, hours, specs, templat
                       };
                       reader.readAsDataURL(file);
                     }
+                    e.target.value = '';
                   }}
                 />
               </label>
