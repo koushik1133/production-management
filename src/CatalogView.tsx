@@ -392,8 +392,15 @@ export const CatalogView: React.FC<Props> = ({ categories, hours, specs, templat
                           <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>No template uploaded.</span>
                         )}
                         {userRole === 'manager' && (
-                          <label style={{ display: 'block', marginTop: '0.75rem' }}>
-                            <span className="btn btn-sm btn-primary" style={{ display: 'inline-block', padding: '0.3rem 0.6rem', fontSize: '0.7rem', cursor: 'pointer' }}>
+                          <div style={{ display: 'block', marginTop: '0.75rem' }}>
+                            <span 
+                              className="btn btn-sm btn-primary" 
+                              style={{ display: 'inline-block', padding: '0.3rem 0.6rem', fontSize: '0.7rem', cursor: 'pointer' }}
+                              onClick={(e) => {
+                                const input = e.currentTarget.nextElementSibling as HTMLInputElement;
+                                if (input) input.click();
+                              }}
+                            >
                               {templates[model] ? 'Replace Template' : 'Upload Template'}
                             </span>
                             <input 
@@ -409,12 +416,16 @@ export const CatalogView: React.FC<Props> = ({ categories, hours, specs, templat
                                       onEditModel(model, { spec_sheet_template: evt.target.result as string });
                                     }
                                   };
+                                  reader.onloadend = () => {
+                                    e.target.value = '';
+                                  };
                                   reader.readAsDataURL(file);
+                                } else {
+                                  e.target.value = '';
                                 }
-                                e.target.value = '';
                               }}
                             />
-                          </label>
+                          </div>
                         )}
                       </div>
 
@@ -616,9 +627,13 @@ export const CatalogView: React.FC<Props> = ({ categories, hours, specs, templat
                           setNewModelForm({...newModelForm, spec_sheet_template: evt.target.result as string});
                         }
                       };
+                      reader.onloadend = () => {
+                        e.target.value = '';
+                      };
                       reader.readAsDataURL(file);
+                    } else {
+                      e.target.value = '';
                     }
-                    e.target.value = '';
                   }}
                 />
               </label>
