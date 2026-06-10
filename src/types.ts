@@ -14,6 +14,13 @@ export interface TimeLog {
   bayManualHours?: number;
 }
 
+export interface SpecSheetVersion {
+  id: string;
+  timestamp: string; // ISO date string
+  file: string; // Base64 string
+  filename?: string;
+}
+
 export interface PartsStatus {
   tyres: boolean;
   steel: boolean;
@@ -46,6 +53,7 @@ export interface Trailer {
   photo_3_url?: string;
   sale_price?: number | null;
   spec_sheet_file?: string;
+  spec_sheet_versions?: SpecSheetVersion[];
   trailer_color?: string;
   trailer_plug?: string;
   salesPerson?: string;
@@ -153,7 +161,7 @@ export function calculateTrailerRemainingHours(trailer: Trailer, hoursConfig?: R
     const target = config[trailer.model]?.[pId] || PHASE_METADATA[pId].defaultTargetHours;
     
     // Check for manual hours in history
-    const log = trailer.history.find(h => h.phase === pId);
+    const log = trailer.history.slice().reverse().find(h => h.phase === pId);
     if (pId === trailer.currentPhase && log) {
       const loggedHours = log.phaseManualHours || log.bayManualHours || 0;
       total += Math.max(0, target - loggedHours);

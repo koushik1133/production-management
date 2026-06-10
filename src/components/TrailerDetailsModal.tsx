@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { formatDistanceToNow, format } from 'date-fns';
-import { History, FileText, Send, Crown, Trash2, Image as ImageIcon, DollarSign } from 'lucide-react';
+import { History, FileText, Send, Crown, Trash2, Image as ImageIcon, DollarSign, Download } from 'lucide-react';
 import type { Trailer, PhaseId, ShippedTrailer, UserRole } from '../types';
 import { BAY_WEEKLY_HOURS, calculateTrailerRemainingHours, PHASES } from '../types';
 import { Modal } from './Modal';
@@ -54,36 +54,57 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
         trailer.dealerLocation,
         trailer.dealerCommonAddress
       );
-      setEditForm({ ...editForm, spec_sheet_file: injected });
-      onUpdate(trailer.id, { spec_sheet_file: injected });
+      handleSpecSheetUpdate(injected);
     } catch (error) {
       console.error("Failed to generate spec sheet", error);
     }
+  };
+
+  const handleSpecSheetUpdate = (newFileBase64: string) => {
+    const currentVersions = trailer.spec_sheet_versions || [];
+    const updatedVersions = [...currentVersions];
+    
+    // If there's an existing file, push it to history
+    if (trailer.spec_sheet_file && trailer.spec_sheet_file !== newFileBase64) {
+      updatedVersions.push({
+        id: Math.random().toString(36).substr(2, 9),
+        timestamp: new Date().toISOString(),
+        file: trailer.spec_sheet_file,
+        filename: `Version ${currentVersions.length + 1}`
+      });
+    }
+
+    setEditForm(prev => ({ 
+      ...prev, 
+      spec_sheet_file: newFileBase64 
+    }));
+    
+    onUpdate(trailer.id, { 
+      spec_sheet_file: newFileBase64,
+      spec_sheet_versions: updatedVersions
+    });
   };
 
   const phaseTimes = React.useMemo(() => {
     const result: Record<string, { h: number, m: number }> = {};
     PHASES.forEach(p => {
       const entries = trailer.history.filter(h => h.phase === p.id);
-      const manualHours = entries.reduce((sum, h) => sum + (h.phaseManualHours || h.bayManualHours || 0), 0);
-      const hasManual = entries.some(h => (h.phaseManualHours !== undefined || h.bayManualHours !== undefined));
+      let totalMs = 0;
       
-      if (hasManual) {
-        const positiveManual = Math.max(0, manualHours);
-        result[p.id] = { 
-          h: Math.floor(positiveManual), 
-          m: Math.round((positiveManual % 1) * 60) 
-        };
-      } else {
-        const durationMs = Math.max(0, entries.reduce((sum, log) => {
-          return sum + (log.duration || (log.exitedAt ? log.exitedAt - log.enteredAt : Date.now() - log.enteredAt));
-        }, 0));
-        const totalMins = Math.floor(durationMs / (1000 * 60));
-        result[p.id] = { 
-          h: Math.floor(totalMins / 60), 
-          m: totalMins % 60 
-        };
-      }
+      entries.forEach(log => {
+        if (log.phaseManualHours !== undefined || log.bayManualHours !== undefined) {
+          const manualHrs = log.phaseManualHours !== undefined ? log.phaseManualHours : (log.bayManualHours || 0);
+          totalMs += manualHrs * 60 * 60 * 1000;
+        } else {
+          totalMs += (log.duration || (log.exitedAt ? log.exitedAt - log.enteredAt : Date.now() - log.enteredAt));
+        }
+      });
+      
+      const totalMins = Math.floor(Math.max(0, totalMs) / (1000 * 60));
+      result[p.id] = { 
+        h: Math.floor(totalMins / 60), 
+        m: totalMins % 60 
+      };
     });
     return result;
   }, [trailer.history]);
@@ -265,20 +286,26 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                           const reader = new FileReader();
                           reader.onload = async (evt) => {
                             if (evt.target?.result) {
-                              try {
-                                // Auto-inject serial, date, color, plug into the uploaded file
-                                const injected = await injectTrailerDataIntoSpec(
-                                  evt.target.result as string,
-                                  trailer.serialNumber,
-                                  trailer.name,
-                                  trailer.trailer_color,
-                                  trailer.trailer_plug,
-                                  trailer.sale_price || undefined
-                                );
-                                setEditForm({ ...editForm, spec_sheet_file: injected });
-                              } catch {
-                                // Fallback: save as-is if injection fails
-                                setEditForm({ ...editForm, spec_sheet_file: evt.target.result as string });
+                              if (templateBase64 && (file.name.endsWith('.xlsx') || file.name.endsWith('.xls'))) {
+                                try {
+                                  const injected = await injectTrailerDataIntoSpec(
+                                    evt.target.result as string,
+                                    trailer.serialNumber,
+                                    trailer.name,
+                                    trailer.trailer_color,
+                                    trailer.trailer_plug,
+                                    trailer.sale_price || undefined,
+                                    trailer.salesPerson,
+                                    trailer.dealerLocation,
+                                    trailer.dealerCommonAddress
+                                  );
+                                  handleSpecSheetUpdate(injected);
+                                } catch (error) {
+                                  console.error("Failed to inject data into uploaded spec sheet:", error);
+                                  handleSpecSheetUpdate(evt.target.result as string);
+                                }
+                              } else {
+                                handleSpecSheetUpdate(evt.target.result as string);
                               }
                             }
                           };
@@ -287,6 +314,34 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                       }}
                     />
                   </label>
+                  
+                  {trailer.spec_sheet_versions && trailer.spec_sheet_versions.length > 0 && (
+                    <div style={{ marginTop: '1rem', borderTop: '1px dashed rgba(59, 130, 246, 0.2)', paddingTop: '1rem' }}>
+                      <span style={{ fontSize: '0.65rem', color: '#1d4ed8', marginBottom: '0.5rem', display: 'block', fontWeight: 800 }}>VERSION HISTORY</span>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                        {[...trailer.spec_sheet_versions].reverse().map(version => (
+                          <div key={version.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-card)', padding: '0.5rem 0.75rem', borderRadius: '8px', border: '1px solid var(--border-default)' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                              <span style={{ fontSize: '0.75rem', fontWeight: 700 }}>{version.filename || 'Previous Version'}</span>
+                              <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>{new Date(version.timestamp).toLocaleString()}</span>
+                            </div>
+                            <button 
+                              type="button"
+                              className="btn-icon" 
+                              onClick={() => {
+                                const a = document.createElement('a');
+                                a.href = version.file;
+                                a.download = `${editForm.serialNumber}_${version.filename}.xlsx`;
+                                a.click();
+                              }}
+                            >
+                              <Download size={14} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -577,6 +632,34 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                 </button>
               )}
             </div>
+            
+            {trailer.spec_sheet_versions && trailer.spec_sheet_versions.length > 0 && (
+              <div style={{ marginBottom: '2rem', background: 'rgba(59, 130, 246, 0.05)', padding: '1.25rem', borderRadius: '12px', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
+                <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '1rem', display: 'block' }}>Version History</span>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  {[...trailer.spec_sheet_versions].reverse().map(version => (
+                    <div key={version.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-card)', padding: '0.5rem 0.75rem', borderRadius: '8px', border: '1px solid var(--border-default)' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        <span style={{ fontSize: '0.75rem', fontWeight: 700 }}>{version.filename || 'Previous Version'}</span>
+                        <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>{new Date(version.timestamp).toLocaleString()}</span>
+                      </div>
+                      <button 
+                        type="button"
+                        className="btn-icon" 
+                        onClick={() => {
+                          const a = document.createElement('a');
+                          a.href = version.file;
+                          a.download = `${trailer.serialNumber}_${version.filename}.xlsx`;
+                          a.click();
+                        }}
+                      >
+                        <Download size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </>
         )}
 
@@ -746,8 +829,7 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
           base64File={editForm.spec_sheet_file} 
           serialNumber={trailer.serialNumber}
           onSave={(newBase64) => {
-            setEditForm({ ...editForm, spec_sheet_file: newBase64 });
-            onUpdate(trailer.id, { spec_sheet_file: newBase64 });
+            handleSpecSheetUpdate(newBase64);
             setShowGridEditor(false);
           }} 
           onClose={() => setShowGridEditor(false)} 
@@ -758,7 +840,7 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
           base64File={trailer.spec_sheet_file} 
           serialNumber={trailer.serialNumber}
           onSave={(newBase64) => {
-            onUpdate(trailer.id, { spec_sheet_file: newBase64 });
+            handleSpecSheetUpdate(newBase64);
             setShowGridEditor(false);
           }} 
           onClose={() => setShowGridEditor(false)} 

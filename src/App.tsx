@@ -1343,6 +1343,9 @@ function App() {
     const sorted = [...trailers].sort((a, b) => b.dateStarted - a.dateStarted);
 
     for (const t of sorted) {
+      // Ignore quote-like serial numbers (e.g., 06102025-4912 or 06102025-T-200)
+      if (/^Q?-\?\d{8}-.*$/.test(t.serialNumber) || /^\d{8}-.*$/.test(t.serialNumber)) continue;
+
       const match = t.serialNumber.match(/^(.*?)([0-9]+)$/);
       if (match) {
         const prefix = match[1];
@@ -1376,8 +1379,18 @@ function App() {
       ]);
       
       if (trailersRes.data) {
+        // Map backend snake_case columns back to frontend camelCase properties
+        const mappedTrailers = trailersRes.data.map(t => {
+          const mapped = { ...t };
+          if (mapped.sales_person) { mapped.salesPerson = mapped.sales_person; delete mapped.sales_person; }
+          if (mapped.dealer_location) { mapped.dealerLocation = mapped.dealer_location; delete mapped.dealer_location; }
+          if (mapped.dealer_common_address) { mapped.dealerCommonAddress = mapped.dealer_common_address; delete mapped.dealer_common_address; }
+          if (mapped.dealer_id) { mapped.dealerId = mapped.dealer_id; delete mapped.dealer_id; }
+          return mapped;
+        });
+        
         // De-duplicate items by ID just in case
-        const uniqueTrailers = trailersRes.data.filter((t, index, self) => 
+        const uniqueTrailers = mappedTrailers.filter((t, index, self) => 
           index === self.findIndex((u) => u.id === t.id)
         );
         // Local sort: vertical_order ASC, then dateStarted DESC fallback
@@ -1387,7 +1400,7 @@ function App() {
           }
           return (b.dateStarted || 0) - (a.dateStarted || 0);
         });
-        setTrailers(sorted);
+        setTrailers(sorted as Trailer[]);
       }
       if (modelsRes.data) setCatalogModels(modelsRes.data);
       if (shippedRes.data) setShippedTrailers(shippedRes.data);
@@ -1432,26 +1445,33 @@ function App() {
               return;
             }
 
-            if (payload.eventType === 'INSERT') {
-              setTrailers(prev => {
-                const exists = prev.some(t => t.id === payload.new.id);
-                if (exists) return prev;
-                return [payload.new as Trailer, ...prev];
-              });
-            } else if (payload.eventType === 'UPDATE') {
-              setTrailers(prev => {
-                const updated = prev.map(t => {
-                  if (t.id === payload.new.id) {
-                    return {
-                      ...t,
-                      ...payload.new,
-                      spec_sheet_file: payload.new.spec_sheet_file || t.spec_sheet_file
-                    } as Trailer;
-                  }
-                  return t;
+            if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+              const mapped = { ...payload.new };
+              if (mapped.sales_person) { mapped.salesPerson = mapped.sales_person; delete mapped.sales_person; }
+              if (mapped.dealer_location) { mapped.dealerLocation = mapped.dealer_location; delete mapped.dealer_location; }
+              if (mapped.dealer_common_address) { mapped.dealerCommonAddress = mapped.dealer_common_address; delete mapped.dealer_common_address; }
+              if (mapped.dealer_id) { mapped.dealerId = mapped.dealer_id; delete mapped.dealer_id; }
+              
+              if (payload.eventType === 'INSERT') {
+                setTrailers(prev => {
+                  if (prev.find(t => t.id === mapped.id)) return prev;
+                  return [mapped as Trailer, ...prev].sort((a, b) => (a.vertical_order ?? 0) - (b.vertical_order ?? 0));
                 });
-                return [...updated].sort((a, b) => (a.vertical_order ?? 0) - (b.vertical_order ?? 0));
-              });
+              } else {
+                setTrailers(prev => {
+                  const updated = prev.map(t => {
+                    if (t.id === mapped.id) {
+                      return {
+                        ...t,
+                        ...mapped,
+                        spec_sheet_file: mapped.spec_sheet_file || t.spec_sheet_file
+                      } as Trailer;
+                    }
+                    return t;
+                  });
+                  return [...updated].sort((a, b) => (a.vertical_order ?? 0) - (b.vertical_order ?? 0));
+                });
+              }
             } else if (payload.eventType === 'DELETE') {
               setTrailers(prev => prev.filter(t => t.id !== payload.old.id));
             }
@@ -1536,7 +1556,28 @@ function App() {
           }
         });
 
-      return { trailerChannel, capChannel, modelChannel, dealerChannel };
+      const shippedChannel = supabase
+        .channel('shipped-changes')
+        .on(
+          'postgres_changes' as any,
+          { event: '*', schema: 'public', table: 'shipped_trailers' },
+          (payload: any) => {
+            if (payload.eventType === 'INSERT') {
+              setShippedTrailers(prev => prev.find(t => t.id === payload.new.id) ? prev : [payload.new as any, ...prev]);
+            } else if (payload.eventType === 'UPDATE') {
+              setShippedTrailers(prev => prev.map(t => t.id === payload.new.id ? { ...t, ...payload.new } : t));
+            } else if (payload.eventType === 'DELETE') {
+              setShippedTrailers(prev => prev.filter(t => t.id !== payload.old.id));
+            }
+          }
+        )
+        .subscribe((status: string) => {
+          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+            console.warn('Shipped channel error, will retry...');
+          }
+        });
+
+      return { trailerChannel, capChannel, modelChannel, dealerChannel, shippedChannel };
     };
 
     const channels = setupSubscriptions();
@@ -1547,6 +1588,7 @@ function App() {
       supabase.removeChannel(channels.capChannel);
       supabase.removeChannel(channels.modelChannel);
       supabase.removeChannel(channels.dealerChannel);
+      supabase.removeChannel(channels.shippedChannel);
     };
   }, []);
 
@@ -1574,9 +1616,16 @@ function App() {
     // Optimistic update
     setTrailers(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t));
 
+    // Map frontend camelCase properties to backend snake_case columns
+    const dbUpdates: any = { ...updates };
+    if ('salesPerson' in dbUpdates) { dbUpdates.sales_person = dbUpdates.salesPerson; delete dbUpdates.salesPerson; }
+    if ('dealerLocation' in dbUpdates) { dbUpdates.dealer_location = dbUpdates.dealerLocation; delete dbUpdates.dealerLocation; }
+    if ('dealerCommonAddress' in dbUpdates) { dbUpdates.dealer_common_address = dbUpdates.dealerCommonAddress; delete dbUpdates.dealerCommonAddress; }
+    if ('dealerId' in dbUpdates) { dbUpdates.dealer_id = dbUpdates.dealerId; delete dbUpdates.dealerId; }
+
     const { error } = await supabase
       .from('trailers')
-      .update(updates)
+      .update(dbUpdates)
       .eq('id', id);
     
     if (error) {
@@ -1617,16 +1666,21 @@ function App() {
   };
 
   const handleEditModel = async (name: string, spec: { targetHours?: Record<PhaseId, number>, spec_sheet_template?: string }) => {
+    console.log('[DEBUG] handleEditModel called for:', name, 'Has template?', !!spec.spec_sheet_template);
     if (spec.spec_sheet_template) {
       try {
         // Immediate save for spec sheet templates without opening the modal
         const existing = catalogModels.find(m => m.name === name);
+        console.log('[DEBUG] Existing model found:', !!existing);
         if (existing) {
           const updatedModel = { ...existing, spec_sheet_template: spec.spec_sheet_template };
           setCatalogModels(prev => prev.map(m => m.name === name ? updatedModel : m));
+          console.log('[DEBUG] Optimistic update applied. Sending upsert to Supabase...');
           const { error } = await supabase.from('production_models').upsert(updatedModel);
           if (error) throw error;
+          console.log('[DEBUG] Supabase upsert SUCCESS!');
         } else {
+          console.log('[DEBUG] Creating new model...');
           const newModel: CatalogModel = {
             id: crypto.randomUUID(),
             name: name,
@@ -1636,8 +1690,10 @@ function App() {
             spec_sheet_template: spec.spec_sheet_template
           };
           setCatalogModels(prev => [...prev, newModel]);
+          console.log('[DEBUG] Optimistic update applied for new model. Sending insert to Supabase...');
           const { error } = await supabase.from('production_models').insert(newModel);
           if (error) throw error;
+          console.log('[DEBUG] Supabase insert SUCCESS!');
         }
       } catch (err: any) {
         console.error('Failed to upload template:', err);
@@ -1763,9 +1819,16 @@ function App() {
     // Optimistic update
     setTrailers(prev => [newTrailer, ...prev]);
 
+    // Map frontend camelCase properties to backend snake_case columns
+    const dbTrailer: any = { ...newTrailer };
+    if ('salesPerson' in dbTrailer) { dbTrailer.sales_person = dbTrailer.salesPerson; delete dbTrailer.salesPerson; }
+    if ('dealerLocation' in dbTrailer) { dbTrailer.dealer_location = dbTrailer.dealerLocation; delete dbTrailer.dealerLocation; }
+    if ('dealerCommonAddress' in dbTrailer) { dbTrailer.dealer_common_address = dbTrailer.dealerCommonAddress; delete dbTrailer.dealerCommonAddress; }
+    if ('dealerId' in dbTrailer) { dbTrailer.dealer_id = dbTrailer.dealerId; delete dbTrailer.dealerId; }
+
     const { error } = await supabase
       .from('trailers')
-      .insert([newTrailer]);
+      .insert([dbTrailer]);
     
     if (error) {
       alert("Error adding trailer: " + error.message);
@@ -2193,7 +2256,7 @@ function getSuggestedBay(): StationId {
             <Route path="/tv/station2" element={<TVView trailers={trailers} monitorMode="station2" localTargetHours={localTargetHours} userRole={userRole} />} />
             <Route path="/archive" element={<ArchiveView trailers={trailers} onUpdateTrailer={updateTrailer} localTargetHours={localTargetHours} shippedTrailers={shippedTrailers} userRole={userRole} isPriceUnlockedGlobally={isPriceUnlockedGlobally} onUnlockPrices={unlockPricesGlobally} />} />
             <Route path="/schedule" element={<ScheduleView trailers={trailers} />} />
-            <Route path="/catalog" element={<CatalogView categories={localModelCategories} hours={localTargetHours} specs={localModelSpecs} templates={localSpecSheetTemplates} onAddModel={handleAddModel} onEditModel={handleEditModel} onDeleteModel={handleDeleteModel} dealers={dealers} onAddDealer={handleAddDealer} onEditDealer={handleEditDealer} onDeleteDealer={handleDeleteDealer} userRole={userRole} />} />
+            <Route path="/catalog" element={<CatalogView categories={localModelCategories} hours={localTargetHours} specs={localModelSpecs} templates={localSpecSheetTemplates} onAddModel={handleAddModel} onEditModel={handleEditModel} onDeleteModel={handleDeleteModel} dealers={dealers} onAddDealer={handleAddDealer} onEditDealer={handleEditDealer} onDeleteDealer={handleDeleteDealer} userRole={userRole} trailers={trailers} />} />
           </Routes>
 
           {/* Quick Model Spec Editor - Only for Managers */}

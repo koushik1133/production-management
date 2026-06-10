@@ -20,9 +20,10 @@ interface Props {
   onEditDealer: (id: string, dealer: { name: string, addresses: string[], common_address: string }) => void;
   onDeleteDealer: (id: string) => void;
   userRole: UserRole;
+  trailers?: Trailer[];
 }
 
-export const CatalogView: React.FC<Props> = ({ categories, hours, specs, templates, onAddModel, onEditModel, onDeleteModel, dealers, onAddDealer, onEditDealer, onDeleteDealer, userRole }) => {
+export const CatalogView: React.FC<Props> = ({ categories, hours, specs, templates, onAddModel, onEditModel, onDeleteModel, dealers, onAddDealer, onEditDealer, onDeleteDealer, userRole, trailers }) => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'models' | 'dealers'>('models');
   const [isAddingDealer, setIsAddingDealer] = useState(false);
@@ -153,8 +154,6 @@ export const CatalogView: React.FC<Props> = ({ categories, hours, specs, templat
           spec_sheet_template: r.spec_sheet_template || undefined
         }));
 
-        // Delete existing by name before bulk insert to prevent duplicate names in DB 
-        // since name is not the primary key.
         const names = upserts.map(u => u.name);
         await supabase.from('production_models').delete().in('name', names);
         
@@ -393,38 +392,40 @@ export const CatalogView: React.FC<Props> = ({ categories, hours, specs, templat
                         )}
                         {userRole === 'manager' && (
                           <div style={{ display: 'block', marginTop: '0.75rem' }}>
-                            <span 
-                              className="btn btn-sm btn-primary" 
-                              style={{ display: 'inline-block', padding: '0.3rem 0.6rem', fontSize: '0.7rem', cursor: 'pointer' }}
-                              onClick={(e) => {
-                                const input = e.currentTarget.nextElementSibling as HTMLInputElement;
-                                if (input) input.click();
-                              }}
+                            <label 
+                              style={{ display: 'inline-block', cursor: 'pointer' }}
+                              onClick={(e) => e.stopPropagation()}
                             >
-                              {templates[model] ? 'Replace Template' : 'Upload Template'}
-                            </span>
-                            <input 
-                              type="file" 
-                              accept=".xlsx" 
-                              style={{ display: 'none' }} 
-                              onChange={(e) => {
-                                const file = e.target.files?.[0];
-                                if (file) {
-                                  const reader = new FileReader();
-                                  reader.onload = (evt) => {
-                                    if (evt.target?.result) {
-                                      onEditModel(model, { spec_sheet_template: evt.target.result as string });
-                                    }
-                                  };
-                                  reader.onloadend = () => {
-                                    e.target.value = '';
-                                  };
-                                  reader.readAsDataURL(file);
-                                } else {
-                                  e.target.value = '';
-                                }
-                              }}
-                            />
+                              <span 
+                                className="btn btn-sm btn-primary" 
+                                style={{ display: 'inline-block', padding: '0.3rem 0.6rem', fontSize: '0.7rem', pointerEvents: 'none' }}
+                              >
+                                {templates[model] ? 'Replace Template' : 'Upload Template'}
+                              </span>
+                              <input 
+                                type="file" 
+                                accept=".xlsx" 
+                                style={{ position: 'absolute', width: '1px', height: '1px', padding: 0, margin: '-1px', overflow: 'hidden', clip: 'rect(0, 0, 0, 0)', whiteSpace: 'nowrap', borderWidth: 0 }} 
+                                onChange={(e) => {
+                                  const inputTarget = e.target as HTMLInputElement;
+                                  const file = inputTarget.files?.[0];
+                                  if (file) {
+                                    const reader = new FileReader();
+                                    reader.onload = (evt) => {
+                                      if (evt.target?.result) {
+                                        onEditModel(model, { spec_sheet_template: evt.target.result as string });
+                                      }
+                                    };
+                                    reader.onloadend = () => {
+                                      inputTarget.value = '';
+                                    };
+                                    reader.readAsDataURL(file);
+                                  } else {
+                                    inputTarget.value = '';
+                                  }
+                                }}
+                              />
+                            </label>
                           </div>
                         )}
                       </div>
@@ -649,26 +650,46 @@ export const CatalogView: React.FC<Props> = ({ categories, hours, specs, templat
       </Modal>
 
       {/* Delete Confirmation Modal */}
-      <Modal isOpen={!!showDeleteConfirm} onClose={() => setShowDeleteConfirm(null)} title="Confirm Model Deletion">
-        <div style={{ padding: '0.5rem' }}>
-          <p style={{ marginBottom: '1.5rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-            Are you sure you want to delete the <strong>{showDeleteConfirm}</strong> model? This will remove it from all registration dropdowns.
-          </p>
-          <div style={{ display: 'flex', gap: '1rem' }}>
-            <button 
-              className="btn btn-danger" 
-              style={{ flex: 1, background: '#ef4444', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 700 }}
-              onClick={() => {
-                onDeleteModel(showDeleteConfirm!);
-                setShowDeleteConfirm(null);
-              }}
-            >
-              Delete Model
-            </button>
-            <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setShowDeleteConfirm(null)}>Cancel</button>
+      {showDeleteConfirm && (
+        <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }} onClick={() => setShowDeleteConfirm(null)}>
+          <div className="modal-content" style={{ background: 'var(--bg-card)', padding: '2rem', borderRadius: '20px', maxWidth: '400px', width: '100%', boxShadow: '0 10px 25px rgba(0,0,0,0.2)' }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <h2 style={{ margin: 0, fontSize: '1.25rem' }}>Delete Model</h2>
+              <button className="btn-icon" onClick={() => setShowDeleteConfirm(null)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={20} /></button>
+            </div>
+            <div className="modal-body">
+              {trailers && trailers.some(t => t.model === showDeleteConfirm && !t.isArchived) ? (
+                <div>
+                  <p style={{ color: '#ef4444', marginBottom: '1rem' }}>
+                    <strong>Cannot delete {showDeleteConfirm}!</strong>
+                  </p>
+                  <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>There are active trailers in the pipeline currently using this model. Deleting it will break their time tracking and phase targets.</p>
+                  <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem', justifyContent: 'flex-end' }}>
+                    <button className="btn btn-secondary" onClick={() => setShowDeleteConfirm(null)}>Close</button>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <p style={{ fontSize: '0.9rem', color: 'var(--text-primary)' }}>Are you sure you want to delete <strong>{showDeleteConfirm}</strong>? This action cannot be undone.</p>
+                  <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem', justifyContent: 'flex-end' }}>
+                    <button className="btn btn-secondary" onClick={() => setShowDeleteConfirm(null)}>Cancel</button>
+                    <button 
+                      className="btn btn-primary" 
+                      style={{ background: '#ef4444', border: 'none', padding: '0.5rem 1rem', borderRadius: '8px', color: 'white', fontWeight: 700 }}
+                      onClick={() => {
+                        onDeleteModel(showDeleteConfirm);
+                        setShowDeleteConfirm(null);
+                      }}
+                    >
+                      Yes, Delete Model
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
-      </Modal>
+      )}
 
       {/* Dealer Add/Edit Modal */}
       <Modal isOpen={isAddingDealer} onClose={() => setIsAddingDealer(false)} title={editingDealerId ? "Edit Dealer" : "Add New Dealer"}>
