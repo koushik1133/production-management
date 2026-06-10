@@ -151,7 +151,11 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
           <h1 className="backlog-page-title">Backlog Manager</h1>
           <p className="backlog-page-subtitle">Management of units awaiting production slot assignment.</p>
         </div>
-        <button className="btn btn-secondary backlog-nav-btn" onClick={() => navigate('/')}>
+        <button 
+          className="btn btn-primary shimmer backlog-nav-btn" 
+          onClick={() => navigate('/')}
+          style={{ padding: '0.85rem 1.75rem', borderRadius: '14px', fontWeight: 800, fontSize: '0.95rem' }}
+        >
           <LayoutGrid size={20} /> <span className="btn-text">Open Kanban View</span>
         </button>
       </div>
@@ -496,13 +500,14 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
                               key={key} 
                               onClick={() => handleTogglePart(t, key as any)}
                               style={{ 
-                                padding: '0.3rem 0.6rem', 
-                                borderRadius: '6px', 
+                                padding: '0.25rem 0.75rem', 
+                                borderRadius: '99px', 
                                 background: val ? 'rgba(34, 197, 94, 0.1)' : 'var(--priority-bg)', 
                                 color: val ? '#22c55e' : '#ef4444', 
                                 fontSize: '0.65rem', 
                                 fontWeight: 800, 
                                 textTransform: 'uppercase', 
+                                letterSpacing: '0.05em',
                                 border: `1px solid ${val ? 'rgba(34, 197, 94, 0.2)' : 'var(--priority-border)'}`,
                                 cursor: 'pointer',
                                 transition: 'all 0.15s ease',
@@ -534,7 +539,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
                             </button>
                             <button 
                               onClick={() => setConfirmingDeleteId(null)}
-                              style={{ flex: 1, padding: '0.4rem', background: 'white', color: '#64748b', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 800, cursor: 'pointer' }}
+                              style={{ flex: 1, padding: '0.4rem', background: 'transparent', color: '#ef4444', border: '1px solid #ef4444', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 800, cursor: 'pointer' }}
                             >
                               CANCEL
                             </button>
