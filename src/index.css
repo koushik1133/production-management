@@ -180,6 +180,24 @@ input, button, select, textarea {
   position: relative;
   overflow: hidden;
 }
+
+.btn-icon-danger {
+  background: transparent;
+  border: none;
+  color: #fca5a5;
+  cursor: pointer;
+  padding: 0.5rem;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.btn-icon-danger:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
 .shimmer::after {
   content: '';
   position: absolute;
