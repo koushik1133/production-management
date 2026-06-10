@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { Search, Clock, Weight, ChevronRight, LayoutGrid, Plus, Edit, Trash2, Info } from 'lucide-react';
+import { Search, Clock, Weight, ChevronRight, LayoutGrid, Plus, Edit, Trash2, Info, MapPin } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { PHASES } from './types';
-import type { PhaseId, ModelSpec, UserRole } from './types';
+import type { PhaseId, ModelSpec, UserRole, Dealer } from './types';
 import { Modal } from './components/Modal';
 
 interface Props {
@@ -13,11 +13,20 @@ interface Props {
   onAddModel: (model: { name: string, category: string, hours: Record<PhaseId, number>, spec: ModelSpec, spec_sheet_template?: string }) => void;
   onEditModel: (name: string, spec: { targetHours?: Record<PhaseId, number>, spec_sheet_template?: string }) => void;
   onDeleteModel: (name: string) => void;
+  dealers: Dealer[];
+  onAddDealer: (dealer: { name: string, addresses: string[], common_address: string }) => void;
+  onEditDealer: (id: string, dealer: { name: string, addresses: string[], common_address: string }) => void;
+  onDeleteDealer: (id: string) => void;
   userRole: UserRole;
 }
 
-export const CatalogView: React.FC<Props> = ({ categories, hours, specs, templates, onAddModel, onEditModel, onDeleteModel, userRole }) => {
+export const CatalogView: React.FC<Props> = ({ categories, hours, specs, templates, onAddModel, onEditModel, onDeleteModel, dealers, onAddDealer, onEditDealer, onDeleteDealer, userRole }) => {
   const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState<'models' | 'dealers'>('models');
+  const [isAddingDealer, setIsAddingDealer] = useState(false);
+  const [editingDealerId, setEditingDealerId] = useState<string | null>(null);
+  const [showDealerDeleteConfirm, setShowDealerDeleteConfirm] = useState<string | null>(null);
+  const [dealerForm, setDealerForm] = useState({ name: '', common_address: '', addresses: [''] });
   const [searchTerm, setSearchTerm] = React.useState('');
   const [selectedModel, setSelectedModel] = React.useState<string | null>(null);
   const [isAddingModel, setIsAddingModel] = useState(false);
@@ -73,21 +82,44 @@ export const CatalogView: React.FC<Props> = ({ categories, hours, specs, templat
           </button>
           <div>
             <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.03em', marginBottom: '0.15rem' }}>Production Catalog</h1>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', fontWeight: 500 }}>Master library of all trailer models and production specifications.</p>
+            <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
+              <button 
+                onClick={() => setActiveTab('models')}
+                style={{ background: 'none', border: 'none', fontSize: '0.9rem', fontWeight: activeTab === 'models' ? 800 : 500, color: activeTab === 'models' ? 'var(--accent)' : 'var(--text-secondary)', cursor: 'pointer', padding: 0 }}
+              >
+                Trailer Models
+              </button>
+              <button 
+                onClick={() => setActiveTab('dealers')}
+                style={{ background: 'none', border: 'none', fontSize: '0.9rem', fontWeight: activeTab === 'dealers' ? 800 : 500, color: activeTab === 'dealers' ? 'var(--accent)' : 'var(--text-secondary)', cursor: 'pointer', padding: 0 }}
+              >
+                Dealers Directory
+              </button>
+            </div>
           </div>
         </div>
         {userRole === 'manager' && (
           <button 
             className="btn btn-primary shimmer" 
             style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.85rem 1.75rem', borderRadius: '14px', fontWeight: 800, fontSize: '0.95rem' }}
-            onClick={() => setIsAddingModel(true)}
+            onClick={() => {
+              if (activeTab === 'models') {
+                setIsAddingModel(true);
+              } else {
+                setDealerForm({ name: '', common_address: '', addresses: [''] });
+                setEditingDealerId(null);
+                setIsAddingDealer(true);
+              }
+            }}
           >
-            <Plus size={20} strokeWidth={3} /> Define New Model
+            <Plus size={20} strokeWidth={3} /> {activeTab === 'models' ? 'Define New Model' : 'Add Dealer'}
           </button>
         )}
       </header>
 
-      <div style={{ position: 'relative', marginBottom: '3rem' }}>
+      {activeTab === 'models' && (
+        <>
+          <div style={{ position: 'relative', marginBottom: '3rem' }}>
         <Search style={{ position: 'absolute', left: '1.25rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} size={22} />
         <input 
           type="text" 
@@ -253,6 +285,68 @@ export const CatalogView: React.FC<Props> = ({ categories, hours, specs, templat
           </section>
         ))}
       </div>
+      </>
+      )}
+
+      {activeTab === 'dealers' && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '1.5rem' }}>
+          {dealers.map(dealer => (
+            <div 
+              key={dealer.id} 
+              className="catalog-card hover-lift"
+              style={{ background: 'var(--bg-card)', borderRadius: '20px', padding: '1.75rem', border: '1px solid var(--border-default)', position: 'relative', overflow: 'hidden', boxShadow: 'var(--shadow-md)' }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.25rem' }}>
+                <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.01em' }}>{dealer.name}</h3>
+                {userRole === 'manager' && (
+                  <div style={{ display: 'flex', gap: '0.4rem' }}>
+                    <button 
+                      className="btn-icon" 
+                      style={{ background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', color: 'var(--text-secondary)', padding: '6px', borderRadius: '8px' }}
+                      onClick={() => {
+                        setEditingDealerId(dealer.id);
+                        setDealerForm({ name: dealer.name, common_address: dealer.common_address || '', addresses: dealer.addresses || [] });
+                        setIsAddingDealer(true);
+                      }}
+                    >
+                      <Edit size={16} />
+                    </button>
+                    <button 
+                      className="btn-icon" 
+                      style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', color: '#ef4444', padding: '6px', borderRadius: '8px' }}
+                      onClick={() => setShowDealerDeleteConfirm(dealer.id)}
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <div style={{ background: 'var(--bg-secondary)', padding: '1rem', borderRadius: '12px', border: '1px solid var(--border-default)', marginBottom: '1rem' }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem' }}>
+                  <MapPin size={16} color="var(--accent)" style={{ marginTop: '2px' }} />
+                  <div>
+                    <div style={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '0.2rem' }}>HQ / Common Address</div>
+                    <div style={{ fontSize: '0.85rem', color: 'var(--text-primary)', fontWeight: 600 }}>{dealer.common_address || 'Not specified'}</div>
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 0.5rem' }}>
+                <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)' }}>Branch Locations</span>
+                <span style={{ fontSize: '0.75rem', fontWeight: 900, color: 'var(--accent)', background: 'rgba(59, 130, 246, 0.1)', padding: '2px 8px', borderRadius: '99px' }}>
+                  {dealer.addresses?.length || 0}
+                </span>
+              </div>
+            </div>
+          ))}
+          {dealers.length === 0 && (
+            <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '4rem', background: 'var(--bg-card)', borderRadius: '20px', border: '1px dashed var(--border-default)' }}>
+              <p style={{ color: 'var(--text-secondary)' }}>No dealers found. Click "Add Dealer" to create one.</p>
+            </div>
+          )}
+        </div>
+      )}
 
       <Modal isOpen={isAddingModel} onClose={() => setIsAddingModel(false)} title="Define New Trailer Model">
         <form onSubmit={handleManualAdd}>
@@ -403,6 +497,115 @@ export const CatalogView: React.FC<Props> = ({ categories, hours, specs, templat
               Delete Model
             </button>
             <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setShowDeleteConfirm(null)}>Cancel</button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Dealer Add/Edit Modal */}
+      <Modal isOpen={isAddingDealer} onClose={() => setIsAddingDealer(false)} title={editingDealerId ? "Edit Dealer" : "Add New Dealer"}>
+        <form onSubmit={(e) => {
+          e.preventDefault();
+          if (editingDealerId) {
+            onEditDealer(editingDealerId, { name: dealerForm.name, common_address: dealerForm.common_address, addresses: dealerForm.addresses.filter(a => a.trim() !== '') });
+          } else {
+            onAddDealer({ name: dealerForm.name, common_address: dealerForm.common_address, addresses: dealerForm.addresses.filter(a => a.trim() !== '') });
+          }
+          setIsAddingDealer(false);
+          setEditingDealerId(null);
+        }}>
+          <div className="form-group" style={{ marginBottom: '1.5rem' }}>
+            <label className="form-label" style={{ color: 'var(--text-secondary)' }}>Dealer Name</label>
+            <input 
+              className="form-input" 
+              required 
+              placeholder="e.g., Midwest Trailers LLC"
+              style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }}
+              value={dealerForm.name}
+              onChange={e => setDealerForm({...dealerForm, name: e.target.value})}
+            />
+          </div>
+
+          <div className="form-group" style={{ marginBottom: '1.5rem' }}>
+            <label className="form-label" style={{ color: 'var(--text-secondary)' }}>HQ / Common Address</label>
+            <input 
+              className="form-input" 
+              required 
+              placeholder="e.g., 123 Main St, Springfield, IL"
+              style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }}
+              value={dealerForm.common_address}
+              onChange={e => setDealerForm({...dealerForm, common_address: e.target.value})}
+            />
+            <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.4rem' }}>Used as the default fallback or headquarters address.</p>
+          </div>
+
+          <div style={{ marginBottom: '1.5rem', padding: '1.25rem', background: 'var(--bg-secondary)', borderRadius: '12px', border: '1px solid var(--border-default)' }}>
+            <label className="form-label" style={{ color: 'var(--text-secondary)', display: 'flex', justifyContent: 'space-between' }}>
+              <span>Branch Locations</span>
+              <span 
+                style={{ color: 'var(--accent)', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700 }}
+                onClick={() => setDealerForm({...dealerForm, addresses: [...dealerForm.addresses, '']})}
+              >
+                + Add Another
+              </span>
+            </label>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '0.75rem' }}>
+              {dealerForm.addresses.map((addr, index) => (
+                <div key={index} style={{ display: 'flex', gap: '0.5rem' }}>
+                  <input 
+                    className="form-input" 
+                    placeholder={`Branch ${index + 1} Address`}
+                    style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)', color: 'var(--text-primary)', flex: 1 }}
+                    value={addr}
+                    onChange={e => {
+                      const newAddresses = [...dealerForm.addresses];
+                      newAddresses[index] = e.target.value;
+                      setDealerForm({...dealerForm, addresses: newAddresses});
+                    }}
+                  />
+                  {dealerForm.addresses.length > 1 && (
+                    <button 
+                      type="button"
+                      className="btn-icon" 
+                      style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.2)', padding: '0 10px', borderRadius: '8px' }}
+                      onClick={() => {
+                        const newAddresses = dealerForm.addresses.filter((_, i) => i !== index);
+                        setDealerForm({...dealerForm, addresses: newAddresses});
+                      }}
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
+            <button type="submit" className="btn btn-primary shimmer" style={{ flex: 1 }}>{editingDealerId ? "Save Changes" : "Create Dealer"}</button>
+            <button type="button" className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setIsAddingDealer(false)}>Cancel</button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Delete Dealer Confirmation Modal */}
+      <Modal isOpen={!!showDealerDeleteConfirm} onClose={() => setShowDealerDeleteConfirm(null)} title="Confirm Dealer Deletion">
+        <div style={{ padding: '0.5rem' }}>
+          <p style={{ marginBottom: '1.5rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+            Are you sure you want to delete this dealer? This will remove them from all registration dropdowns but will NOT affect past trailers.
+          </p>
+          <div style={{ display: 'flex', gap: '1rem' }}>
+            <button 
+              className="btn btn-danger" 
+              style={{ flex: 1, background: '#ef4444', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 700 }}
+              onClick={() => {
+                onDeleteDealer(showDealerDeleteConfirm!);
+                setShowDealerDeleteConfirm(null);
+              }}
+            >
+              Delete Dealer
+            </button>
+            <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setShowDealerDeleteConfirm(null)}>Cancel</button>
           </div>
         </div>
       </Modal>
