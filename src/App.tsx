@@ -65,7 +65,7 @@ import {
   PHASE_METADATA,
   calculateTrailerRemainingHours
 } from './types';
-import type { Trailer, PhaseId, StationId, ModelSpec, CatalogModel, ShippedTrailer, UserRole } from './types';
+import type { Trailer, PhaseId, StationId, ModelSpec, CatalogModel, ShippedTrailer, UserRole, Dealer } from './types';
 
 const staticModelCategories = MODEL_CATEGORIES;
 
@@ -1642,6 +1642,59 @@ function App() {
     if (error) console.error('Error deleting model from catalog:', error);
   };
 
+  const handleAddDealer = async (dealer: { name: string, addresses: string[], common_address: string }) => {
+    const newDealer: Dealer = {
+      id: crypto.randomUUID(),
+      name: dealer.name,
+      addresses: dealer.addresses,
+      common_address: dealer.common_address
+    };
+
+    setDealers(prev => [...prev, newDealer].sort((a, b) => a.name.localeCompare(b.name)));
+
+    const { error } = await supabase
+      .from('dealers')
+      .insert(newDealer);
+      
+    if (error) {
+      console.error('Error adding dealer:', error);
+      setDealers(prev => prev.filter(d => d.id !== newDealer.id));
+      alert('Failed to save dealer: ' + error.message);
+    }
+  };
+
+  const handleEditDealer = async (id: string, dealer: { name: string, addresses: string[], common_address: string }) => {
+    const existing = dealers.find(d => d.id === id);
+    if (!existing) return;
+    
+    const updatedDealer = { ...existing, ...dealer };
+    setDealers(prev => prev.map(d => d.id === id ? updatedDealer : d).sort((a, b) => a.name.localeCompare(b.name)));
+    
+    const { error } = await supabase
+      .from('dealers')
+      .update(dealer)
+      .eq('id', id);
+      
+    if (error) {
+      console.error('Error updating dealer:', error);
+      setDealers(prev => prev.map(d => d.id === id ? existing : d));
+      alert('Failed to update dealer: ' + error.message);
+    }
+  };
+
+  const handleDeleteDealer = async (id: string) => {
+    const dealerToDelete = dealers.find(d => d.id === id);
+    if (!dealerToDelete) return;
+
+    setDealers(prev => prev.filter(d => d.id !== id));
+    const { error } = await supabase.from('dealers').delete().eq('id', id);
+    if (error) {
+      console.error('Error deleting dealer:', error);
+      setDealers(prev => [...prev, dealerToDelete].sort((a, b) => a.name.localeCompare(b.name)));
+      alert('Failed to delete dealer: ' + error.message);
+    }
+  };
+
   const handleSaveModelSpecs = async () => {
     if (!editingModelName || !modelFormData) return;
     
@@ -2113,7 +2166,7 @@ function getSuggestedBay(): StationId {
             <Route path="/tv/station2" element={<TVView trailers={trailers} monitorMode="station2" localTargetHours={localTargetHours} userRole={userRole} />} />
             <Route path="/archive" element={<ArchiveView trailers={trailers} onUpdateTrailer={updateTrailer} localTargetHours={localTargetHours} shippedTrailers={shippedTrailers} userRole={userRole} isPriceUnlockedGlobally={isPriceUnlockedGlobally} onUnlockPrices={unlockPricesGlobally} />} />
             <Route path="/schedule" element={<ScheduleView trailers={trailers} />} />
-            <Route path="/catalog" element={<CatalogView categories={localModelCategories} hours={localTargetHours} specs={localModelSpecs} templates={localSpecSheetTemplates} onAddModel={handleAddModel} onEditModel={handleEditModel} onDeleteModel={handleDeleteModel} userRole={userRole} />} />
+            <Route path="/catalog" element={<CatalogView categories={localModelCategories} hours={localTargetHours} specs={localModelSpecs} templates={localSpecSheetTemplates} onAddModel={handleAddModel} onEditModel={handleEditModel} onDeleteModel={handleDeleteModel} dealers={dealers} onAddDealer={handleAddDealer} onEditDealer={handleEditDealer} onDeleteDealer={handleDeleteDealer} userRole={userRole} />} />
           </Routes>
 
           {/* Quick Model Spec Editor - Only for Managers */}
