@@ -164,188 +164,204 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
             <section className="registration-card" style={{ background: 'var(--bg-card)', padding: '1.5rem', borderRadius: '16px', border: '1px solid var(--border-default)', boxShadow: 'var(--shadow-lg)' }}>
               <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
                 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: '1rem' }}>
-                  <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label" style={{ fontSize: '0.65rem', display: 'flex', justifyContent: 'space-between' }}>
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                      <span>Serial Number</span>
-                      {trailers.some(t => t.serialNumber === formData.serialNumber) && (
-                        <span style={{ color: '#ef4444', fontSize: '0.65rem', fontWeight: 800 }}>ALREADY EXISTS!</span>
-                      )}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                  
+                  {/* General Trailer Info */}
+                  <div style={{ padding: '1.25rem', background: 'var(--bg-secondary)', borderRadius: '12px', border: '1px solid var(--border-default)' }}>
+                    <h3 style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '1rem', letterSpacing: '0.05em' }}>General Details</h3>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: '1rem' }}>
+                      <div className="form-group" style={{ marginBottom: 0 }}>
+                        <label className="form-label" style={{ fontSize: '0.75rem', display: 'flex', justifyContent: 'space-between' }}>
+                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                            <span>Serial Number *</span>
+                            {trailers.some(t => t.serialNumber === formData.serialNumber) && (
+                              <span style={{ color: '#ef4444', fontSize: '0.65rem', fontWeight: 800 }}>ALREADY EXISTS!</span>
+                            )}
+                          </div>
+                          {nextSuggestedSerial && (
+                            <button 
+                              type="button"
+                              onClick={() => setFormData(prev => ({ ...prev, serialNumber: nextSuggestedSerial }))}
+                              style={{ background: 'none', border: 'none', color: '#2563eb', fontSize: '0.65rem', fontWeight: 800, cursor: 'pointer', padding: 0 }}
+                            >
+                              SUGGEST: {nextSuggestedSerial}
+                            </button>
+                          )}
+                        </label>
+                        <input 
+                          type="text" 
+                          className="form-input" 
+                          style={{ 
+                            padding: '0.75rem 1rem',
+                            fontSize: '0.95rem', 
+                            fontWeight: 700,
+                            borderColor: trailers.some(t => t.serialNumber === formData.serialNumber) ? '#fecdd3' : undefined,
+                            backgroundColor: trailers.some(t => t.serialNumber === formData.serialNumber) ? '#fff1f2' : 'var(--bg-card)' 
+                          }}
+                          placeholder="e.g. 10001" 
+                          value={formData.serialNumber} 
+                          onChange={(e) => setFormData({ ...formData, serialNumber: e.target.value })} 
+                        />
+                      </div>
+                      
+                      <div className="form-group" style={{ marginBottom: 0 }}>
+                        <label className="form-label" style={{ fontSize: '0.75rem' }}>Trailer Model *</label>
+                        <select 
+                          className="form-select" 
+                          style={{ padding: '0.75rem 1rem', fontSize: '0.95rem', fontWeight: 700, background: 'var(--bg-card)' }}
+                          value={formData.model} 
+                          onChange={e => setFormData({...formData, model: e.target.value})} 
+                          required
+                        >
+                          <option value="">Select Trailer Model...</option>
+                          {localModelCategories.map(cat => (
+                            <optgroup key={cat.name} label={cat.name}>
+                              {cat.models.map(m => <option key={m} value={m}>{m}</option>)}
+                            </optgroup>
+                          ))}
+                        </select>
+                      </div>
                     </div>
-                    {nextSuggestedSerial && (
-                      <button 
-                        type="button"
-                        onClick={() => setFormData(prev => ({ ...prev, serialNumber: nextSuggestedSerial }))}
-                        style={{ background: 'none', border: 'none', color: '#2563eb', fontSize: '0.65rem', fontWeight: 800, cursor: 'pointer', padding: 0 }}
-                      >
-                        SUGGEST: {nextSuggestedSerial}
-                      </button>
-                    )}
-                  </label>
-                  <input 
-                    type="text" 
-                    className="form-input" 
-                    style={{ 
-                      height: '42px', 
-                      fontSize: '0.9rem', 
-                      fontWeight: 700,
-                      borderColor: trailers.some(t => t.serialNumber === formData.serialNumber) ? '#fecdd3' : undefined,
-                      backgroundColor: trailers.some(t => t.serialNumber === formData.serialNumber) ? '#fff1f2' : undefined 
-                    }}
-                    placeholder="e.g. 10001" 
-                    value={formData.serialNumber} 
-                    onChange={(e) => setFormData({ ...formData, serialNumber: e.target.value })} 
-                  />
-                </div>
-                  <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label className="form-label" style={{ fontSize: '0.65rem' }}>Dealer Name</label>
-                    <select 
-                      className="form-select" 
-                      style={{ height: '38px', fontSize: '0.9rem' }}
-                      value={formData.name} 
-                      onChange={e => setFormData({...formData, name: e.target.value, dealerLocation: ''})} 
-                      required
-                    >
-                      <option value="">Select Dealer...</option>
-                      {dealers.map(d => (
-                        <option key={d.id} value={d.name}>{d.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                  <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label className="form-label" style={{ fontSize: '0.65rem' }}>Dealer Address</label>
-                    <select 
-                      className="form-select" 
-                      style={{ height: '38px', fontSize: '0.9rem' }}
-                      value={formData.dealerLocation} 
-                      onChange={e => setFormData({...formData, dealerLocation: e.target.value})} 
-                      disabled={!formData.name}
-                    >
-                      <option value="">Select Address...</option>
-                      {dealers.find(d => d.name === formData.name)?.addresses?.map(addr => (
-                        <option key={addr} value={addr}>{addr}</option>
-                      ))}
-                    </select>
                   </div>
 
-                  <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label className="form-label" style={{ fontSize: '0.65rem' }}>Sales Person</label>
-                    <input 
-                      type="text" 
-                      className="form-input" 
-                      style={{ height: '38px', fontSize: '0.9rem' }}
-                      placeholder="e.g. John Doe"
-                      value={formData.salesPerson} 
-                      onChange={e => setFormData({...formData, salesPerson: e.target.value})} 
-                    />
-                  </div>
-                </div>
-
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label" style={{ fontSize: '0.65rem' }}>LANE TRAILERS *</label>
-                  <select 
-                    className="form-select" 
-                    style={{ height: '42px', fontSize: '0.9rem', fontWeight: 700 }}
-                    value={formData.model} 
-                    onChange={e => setFormData({...formData, model: e.target.value})} 
-                    required
-                  >
-                    <option value="">Select Trailer Model...</option>
-                    {localModelCategories.map(cat => (
-                      <optgroup key={cat.name} label={cat.name}>
-                        {cat.models.map(m => <option key={m} value={m}>{m}</option>)}
-                      </optgroup>
-                    ))}
-                  </select>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                  {userRole === 'manager' && (
+                  {/* Dealer & Sales Info */}
+                  <div style={{ padding: '1.25rem', background: 'var(--bg-secondary)', borderRadius: '12px', border: '1px solid var(--border-default)' }}>
+                    <h3 style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '1rem', letterSpacing: '0.05em' }}>Dealer & Sales Info</h3>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+                      <div className="form-group" style={{ marginBottom: 0 }}>
+                        <label className="form-label" style={{ fontSize: '0.75rem' }}>Dealer Name *</label>
+                        <select 
+                          className="form-select" 
+                          style={{ padding: '0.75rem 1rem', fontSize: '0.95rem', background: 'var(--bg-card)' }}
+                          value={formData.name} 
+                          onChange={e => setFormData({...formData, name: e.target.value, dealerLocation: ''})} 
+                          required
+                        >
+                          <option value="">Select Dealer...</option>
+                          {dealers.map(d => (
+                            <option key={d.id} value={d.name}>{d.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      
+                      <div className="form-group" style={{ marginBottom: 0 }}>
+                        <label className="form-label" style={{ fontSize: '0.75rem' }}>Branch Location</label>
+                        <select 
+                          className="form-select" 
+                          style={{ padding: '0.75rem 1rem', fontSize: '0.95rem', background: 'var(--bg-card)' }}
+                          value={formData.dealerLocation} 
+                          onChange={e => setFormData({...formData, dealerLocation: e.target.value})} 
+                          disabled={!formData.name}
+                        >
+                          <option value="">Select Address...</option>
+                          {dealers.find(d => d.name === formData.name)?.addresses?.map(addr => (
+                            <option key={addr} value={addr}>{addr}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                    
                     <div className="form-group" style={{ marginBottom: 0 }}>
-                      <label className="form-label" style={{ fontSize: '0.65rem', color: '#d97706' }}>Sale Price ($)</label>
+                      <label className="form-label" style={{ fontSize: '0.75rem' }}>Sales Person</label>
                       <input 
-                        key={isPriceUnlockedGlobally ? 'unlocked-backlog' : 'locked-backlog'}
-                        type={isPriceUnlockedGlobally ? "number" : "password"} 
+                        type="text" 
                         className="form-input" 
-                        style={{ height: '38px', fontSize: '0.9rem', borderColor: 'rgba(217, 119, 6, 0.2)', background: 'rgba(217, 119, 6, 0.05)' }}
-                        placeholder={isPriceUnlockedGlobally ? "0.00" : "••••••"}
-                        value={formData.sale_price} 
-                        onChange={e => setFormData({...formData, sale_price: e.target.value})} 
-                        onFocus={() => {
-                          if (!isPriceUnlockedGlobally && onUnlockPrices) {
-                            onUnlockPrices();
-                          }
-                        }}
+                        style={{ padding: '0.75rem 1rem', fontSize: '0.95rem', background: 'var(--bg-card)' }}
+                        placeholder="e.g. John Doe"
+                        value={formData.salesPerson} 
+                        onChange={e => setFormData({...formData, salesPerson: e.target.value})} 
                       />
                     </div>
-                  )}
-                  <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label className="form-label" style={{ fontSize: '0.65rem', color: 'var(--accent)' }}>Promised Shipping</label>
-                    <input 
-                      type="date" 
-                      className="form-input" 
-                      style={{ height: '38px', fontSize: '0.85rem' }}
-                      value={formData.promisedShippingDate} 
-                      onChange={e => setFormData({...formData, promisedShippingDate: e.target.value})} 
-                    />
                   </div>
-                </div>
 
-                {/* Color & Plug */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                  <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label className="form-label" style={{ fontSize: '0.65rem' }}>🎨 Trailer Color</label>
-                    <input 
-                      type="text" 
-                      className="form-input" 
-                      style={{ height: '38px', fontSize: '0.9rem' }}
-                      placeholder="e.g. White, Red" 
-                      value={formData.trailer_color} 
-                      onChange={e => setFormData({...formData, trailer_color: e.target.value})} 
-                    />
-                  </div>
-                  <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label className="form-label" style={{ fontSize: '0.65rem' }}>🔌 Trailer Plug</label>
-                    <select 
-                      className="form-select"
-                      style={{ height: '38px', fontSize: '0.85rem' }}
-                      value={formData.trailer_plug}
-                      onChange={e => setFormData({...formData, trailer_plug: e.target.value})}
-                    >
-                      <option value="">Select Plug...</option>
-                      <option value="7-Way Round">7-Way Round</option>
-                      <option value="4-Way Flat">4-Way Flat</option>
-                      <option value="5-Way Flat">5-Way Flat</option>
-                      <option value="6-Way Round">6-Way Round</option>
-                    </select>
-                  </div>
-                </div>
+                  {/* Specifications & Pricing */}
+                  <div style={{ padding: '1.25rem', background: 'var(--bg-secondary)', borderRadius: '12px', border: '1px solid var(--border-default)' }}>
+                    <h3 style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '1rem', letterSpacing: '0.05em' }}>Specifications & Pricing</h3>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+                      <div className="form-group" style={{ marginBottom: 0 }}>
+                        <label className="form-label" style={{ fontSize: '0.75rem' }}>🎨 Trailer Color</label>
+                        <input 
+                          type="text" 
+                          className="form-input" 
+                          style={{ padding: '0.75rem 1rem', fontSize: '0.95rem', background: 'var(--bg-card)' }}
+                          placeholder="e.g. White, Red" 
+                          value={formData.trailer_color} 
+                          onChange={e => setFormData({...formData, trailer_color: e.target.value})} 
+                        />
+                      </div>
+                      <div className="form-group" style={{ marginBottom: 0 }}>
+                        <label className="form-label" style={{ fontSize: '0.75rem' }}>🔌 Trailer Plug</label>
+                        <select 
+                          className="form-select"
+                          style={{ padding: '0.75rem 1rem', fontSize: '0.95rem', background: 'var(--bg-card)' }}
+                          value={formData.trailer_plug}
+                          onChange={e => setFormData({...formData, trailer_plug: e.target.value})}
+                        >
+                          <option value="">Select Plug...</option>
+                          <option value="7-Way Round">7-Way Round</option>
+                          <option value="4-Way Flat">4-Way Flat</option>
+                          <option value="5-Way Flat">5-Way Flat</option>
+                          <option value="6-Way Round">6-Way Round</option>
+                        </select>
+                      </div>
+                    </div>
 
-                <div style={{ padding: '1.25rem', background: 'var(--bg-secondary)', borderRadius: '12px', border: '1px solid var(--border-default)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                    <label className="form-label" style={{ fontSize: '0.65rem', color: '#166534', margin: 0 }}>Parts Readiness</label>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <input 
-                        type="checkbox" 
-                        id="priority-check"
-                        checked={formData.isPriority} 
-                        onChange={e => setFormData({...formData, isPriority: e.target.checked})}
-                        style={{ width: '16px', height: '16px' }}
-                      />
-                      <label htmlFor="priority-check" style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-primary)', cursor: 'pointer' }}>HIGH PRIORITY</label>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                      {userRole === 'manager' && (
+                        <div className="form-group" style={{ marginBottom: 0 }}>
+                          <label className="form-label" style={{ fontSize: '0.75rem', color: '#d97706', fontWeight: 800 }}>Sale Price ($)</label>
+                          <input 
+                            key={isPriceUnlockedGlobally ? 'unlocked-backlog' : 'locked-backlog'}
+                            type={isPriceUnlockedGlobally ? "number" : "password"} 
+                            className="form-input" 
+                            style={{ padding: '0.75rem 1rem', fontSize: '0.95rem', borderColor: 'rgba(217, 119, 6, 0.3)', background: 'rgba(217, 119, 6, 0.05)', color: '#d97706', fontWeight: 800 }}
+                            placeholder={isPriceUnlockedGlobally ? "0.00" : "••••••"}
+                            value={formData.sale_price} 
+                            onChange={e => setFormData({...formData, sale_price: e.target.value})} 
+                            onFocus={() => {
+                              if (!isPriceUnlockedGlobally && onUnlockPrices) {
+                                onUnlockPrices();
+                              }
+                            }}
+                          />
+                        </div>
+                      )}
+                      <div className="form-group" style={{ marginBottom: 0, gridColumn: userRole === 'manager' ? undefined : 'span 2' }}>
+                        <label className="form-label" style={{ fontSize: '0.75rem', color: 'var(--accent)' }}>Promised Shipping</label>
+                        <input 
+                          type="date" 
+                          className="form-input" 
+                          style={{ padding: '0.75rem 1rem', fontSize: '0.95rem', background: 'var(--bg-card)' }}
+                          value={formData.promisedShippingDate} 
+                          onChange={e => setFormData({...formData, promisedShippingDate: e.target.value})} 
+                        />
+                      </div>
                     </div>
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem' }}>
-                    {Object.entries(formData.partsStatus).map(([key, val]) => (
-                      <label key={key} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', padding: '0.75rem 0.4rem', background: val ? 'rgba(34, 197, 94, 0.1)' : 'var(--bg-card)', borderRadius: '10px', border: `1px solid ${val ? 'var(--accent)' : 'var(--border-default)'}`, transition: 'all 0.2s' }}>
-                        <input type="checkbox" checked={val} onChange={e => setFormData({...formData, partsStatus: {...formData.partsStatus, [key]: e.target.checked}})} style={{ width: '16px', height: '16px' }} />
-                        <span style={{ fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', color: val ? 'var(--accent)' : 'var(--text-muted)' }}>{key}</span>
-                      </label>
-                    ))}
+
+                  {/* Readiness & Priority */}
+                  <div style={{ padding: '1.25rem', background: 'var(--bg-secondary)', borderRadius: '12px', border: '1px solid var(--border-default)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                      <h3 style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>Parts Readiness</h3>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: formData.isPriority ? 'rgba(239, 68, 68, 0.1)' : 'var(--bg-card)', padding: '0.4rem 0.8rem', borderRadius: '8px', border: `1px solid ${formData.isPriority ? '#ef4444' : 'var(--border-default)'}` }}>
+                        <input 
+                          type="checkbox" 
+                          id="priority-check"
+                          checked={formData.isPriority} 
+                          onChange={e => setFormData({...formData, isPriority: e.target.checked})}
+                          style={{ width: '16px', height: '16px', accentColor: '#ef4444' }}
+                        />
+                        <label htmlFor="priority-check" style={{ fontSize: '0.75rem', fontWeight: 800, color: formData.isPriority ? '#ef4444' : 'var(--text-secondary)', cursor: 'pointer' }}>HIGH PRIORITY</label>
+                      </div>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem' }}>
+                      {Object.entries(formData.partsStatus).map(([key, val]) => (
+                        <label key={key} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', padding: '1rem 0.5rem', background: val ? 'rgba(34, 197, 94, 0.1)' : 'var(--bg-card)', borderRadius: '10px', border: `2px solid ${val ? 'var(--accent)' : 'var(--border-default)'}`, transition: 'all 0.2s', boxShadow: val ? '0 4px 12px rgba(34, 197, 94, 0.15)' : 'none' }}>
+                          <input type="checkbox" checked={val} onChange={e => setFormData({...formData, partsStatus: {...formData.partsStatus, [key]: e.target.checked}})} style={{ width: '18px', height: '18px', accentColor: 'var(--accent)' }} />
+                          <span style={{ fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase', color: val ? 'var(--accent)' : 'var(--text-muted)' }}>{key}</span>
+                        </label>
+                      ))}
+                    </div>
                   </div>
                 </div>
 
