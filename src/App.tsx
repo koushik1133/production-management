@@ -1618,23 +1618,32 @@ function App() {
 
   const handleEditModel = async (name: string, spec: { targetHours?: Record<PhaseId, number>, spec_sheet_template?: string }) => {
     if (spec.spec_sheet_template) {
-      // Immediate save for spec sheet templates without opening the modal
-      const existing = catalogModels.find(m => m.name === name);
-      if (existing) {
-        const updatedModel = { ...existing, spec_sheet_template: spec.spec_sheet_template };
-        setCatalogModels(prev => prev.map(m => m.name === name ? updatedModel : m));
-        await supabase.from('production_models').upsert(updatedModel);
-      } else {
-        const newModel: CatalogModel = {
-          id: crypto.randomUUID(),
-          name: name,
-          category: localModelCategories.find(c => c.models.includes(name))?.name || 'Uncategorized',
-          target_hours: localTargetHours[name] || { prefab: PHASE_METADATA.prefab.defaultTargetHours, build: PHASE_METADATA.build.defaultTargetHours, paint: PHASE_METADATA.paint.defaultTargetHours, outsource: PHASE_METADATA.outsource.defaultTargetHours, trim: PHASE_METADATA.trim.defaultTargetHours, shipping: 0 }, // fallback
-          specs: {},
-          spec_sheet_template: spec.spec_sheet_template
-        };
-        setCatalogModels(prev => [...prev, newModel]);
-        await supabase.from('production_models').insert(newModel);
+      try {
+        // Immediate save for spec sheet templates without opening the modal
+        const existing = catalogModels.find(m => m.name === name);
+        if (existing) {
+          const updatedModel = { ...existing, spec_sheet_template: spec.spec_sheet_template };
+          setCatalogModels(prev => prev.map(m => m.name === name ? updatedModel : m));
+          const { error } = await supabase.from('production_models').upsert(updatedModel);
+          if (error) throw error;
+        } else {
+          const newModel: CatalogModel = {
+            id: crypto.randomUUID(),
+            name: name,
+            category: localModelCategories.find(c => c.models.includes(name))?.name || 'Uncategorized',
+            target_hours: localTargetHours[name] || { prefab: PHASE_METADATA.prefab.defaultTargetHours, build: PHASE_METADATA.build.defaultTargetHours, paint: PHASE_METADATA.paint.defaultTargetHours, outsource: PHASE_METADATA.outsource.defaultTargetHours, trim: PHASE_METADATA.trim.defaultTargetHours, shipping: 0 }, // fallback
+            specs: {},
+            spec_sheet_template: spec.spec_sheet_template
+          };
+          setCatalogModels(prev => [...prev, newModel]);
+          const { error } = await supabase.from('production_models').insert(newModel);
+          if (error) throw error;
+        }
+      } catch (err: any) {
+        console.error('Failed to upload template:', err);
+        alert('Failed to upload template. The file might be too large. ' + (err.message || ''));
+        // Revert optimistic update by refetching or just letting them know
+        fetchInitialData();
       }
       return;
     }
