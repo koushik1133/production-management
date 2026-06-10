@@ -74,7 +74,7 @@ export const CatalogView: React.FC<Props> = ({ categories, hours, specs, templat
   };
 
   return (
-    <div className="catalog-container" style={{ padding: '2rem', maxWidth: '1400px', margin: '0 auto', minHeight: '100vh', background: 'var(--bg-main)' }}>
+    <div className="catalog-container" style={{ width: '100%', padding: '2rem', maxWidth: '1400px', margin: '0 auto', minHeight: '100vh', background: 'var(--bg-main)' }}>
       <header style={{ marginBottom: '3rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
           <button className="btn btn-secondary" onClick={() => navigate('/')} style={{ borderRadius: '12px', padding: '0.85rem' }}>
@@ -141,7 +141,7 @@ export const CatalogView: React.FC<Props> = ({ categories, hours, specs, templat
             <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-muted)' }}>{cat.models.length} Models</span>
           </div>
             
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '1.5rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(400px, 1fr))', gap: '2rem' }}>
               {cat.models.map(model => (
                 <div 
                   key={model} 
@@ -289,7 +289,7 @@ export const CatalogView: React.FC<Props> = ({ categories, hours, specs, templat
       )}
 
       {activeTab === 'dealers' && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '1.5rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(400px, 1fr))', gap: '2rem' }}>
           {dealers.map(dealer => (
             <div 
               key={dealer.id} 
