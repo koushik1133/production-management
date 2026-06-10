@@ -1,8 +1,8 @@
 import React, { useState, useRef } from 'react';
-import { Search, Clock, Weight, ChevronRight, LayoutGrid, Plus, Edit, Trash2, Info, MapPin, Download, Upload } from 'lucide-react';
+import { Search, Clock, Weight, ChevronRight, LayoutGrid, Plus, Edit, Trash2, Info, MapPin, Download, Upload, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { PHASES } from './types';
-import type { PhaseId, ModelSpec, UserRole, Dealer, CatalogModel } from './types';
+import type { PhaseId, ModelSpec, UserRole, Dealer, CatalogModel, Trailer } from './types';
 import { Modal } from './components/Modal';
 import Papa from 'papaparse';
 import { supabase } from './lib/supabase';

@@ -59,6 +59,7 @@ export interface Trailer {
   salesPerson?: string;
   dealerLocation?: string;
   dealerCommonAddress?: string;
+  dealerId?: string;
 }
 
 export interface ShippedTrailer {

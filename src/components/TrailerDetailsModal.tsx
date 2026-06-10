@@ -286,7 +286,7 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                           const reader = new FileReader();
                           reader.onload = async (evt) => {
                             if (evt.target?.result) {
-                              if (templateBase64 && (file.name.endsWith('.xlsx') || file.name.endsWith('.xls'))) {
+                              if (localSpecSheetTemplates?.[trailer.model] && (file.name.endsWith('.xlsx') || file.name.endsWith('.xls'))) {
                                 try {
                                   const injected = await injectTrailerDataIntoSpec(
                                     evt.target.result as string,
