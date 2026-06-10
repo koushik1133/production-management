@@ -449,7 +449,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
                       fontWeight: 700
                     }}
                   >
-                    Get Quote (Excel Only)
+                    Get Quote
                   </button>
                   <button 
                     type="submit" 
