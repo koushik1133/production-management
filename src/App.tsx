@@ -1371,7 +1371,7 @@ function App() {
       const [trailersRes, bayRes, modelsRes, shippedRes, dealersRes] = await Promise.all([
         // Exclude spec_sheet_file from bulk fetch — it's a huge base64 blob that causes query timeouts.
         // It is fetched on-demand when a trailer is opened for editing.
-        supabase.from('trailers').select('id,name,model,serialNumber,station,dateStarted,currentPhase,history,partsStatus,finishingType,isArchived,archivedAt,isDeleted,invoiceNumber,vinDate,expectedDueDate,promisedShippingDate,notes,isPriority,updated_at,vertical_order,bay_vertical_order,photo_1_url,photo_2_url,photo_3_url,sale_price,trailer_color,trailer_plug,sales_person,dealer_location,dealer_common_address'),
+        supabase.from('trailers').select('id,name,model,serialNumber,station,dateStarted,currentPhase,history,partsStatus,finishingType,isArchived,archivedAt,isDeleted,invoiceNumber,vinDate,expectedDueDate,promisedShippingDate,notes,isPriority,updated_at,vertical_order,bay_vertical_order,photo_1_url,photo_2_url,photo_3_url,sale_price,trailer_color,trailer_plug,sales_person,dealer_location,dealer_common_address,dealer_id'),
         supabase.from('bay_settings').select('*'),
         supabase.from('production_models').select('*'),
         supabase.from('shipped_trailers').select('*').order('shipped_at', { ascending: false }),
@@ -1381,7 +1381,7 @@ function App() {
       if (trailersRes.data) {
         // Map backend snake_case columns back to frontend camelCase properties
         const mappedTrailers = trailersRes.data.map(t => {
-          const mapped = { ...t };
+          const mapped: any = { ...t };
           if (mapped.sales_person) { mapped.salesPerson = mapped.sales_person; delete mapped.sales_person; }
           if (mapped.dealer_location) { mapped.dealerLocation = mapped.dealer_location; delete mapped.dealer_location; }
           if (mapped.dealer_common_address) { mapped.dealerCommonAddress = mapped.dealer_common_address; delete mapped.dealer_common_address; }
@@ -1563,11 +1563,11 @@ function App() {
           { event: '*', schema: 'public', table: 'shipped_trailers' },
           (payload: any) => {
             if (payload.eventType === 'INSERT') {
-              setShippedTrailers(prev => prev.find(t => t.id === payload.new.id) ? prev : [payload.new as any, ...prev]);
+              setShippedTrailers(prev => prev.find(t => t.serial_number === payload.new.serial_number) ? prev : [payload.new as any, ...prev]);
             } else if (payload.eventType === 'UPDATE') {
-              setShippedTrailers(prev => prev.map(t => t.id === payload.new.id ? { ...t, ...payload.new } : t));
+              setShippedTrailers(prev => prev.map(t => t.serial_number === payload.new.serial_number ? { ...t, ...payload.new } : t));
             } else if (payload.eventType === 'DELETE') {
-              setShippedTrailers(prev => prev.filter(t => t.id !== payload.old.id));
+              setShippedTrailers(prev => prev.filter(t => t.serial_number !== payload.old.serial_number));
             }
           }
         )
