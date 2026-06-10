@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
-import { Search, Clock, Weight, ChevronRight, LayoutGrid, Plus, Edit, Trash2, Info, MapPin } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { Search, Clock, Weight, ChevronRight, LayoutGrid, Plus, Edit, Trash2, Info, MapPin, Download, Upload } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { PHASES } from './types';
-import type { PhaseId, ModelSpec, UserRole, Dealer } from './types';
+import type { PhaseId, ModelSpec, UserRole, Dealer, CatalogModel } from './types';
 import { Modal } from './components/Modal';
+import Papa from 'papaparse';
+import { supabase } from './lib/supabase';
 
 interface Props {
   categories: { name: string, models: string[] }[];
@@ -41,6 +43,131 @@ export const CatalogView: React.FC<Props> = ({ categories, hours, specs, templat
     spec: { steelWeight: '0 lbs', description: '', axles: 'Standard' },
     spec_sheet_template: undefined as string | undefined
   });
+
+  const fileInputRefDealers = useRef<HTMLInputElement>(null);
+  const fileInputRefModels = useRef<HTMLInputElement>(null);
+
+  const handleExportDealers = () => {
+    const csvData = dealers.map(d => ({
+      id: d.id,
+      name: d.name,
+      common_address: d.common_address || '',
+      addresses: d.addresses ? d.addresses.join(' | ') : ''
+    }));
+    const csv = Papa.unparse(csvData);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'dealers_export.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleImportDealers = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: async (results) => {
+        const records = results.data as any[];
+        const upserts = records.map(r => ({
+          id: r.id || crypto.randomUUID(),
+          name: r.name,
+          common_address: r.common_address || null,
+          addresses: r.addresses ? r.addresses.split('|').map((a: string) => a.trim()).filter((a: string) => a !== '') : []
+        }));
+
+        const { error } = await supabase.from('dealers').upsert(upserts);
+        if (error) {
+          alert('Failed to import dealers: ' + error.message);
+        } else {
+          alert(`Successfully imported ${upserts.length} dealers!`);
+        }
+        if (fileInputRefDealers.current) fileInputRefDealers.current.value = '';
+      }
+    });
+  };
+
+  const handleExportModels = () => {
+    const csvData = categories.flatMap(cat => cat.models.map(modelName => {
+      const modelHours = hours[modelName] || {};
+      const modelSpec = specs[modelName] || {};
+      const template = templates[modelName] || '';
+      return {
+        name: modelName,
+        category: cat.name,
+        steelWeight: modelSpec.steelWeight || '',
+        axles: modelSpec.axles || '',
+        description: modelSpec.description || '',
+        spec_sheet_template: template,
+        prefab_hours: modelHours.prefab || 0,
+        build_hours: modelHours.build || 0,
+        paint_hours: modelHours.paint || 0,
+        outsource_hours: modelHours.outsource || 0,
+        trim_hours: modelHours.trim || 0,
+        shipping_hours: modelHours.shipping || 0
+      };
+    }));
+    const csv = Papa.unparse(csvData);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'trailer_models_export.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleImportModels = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: async (results) => {
+        const records = results.data as any[];
+        const upserts: CatalogModel[] = records.map(r => ({
+          id: crypto.randomUUID(),
+          name: r.name,
+          category: r.category || 'Uncategorized',
+          target_hours: {
+            backlog: 0,
+            prefab: parseFloat(r.prefab_hours) || 0,
+            build: parseFloat(r.build_hours) || 0,
+            paint: parseFloat(r.paint_hours) || 0,
+            outsource: parseFloat(r.outsource_hours) || 0,
+            trim: parseFloat(r.trim_hours) || 0,
+            shipping: parseFloat(r.shipping_hours) || 0
+          },
+          specs: {
+            steelWeight: r.steelWeight || '',
+            axles: r.axles || '',
+            description: r.description || ''
+          },
+          spec_sheet_template: r.spec_sheet_template || undefined
+        }));
+
+        // Delete existing by name before bulk insert to prevent duplicate names in DB 
+        // since name is not the primary key.
+        const names = upserts.map(u => u.name);
+        await supabase.from('production_models').delete().in('name', names);
+        
+        const { error } = await supabase.from('production_models').insert(upserts);
+        if (error) {
+          alert('Failed to import models: ' + error.message);
+        } else {
+          alert(`Successfully imported ${upserts.length} models!`);
+        }
+        if (fileInputRefModels.current) fileInputRefModels.current.value = '';
+      }
+    });
+  };
 
   const calculateTotalHours = (model: string) => {
     const modelHours = hours[model] || {};
@@ -99,21 +226,46 @@ export const CatalogView: React.FC<Props> = ({ categories, hours, specs, templat
           </div>
         </div>
         {userRole === 'manager' && (
-          <button 
-            className="btn btn-primary shimmer" 
-            style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.85rem 1.75rem', borderRadius: '14px', fontWeight: 800, fontSize: '0.95rem' }}
-            onClick={() => {
-              if (activeTab === 'models') {
-                setIsAddingModel(true);
-              } else {
-                setDealerForm({ name: '', common_address: '', addresses: [''] });
-                setEditingDealerId(null);
-                setIsAddingDealer(true);
-              }
-            }}
-          >
-            <Plus size={20} strokeWidth={3} /> {activeTab === 'models' ? 'Define New Model' : 'Add Dealer'}
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <input 
+              type="file" 
+              accept=".csv" 
+              style={{ display: 'none' }} 
+              ref={activeTab === 'models' ? fileInputRefModels : fileInputRefDealers} 
+              onChange={activeTab === 'models' ? handleImportModels : handleImportDealers} 
+            />
+            <button 
+              className="btn btn-secondary" 
+              style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1rem', borderRadius: '10px' }}
+              onClick={() => activeTab === 'models' ? fileInputRefModels.current?.click() : fileInputRefDealers.current?.click()}
+              title={`Import ${activeTab === 'models' ? 'Models' : 'Dealers'} from CSV`}
+            >
+              <Upload size={18} /> Import
+            </button>
+            <button 
+              className="btn btn-secondary" 
+              style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1rem', borderRadius: '10px' }}
+              onClick={activeTab === 'models' ? handleExportModels : handleExportDealers}
+              title={`Export ${activeTab === 'models' ? 'Models' : 'Dealers'} to CSV`}
+            >
+              <Download size={18} /> Export
+            </button>
+            <button 
+              className="btn btn-primary shimmer" 
+              style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.85rem 1.75rem', borderRadius: '14px', fontWeight: 800, fontSize: '0.95rem' }}
+              onClick={() => {
+                if (activeTab === 'models') {
+                  setIsAddingModel(true);
+                } else {
+                  setDealerForm({ name: '', common_address: '', addresses: [''] });
+                  setEditingDealerId(null);
+                  setIsAddingDealer(true);
+                }
+              }}
+            >
+              <Plus size={20} strokeWidth={3} /> {activeTab === 'models' ? 'Define New Model' : 'Add Dealer'}
+            </button>
+          </div>
         )}
       </header>
 
