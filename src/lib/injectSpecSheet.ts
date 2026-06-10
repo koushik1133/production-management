@@ -33,7 +33,8 @@ export async function injectTrailerDataIntoSpec(
       'H4': serialNumber,
       'I53': today,
       'I49': trailerName || '',
-      'I51': salesPerson || ''
+      'I51': salesPerson || '',
+      'J55': salePrice || ''
     },
     'xl/worksheets/sheet2.xml': {
       'B2': serialNumber,
