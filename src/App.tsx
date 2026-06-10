@@ -750,10 +750,10 @@ function Dashboard({
                 onChange={e => setNewTrailerData({...newTrailerData, trailer_plug: e.target.value})}
               >
                 <option value="">Select Plug...</option>
-                <option value="7-Way Round">7-Way Round</option>
-                <option value="4-Way Flat">4-Way Flat</option>
-                <option value="5-Way Flat">5-Way Flat</option>
-                <option value="6-Way Round">6-Way Round</option>
+                <option value="7 RV Molded Plug">7 RV Molded Plug</option>
+                <option value="7 Pole Semi Plug">7 Pole Semi Plug</option>
+                <option value="6 Pole Molded Plug">6 Pole Molded Plug</option>
+                <option value="4 Way Flat">4 Way Flat</option>
               </select>
             </div>
           </div>
