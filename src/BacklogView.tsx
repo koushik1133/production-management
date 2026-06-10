@@ -87,8 +87,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
       return;
     }
 
-    const dateStr = format(new Date(), 'MMddyyyy');
-    const quoteId = `${dateStr}-${formData.serialNumber || 'QUOTE'}`;
+    const quoteId = formData.serialNumber || 'QUOTE';
     const selectedDealer = dealers.find(d => d.name === formData.name);
 
     try {
