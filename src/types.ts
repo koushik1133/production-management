@@ -1,4 +1,4 @@
-export type PhaseId = 'backlog' | 'prefab' | 'build' | 'paint' | 'outsource' | 'trim' | 'shipping' | 'quote';
+export type PhaseId = 'backlog' | 'prefab' | 'build' | 'paint' | 'outsource' | 'trim' | 'shipping';
 export type UserRole = 'worker' | 'manager';
 
 export type StationId = 'B1' | 'B2' | 'B3' | 'B4' | 'None';

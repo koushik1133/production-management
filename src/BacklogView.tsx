@@ -87,7 +87,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
       return;
     }
 
-    const quoteId = formData.serialNumber || nextSuggestedSerial || 'QUOTE';
+    const quoteId = formData.serialNumber || 'QUOTE';
     const selectedDealer = dealers.find(d => d.name === formData.name);
 
     try {
@@ -101,28 +101,13 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
         formData.salesPerson || undefined,
         formData.dealerLocation || undefined,
         selectedDealer?.common_address || undefined,
-        true // onlySheet1
+        true // hideOtherSheets for Quotes
       );
 
       const a = document.createElement('a');
       a.href = injected;
       a.download = `${quoteId}_Quote.xlsx`;
       a.click();
-
-      // Save to database as a pending quote
-      onAddTrailer({
-        ...formData,
-        id: crypto.randomUUID(),
-        serialNumber: quoteId,
-        currentPhase: 'quote',
-        dateStarted: new Date().toISOString(),
-        history: [],
-        spec_sheet_file: injected,
-        spec_sheet_versions: [{
-          timestamp: new Date().toISOString(),
-          salePrice: formData.sale_price ? parseFloat(formData.sale_price) : null
-        }]
-      });
 
       setFormData({
         name: '',
@@ -688,58 +673,6 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
                 })() : (
                   <div style={{ padding: '4rem', textAlign: 'center', background: 'var(--bg-card)', borderRadius: '12px', border: '2px dashed var(--border-default)', color: 'var(--text-muted)' }}>
                     No units found in backlog matching your filters.
-                  </div>
-                )}
-              </div>
-
-              {/* PENDING QUOTES SECTION */}
-              <div style={{ marginTop: '3rem', padding: '1.5rem', background: 'var(--bg-card)', borderRadius: '16px', border: '1px solid var(--border-default)', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}>
-                <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  Pending Quotes
-                  <span style={{ background: '#3b82f6', color: 'white', padding: '2px 8px', borderRadius: '12px', fontSize: '0.75rem' }}>
-                    {trailers.filter(t => t.currentPhase === 'quote' && !t.isDeleted).length}
-                  </span>
-                </h3>
-                
-                {trailers.filter(t => t.currentPhase === 'quote' && !t.isDeleted).length === 0 ? (
-                  <div style={{ padding: '2rem', textAlign: 'center', background: 'var(--bg-secondary)', borderRadius: '12px', border: '2px dashed var(--border-default)', color: 'var(--text-muted)' }}>
-                    No pending quotes.
-                  </div>
-                ) : (
-                  <div style={{ display: 'grid', gap: '1rem' }}>
-                    {trailers.filter(t => t.currentPhase === 'quote' && !t.isDeleted).map(t => (
-                      <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-secondary)', padding: '1rem 1.5rem', borderRadius: '12px', border: '1px solid var(--border-default)' }}>
-                        <div>
-                          <div style={{ fontWeight: 800, fontSize: '1.1rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                            <span style={{ color: '#3b82f6' }}>{t.serialNumber}</span>
-                            <span>{t.model}</span>
-                          </div>
-                          <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '0.2rem', display: 'flex', gap: '1rem' }}>
-                            {t.name && <span>👤 {t.name}</span>}
-                            <span>📅 {format(new Date(t.dateStarted), 'MMM d, yyyy')}</span>
-                            {t.sale_price && <span style={{ color: '#10b981', fontWeight: 700 }}>💰 ${t.sale_price}</span>}
-                          </div>
-                        </div>
-                        <div style={{ display: 'flex', gap: '0.5rem' }}>
-                          <button
-                            onClick={() => onUpdateTrailer(t.id, { currentPhase: 'backlog', dateStarted: new Date().toISOString() })}
-                            style={{ padding: '0.5rem 1rem', background: '#10b981', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 800, cursor: 'pointer', transition: 'opacity 0.2s' }}
-                            onMouseOver={(e) => e.currentTarget.style.opacity = '0.9'}
-                            onMouseOut={(e) => e.currentTarget.style.opacity = '1'}
-                          >
-                            ADD TO BACKLOG
-                          </button>
-                          <button
-                            onClick={() => onUpdateTrailer(t.id, { isDeleted: true, isArchived: true, archivedAt: Date.now() })}
-                            style={{ padding: '0.5rem 1rem', background: 'transparent', color: '#ef4444', border: '2px solid #ef4444', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 800, cursor: 'pointer', transition: 'all 0.2s' }}
-                            onMouseOver={(e) => { e.currentTarget.style.background = '#fef2f2'; }}
-                            onMouseOut={(e) => { e.currentTarget.style.background = 'transparent'; }}
-                          >
-                            DENY
-                          </button>
-                        </div>
-                      </div>
-                    ))}
                   </div>
                 )}
               </div>
