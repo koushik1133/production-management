@@ -53,7 +53,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
     });
   };
 
-  const [showQuoteToast, setShowQuoteToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     model: '',
@@ -128,8 +128,8 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
         salesPerson: '',
         dealerLocation: ''
       });
-      setShowQuoteToast(true);
-      setTimeout(() => setShowQuoteToast(false), 3000);
+      setToastMessage('Quote Generated Successfully!');
+      setTimeout(() => setToastMessage(null), 3000);
     } catch (error) {
       console.error("Failed to generate quote sheet", error);
       alert("Failed to generate quote sheet.");
@@ -204,6 +204,9 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
       salesPerson: '',
       dealerLocation: ''
     });
+
+    setToastMessage('Added to Backlog Successfully!');
+    setTimeout(() => setToastMessage(null), 3000);
   };
 
   return (
@@ -682,7 +685,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
             </div>
           </div>
           
-          {showQuoteToast && (
+          {toastMessage && (
             <div style={{
               position: 'fixed',
               bottom: '24px',
@@ -700,7 +703,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
               animation: 'slideUp 0.3s ease-out'
             }}>
               <CheckCircle size={20} />
-              Quote Generated Successfully!
+              {toastMessage}
             </div>
           )}
         </div>
