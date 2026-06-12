@@ -136,23 +136,19 @@ export async function injectTrailerDataIntoSpec(
     const workbookFile = zip.file('xl/workbook.xml');
     if (workbookFile) {
       let wbXml = await workbookFile.async('string');
-      const parser = new DOMParser();
-      const wbDoc = parser.parseFromString(wbXml, "application/xml");
-      const sheets = wbDoc.querySelectorAll('sheet');
       
-      // Keep the first sheet visible, hide the rest
-      sheets.forEach((sheet, index) => {
-        if (index > 0) {
-          sheet.setAttribute('state', 'hidden');
+      // We use regex to add state="hidden" to avoid DOMParser destroying Excel's delicate XML namespaces
+      let sheetCount = 0;
+      wbXml = wbXml.replace(/<sheet [^>]+>/g, (match) => {
+        sheetCount++;
+        if (sheetCount > 1 && !match.includes('state=')) {
+          // Add state="hidden" right before the closing bracket
+          return match.replace(/\/?>$/, ' state="hidden"/>');
         }
+        return match;
       });
       
-      const serializer = new XMLSerializer();
-      let newWbXml = serializer.serializeToString(wbDoc);
-      if (!newWbXml.startsWith('<?xml')) {
-        newWbXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' + newWbXml;
-      }
-      zip.file('xl/workbook.xml', newWbXml);
+      zip.file('xl/workbook.xml', wbXml);
     }
   }
 
