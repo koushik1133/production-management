@@ -16,7 +16,7 @@ export async function injectTrailerDataIntoSpec(
   salesPerson?: string,
   dealerLocation?: string,
   dealerCommonAddress?: string,
-  onlySheet1: boolean = false
+  hideOtherSheets: boolean = false
 ): Promise<string> {
   const base64Data = base64File.includes(',') ? base64File.split(',')[1] : base64File;
   
@@ -36,7 +36,7 @@ export async function injectTrailerDataIntoSpec(
       'I49': trailerName || '',
       'I51': salesPerson || '',
       'J55': salePrice || '',
-      'D44': trailerPlug || '',
+      'D43': trailerPlug || '',
       'F56': trailerColor || ''
     },
     'xl/worksheets/sheet2.xml': {
@@ -53,7 +53,7 @@ export async function injectTrailerDataIntoSpec(
     },
     'xl/worksheets/sheet3.xml': { 
       'H4': serialNumber,
-      'D44': trailerPlug || '',
+      'D43': trailerPlug || '',
       'F56': trailerColor || ''
     },
     'xl/worksheets/sheet4.xml': {
@@ -131,22 +131,24 @@ export async function injectTrailerDataIntoSpec(
     zip.file(sheetPath, newXml);
   }
 
-  if (onlySheet1) {
-    const wbFile = zip.file('xl/workbook.xml');
-    if (wbFile) {
-      let wbXml = await wbFile.async('string');
+  // If hideOtherSheets is true, hide all sheets except the first one
+  if (hideOtherSheets) {
+    const workbookFile = zip.file('xl/workbook.xml');
+    if (workbookFile) {
+      let wbXml = await workbookFile.async('string');
       const parser = new DOMParser();
-      const doc = parser.parseFromString(wbXml, "application/xml");
-      const sheets = doc.querySelectorAll('sheet');
-      sheets.forEach((sheet) => {
-        // If sheetId is not 1, or name is not the first sheet (depending on Excel template, but usually sheetId is reliable)
-        // A safer way is to keep only the first sheet visible by checking its index
-        if (sheet.getAttribute('sheetId') !== '1') {
+      const wbDoc = parser.parseFromString(wbXml, "application/xml");
+      const sheets = wbDoc.querySelectorAll('sheet');
+      
+      // Keep the first sheet visible, hide the rest
+      sheets.forEach((sheet, index) => {
+        if (index > 0) {
           sheet.setAttribute('state', 'hidden');
         }
       });
+      
       const serializer = new XMLSerializer();
-      let newWbXml = serializer.serializeToString(doc);
+      let newWbXml = serializer.serializeToString(wbDoc);
       if (!newWbXml.startsWith('<?xml')) {
         newWbXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' + newWbXml;
       }
