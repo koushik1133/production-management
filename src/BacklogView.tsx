@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LayoutGrid, ArrowRight, Clock, Trash2, Calendar, AlertCircle } from 'lucide-react';
+import { LayoutGrid, ArrowRight, Clock, Trash2, Calendar, AlertCircle, CheckCircle } from 'lucide-react';
 import { PHASES, PHASE_METADATA } from './types';
 import type { Trailer, StationId, PhaseId, UserRole } from './types';
 import { addHours, format } from 'date-fns';
@@ -53,6 +53,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
     });
   };
 
+  const [showQuoteToast, setShowQuoteToast] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     model: '',
@@ -112,7 +113,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
       setFormData({
         name: '',
         model: '',
-        serialNumber: nextSuggestedSerial || '',
+        serialNumber: '',
         station: 'B1' as StationId,
         isPriority: false,
         partsStatus: {
@@ -127,6 +128,8 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
         salesPerson: '',
         dealerLocation: ''
       });
+      setShowQuoteToast(true);
+      setTimeout(() => setShowQuoteToast(false), 3000);
     } catch (error) {
       console.error("Failed to generate quote sheet", error);
       alert("Failed to generate quote sheet.");
@@ -678,6 +681,28 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
               </div>
             </div>
           </div>
+          
+          {showQuoteToast && (
+            <div style={{
+              position: 'fixed',
+              bottom: '24px',
+              right: '24px',
+              background: '#10b981',
+              color: 'white',
+              padding: '16px 24px',
+              borderRadius: '8px',
+              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              zIndex: 9999,
+              fontWeight: 600,
+              animation: 'slideUp 0.3s ease-out'
+            }}>
+              <CheckCircle size={20} />
+              Quote Generated Successfully!
+            </div>
+          )}
         </div>
       );
     };
