@@ -1338,7 +1338,7 @@ function App() {
 
 
   const nextSuggestedSerial = useMemo(() => {
-    if (trailers.length === 0) return '';
+    if (trailers.length === 0) return 'T-100';
     
     const sorted = [...trailers].sort((a, b) => b.dateStarted - a.dateStarted);
 
