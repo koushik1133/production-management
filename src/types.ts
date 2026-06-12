@@ -1,4 +1,4 @@
-export type PhaseId = 'backlog' | 'prefab' | 'build' | 'paint' | 'outsource' | 'trim' | 'shipping';
+export type PhaseId = 'quote' | 'backlog' | 'prefab' | 'build' | 'paint' | 'outsource' | 'trim' | 'shipping';
 export type UserRole = 'worker' | 'manager';
 
 export type StationId = 'B1' | 'B2' | 'B3' | 'B4' | 'None';
@@ -99,6 +99,7 @@ export const BAY_WEEKLY_HOURS: Partial<Record<StationId, number>> = {
 };
 
 export const PHASE_METADATA: Record<PhaseId, { title: string; defaultTargetHours: number }> = {
+  quote: { title: 'Pending Quote', defaultTargetHours: 0 },
   backlog: { title: 'Backlog', defaultTargetHours: 0 },
   prefab: { title: 'Prefab', defaultTargetHours: 24 },
   build: { title: 'Build', defaultTargetHours: 48 },
