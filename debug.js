@@ -6,7 +6,7 @@ import puppeteer from 'puppeteer';
   page.on('console', msg => console.log('BROWSER:', msg.text()));
   page.on('pageerror', err => console.log('PAGE ERROR:', err.message));
   
-  await page.goto('http://localhost:5173/catalog');
+  await page.goto('http://localhost:5174/catalog');
   // Wait for models to load
   await page.waitForSelector('.catalog-container');
   console.log('Page loaded');
