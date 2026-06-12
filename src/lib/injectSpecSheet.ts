@@ -15,7 +15,8 @@ export async function injectTrailerDataIntoSpec(
   salePrice?: string | number,
   salesPerson?: string,
   dealerLocation?: string,
-  dealerCommonAddress?: string
+  dealerCommonAddress?: string,
+  onlySheet1: boolean = false
 ): Promise<string> {
   const base64Data = base64File.includes(',') ? base64File.split(',')[1] : base64File;
   
@@ -34,7 +35,9 @@ export async function injectTrailerDataIntoSpec(
       'I53': today,
       'I49': trailerName || '',
       'I51': salesPerson || '',
-      'J55': salePrice || ''
+      'J55': salePrice || '',
+      'D44': trailerPlug || '',
+      'F56': trailerColor || ''
     },
     'xl/worksheets/sheet2.xml': {
       'B2': serialNumber,
@@ -48,7 +51,11 @@ export async function injectTrailerDataIntoSpec(
       'B9': dealerLocation || '',
       'B12': salesPerson || ''
     },
-    'xl/worksheets/sheet3.xml': { 'H4': serialNumber },
+    'xl/worksheets/sheet3.xml': { 
+      'H4': serialNumber,
+      'D44': trailerPlug || '',
+      'F56': trailerColor || ''
+    },
     'xl/worksheets/sheet4.xml': {
       'G5': serialNumber,
       'A9': trailerColor || '',
@@ -122,6 +129,29 @@ export async function injectTrailerDataIntoSpec(
     }
     
     zip.file(sheetPath, newXml);
+  }
+
+  if (onlySheet1) {
+    const wbFile = zip.file('xl/workbook.xml');
+    if (wbFile) {
+      let wbXml = await wbFile.async('string');
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(wbXml, "application/xml");
+      const sheets = doc.querySelectorAll('sheet');
+      sheets.forEach((sheet) => {
+        // If sheetId is not 1, or name is not the first sheet (depending on Excel template, but usually sheetId is reliable)
+        // A safer way is to keep only the first sheet visible by checking its index
+        if (sheet.getAttribute('sheetId') !== '1') {
+          sheet.setAttribute('state', 'hidden');
+        }
+      });
+      const serializer = new XMLSerializer();
+      let newWbXml = serializer.serializeToString(doc);
+      if (!newWbXml.startsWith('<?xml')) {
+        newWbXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' + newWbXml;
+      }
+      zip.file('xl/workbook.xml', newWbXml);
+    }
   }
 
   const generatedBase64 = await zip.generateAsync({ type: 'base64' });
