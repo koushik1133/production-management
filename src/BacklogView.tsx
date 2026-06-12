@@ -9,6 +9,7 @@ import { injectTrailerDataIntoSpec } from './lib/injectSpecSheet';
 interface Props {
   onAddTrailer: (trailer: Trailer) => void;
   onUpdateTrailer: (id: string, updates: Partial<Trailer>) => void;
+  onDeleteTrailer?: (id: string) => void;
   trailers: Trailer[];
   suggestedBay: StationId;
   nextSuggestedSerial?: string;
@@ -21,7 +22,7 @@ interface Props {
   dealers?: { id: string; name: string; addresses?: string[]; common_address?: string; }[];
 }
 
-export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, trailers, suggestedBay, nextSuggestedSerial, localModelCategories, localTargetHours, localSpecSheetTemplates, userRole, isPriceUnlockedGlobally, onUnlockPrices, dealers = [] }) => {
+export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, onDeleteTrailer, trailers, suggestedBay, nextSuggestedSerial, localModelCategories, localTargetHours, localSpecSheetTemplates, userRole, isPriceUnlockedGlobally, onUnlockPrices, dealers = [] }) => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
@@ -37,6 +38,14 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
 
   const backlogTrailers = trailers
     .filter(t => !t.isArchived && t.currentPhase === 'backlog')
+    .filter(t => 
+      t.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      t.serialNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      t.model.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
+  const quoteTrailers = trailers
+    .filter(t => !t.isArchived && t.currentPhase === 'quote')
     .filter(t => 
       t.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
       t.serialNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -109,6 +118,32 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
       a.href = injected;
       a.download = `${quoteId}_Quote.xlsx`;
       a.click();
+
+      // Save the quote to the database
+      const newQuote: Trailer = {
+        id: crypto.randomUUID(),
+        name: formData.name || '---',
+        model: formData.model,
+        serialNumber: quoteId,
+        isPriority: formData.isPriority,
+        dateStarted: Date.now(),
+        currentPhase: 'quote',
+        history: [{ phase: 'quote', enteredAt: Date.now() }],
+        partsStatus: formData.partsStatus,
+        promisedShippingDate: formData.promisedShippingDate,
+        isArchived: false,
+        isDeleted: false,
+        station: 'None',
+        sale_price: formData.sale_price ? parseFloat(formData.sale_price) : undefined,
+        spec_sheet_file: injected,
+        trailer_color: formData.trailer_color || undefined,
+        trailer_plug: formData.trailer_plug || undefined,
+        salesPerson: formData.salesPerson || undefined,
+        dealerLocation: formData.dealerLocation || undefined,
+        dealerCommonAddress: selectedDealer?.common_address || undefined,
+        dealerId: selectedDealer?.id || undefined
+      };
+      onAddTrailer(newQuote);
 
       setFormData({
         name: '',
@@ -682,6 +717,101 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, tr
                   </div>
                 )}
               </div>
+            </div>
+          </div>
+          
+          {/* Pending Quotes Section */}
+          <div style={{ marginTop: '2rem' }}>
+            <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              Pending Quotes
+              <span style={{ fontSize: '0.8rem', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '12px', color: 'var(--text-muted)' }}>
+                {quoteTrailers.length}
+              </span>
+            </h2>
+            
+            <div style={{ background: 'var(--bg-card)', borderRadius: '16px', border: '1px solid var(--border-default)', overflow: 'hidden', boxShadow: 'var(--shadow-sm)' }}>
+              {quoteTrailers.length > 0 ? (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr', divideY: '1px solid var(--border-default)' }}>
+                  {quoteTrailers.map(quote => (
+                    <div key={quote.id} style={{ padding: '1.25rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', transition: 'background-color 0.2s', background: 'var(--bg-card)' }}>
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '4px' }}>
+                          <span style={{ fontWeight: 800, fontSize: '1.1rem', color: 'var(--text-primary)' }}>{quote.serialNumber}</span>
+                          <span style={{ fontSize: '0.8rem', background: '#fef3c7', color: '#b45309', padding: '2px 8px', borderRadius: '4px', fontWeight: 700 }}>{quote.model}</span>
+                        </div>
+                        <div style={{ display: 'flex', gap: '16px', fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                          <span>Sales Rep: {quote.salesPerson || 'N/A'}</span>
+                          <span>Dealer: {quote.name !== '---' ? quote.name : 'N/A'}</span>
+                          {quote.sale_price && <span style={{ color: '#059669' }}>Price: ${quote.sale_price.toLocaleString()}</span>}
+                        </div>
+                      </div>
+                      
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button 
+                          onClick={() => {
+                            if (window.confirm(`Move quote ${quote.serialNumber} to the active Backlog?`)) {
+                              onUpdateTrailer(quote.id, { 
+                                currentPhase: 'backlog', 
+                                history: [...quote.history, { phase: 'backlog', enteredAt: Date.now() }] 
+                              });
+                              setToastMessage('Quote Approved & Moved to Backlog');
+                              setTimeout(() => setToastMessage(null), 3000);
+                            }
+                          }}
+                          style={{
+                            padding: '0.6rem 1.25rem',
+                            borderRadius: '8px',
+                            background: '#10b981',
+                            color: 'white',
+                            border: 'none',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            fontSize: '0.9rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            transition: 'background-color 0.2s'
+                          }}
+                        >
+                          <CheckCircle size={16} /> Approve
+                        </button>
+                        
+                        {userRole === 'manager' && onDeleteTrailer && (
+                          <button 
+                            onClick={() => {
+                              if (window.confirm(`Are you sure you want to completely delete quote ${quote.serialNumber}? This cannot be undone.`)) {
+                                onDeleteTrailer(quote.id);
+                                setToastMessage('Quote Rejected & Deleted');
+                                setTimeout(() => setToastMessage(null), 3000);
+                              }
+                            }}
+                            style={{
+                              padding: '0.6rem 1.25rem',
+                              borderRadius: '8px',
+                              background: '#fff',
+                              color: '#ef4444',
+                              border: '1px solid #fee2e2',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              fontSize: '0.9rem',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              transition: 'all 0.2s'
+                            }}
+                          >
+                            <Trash2 size={16} /> Deny
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+                  No pending quotes found.
+                </div>
+              )}
             </div>
           </div>
           
