@@ -153,6 +153,10 @@ export async function injectTrailerDataIntoSpec(
         return match;
       });
       
+      // Force the active tab to be the first sheet. If a hidden sheet is set as the active tab, 
+      // Excel will forcefully unhide it.
+      wbXml = wbXml.replace(/activeTab="\d+"/gi, 'activeTab="0"');
+      
       zip.file('xl/workbook.xml', wbXml);
     }
   }
