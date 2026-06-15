@@ -141,9 +141,14 @@ export async function injectTrailerDataIntoSpec(
       let sheetCount = 0;
       wbXml = wbXml.replace(/<sheet [^>]+>/g, (match) => {
         sheetCount++;
-        if (sheetCount > 1 && !match.includes('state=')) {
-          // Add state="hidden" right before the closing bracket
-          return match.replace(/\/?>$/, ' state="hidden"/>');
+        if (sheetCount > 1) {
+          if (match.includes('state=')) {
+            // Replace existing state attribute with state="hidden"
+            return match.replace(/state="[^"]+"/, 'state="hidden"');
+          } else {
+            // Add state="hidden" right before the closing bracket
+            return match.replace(/\/?>$/, ' state="hidden"/>');
+          }
         }
         return match;
       });

@@ -50,7 +50,8 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
       t.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
       t.serialNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
       t.model.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    )
+    .sort((a, b) => (a.dateStarted || 0) - (b.dateStarted || 0));
 
   const handleTogglePart = (trailer: Trailer, partKey: keyof NonNullable<Trailer['partsStatus']>) => {
     const currentStatus = trailer.partsStatus || { tyres: false, steel: false, parts: false };
@@ -63,6 +64,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
   };
 
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [approvingQuoteId, setApprovingQuoteId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     model: '',
@@ -199,31 +201,54 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
       }
     }
 
-    const newTrailer: Trailer = {
-      id: crypto.randomUUID(),
-      name: formData.name || '---',
-      model: formData.model,
-      serialNumber: serialNum,
-      isPriority: formData.isPriority,
-      dateStarted: Date.now(),
-      currentPhase: 'backlog',
-      history: [{ phase: 'backlog', enteredAt: Date.now() }],
-      partsStatus: formData.partsStatus,
-      promisedShippingDate: formData.promisedShippingDate,
-      isArchived: false,
-      isDeleted: false,
-      station: 'None',
-      sale_price: formData.sale_price ? parseFloat(formData.sale_price) : undefined,
-      spec_sheet_file: finalSpecSheetFile,
-      trailer_color: formData.trailer_color || undefined,
-      trailer_plug: formData.trailer_plug || undefined,
-      salesPerson: formData.salesPerson || undefined,
-      dealerLocation: formData.dealerLocation || undefined,
-      dealerCommonAddress: selectedDealer?.common_address || undefined,
-      dealerId: selectedDealer?.id || undefined
-    };
-
-    onAddTrailer(newTrailer);
+    if (approvingQuoteId) {
+      onUpdateTrailer(approvingQuoteId, {
+        name: formData.name || '---',
+        model: formData.model,
+        serialNumber: serialNum,
+        isPriority: formData.isPriority,
+        currentPhase: 'backlog',
+        history: [{ phase: 'backlog', enteredAt: Date.now() }],
+        partsStatus: formData.partsStatus,
+        promisedShippingDate: formData.promisedShippingDate,
+        sale_price: formData.sale_price ? parseFloat(formData.sale_price) : undefined,
+        spec_sheet_file: finalSpecSheetFile,
+        trailer_color: formData.trailer_color || undefined,
+        trailer_plug: formData.trailer_plug || undefined,
+        salesPerson: formData.salesPerson || undefined,
+        dealerLocation: formData.dealerLocation || undefined,
+        dealerCommonAddress: selectedDealer?.common_address || undefined,
+        dealerId: selectedDealer?.id || undefined
+      });
+      setApprovingQuoteId(null);
+      setToastMessage('Quote Approved & Added to Backlog!');
+    } else {
+      const newTrailer: Trailer = {
+        id: crypto.randomUUID(),
+        name: formData.name || '---',
+        model: formData.model,
+        serialNumber: serialNum,
+        isPriority: formData.isPriority,
+        dateStarted: Date.now(),
+        currentPhase: 'backlog',
+        history: [{ phase: 'backlog', enteredAt: Date.now() }],
+        partsStatus: formData.partsStatus,
+        promisedShippingDate: formData.promisedShippingDate,
+        isArchived: false,
+        isDeleted: false,
+        station: 'None',
+        sale_price: formData.sale_price ? parseFloat(formData.sale_price) : undefined,
+        spec_sheet_file: finalSpecSheetFile,
+        trailer_color: formData.trailer_color || undefined,
+        trailer_plug: formData.trailer_plug || undefined,
+        salesPerson: formData.salesPerson || undefined,
+        dealerLocation: formData.dealerLocation || undefined,
+        dealerCommonAddress: selectedDealer?.common_address || undefined,
+        dealerId: selectedDealer?.id || undefined
+      };
+      onAddTrailer(newTrailer);
+      setToastMessage('Added to Backlog Successfully!');
+    }
     
     setFormData({ 
       name: '', 
@@ -240,7 +265,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
       dealerLocation: ''
     });
 
-    setToastMessage('Added to Backlog Successfully!');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
     setTimeout(() => setToastMessage(null), 3000);
   };
 
@@ -749,14 +774,22 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
                       <div style={{ display: 'flex', gap: '8px' }}>
                         <button 
                           onClick={() => {
-                            if (window.confirm(`Move quote ${quote.serialNumber} to the active Backlog?`)) {
-                              onUpdateTrailer(quote.id, { 
-                                currentPhase: 'backlog', 
-                                history: [...quote.history, { phase: 'backlog', enteredAt: Date.now() }] 
-                              });
-                              setToastMessage('Quote Approved & Moved to Backlog');
-                              setTimeout(() => setToastMessage(null), 3000);
-                            }
+                            setFormData({
+                              name: quote.name !== '---' ? quote.name : '',
+                              model: quote.model,
+                              serialNumber: '', // Prompt for new serial
+                              station: 'B1',
+                              isPriority: quote.isPriority || false,
+                              partsStatus: quote.partsStatus || { tyres: false, steel: false, parts: false },
+                              promisedShippingDate: quote.promisedShippingDate || '',
+                              sale_price: quote.sale_price ? quote.sale_price.toString() : '',
+                              trailer_color: quote.trailer_color || '',
+                              trailer_plug: quote.trailer_plug || '',
+                              salesPerson: quote.salesPerson || '',
+                              dealerLocation: quote.dealerLocation || ''
+                            });
+                            setApprovingQuoteId(quote.id);
+                            window.scrollTo({ top: 0, behavior: 'smooth' });
                           }}
                           style={{
                             padding: '0.6rem 1.25rem',
