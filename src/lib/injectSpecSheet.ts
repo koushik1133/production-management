@@ -139,15 +139,15 @@ export async function injectTrailerDataIntoSpec(
       
       // We use regex to add state="hidden" to avoid DOMParser destroying Excel's delicate XML namespaces
       let sheetCount = 0;
-      wbXml = wbXml.replace(/<sheet [^>]+>/g, (match) => {
+      wbXml = wbXml.replace(/<sheet [^>]+>/gi, (match) => {
         sheetCount++;
         if (sheetCount > 1) {
-          if (match.includes('state=')) {
+          if (match.toLowerCase().includes('state=')) {
             // Replace existing state attribute with state="hidden"
-            return match.replace(/state="[^"]+"/, 'state="hidden"');
+            return match.replace(/state="[^"]+"/i, 'state="hidden"');
           } else {
             // Add state="hidden" right before the closing bracket
-            return match.replace(/\/?>$/, ' state="hidden"/>');
+            return match.replace(/\/?\>$/, ' state="hidden"/>');
           }
         }
         return match;
