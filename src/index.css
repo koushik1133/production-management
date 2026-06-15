@@ -33,6 +33,7 @@
 }
 
 :root, :root[data-theme="dark"] {
+  color-scheme: dark;
   --bg-main: #000000;
   --bg-header: rgba(0, 0, 0, 0.85);
   --bg-card: #000000;
