@@ -138,6 +138,7 @@ export const CatalogView: React.FC<Props> = ({ categories, hours, specs, templat
           name: r.name,
           category: r.category || 'Uncategorized',
           target_hours: {
+            quote: 0,
             backlog: 0,
             prefab: parseFloat(r.prefab_hours) || 0,
             build: parseFloat(r.build_hours) || 0,

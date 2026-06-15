@@ -731,7 +731,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
             
             <div style={{ background: 'var(--bg-card)', borderRadius: '16px', border: '1px solid var(--border-default)', overflow: 'hidden', boxShadow: 'var(--shadow-sm)' }}>
               {quoteTrailers.length > 0 ? (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr', divideY: '1px solid var(--border-default)' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr', borderTop: '1px solid var(--border-default)' }}>
                   {quoteTrailers.map(quote => (
                     <div key={quote.id} style={{ padding: '1.25rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', transition: 'background-color 0.2s', background: 'var(--bg-card)' }}>
                       <div>
