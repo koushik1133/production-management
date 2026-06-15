@@ -43,7 +43,9 @@ ALTER TABLE public.trailers ADD COLUMN IF NOT EXISTS sales_person text;
 ALTER TABLE public.trailers ADD COLUMN IF NOT EXISTS dealer_location text;
 ALTER TABLE public.trailers ADD COLUMN IF NOT EXISTS dealer_common_address text;
 ALTER TABLE public.trailers ADD COLUMN IF NOT EXISTS dealer_id text;
-
+ALTER TABLE public.trailers ADD COLUMN IF NOT EXISTS sale_price numeric;
+ALTER TABLE public.trailers ADD COLUMN IF NOT EXISTS trailer_color text;
+ALTER TABLE public.trailers ADD COLUMN IF NOT EXISTS trailer_plug text;
 -- 2. BAY SETTINGS TABLE
 CREATE TABLE IF NOT EXISTS public.bay_settings (
   id text PRIMARY KEY,
