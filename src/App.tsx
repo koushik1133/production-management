@@ -1338,12 +1338,13 @@ function App() {
 
 
   const nextSuggestedSerial = useMemo(() => {
-    if (trailers.length === 0) return 'T-100';
+    const registeredTrailers = trailers.filter(t => t.currentPhase !== 'quote');
+    if (registeredTrailers.length === 0) return 'T-100';
     
-    const sorted = [...trailers].sort((a, b) => b.dateStarted - a.dateStarted);
+    const sorted = [...registeredTrailers].sort((a, b) => b.dateStarted - a.dateStarted);
 
     for (const t of sorted) {
-      // Ignore quote-like serial numbers (e.g., 06102025-4912 or 06102025-T-200)
+      // Ignore quote-like serial numbers (e.g., 06102025-4912 or 06102025-T-200) just in case
       if (/^Q?-\?\d{8}-.*$/.test(t.serialNumber) || /^\d{8}-.*$/.test(t.serialNumber)) continue;
 
       const match = t.serialNumber.match(/^(.*?)([0-9]+)$/);
