@@ -777,7 +777,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
                             setFormData({
                               name: quote.name !== '---' ? quote.name : '',
                               model: quote.model,
-                              serialNumber: '', // Prompt for new serial
+                              serialNumber: nextSuggestedSerial || '',
                               station: 'B1',
                               isPriority: quote.isPriority || false,
                               partsStatus: quote.partsStatus || { tyres: false, steel: false, parts: false },
