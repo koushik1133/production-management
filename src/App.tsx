@@ -1622,6 +1622,7 @@ function App() {
     if ('dealerLocation' in dbUpdates) { dbUpdates.dealer_location = dbUpdates.dealerLocation; delete dbUpdates.dealerLocation; }
     if ('dealerCommonAddress' in dbUpdates) { dbUpdates.dealer_common_address = dbUpdates.dealerCommonAddress; delete dbUpdates.dealerCommonAddress; }
     if ('dealerId' in dbUpdates) { dbUpdates.dealer_id = dbUpdates.dealerId; delete dbUpdates.dealerId; }
+    if ('serialNumber' in dbUpdates) { dbUpdates.serial_number = dbUpdates.serialNumber; delete dbUpdates.serialNumber; }
 
     const { error } = await supabase
       .from('trailers')

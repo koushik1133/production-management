@@ -38,6 +38,12 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
   const [localNotes, setLocalNotes] = React.useState(trailer.notes || '');
 
   const handleGenerateSpecSheet = async () => {
+    if (!trailer.trailer_color || !trailer.trailer_plug || !trailer.sale_price) {
+      alert("Please fill in the missing Color, Plug, and Sale Price before generating the Spec Sheet.");
+      setIsEditing(true);
+      return;
+    }
+
     const templateBase64 = localSpecSheetTemplates[trailer.model];
     if (!templateBase64) return;
     try {
