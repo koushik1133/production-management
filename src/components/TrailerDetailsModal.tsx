@@ -4,7 +4,6 @@ import { History, FileText, Send, Crown, Trash2, Image as ImageIcon, DollarSign,
 import type { Trailer, PhaseId, ShippedTrailer, UserRole } from '../types';
 import { BAY_WEEKLY_HOURS, calculateTrailerRemainingHours, PHASES } from '../types';
 import { Modal } from './Modal';
-import { MicrosoftExcelEditor } from './MicrosoftExcelEditor';
 import { injectTrailerDataIntoSpec } from '../lib/injectSpecSheet';
 
 interface Props {
@@ -26,7 +25,6 @@ interface Props {
 export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose, onUpdate, allTrailers = [], localTargetHours, localSpecSheetTemplates = {}, onDeleteTrailer, shippedTrailers = [], userRole, isPriceUnlockedGlobally, onUnlockPrices, initialMode = 'view' }) => {
   const [isEditing, setIsEditing] = React.useState(initialMode === 'edit');
   const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false);
-  const [showGridEditor, setShowGridEditor] = React.useState(false);
   const [editForm, setEditForm] = useState({
     name: trailer.name || '',
     notes: trailer.notes || '',
@@ -246,14 +244,6 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                         style={{ padding: '0.5rem', fontSize: '0.8rem', flex: 1 }}
                       >
                         Download
-                      </button>
-                      <button 
-                        type="button"
-                        className="btn btn-primary shimmer" 
-                        onClick={() => setShowGridEditor(true)}
-                        style={{ padding: '0.5rem', fontSize: '0.8rem', flex: 1, background: '#107c41' }}
-                      >
-                        Edit in Excel
                       </button>
                     </div>
                   ) : (
@@ -614,13 +604,6 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                   >
                     Download
                   </button>
-                  <button 
-                    className="btn btn-primary shimmer" 
-                    onClick={() => setShowGridEditor(true)}
-                    style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', background: '#107c41' }}
-                  >
-                    Edit in Excel
-                  </button>
                 </div>
               ) : (
                 <button 
@@ -824,28 +807,6 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
       </div>
     </Modal>
 
-      {showGridEditor && editForm.spec_sheet_file && (
-        <MicrosoftExcelEditor 
-          base64File={editForm.spec_sheet_file} 
-          serialNumber={trailer.serialNumber}
-          onSave={(newBase64) => {
-            handleSpecSheetUpdate(newBase64);
-            setShowGridEditor(false);
-          }} 
-          onClose={() => setShowGridEditor(false)} 
-        />
-      )}
-      {showGridEditor && !isEditing && trailer.spec_sheet_file && (
-        <MicrosoftExcelEditor 
-          base64File={trailer.spec_sheet_file} 
-          serialNumber={trailer.serialNumber}
-          onSave={(newBase64) => {
-            handleSpecSheetUpdate(newBase64);
-            setShowGridEditor(false);
-          }} 
-          onClose={() => setShowGridEditor(false)} 
-        />
-      )}
     </>
   );
 };
