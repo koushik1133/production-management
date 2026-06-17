@@ -27,6 +27,36 @@ export async function injectTrailerDataIntoSpec(
     month: '2-digit', day: '2-digit', year: 'numeric'
   });
 
+  // 1. Placeholder-based Replacement (Robust & Flexible)
+  // Searches xl/sharedStrings.xml for {{PLACEHOLDER}} or [[PLACEHOLDER]] and replaces it everywhere.
+  const sharedStringsFile = zip.file('xl/sharedStrings.xml');
+  if (sharedStringsFile) {
+    let sharedStringsXml = await sharedStringsFile.async('string');
+    
+    const placeholderMap: Record<string, string> = {
+      'SERIAL_NUMBER': serialNumber || '',
+      'TRAILER_COLOR': trailerColor || '',
+      'TRAILER_PLUG': trailerPlug || '',
+      'TRAILER_NAME': trailerName || '',
+      'SALE_PRICE': salePrice?.toString() || '',
+      'SALES_PERSON': salesPerson || '',
+      'DEALER_LOCATION': dealerLocation || '',
+      'DEALER_ADDRESS': dealerCommonAddress || '',
+      'TODAYS_DATE': today
+    };
+
+    for (const [key, val] of Object.entries(placeholderMap)) {
+      // Handle both {{KEY}} and [[KEY]] formats, case-insensitive
+      const regex1 = new RegExp(`\\{\\{${key}\\}\\}`, 'gi');
+      const regex2 = new RegExp(`\\[\\[${key}\\]\\]`, 'gi');
+      sharedStringsXml = sharedStringsXml.replace(regex1, val);
+      sharedStringsXml = sharedStringsXml.replace(regex2, val);
+    }
+
+    zip.file('xl/sharedStrings.xml', sharedStringsXml);
+  }
+
+  // 2. Hardcoded Cell Replacement (Legacy Backwards Compatibility)
   // Map of which sheets get which updates
   // Based on standard template layout: Price=B15, Name=G4 (Trim Build), etc.
   const updates: Record<string, Record<string, string | number | undefined>> = {
