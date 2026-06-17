@@ -352,26 +352,7 @@ export const TrailerCard: React.FC<Props> = React.memo(({
                 {trailer.finishingType}
               </span>
             )}
-            <button 
-              className="btn btn-secondary" 
-              style={{ padding: '0.2rem 0.6rem', fontSize: '0.65rem', borderRadius: '6px', fontWeight: 700 }}
-              onClick={(e) => {
-                e.stopPropagation();
-                onCardClick?.('edit');
-              }}
-            >
-              Edit
-            </button>
-            <button 
-              className="btn btn-secondary" 
-              style={{ padding: '0.2rem 0.6rem', fontSize: '0.65rem', borderRadius: '6px', fontWeight: 700 }}
-              onClick={(e) => {
-                e.stopPropagation();
-                onCardClick?.('view');
-              }}
-            >
-              Open
-            </button>
+
           </div>
         </div>
       )}
