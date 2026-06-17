@@ -251,6 +251,26 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                       >
                         Download
                       </button>
+                      <label className="btn btn-primary shimmer" style={{ padding: '0.5rem', fontSize: '0.8rem', flex: 1, margin: 0, cursor: 'pointer', textAlign: 'center' }}>
+                        Replace
+                        <input 
+                          type="file" 
+                          accept=".xlsx,.xls" 
+                          style={{ display: 'none' }} 
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onload = (evt) => {
+                                if (evt.target?.result) {
+                                  handleSpecSheetUpdate(evt.target.result as string);
+                                }
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                        />
+                      </label>
                     </div>
                   ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -268,48 +288,7 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                     </div>
                   )}
                   
-                  <label style={{ display: 'block' }}>
-                    <span className="btn btn-primary" style={{ display: 'block', width: '100%', padding: '0.5rem', fontSize: '0.8rem', textAlign: 'center', cursor: 'pointer' }}>
-                      Upload Edited Excel Sheet
-                    </span>
-                    <input 
-                      type="file" 
-                      accept=".xlsx" 
-                      style={{ display: 'none' }} 
-                      onChange={async (e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          const reader = new FileReader();
-                          reader.onload = async (evt) => {
-                            if (evt.target?.result) {
-                              if (localSpecSheetTemplates?.[trailer.model] && (file.name.endsWith('.xlsx') || file.name.endsWith('.xls'))) {
-                                try {
-                                  const injected = await injectTrailerDataIntoSpec(
-                                    evt.target.result as string,
-                                    trailer.serialNumber,
-                                    trailer.name,
-                                    trailer.trailer_color,
-                                    trailer.trailer_plug,
-                                    trailer.sale_price || undefined,
-                                    trailer.salesPerson,
-                                    trailer.dealerLocation,
-                                    trailer.dealerCommonAddress
-                                  );
-                                  handleSpecSheetUpdate(injected);
-                                } catch (error) {
-                                  console.error("Failed to inject data into uploaded spec sheet:", error);
-                                  handleSpecSheetUpdate(evt.target.result as string);
-                                }
-                              } else {
-                                handleSpecSheetUpdate(evt.target.result as string);
-                              }
-                            }
-                          };
-                          reader.readAsDataURL(file);
-                        }
-                      }}
-                    />
-                  </label>
+
                   
                   {trailer.spec_sheet_versions && trailer.spec_sheet_versions.length > 0 && (
                     <div style={{ marginTop: '1rem', borderTop: '1px dashed rgba(59, 130, 246, 0.2)', paddingTop: '1rem' }}>
@@ -610,6 +589,26 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                   >
                     Download
                   </button>
+                  <label className="btn btn-primary shimmer" style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', cursor: 'pointer', margin: 0 }}>
+                    Replace
+                    <input 
+                      type="file" 
+                      accept=".xlsx,.xls" 
+                      style={{ display: 'none' }} 
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onload = (evt) => {
+                            if (evt.target?.result) {
+                              handleSpecSheetUpdate(evt.target.result as string);
+                            }
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                    />
+                  </label>
                 </div>
               ) : (
                 <button 
