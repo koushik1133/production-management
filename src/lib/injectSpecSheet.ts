@@ -67,42 +67,76 @@ export async function injectTrailerDataIntoSpec(
   const allFiles = Object.keys(zip.files);
   const worksheetFiles = allFiles.filter(name => name.startsWith('xl/worksheets/') && name.endsWith('.xml'));
 
+  const parser = new DOMParser();
+
   for (const sheetPath of worksheetFiles) {
     const file = zip.file(sheetPath);
     if (!file) continue;
 
     let xml = await file.async('string');
+    
+    // Quick regex check before doing expensive DOM parsing
+    if (!xml.match(/!\$?B\$?(2|13|14|15)<\/f>/i)) {
+      continue;
+    }
+
+    const doc = parser.parseFromString(xml, 'application/xml');
+    const cells = doc.getElementsByTagName('c');
+    const ns = doc.documentElement.namespaceURI || 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
     let modified = false;
 
-    // B2 = Serial Number
-    if (serialNumber && xml.match(/<f>[^<]*!\$?B\$?2<\/f>/i)) {
-      xml = xml.replace(/(<f>[^<]*!\$?B\$?2<\/f>\s*<v>)[^<]*(<\/v>)/gi, `$1${serialNumber}$2`);
-      xml = xml.replace(/(<f>[^<]*!\$?B\$?2<\/f>[\s\S]*?<t>)[^<]*(<\/t>)/gi, `$1${serialNumber}$2`);
-      modified = true;
-    }
-    
-    // B13 = Color
-    if (trailerColor && xml.match(/<f>[^<]*!\$?B\$?13<\/f>/i)) {
-      xml = xml.replace(/(<f>[^<]*!\$?B\$?13<\/f>\s*<v>)[^<]*(<\/v>)/gi, `$1${trailerColor}$2`);
-      xml = xml.replace(/(<f>[^<]*!\$?B\$?13<\/f>[\s\S]*?<t>)[^<]*(<\/t>)/gi, `$1${trailerColor}$2`);
-      modified = true;
-    }
+    for (let i = 0; i < cells.length; i++) {
+      const cell = cells[i];
+      const fNodes = cell.getElementsByTagName('f');
+      if (fNodes.length === 0) continue;
 
-    // B14 = Plug
-    if (trailerPlug && xml.match(/<f>[^<]*!\$?B\$?14<\/f>/i)) {
-      xml = xml.replace(/(<f>[^<]*!\$?B\$?14<\/f>\s*<v>)[^<]*(<\/v>)/gi, `$1${trailerPlug}$2`);
-      xml = xml.replace(/(<f>[^<]*!\$?B\$?14<\/f>[\s\S]*?<t>)[^<]*(<\/t>)/gi, `$1${trailerPlug}$2`);
-      modified = true;
-    }
+      const formulaText = fNodes[0].textContent || '';
+      
+      let newValue: string | number | undefined = undefined;
+      
+      if (serialNumber && /!\$?B\$?2$/i.test(formulaText)) {
+        newValue = serialNumber;
+      } else if (trailerColor && /!\$?B\$?13$/i.test(formulaText)) {
+        newValue = trailerColor;
+      } else if (trailerPlug && /!\$?B\$?14$/i.test(formulaText)) {
+        newValue = trailerPlug;
+      } else if (salePrice !== undefined && /!\$?B\$?15$/i.test(formulaText)) {
+        newValue = salePrice;
+      }
 
-    // B15 = Price
-    if (salePrice !== undefined && xml.match(/<f>[^<]*!\$?B\$?15<\/f>/i)) {
-      xml = xml.replace(/(<f>[^<]*!\$?B\$?15<\/f>\s*<v>)[^<]*(<\/v>)/gi, `$1${salePrice}$2`);
-      modified = true;
+      if (newValue !== undefined) {
+        // Ensure cell type is str for strings
+        if (typeof newValue === 'string') {
+          cell.setAttribute('t', 'str');
+        } else {
+          cell.removeAttribute('t'); // Number type usually has no 't' attribute
+        }
+        
+        // Find existing <v> tag or create one
+        let vNode = cell.getElementsByTagName('v')[0];
+        if (!vNode) {
+          vNode = doc.createElementNS(ns, 'v');
+          cell.appendChild(vNode);
+        }
+        
+        // Remove any <is> tag if present
+        const isNodes = cell.getElementsByTagName('is');
+        for (let j = isNodes.length - 1; j >= 0; j--) {
+          cell.removeChild(isNodes[j]);
+        }
+        
+        vNode.textContent = String(newValue);
+        modified = true;
+      }
     }
 
     if (modified) {
-      zip.file(sheetPath, xml);
+      const serializer = new XMLSerializer();
+      let newXml = serializer.serializeToString(doc);
+      if (!newXml.startsWith('<?xml')) {
+        newXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' + newXml;
+      }
+      zip.file(sheetPath, newXml);
     }
   }
 
