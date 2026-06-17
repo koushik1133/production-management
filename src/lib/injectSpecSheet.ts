@@ -53,7 +53,57 @@ export async function injectTrailerDataIntoSpec(
       sharedStringsXml = sharedStringsXml.replace(regex2, val);
     }
 
+    // Handle literal text strings that look like formulas (if they typed them as plain text)
+    if (serialNumber) sharedStringsXml = sharedStringsXml.replace(/='?[^'!]+'?!B2/gi, serialNumber);
+    if (trailerColor) sharedStringsXml = sharedStringsXml.replace(/='?[^'!]+'?!B13/gi, trailerColor);
+    if (trailerPlug) sharedStringsXml = sharedStringsXml.replace(/='?[^'!]+'?!B14/gi, trailerPlug);
+    if (salePrice !== undefined) sharedStringsXml = sharedStringsXml.replace(/='?[^'!]+'?!B15/gi, String(salePrice));
+
     zip.file('xl/sharedStrings.xml', sharedStringsXml);
+  }
+
+  // 1.5 Formula-based Dynamic Replacement
+  // Scans all sheets for actual Excel formulas pointing to the master cells (B2, B13, B14)
+  const allFiles = Object.keys(zip.files);
+  const worksheetFiles = allFiles.filter(name => name.startsWith('xl/worksheets/') && name.endsWith('.xml'));
+
+  for (const sheetPath of worksheetFiles) {
+    const file = zip.file(sheetPath);
+    if (!file) continue;
+
+    let xml = await file.async('string');
+    let modified = false;
+
+    // B2 = Serial Number
+    if (serialNumber && xml.match(/<f>[^<]*!B2<\/f>/i)) {
+      xml = xml.replace(/(<f>[^<]*!B2<\/f>\s*<v>)[^<]*(<\/v>)/gi, `$1${serialNumber}$2`);
+      xml = xml.replace(/(<f>[^<]*!B2<\/f>[\s\S]*?<t>)[^<]*(<\/t>)/gi, `$1${serialNumber}$2`);
+      modified = true;
+    }
+    
+    // B13 = Color
+    if (trailerColor && xml.match(/<f>[^<]*!B13<\/f>/i)) {
+      xml = xml.replace(/(<f>[^<]*!B13<\/f>\s*<v>)[^<]*(<\/v>)/gi, `$1${trailerColor}$2`);
+      xml = xml.replace(/(<f>[^<]*!B13<\/f>[\s\S]*?<t>)[^<]*(<\/t>)/gi, `$1${trailerColor}$2`);
+      modified = true;
+    }
+
+    // B14 = Plug
+    if (trailerPlug && xml.match(/<f>[^<]*!B14<\/f>/i)) {
+      xml = xml.replace(/(<f>[^<]*!B14<\/f>\s*<v>)[^<]*(<\/v>)/gi, `$1${trailerPlug}$2`);
+      xml = xml.replace(/(<f>[^<]*!B14<\/f>[\s\S]*?<t>)[^<]*(<\/t>)/gi, `$1${trailerPlug}$2`);
+      modified = true;
+    }
+
+    // B15 = Price
+    if (salePrice !== undefined && xml.match(/<f>[^<]*!B15<\/f>/i)) {
+      xml = xml.replace(/(<f>[^<]*!B15<\/f>\s*<v>)[^<]*(<\/v>)/gi, `$1${salePrice}$2`);
+      modified = true;
+    }
+
+    if (modified) {
+      zip.file(sheetPath, xml);
+    }
   }
 
   // 2. Hardcoded Cell Replacement (Legacy Backwards Compatibility)
