@@ -54,10 +54,10 @@ export async function injectTrailerDataIntoSpec(
     }
 
     // Handle literal text strings that look like formulas (if they typed them as plain text)
-    if (serialNumber) sharedStringsXml = sharedStringsXml.replace(/='?[^'!]+'?!B2/gi, serialNumber);
-    if (trailerColor) sharedStringsXml = sharedStringsXml.replace(/='?[^'!]+'?!B13/gi, trailerColor);
-    if (trailerPlug) sharedStringsXml = sharedStringsXml.replace(/='?[^'!]+'?!B14/gi, trailerPlug);
-    if (salePrice !== undefined) sharedStringsXml = sharedStringsXml.replace(/='?[^'!]+'?!B15/gi, String(salePrice));
+    if (serialNumber) sharedStringsXml = sharedStringsXml.replace(/='?[^'!]+'?!\$?B\$?2/gi, serialNumber);
+    if (trailerColor) sharedStringsXml = sharedStringsXml.replace(/='?[^'!]+'?!\$?B\$?13/gi, trailerColor);
+    if (trailerPlug) sharedStringsXml = sharedStringsXml.replace(/='?[^'!]+'?!\$?B\$?14/gi, trailerPlug);
+    if (salePrice !== undefined) sharedStringsXml = sharedStringsXml.replace(/='?[^'!]+'?!\$?B\$?15/gi, String(salePrice));
 
     zip.file('xl/sharedStrings.xml', sharedStringsXml);
   }
@@ -75,29 +75,29 @@ export async function injectTrailerDataIntoSpec(
     let modified = false;
 
     // B2 = Serial Number
-    if (serialNumber && xml.match(/<f>[^<]*!B2<\/f>/i)) {
-      xml = xml.replace(/(<f>[^<]*!B2<\/f>\s*<v>)[^<]*(<\/v>)/gi, `$1${serialNumber}$2`);
-      xml = xml.replace(/(<f>[^<]*!B2<\/f>[\s\S]*?<t>)[^<]*(<\/t>)/gi, `$1${serialNumber}$2`);
+    if (serialNumber && xml.match(/<f>[^<]*!\$?B\$?2<\/f>/i)) {
+      xml = xml.replace(/(<f>[^<]*!\$?B\$?2<\/f>\s*<v>)[^<]*(<\/v>)/gi, `$1${serialNumber}$2`);
+      xml = xml.replace(/(<f>[^<]*!\$?B\$?2<\/f>[\s\S]*?<t>)[^<]*(<\/t>)/gi, `$1${serialNumber}$2`);
       modified = true;
     }
     
     // B13 = Color
-    if (trailerColor && xml.match(/<f>[^<]*!B13<\/f>/i)) {
-      xml = xml.replace(/(<f>[^<]*!B13<\/f>\s*<v>)[^<]*(<\/v>)/gi, `$1${trailerColor}$2`);
-      xml = xml.replace(/(<f>[^<]*!B13<\/f>[\s\S]*?<t>)[^<]*(<\/t>)/gi, `$1${trailerColor}$2`);
+    if (trailerColor && xml.match(/<f>[^<]*!\$?B\$?13<\/f>/i)) {
+      xml = xml.replace(/(<f>[^<]*!\$?B\$?13<\/f>\s*<v>)[^<]*(<\/v>)/gi, `$1${trailerColor}$2`);
+      xml = xml.replace(/(<f>[^<]*!\$?B\$?13<\/f>[\s\S]*?<t>)[^<]*(<\/t>)/gi, `$1${trailerColor}$2`);
       modified = true;
     }
 
     // B14 = Plug
-    if (trailerPlug && xml.match(/<f>[^<]*!B14<\/f>/i)) {
-      xml = xml.replace(/(<f>[^<]*!B14<\/f>\s*<v>)[^<]*(<\/v>)/gi, `$1${trailerPlug}$2`);
-      xml = xml.replace(/(<f>[^<]*!B14<\/f>[\s\S]*?<t>)[^<]*(<\/t>)/gi, `$1${trailerPlug}$2`);
+    if (trailerPlug && xml.match(/<f>[^<]*!\$?B\$?14<\/f>/i)) {
+      xml = xml.replace(/(<f>[^<]*!\$?B\$?14<\/f>\s*<v>)[^<]*(<\/v>)/gi, `$1${trailerPlug}$2`);
+      xml = xml.replace(/(<f>[^<]*!\$?B\$?14<\/f>[\s\S]*?<t>)[^<]*(<\/t>)/gi, `$1${trailerPlug}$2`);
       modified = true;
     }
 
     // B15 = Price
-    if (salePrice !== undefined && xml.match(/<f>[^<]*!B15<\/f>/i)) {
-      xml = xml.replace(/(<f>[^<]*!B15<\/f>\s*<v>)[^<]*(<\/v>)/gi, `$1${salePrice}$2`);
+    if (salePrice !== undefined && xml.match(/<f>[^<]*!\$?B\$?15<\/f>/i)) {
+      xml = xml.replace(/(<f>[^<]*!\$?B\$?15<\/f>\s*<v>)[^<]*(<\/v>)/gi, `$1${salePrice}$2`);
       modified = true;
     }
 
