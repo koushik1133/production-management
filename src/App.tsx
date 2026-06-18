@@ -172,23 +172,36 @@ function Dashboard({
   });
   const selectedTrailer = useMemo(() => trailers.find(t => t.id === selectedTrailerId), [trailers, selectedTrailerId]);
 
-  // Fetch spec_sheet_file on-demand when a trailer is opened (not loaded in bulk to avoid timeouts)
+  // Fetch heavy files on-demand when a trailer is selected for shipping
   useEffect(() => {
-    if (!selectedTrailerId) return;
-    const trailer = trailers.find(t => t.id === selectedTrailerId);
-    if (!trailer || trailer.spec_sheet_file !== undefined) return; // already fetched
+    if (!pendingShippingTrailer) return;
+    if (pendingShippingTrailer.spec_sheet_file !== undefined) return; // already fetched
 
-    supabase
-      .from('trailers')
-      .select('spec_sheet_file')
-      .eq('id', selectedTrailerId)
-      .single()
-      .then(({ data }) => {
+    const loadHeavyForShipping = async () => {
+      try {
+        const { data } = await supabase
+          .from('trailers')
+          .select('spec_sheet_file, inspection_sheet_file, photo_1_url, photo_2_url, photo_3_url, spec_sheet_versions')
+          .eq('id', pendingShippingTrailer.id)
+          .single();
+        
         if (data) {
-          updateTrailer(selectedTrailerId, { spec_sheet_file: data.spec_sheet_file });
+          setPendingShippingTrailer(prev => prev ? {
+            ...prev,
+            spec_sheet_file: data.spec_sheet_file || null,
+            inspection_sheet_file: data.inspection_sheet_file || null,
+            photo_1_url: data.photo_1_url || null,
+            photo_2_url: data.photo_2_url || null,
+            photo_3_url: data.photo_3_url || null,
+            spec_sheet_versions: data.spec_sheet_versions || []
+          } : null);
         }
-      });
-  }, [selectedTrailerId]);
+      } catch (err) {
+        console.error("Error fetching heavy fields for shipping:", err);
+      }
+    };
+    loadHeavyForShipping();
+  }, [pendingShippingTrailer]);
   const [shippingPhotos, setShippingPhotos] = useState<{ p1: File | null, p2: File | null, p3: File | null }>({ p1: null, p2: null, p3: null });
   const [shippingHours, setShippingHours] = useState<Record<string, string>>({
     prefab: '0', build: '0', paint: '0', outsource: '0', trim: '0'
@@ -1537,12 +1550,12 @@ function App() {
     setLoading(true);
     try {
       const [trailersRes, bayRes, modelsRes, shippedRes, dealersRes] = await Promise.all([
-        // Exclude spec_sheet_file from bulk fetch — it's a huge base64 blob that causes query timeouts.
-        // It is fetched on-demand when a trailer is opened for editing.
-        supabase.from('trailers').select('id,name,model,serialNumber,station,dateStarted,currentPhase,history,partsStatus,finishingType,isArchived,archivedAt,isDeleted,invoiceNumber,vinDate,expectedDueDate,promisedShippingDate,notes,isPriority,updated_at,vertical_order,bay_vertical_order,photo_1_url,photo_2_url,photo_3_url,sale_price,trailer_color,trailer_plug,sales_person,dealer_location,dealer_common_address,dealer_id,spec_sheet_versions'),
+        // Exclude spec_sheet_file, photo_1_url, photo_2_url, photo_3_url, inspection_sheet_file, and spec_sheet_versions from bulk fetch.
+        // These are huge Base64 columns causing timeouts and freezing. They are lazy-loaded.
+        supabase.from('trailers').select('id,name,model,serialNumber,station,dateStarted,currentPhase,history,partsStatus,finishingType,isArchived,archivedAt,isDeleted,invoiceNumber,vinDate,expectedDueDate,promisedShippingDate,notes,isPriority,updated_at,vertical_order,bay_vertical_order,sale_price,trailer_color,trailer_plug,sales_person,dealer_location,dealer_common_address,dealer_id'),
         supabase.from('bay_settings').select('*'),
         supabase.from('production_models').select('*'),
-        supabase.from('shipped_trailers').select('*').order('shipped_at', { ascending: false }),
+        supabase.from('shipped_trailers').select('serial_number, trailer_name, customer_name, vin_date, invoice_number, shipped_at, total_hours, prefab_hours, build_hours, paint_hours, outsource_hours, trim_hours, sale_price').order('shipped_at', { ascending: false }),
         supabase.from('dealers').select('*').order('name')
       ]);
       
@@ -1632,7 +1645,12 @@ function App() {
                       return {
                         ...t,
                         ...mapped,
-                        spec_sheet_file: mapped.spec_sheet_file || t.spec_sheet_file
+                        spec_sheet_file: mapped.spec_sheet_file !== undefined ? mapped.spec_sheet_file : t.spec_sheet_file,
+                        photo_1_url: mapped.photo_1_url !== undefined ? mapped.photo_1_url : t.photo_1_url,
+                        photo_2_url: mapped.photo_2_url !== undefined ? mapped.photo_2_url : t.photo_2_url,
+                        photo_3_url: mapped.photo_3_url !== undefined ? mapped.photo_3_url : t.photo_3_url,
+                        inspection_sheet_file: mapped.inspection_sheet_file !== undefined ? mapped.inspection_sheet_file : t.inspection_sheet_file,
+                        spec_sheet_versions: mapped.spec_sheet_versions !== undefined ? mapped.spec_sheet_versions : t.spec_sheet_versions
                       } as Trailer;
                     }
                     return t;

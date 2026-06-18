@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import { ArrowLeft, Clock, Truck, Search, ChevronRight, Package, Eye, EyeOff, Image, Hash, User, DollarSign, BarChart3, Download, Upload, FileText } from 'lucide-react';
@@ -6,6 +6,7 @@ import { formatDistanceToNow, format } from 'date-fns';
 import type { Trailer, PhaseId, ShippedTrailer, UserRole } from './types';
 import { TrailerDetailsModal } from './components/TrailerDetailsModal';
 import { Modal } from './components/Modal';
+import { supabase } from './lib/supabase';
 
 interface Props {
   trailers: Trailer[];
@@ -26,7 +27,51 @@ const PHASE_LABELS = [
 ];
 
 const ShippedRecord: React.FC<{ record: ShippedTrailer; notes?: string; onClose: () => void; userRole: UserRole; isPriceUnlockedGlobally?: boolean; onUnlockPrices?: () => boolean }> = ({ record, notes, onClose, userRole, isPriceUnlockedGlobally, onUnlockPrices }) => {
-  const photos = [record.photo_1_url, record.photo_2_url, record.photo_3_url].filter(Boolean) as string[];
+  const [heavyData, setHeavyData] = useState<Partial<ShippedTrailer>>({});
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!record.serial_number) return;
+    
+    // Check if we already have the media loaded in the record prop
+    if (record.spec_sheet_file !== undefined) {
+      setHeavyData({
+        photo_1_url: record.photo_1_url,
+        photo_2_url: record.photo_2_url,
+        photo_3_url: record.photo_3_url,
+        spec_sheet_file: record.spec_sheet_file,
+        inspection_sheet_file: record.inspection_sheet_file
+      });
+      return;
+    }
+
+    const loadHeavyShipped = async () => {
+      setLoading(true);
+      try {
+        const { data } = await supabase
+          .from('shipped_trailers')
+          .select('photo_1_url, photo_2_url, photo_3_url, spec_sheet_file, inspection_sheet_file')
+          .eq('serial_number', record.serial_number)
+          .single();
+        if (data) {
+          setHeavyData(data);
+        }
+      } catch (err) {
+        console.error("Error fetching heavy fields for shipped record:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadHeavyShipped();
+  }, [record.serial_number, record.spec_sheet_file]);
+
+  const p1 = record.photo_1_url !== undefined ? record.photo_1_url : heavyData.photo_1_url;
+  const p2 = record.photo_2_url !== undefined ? record.photo_2_url : heavyData.photo_2_url;
+  const p3 = record.photo_3_url !== undefined ? record.photo_3_url : heavyData.photo_3_url;
+  const specSheetFile = record.spec_sheet_file !== undefined ? record.spec_sheet_file : heavyData.spec_sheet_file;
+  const inspectionSheetFile = record.inspection_sheet_file !== undefined ? record.inspection_sheet_file : heavyData.inspection_sheet_file;
+
+  const photos = [p1, p2, p3].filter(Boolean) as string[];
 
   return (
     <Modal isOpen={true} onClose={onClose} title={`${record.serial_number} • Performance Report`}>
@@ -129,7 +174,11 @@ const ShippedRecord: React.FC<{ record: ShippedTrailer; notes?: string; onClose:
             <Image size={16} color="var(--accent)" />
             <h3 style={{ fontSize: '0.9rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Production Photos</h3>
           </div>
-          {photos.length > 0 ? (
+          {loading ? (
+            <div style={{ padding: '2rem', textAlign: 'center', background: 'rgba(255,255,255,0.02)', borderRadius: '16px', border: '1px dashed var(--border-default)', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+              Loading media details...
+            </div>
+          ) : photos.length > 0 ? (
             <div style={{ display: 'grid', gridTemplateColumns: `repeat(${photos.length}, 1fr)`, gap: '1rem' }}>
               {photos.map((url, i) => (
                 <div key={i} style={{ position: 'relative' }}>
@@ -148,12 +197,12 @@ const ShippedRecord: React.FC<{ record: ShippedTrailer; notes?: string; onClose:
         </div>
 
         {/* Spec Sheet Download */}
-        {record.spec_sheet_file && (
+        {!loading && specSheetFile && (
           <div style={{ marginTop: '0.5rem' }}>
             <button
               onClick={() => {
                 const link = document.createElement('a');
-                link.href = record.spec_sheet_file!;
+                link.href = specSheetFile!;
                 const baseName = (record.serial_number || record.trailer_name || 'Trailer').trim();
                 link.download = `${baseName}_Final-SpecSheet.xlsx`;
                 document.body.appendChild(link);
@@ -183,12 +232,12 @@ const ShippedRecord: React.FC<{ record: ShippedTrailer; notes?: string; onClose:
         )}
 
         {/* Inspection Sheet Download */}
-        {record.inspection_sheet_file && (
+        {!loading && inspectionSheetFile && (
           <div style={{ marginTop: '0.5rem' }}>
             <button
               onClick={() => {
                 const link = document.createElement('a');
-                link.href = record.inspection_sheet_file!;
+                link.href = inspectionSheetFile!;
                 const baseName = (record.serial_number || record.trailer_name || 'Trailer').trim();
                 link.download = `${baseName}_InspectionSheet`;
                 document.body.appendChild(link);
