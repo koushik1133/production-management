@@ -1039,18 +1039,18 @@
 }
 
 .trailer-card.is-ultra-compact {
-  padding: 0.4rem 0.6rem;
-  gap: 0.2rem;
+  padding: 0.65rem 0.4rem;
+  gap: 0.35rem;
   border-radius: 8px;
 }
 
 .trailer-card.is-ultra-compact .card-header-row {
-  margin-bottom: 0.15rem !important;
+  margin-bottom: 0.3rem !important;
 }
 
 .trailer-card.is-ultra-compact .card-meta {
-  gap: 0.25rem;
-  margin-bottom: 0.15rem;
+  gap: 0.35rem;
+  margin-bottom: 0.25rem;
 }
 
 .trailer-card.is-ultra-compact .card-meta-icon {
@@ -1059,8 +1059,8 @@
 }
 
 .trailer-card.is-ultra-compact .card-footer {
-  padding-top: 0.2rem;
-  margin-top: 0.1rem;
+  padding-top: 0.25rem;
+  margin-top: 0.15rem;
 }
 
 .trailer-card.is-ultra-compact .badge-finishing {
