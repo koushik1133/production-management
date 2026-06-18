@@ -155,7 +155,7 @@ const ShippedRecord: React.FC<{ record: ShippedTrailer; notes?: string; onClose:
                 const link = document.createElement('a');
                 link.href = record.spec_sheet_file!;
                 const baseName = (record.serial_number || record.trailer_name || 'Trailer').trim();
-                link.download = `${baseName}_SpecSheet.xlsx`;
+                link.download = `${baseName}_Final-SpecSheet.xlsx`;
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
