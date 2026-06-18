@@ -57,14 +57,30 @@ const TVView: React.FC<Props> = ({ trailers, monitorMode: initialMode = 'all', l
     
     const scrollContainer = scrollRef.current;
     if (!scrollContainer) return;
+    
     let direction = 1;
+    let isPaused = false;
+
     const scrollInterval = setInterval(() => {
+      if (isPaused) return;
+
       const { scrollLeft, scrollWidth, clientWidth } = scrollContainer;
       if (scrollWidth <= clientWidth) return;
-      if (scrollLeft + clientWidth >= scrollWidth - 2) direction = -1;
-      else if (scrollLeft <= 0) direction = 1;
-      scrollContainer.scrollBy({ left: 2 * direction, behavior: 'auto' });
-    }, 40);
+
+      if (scrollLeft + clientWidth >= scrollWidth - 1 && direction === 1) {
+        direction = -1;
+        isPaused = true;
+        setTimeout(() => { isPaused = false; }, 3000);
+      } else if (scrollLeft <= 0 && direction === -1) {
+        direction = 1;
+        isPaused = true;
+        setTimeout(() => { isPaused = false; }, 3000);
+      }
+
+      if (!isPaused) {
+        scrollContainer.scrollBy({ left: 1 * direction, behavior: 'auto' });
+      }
+    }, 30);
     return () => clearInterval(scrollInterval);
   }, [monitorMode]);
 
