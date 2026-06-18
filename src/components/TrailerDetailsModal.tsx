@@ -292,108 +292,6 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                 </div>
               </div>
 
-              {/* INSPECTION SHEET (EDIT MODE) */}
-              <div style={{ gridColumn: 'span 2', background: 'rgba(16, 185, 129, 0.05)', padding: '1.25rem', borderRadius: '12px', border: '1px solid rgba(16, 185, 129, 0.2)', marginTop: '0.5rem' }}>
-                <label className="form-label" style={{ fontSize: '0.65rem', color: '#059669', marginBottom: '1rem', display: 'block', fontWeight: 800 }}>INSPECTION SHEET</label>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                  {editForm.inspection_sheet_file ? (
-                    <div style={{ display: 'flex', gap: '0.5rem', width: '100%' }}>
-                      <button 
-                        type="button"
-                        className="btn btn-secondary" 
-                        onClick={() => {
-                          const a = document.createElement('a');
-                          a.href = editForm.inspection_sheet_file!;
-                          const baseName = (editForm.serialNumber || trailer.model || 'Trailer').trim();
-                          a.download = `${baseName}_InspectionSheet`;
-                          a.click();
-                        }}
-                        style={{ padding: '0.5rem', fontSize: '0.8rem', flex: 1 }}
-                      >
-                        Download
-                      </button>
-                      <label className="btn btn-primary shimmer" style={{ padding: '0.5rem', fontSize: '0.8rem', flex: 1, margin: 0, cursor: 'pointer', textAlign: 'center' }}>
-                        Replace
-                        <input 
-                          type="file" 
-                          accept="image/*,.pdf" 
-                          style={{ display: 'none' }} 
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) {
-                              const reader = new FileReader();
-                              reader.onload = (evt) => {
-                                if (evt.target?.result) {
-                                  onUpdate(trailer.id, { inspection_sheet_file: evt.target?.result as string });
-                                  setEditForm({ ...editForm, inspection_sheet_file: evt.target?.result as string });
-                                }
-                              };
-                              reader.readAsDataURL(file);
-                            }
-                          }}
-                        />
-                      </label>
-                    </div>
-                  ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                      <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>No inspection sheet available.</span>
-                      <label className="btn btn-primary shimmer" style={{ padding: '0.5rem', fontSize: '0.8rem', flex: 1, margin: 0, cursor: 'pointer', textAlign: 'center' }}>
-                        Upload Inspection Sheet
-                        <input 
-                          type="file" 
-                          accept="image/*,.pdf" 
-                          style={{ display: 'none' }} 
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) {
-                              const reader = new FileReader();
-                              reader.onload = (evt) => {
-                                if (evt.target?.result) {
-                                  onUpdate(trailer.id, { inspection_sheet_file: evt.target?.result as string });
-                                  setEditForm({ ...editForm, inspection_sheet_file: evt.target?.result as string });
-                                }
-                              };
-                              reader.readAsDataURL(file);
-                            }
-                          }}
-                        />
-                      </label>
-                    </div>
-                  )}
-                  
-
-                  
-                  {trailer.spec_sheet_versions && trailer.spec_sheet_versions.length > 0 && (
-                    <div style={{ marginTop: '1rem', borderTop: '1px dashed rgba(59, 130, 246, 0.2)', paddingTop: '1rem' }}>
-                      <span style={{ fontSize: '0.65rem', color: '#1d4ed8', marginBottom: '0.5rem', display: 'block', fontWeight: 800 }}>VERSION HISTORY</span>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                        {[...trailer.spec_sheet_versions].reverse().map(version => (
-                          <div key={version.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-card)', padding: '0.5rem 0.75rem', borderRadius: '8px', border: '1px solid var(--border-default)' }}>
-                            <div style={{ display: 'flex', flexDirection: 'column' }}>
-                              <span style={{ fontSize: '0.75rem', fontWeight: 700 }}>{version.filename || 'Previous Version'}</span>
-                              <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>{new Date(version.timestamp).toLocaleString()}</span>
-                            </div>
-                            <button 
-                              type="button"
-                              className="btn-icon" 
-                              onClick={() => {
-                                const a = document.createElement('a');
-                                a.href = version.file;
-                                const baseName = (editForm.serialNumber || trailer.model || 'Trailer').trim();
-                                a.download = `${baseName}_${version.filename}.xlsx`;
-                                a.click();
-                              }}
-                            >
-                              <Download size={14} />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
               <div style={{ gridColumn: 'span 2', marginTop: '1rem' }}>
                 <button 
                   className="btn btn-primary" 
@@ -727,73 +625,6 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
           </>
         )}
 
-        {!isEditing && (
-          <>
-            <div className="section-title" style={{ marginTop: '2rem' }}><span>Inspection Sheet</span></div>
-            <div style={{ marginBottom: '2rem', background: 'rgba(16, 185, 129, 0.05)', padding: '1.25rem', borderRadius: '12px', border: '1px solid rgba(16, 185, 129, 0.2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>Inspection Document</span>
-              {trailer.inspection_sheet_file ? (
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  <button 
-                    className="btn btn-secondary" 
-                    onClick={() => {
-                      const a = document.createElement('a');
-                      a.href = trailer.inspection_sheet_file!;
-                      const baseName = (trailer.serialNumber || trailer.model || 'Trailer').trim();
-                      a.download = `${baseName}_InspectionSheet`;
-                      a.click();
-                    }}
-                    style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
-                  >
-                    Download
-                  </button>
-                  <label className="btn btn-primary shimmer" style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', cursor: 'pointer', margin: 0 }}>
-                    Replace
-                    <input 
-                      type="file" 
-                      accept="image/*,.pdf" 
-                      style={{ display: 'none' }} 
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          const reader = new FileReader();
-                          reader.onload = (evt) => {
-                            if (evt.target?.result) {
-                              onUpdate(trailer.id, { inspection_sheet_file: evt.target?.result as string });
-                            }
-                          };
-                          reader.readAsDataURL(file);
-                        }
-                      }}
-                    />
-                  </label>
-                </div>
-              ) : (
-                <label className="btn btn-primary shimmer" style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', cursor: 'pointer', margin: 0 }}>
-                  Upload File
-                  <input 
-                    type="file" 
-                    accept="image/*,.pdf" 
-                    style={{ display: 'none' }} 
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        const reader = new FileReader();
-                        reader.onload = (evt) => {
-                          if (evt.target?.result) {
-                            onUpdate(trailer.id, { inspection_sheet_file: evt.target?.result as string });
-                          }
-                        };
-                        reader.readAsDataURL(file);
-                      }
-                    }}
-                  />
-                </label>
-              )}
-            </div>
-          </>
-        )}
-
         <div className="section-title"><span>Parts Readiness Status</span></div>
         <div className="parts-container" style={{ display: 'flex', gap: '1rem', marginBottom: '2rem' }}>
           {(['steel', 'tyres', 'parts'] as const).map(part => (
@@ -843,8 +674,8 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
           <button className="btn btn-primary" style={{ width: '100%' }} onClick={handleSaveAll}><Send size={14} /> Update Notes</button>
         </div>
 
-        <div className="section-title"><ImageIcon size={16} /><span>Production Photos</span></div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
+        <div className="section-title"><ImageIcon size={16} /><span>Photos & Documents</span></div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
           {[1, 2, 3].map(num => {
             const field = `photo_${num}_url` as keyof Trailer;
             const url = trailer[field] as string | undefined;
@@ -930,6 +761,93 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
               </div>
             );
           })}
+
+          {/* Inspection Sheet Box */}
+          <div style={{ position: 'relative' }}>
+            <label style={{ 
+              display: 'flex', 
+              flexDirection: 'column', 
+              alignItems: 'center', 
+              justifyContent: 'center', 
+              height: '100px', 
+              background: trailer.inspection_sheet_file ? 'transparent' : 'rgba(16, 185, 129, 0.05)', 
+              border: '1px dashed rgba(16, 185, 129, 0.4)', 
+              borderRadius: '12px', 
+              cursor: 'pointer',
+              overflow: 'hidden',
+              transition: 'all 0.2s'
+            }}>
+              {trailer.inspection_sheet_file ? (
+                trailer.inspection_sheet_file.startsWith('data:image/') ? (
+                  <img src={trailer.inspection_sheet_file} alt="Inspection" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', color: '#059669' }}>
+                    <FileText size={24} />
+                    <span style={{ fontSize: '0.6rem', fontWeight: 800, marginTop: '4px' }}>DOCUMENT</span>
+                  </div>
+                )
+              ) : !trailer.isArchived ? (
+                <>
+                  <FileText size={20} color="rgba(16, 185, 129, 0.6)" />
+                  <span style={{ fontSize: '0.6rem', fontWeight: 800, color: '#059669', textTransform: 'uppercase', marginTop: '4px', textAlign: 'center' }}>Add<br/>Inspection</span>
+                </>
+              ) : (
+                <span style={{ fontSize: '0.6rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', textAlign: 'center' }}>No<br/>Inspection</span>
+              )}
+              {!trailer.isArchived && (
+                <input 
+                  type="file" 
+                  accept="image/*,.pdf" 
+                  style={{ display: 'none' }} 
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onload = (evt) => {
+                        if (evt.target?.result) {
+                          onUpdate(trailer.id, { inspection_sheet_file: evt.target.result as string });
+                        }
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }}
+                />
+              )}
+            </label>
+            {trailer.inspection_sheet_file && (
+              <button
+                className="btn-icon"
+                style={{ position: 'absolute', top: '4px', left: '4px', background: 'rgba(0,0,0,0.5)', padding: '4px' }}
+                onClick={(e) => {
+                  e.preventDefault();
+                  const a = document.createElement('a');
+                  a.href = trailer.inspection_sheet_file!;
+                  const baseName = (trailer.serialNumber || trailer.model || 'Trailer').trim();
+                  a.download = `${baseName}_InspectionSheet`;
+                  a.click();
+                }}
+              >
+                <Download size={12} color="#fff" />
+              </button>
+            )}
+            {trailer.inspection_sheet_file && !trailer.isArchived && (
+              <button 
+                onClick={(e) => {
+                  e.preventDefault();
+                  onUpdate(trailer.id, { inspection_sheet_file: undefined });
+                }}
+                style={{ 
+                  position: 'absolute', top: '-8px', right: '-8px', 
+                  width: '24px', height: '24px', borderRadius: '50%', 
+                  background: '#ef4444', color: 'white', border: '2px solid white', 
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', 
+                  cursor: 'pointer', zIndex: 10, boxShadow: '0 2px 4px rgba(0,0,0,0.2)' 
+                }}
+              >
+                <Trash2 size={12} />
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="section-title" style={{ marginTop: '2.5rem' }}><History size={16} /><span>Unit History</span></div>
