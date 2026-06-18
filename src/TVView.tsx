@@ -259,8 +259,9 @@ const TVView: React.FC<Props> = ({ trailers, monitorMode: initialMode = 'all', l
               style={{ 
                 background: 'var(--bg-card)', 
                 border: '1px solid var(--border-default)',
-                minWidth: window.innerWidth < 1024 ? '240px' : (columns.length > 4 ? 'calc(20% - 1.25rem)' : '280px'),
-                flex: columns.length > 4 ? '1' : '0 0 auto',
+                minWidth: '340px',
+                maxWidth: '650px',
+                flex: '1 1 420px',
                 height: '100%', 
                 display: 'flex',
                 flexDirection: 'column',
