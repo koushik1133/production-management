@@ -57,8 +57,7 @@ import {
   LogOut,
   Eye,
   EyeOff,
-  FileText,
-  Upload
+  FileText
 } from 'lucide-react';
 
 import { 
@@ -983,69 +982,76 @@ function Dashboard({
             </div>
           </div>
 
-          {/* Spec Sheet Management */}
-          <div style={{ marginBottom: '1.5rem', padding: '1.25rem', background: 'var(--bg-secondary)', borderRadius: '16px', border: '1px solid var(--border-default)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '1.25rem' }}>
+          {/* Spec Sheet Section */}
+          <div style={{ marginBottom: '1.5rem', background: 'rgba(59, 130, 246, 0.05)', padding: '1.25rem', borderRadius: '16px', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '1rem' }}>
               <FileText size={16} color="var(--accent)" />
-              <span style={{ fontSize: '0.75rem', fontWeight: 900, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Final Spec Sheet Verification</span>
+              <span style={{ fontSize: '0.75rem', fontWeight: 900, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Spec Sheet (Excel)</span>
             </div>
-            
-            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>Final Spec Sheet</span>
               {pendingShippingTrailer?.spec_sheet_file ? (
-                <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(59, 130, 246, 0.05)', padding: '0.75rem 1rem', borderRadius: '12px', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                    <div style={{ padding: '8px', background: 'var(--accent)', borderRadius: '8px', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <FileText size={16} />
-                    </div>
-                    <div>
-                      <div style={{ fontSize: '0.8rem', fontWeight: 800 }}>Spec_Sheet_{pendingShippingTrailer.serialNumber}.xlsx</div>
-                      <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Ready for shipment record</div>
-                    </div>
-                  </div>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
                   <button 
                     type="button"
-                    onClick={() => {
-                      const link = document.createElement('a');
-                      link.href = pendingShippingTrailer.spec_sheet_file!;
-                      link.download = `Spec_Sheet_${pendingShippingTrailer.serialNumber}.xlsx`;
-                      document.body.appendChild(link);
-                      link.click();
-                      document.body.removeChild(link);
-                    }}
                     className="btn btn-secondary" 
-                    style={{ fontSize: '0.7rem', padding: '0.4rem 0.8rem' }}
+                    onClick={() => {
+                      const a = document.createElement('a');
+                      a.href = pendingShippingTrailer.spec_sheet_file!;
+                      a.download = `${pendingShippingTrailer.serialNumber}_SpecSheet.xlsx`;
+                      a.click();
+                    }}
+                    style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
                   >
-                    View File
+                    Download
                   </button>
+                  <label className="btn btn-primary shimmer" style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', cursor: 'pointer', margin: 0 }}>
+                    Replace
+                    <input 
+                      type="file" 
+                      accept=".xlsx,.xls" 
+                      style={{ display: 'none' }} 
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onload = (evt) => {
+                            if (evt.target?.result) {
+                              setPendingShippingTrailer(prev => prev ? { ...prev, spec_sheet_file: evt.target?.result as string } : null);
+                            }
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                    />
+                  </label>
                 </div>
               ) : (
-                <div style={{ flex: 1, padding: '1rem', textAlign: 'center', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px dashed var(--border-default)', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
-                  No spec sheet generated for this unit yet.
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>No spec sheet available.</span>
+                  <label className="btn btn-primary shimmer" style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', cursor: 'pointer', margin: 0, textAlign: 'center' }}>
+                    Upload File
+                    <input 
+                      type="file" 
+                      accept=".xlsx,.xls" 
+                      style={{ display: 'none' }} 
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onload = (evt) => {
+                            if (evt.target?.result) {
+                              setPendingShippingTrailer(prev => prev ? { ...prev, spec_sheet_file: evt.target?.result as string } : null);
+                            }
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                    />
+                  </label>
                 </div>
               )}
-
-              <label className="btn btn-primary" style={{ cursor: 'pointer', padding: '0.75rem 1.25rem', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <Upload size={14} /> Replace File
-                <input 
-                  type="file" 
-                  accept=".xlsx" 
-                  style={{ display: 'none' }} 
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (!file) return;
-                    const reader = new FileReader();
-                    reader.onload = (ev) => {
-                      const base64 = ev.target?.result as string;
-                      setPendingShippingTrailer(prev => prev ? { ...prev, spec_sheet_file: base64 } : prev);
-                    };
-                    reader.readAsDataURL(file);
-                  }}
-                />
-              </label>
             </div>
-            <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.75rem', lineHeight: 1.4 }}>
-              Replacing the spec sheet here will permanently overwrite the active spec sheet and save this version as the final shipped record.
-            </p>
           </div>
 
           {userRole === 'manager' && (
