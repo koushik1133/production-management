@@ -17,6 +17,7 @@ interface Props {
   userRole: UserRole;
   isPriceUnlockedGlobally?: boolean;
   onUnlockPrices?: () => boolean;
+  onLockPrices?: () => void;
 }
 
 const PHASE_LABELS = [
@@ -27,7 +28,7 @@ const PHASE_LABELS = [
   { key: 'trim_hours', label: 'Trim', color: '#10b981' },
 ];
 
-const ShippedRecord: React.FC<{ record: ShippedTrailer; notes?: string; onClose: () => void; userRole: UserRole; isPriceUnlockedGlobally?: boolean; onUnlockPrices?: () => boolean }> = ({ record, notes, onClose, userRole, isPriceUnlockedGlobally, onUnlockPrices }) => {
+const ShippedRecord: React.FC<{ record: ShippedTrailer; notes?: string; onClose: () => void; userRole: UserRole; isPriceUnlockedGlobally?: boolean; onUnlockPrices?: () => boolean; onLockPrices?: () => void }> = ({ record, notes, onClose, userRole, isPriceUnlockedGlobally, onUnlockPrices, onLockPrices }) => {
   const [heavyData, setHeavyData] = useState<Partial<ShippedTrailer>>({});
   const [loading, setLoading] = useState(false);
 
@@ -284,8 +285,10 @@ const ShippedRecord: React.FC<{ record: ShippedTrailer; notes?: string; onClose:
               </div>
               <button
                 onClick={() => {
-                  if (!isPriceUnlockedGlobally && onUnlockPrices) {
-                    onUnlockPrices();
+                  if (isPriceUnlockedGlobally) {
+                    if (onLockPrices) onLockPrices();
+                  } else {
+                    if (onUnlockPrices) onUnlockPrices();
                   }
                 }}
                 style={{ 
@@ -320,7 +323,7 @@ const ShippedRecord: React.FC<{ record: ShippedTrailer; notes?: string; onClose:
   );
 };
 
-export const ArchiveView: React.FC<Props> = ({ trailers, onUpdateTrailer, localTargetHours, shippedTrailers = [], userRole, isPriceUnlockedGlobally, onUnlockPrices }) => {
+export const ArchiveView: React.FC<Props> = ({ trailers, onUpdateTrailer, localTargetHours, shippedTrailers = [], userRole, isPriceUnlockedGlobally, onUnlockPrices, onLockPrices }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'shipped' | 'serial'>('shipped');
   const [selectedTrailerId, setSelectedTrailerId] = useState<string | null>(null);
@@ -328,6 +331,7 @@ export const ArchiveView: React.FC<Props> = ({ trailers, onUpdateTrailer, localT
   const [tab, setTab] = useState<'shipped' | 'removed'>('shipped');
   const [visibleCount, setVisibleCount] = useState(10);
   const [exportStatus, setExportStatus] = useState<string | null>(null);
+  const [exportFilter, setExportFilter] = useState<'all' | 'today' | 'week' | 'month'>('all');
 
   useEffect(() => {
     setVisibleCount(10);
@@ -422,13 +426,28 @@ export const ArchiveView: React.FC<Props> = ({ trailers, onUpdateTrailer, localT
             />
           </div>
 
-          <div className="hide-on-mobile hide-under-900" style={{ display: 'flex', gap: '0.5rem' }}>
+          <div className="hide-on-mobile hide-under-900" style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            <select 
+              value={exportFilter} 
+              onChange={(e) => setExportFilter(e.target.value as any)}
+              className="form-input" 
+              style={{ width: 'auto', fontSize: '0.75rem', padding: '4px 10px', height: '36px', borderRadius: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--border-default)', color: 'var(--text-primary)', fontWeight: 700 }}
+            >
+              <option value="all">Export: All Time</option>
+              <option value="today">Export: Today</option>
+              <option value="week">Export: This Week (7 Days)</option>
+              <option value="month">Export: This Month</option>
+            </select>
             <button 
               className="btn btn-secondary" 
               disabled={exportStatus !== null}
               onClick={async () => {
                 try {
-                  const headers = ["Serial", "Model", "Customer", "Invoice", "VIN_Date", "Shipped_Date", "Sale_Price", "Total_Hours", "Prefab_H", "Build_H", "Paint_H", "Outsource_H", "Trim_H"];
+                  const headers = [
+                    "Serial", "Model", "Customer", "Invoice", "VIN_Date", "Shipped_Date", "Sale_Price", "Total_Hours", 
+                    "Prefab_H", "Build_H", "Paint_H", "Outsource_H", "Trim_H",
+                    "Photo_1_Path", "Photo_2_Path", "Photo_3_Path", "Spec_Sheet_Path", "Inspection_Sheet_Path"
+                  ];
                   
                   // Sort by monthly sales (most recent month first)
                   const sortedData = [...filteredShipped].sort((a, b) => {
@@ -440,47 +459,79 @@ export const ArchiveView: React.FC<Props> = ({ trailers, onUpdateTrailer, localT
                     return dateB.getMonth() - dateA.getMonth();
                   });
 
+                  const now = new Date();
+                  const filteredDataForExport = sortedData.filter(t => {
+                    if (!t.shipped_at) return false;
+                    const shipDate = new Date(t.shipped_at);
+                    if (exportFilter === 'today') {
+                      return shipDate.toDateString() === now.toDateString();
+                    } else if (exportFilter === 'week') {
+                      const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                      return shipDate >= oneWeekAgo;
+                    } else if (exportFilter === 'month') {
+                      return shipDate.getMonth() === now.getMonth() && shipDate.getFullYear() === now.getFullYear();
+                    }
+                    return true;
+                  });
+
+                  if (filteredDataForExport.length === 0) {
+                    alert("No matching trailers found for the selected export date filter.");
+                    return;
+                  }
+
                   setExportStatus("Loading...");
-                  const batchSize = 25;
                   const allTrailersWithMedia: ShippedTrailer[] = [];
-                  const serials = sortedData.map(t => t.serial_number);
+                  const serials = filteredDataForExport.map(t => t.serial_number);
                   
-                  for (let i = 0; i < serials.length; i += batchSize) {
-                    const batchSerials = serials.slice(i, i + batchSize);
-                    setExportStatus(`Fetching (${i}/${serials.length})...`);
+                  for (let i = 0; i < serials.length; i++) {
+                    setExportStatus(`Fetching (${i + 1}/${serials.length})...`);
                     const { data, error } = await supabase
                       .from('shipped_trailers')
                       .select('*')
-                      .in('serial_number', batchSerials);
+                      .eq('serial_number', serials[i]);
                     
                     if (error) throw error;
-                    if (data) {
-                      allTrailersWithMedia.push(...data);
+                    if (data && data.length > 0) {
+                      allTrailersWithMedia.push(data[0]);
                     }
                   }
 
-                  // Sort the fetched full data in the same order
-                  allTrailersWithMedia.sort((a, b) => {
-                    const idxA = serials.indexOf(a.serial_number);
-                    const idxB = serials.indexOf(b.serial_number);
-                    return idxA - idxB;
-                  });
+                  const data = allTrailersWithMedia.map(t => {
+                    const baseFolder = `media/${t.serial_number}/`;
+                    
+                    const getExt = (base64String: string | null | undefined, defaultExt: string) => {
+                      if (!base64String) return "";
+                      const parts = base64String.split(';base64,');
+                      if (parts.length < 2) return defaultExt;
+                      const contentType = parts[0].split(':')[1];
+                      if (contentType.includes("jpeg") || contentType.includes("jpg")) return ".jpg";
+                      if (contentType.includes("png")) return ".png";
+                      if (contentType.includes("spreadsheetml") || contentType.includes("excel")) return ".xlsx";
+                      if (contentType.includes("pdf")) return ".pdf";
+                      return defaultExt;
+                    };
 
-                  const data = allTrailersWithMedia.map(t => ({
-                    "Serial": t.serial_number,
-                    "Model": t.trailer_name,
-                    "Customer": t.customer_name || 'Generic Stock',
-                    "Invoice": t.invoice_number,
-                    "VIN Date": t.vin_date || '',
-                    "Shipped Date": t.shipped_at ? format(new Date(t.shipped_at), 'yyyy-MM-dd') : '',
-                    "Sale Price": t.sale_price || 0,
-                    "Total Hours": t.total_hours,
-                    "Prefab (h)": t.prefab_hours || 0,
-                    "Build (h)": t.build_hours || 0,
-                    "Paint (h)": t.paint_hours || 0,
-                    "Outsource (h)": t.outsource_hours || 0,
-                    "Trim (h)": t.trim_hours || 0
-                  }));
+                    return {
+                      "Serial": t.serial_number,
+                      "Model": t.trailer_name,
+                      "Customer": t.customer_name || 'Generic Stock',
+                      "Invoice": t.invoice_number,
+                      "VIN Date": t.vin_date || '',
+                      "Shipped Date": t.shipped_at ? format(new Date(t.shipped_at), 'yyyy-MM-dd') : '',
+                      "Sale Price": t.sale_price || 0,
+                      "Total Hours": t.total_hours,
+                      "Prefab (h)": t.prefab_hours || 0,
+                      "Build (h)": t.build_hours || 0,
+                      "Paint (h)": t.paint_hours || 0,
+                      "Outsource (h)": t.outsource_hours || 0,
+                      "Trim (h)": t.trim_hours || 0,
+                      "Photo 1 Path": t.photo_1_url ? `${baseFolder}photo_1${getExt(t.photo_1_url, '.jpg')}` : '',
+                      "Photo 2 Path": t.photo_2_url ? `${baseFolder}photo_2${getExt(t.photo_2_url, '.jpg')}` : '',
+                      "Photo 3 Path": t.photo_3_url ? `${baseFolder}photo_3${getExt(t.photo_3_url, '.jpg')}` : '',
+                      "Spec Sheet Path": t.spec_sheet_file ? `${baseFolder}${t.serial_number}_Final-SpecSheet${getExt(t.spec_sheet_file, '.xlsx')}` : '',
+                      "Inspection Sheet Path": t.inspection_sheet_file ? `${baseFolder}${t.serial_number}_InspectionSheet${getExt(t.inspection_sheet_file, '.jpg')}` : ''
+                    };
+                  });
 
                   const worksheet = XLSX.utils.json_to_sheet(data);
                   const workbook = XLSX.utils.book_new();
@@ -501,7 +552,7 @@ export const ArchiveView: React.FC<Props> = ({ trailers, onUpdateTrailer, localT
                   allTrailersWithMedia.forEach(t => {
                     const trailerFolder = mediaFolder?.folder(t.serial_number);
                     
-                    const addBase64File = (base64String: string | undefined, defaultFilename: string) => {
+                    const addBase64File = (base64String: string | undefined | null, defaultFilename: string) => {
                       if (!base64String) return;
                       const parts = base64String.split(';base64,');
                       if (parts.length < 2) return;
@@ -756,6 +807,7 @@ export const ArchiveView: React.FC<Props> = ({ trailers, onUpdateTrailer, localT
           userRole={userRole} 
           isPriceUnlockedGlobally={isPriceUnlockedGlobally}
           onUnlockPrices={onUnlockPrices}
+          onLockPrices={onLockPrices}
         />
       )}
 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { formatDistanceToNow, format } from 'date-fns';
-import { History, FileText, Send, Crown, Trash2, Image as ImageIcon, DollarSign, Download } from 'lucide-react';
+import { History, FileText, Send, Crown, Trash2, Image as ImageIcon, DollarSign, Download, CheckCircle } from 'lucide-react';
 import type { Trailer, PhaseId, ShippedTrailer, UserRole } from '../types';
 import { BAY_WEEKLY_HOURS, calculateTrailerRemainingHours, PHASES } from '../types';
 import { Modal } from './Modal';
@@ -26,6 +26,11 @@ interface Props {
 export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose, onUpdate, allTrailers = [], localTargetHours, localSpecSheetTemplates = {}, onDeleteTrailer, shippedTrailers = [], userRole, isPriceUnlockedGlobally, onUnlockPrices, initialMode = 'view' }) => {
   const [isEditing, setIsEditing] = React.useState(initialMode === 'edit');
   const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const triggerToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
   const [heavyData, setHeavyData] = useState<{
     spec_sheet_file?: string | null;
     inspection_sheet_file?: string | null;
@@ -125,6 +130,7 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
         trailer.dealerCommonAddress
       );
       handleSpecSheetUpdate(injected);
+      triggerToast("Spec Sheet Generated Successfully!");
     } catch (error) {
       console.error("Failed to generate spec sheet", error);
     }
@@ -139,6 +145,7 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
     onUpdate(trailer.id, { 
       spec_sheet_file: newFileBase64
     });
+    triggerToast("Spec Sheet Uploaded Successfully!");
   };
 
   const phaseTimes = React.useMemo(() => {
@@ -202,6 +209,7 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
     };
     onUpdate(trailer.id, updates);
     setIsEditing(false);
+    triggerToast('Trailer Updated Successfully!');
   };
 
   const togglePriority = () => {
@@ -768,6 +776,7 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                               if (file) {
                                 const base64 = await fileToBase64(file);
                                 onUpdate(trailer.id, { [field]: base64 });
+                                triggerToast(`Photo ${num} Uploaded Successfully!`);
                               }
                             }}
                           />
@@ -775,7 +784,10 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                       </label>
                       {url && !trailer.isArchived && !isLoadingHeavy && (
                         <button 
-                          onClick={() => onUpdate(trailer.id, { [field]: null })}
+                          onClick={() => {
+                            onUpdate(trailer.id, { [field]: null });
+                            triggerToast(`Photo ${num} Removed!`);
+                          }}
                           style={{ 
                             position: 'absolute', top: '-8px', right: '-8px', 
                             width: '24px', height: '24px', borderRadius: '50%', 
@@ -836,11 +848,13 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                       if (file.type.startsWith('image/')) {
                         const base64 = await fileToBase64(file);
                         onUpdate(trailer.id, { inspection_sheet_file: base64 });
+                        triggerToast('Inspection Sheet Uploaded Successfully!');
                       } else {
                         const reader = new FileReader();
                         reader.onload = (evt) => {
                           if (evt.target?.result) {
                             onUpdate(trailer.id, { inspection_sheet_file: evt.target.result as string });
+                            triggerToast('Inspection Sheet Uploaded Successfully!');
                           }
                         };
                         reader.readAsDataURL(file);
@@ -871,6 +885,7 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                 onClick={(e) => {
                   e.preventDefault();
                   onUpdate(trailer.id, { inspection_sheet_file: undefined });
+                  triggerToast('Inspection Sheet Removed!');
                 }}
                 style={{ 
                   position: 'absolute', top: '-8px', right: '-8px', 
@@ -912,6 +927,27 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
       </div>
     </Modal>
 
+    {toastMessage && (
+      <div style={{
+        position: 'fixed',
+        bottom: '24px',
+        right: '24px',
+        background: '#10b981',
+        color: 'white',
+        padding: '16px 24px',
+        borderRadius: '8px',
+        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '12px',
+        zIndex: 99999,
+        fontWeight: 600,
+        animation: 'slideUp 0.3s ease-out'
+      }}>
+        <CheckCircle size={20} />
+        {toastMessage}
+      </div>
+    )}
     </>
   );
 };
