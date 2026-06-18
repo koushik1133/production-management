@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { formatDistanceToNow, format } from 'date-fns';
 import { History, FileText, Send, Crown, Trash2, Image as ImageIcon, DollarSign, Download } from 'lucide-react';
-import type { Trailer, PhaseId, ShippedTrailer, UserRole } from '../types';
+import type { Trailer, PhaseId, ShippedTrailer, UserRole, SpecSheetVersion } from '../types';
 import { BAY_WEEKLY_HOURS, calculateTrailerRemainingHours, PHASES } from '../types';
 import { Modal } from './Modal';
 import { injectTrailerDataIntoSpec } from '../lib/injectSpecSheet';
+import { supabase } from '../lib/supabase';
 
 interface Props {
   trailer: Trailer;
@@ -25,6 +26,63 @@ interface Props {
 export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose, onUpdate, allTrailers = [], localTargetHours, localSpecSheetTemplates = {}, onDeleteTrailer, shippedTrailers = [], userRole, isPriceUnlockedGlobally, onUnlockPrices, initialMode = 'view' }) => {
   const [isEditing, setIsEditing] = React.useState(initialMode === 'edit');
   const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false);
+  const [heavyData, setHeavyData] = useState<{
+    spec_sheet_file?: string | null;
+    inspection_sheet_file?: string | null;
+    photo_1_url?: string | null;
+    photo_2_url?: string | null;
+    photo_3_url?: string | null;
+    spec_sheet_versions?: SpecSheetVersion[];
+  }>({});
+  const [isLoadingHeavy, setIsLoadingHeavy] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen || !trailer.id) return;
+    
+    // Check if we already have the data in the passed trailer prop to avoid redundant loads
+    if (trailer.spec_sheet_file !== undefined) {
+      setHeavyData({
+        spec_sheet_file: trailer.spec_sheet_file,
+        inspection_sheet_file: trailer.inspection_sheet_file,
+        photo_1_url: trailer.photo_1_url,
+        photo_2_url: trailer.photo_2_url,
+        photo_3_url: trailer.photo_3_url,
+        spec_sheet_versions: trailer.spec_sheet_versions
+      });
+      return;
+    }
+
+    const loadHeavyTrailer = async () => {
+      setIsLoadingHeavy(true);
+      try {
+        const { data } = await supabase
+          .from('trailers')
+          .select('spec_sheet_file, inspection_sheet_file, photo_1_url, photo_2_url, photo_3_url, spec_sheet_versions')
+          .eq('id', trailer.id)
+          .single();
+        if (data) {
+          setHeavyData({
+            spec_sheet_file: data.spec_sheet_file || null,
+            inspection_sheet_file: data.inspection_sheet_file || null,
+            photo_1_url: data.photo_1_url || null,
+            photo_2_url: data.photo_2_url || null,
+            photo_3_url: data.photo_3_url || null,
+            spec_sheet_versions: data.spec_sheet_versions || []
+          });
+        }
+      } catch (err) {
+        console.error("Error loading heavy fields for trailer modal:", err);
+      } finally {
+        setIsLoadingHeavy(false);
+      }
+    };
+    loadHeavyTrailer();
+  }, [trailer.id, isOpen, trailer.spec_sheet_file]);
+
+  const specSheetFile = trailer.spec_sheet_file !== undefined ? trailer.spec_sheet_file : heavyData.spec_sheet_file;
+  const inspectionSheetFile = trailer.inspection_sheet_file !== undefined ? trailer.inspection_sheet_file : heavyData.inspection_sheet_file;
+  const specSheetVersions = trailer.spec_sheet_versions !== undefined ? trailer.spec_sheet_versions : heavyData.spec_sheet_versions;
+
   const [editForm, setEditForm] = useState({
     name: trailer.name || '',
     notes: trailer.notes || '',
@@ -33,9 +91,20 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
     serialNumber: trailer.serialNumber || '',
     partsStatus: trailer.partsStatus || { steel: false, tyres: false, parts: false },
     sale_price: trailer.sale_price?.toString() || '',
-    spec_sheet_file: trailer.spec_sheet_file || undefined,
-    inspection_sheet_file: trailer.inspection_sheet_file || undefined
+    spec_sheet_file: specSheetFile || undefined,
+    inspection_sheet_file: inspectionSheetFile || undefined
   });
+
+  useEffect(() => {
+    if (specSheetFile !== undefined || inspectionSheetFile !== undefined) {
+      setEditForm(prev => ({
+        ...prev,
+        spec_sheet_file: specSheetFile || undefined,
+        inspection_sheet_file: inspectionSheetFile || undefined
+      }));
+    }
+  }, [specSheetFile, inspectionSheetFile]);
+
   const [localNotes, setLocalNotes] = React.useState(trailer.notes || '');
 
   const handleGenerateSpecSheet = async () => {
@@ -66,15 +135,15 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
   };
 
   const handleSpecSheetUpdate = (newFileBase64: string) => {
-    const currentVersions = trailer.spec_sheet_versions || [];
+    const currentVersions = specSheetVersions || [];
     const updatedVersions = [...currentVersions];
     
     // If there's an existing file, push it to history
-    if (trailer.spec_sheet_file && trailer.spec_sheet_file !== newFileBase64) {
+    if (specSheetFile && specSheetFile !== newFileBase64) {
       updatedVersions.push({
         id: Math.random().toString(36).substr(2, 9),
         timestamp: new Date().toISOString(),
-        file: trailer.spec_sheet_file,
+        file: specSheetFile,
         filename: `Version ${currentVersions.length + 1}`
       });
     }
@@ -542,18 +611,20 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
           </div>
         )}
 
-        {!isEditing && (trailer.spec_sheet_file || localSpecSheetTemplates[trailer.model]) && (
+        {!isEditing && (specSheetFile || localSpecSheetTemplates[trailer.model]) && (
           <>
             <div className="section-title" style={{ marginTop: '2rem' }}><FileText size={16} /><span>Spec Sheet (Excel)</span></div>
             <div style={{ marginBottom: '2rem', background: 'rgba(59, 130, 246, 0.05)', padding: '1.25rem', borderRadius: '12px', border: '1px solid rgba(59, 130, 246, 0.2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>Excel Spec Sheet</span>
-              {trailer.spec_sheet_file ? (
+              {isLoadingHeavy ? (
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Loading...</span>
+              ) : specSheetFile ? (
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
                   <button 
                     className="btn btn-secondary" 
                     onClick={() => {
                       const a = document.createElement('a');
-                      a.href = trailer.spec_sheet_file!;
+                      a.href = specSheetFile!;
                       const baseName = (trailer.serialNumber || trailer.model || 'Trailer').trim();
                       a.download = `${baseName}_SpecSheet.xlsx`;
                       a.click();
@@ -594,11 +665,11 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
               )}
             </div>
             
-            {trailer.spec_sheet_versions && trailer.spec_sheet_versions.length > 0 && (
+            {specSheetVersions && specSheetVersions.length > 0 && (
               <div style={{ marginBottom: '2rem', background: 'rgba(59, 130, 246, 0.05)', padding: '1.25rem', borderRadius: '12px', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
                 <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '1rem', display: 'block' }}>Version History</span>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  {[...trailer.spec_sheet_versions].reverse().map(version => (
+                  {[...specSheetVersions].reverse().map(version => (
                     <div key={version.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-card)', padding: '0.5rem 0.75rem', borderRadius: '8px', border: '1px solid var(--border-default)' }}>
                       <div style={{ display: 'flex', flexDirection: 'column' }}>
                         <span style={{ fontSize: '0.75rem', fontWeight: 700 }}>{version.filename || 'Previous Version'}</span>
@@ -705,7 +776,7 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
               <>
                 {[1, 2, 3].map(num => {
                   const field = `photo_${num}_url` as keyof Trailer;
-                  const url = trailer[field] as string | undefined;
+                  const url = (trailer[field] !== undefined ? trailer[field] : (heavyData as any)[field]) as string | undefined;
 
                   return (
                     <div key={num} style={{ position: 'relative' }}>
@@ -718,11 +789,13 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                         background: url ? 'transparent' : 'rgba(255,255,255,0.02)', 
                         border: '1px dashed var(--border-default)', 
                         borderRadius: '12px', 
-                        cursor: 'pointer',
+                        cursor: isLoadingHeavy ? 'default' : 'pointer',
                         overflow: 'hidden',
                         transition: 'all 0.2s'
                       }}>
-                        {url ? (
+                        {isLoadingHeavy ? (
+                          <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Loading...</span>
+                        ) : url ? (
                           <img src={url} alt={`Photo ${num}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         ) : !trailer.isArchived ? (
                           <>
@@ -732,7 +805,7 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                         ) : (
                           <span style={{ fontSize: '0.6rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>No Photo</span>
                         )}
-                        {!trailer.isArchived && (
+                        {!trailer.isArchived && !isLoadingHeavy && (
                           <input 
                             type="file" 
                             accept="image/*" 
@@ -747,7 +820,7 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                           />
                         )}
                       </label>
-                      {url && !trailer.isArchived && (
+                      {url && !trailer.isArchived && !isLoadingHeavy && (
                         <button 
                           onClick={() => onUpdate(trailer.id, { [field]: null })}
                           style={{ 
@@ -773,16 +846,18 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
               alignItems: 'center', 
               justifyContent: 'center', 
               height: '100px', 
-              background: trailer.inspection_sheet_file ? 'transparent' : 'rgba(16, 185, 129, 0.05)', 
+              background: inspectionSheetFile ? 'transparent' : 'rgba(16, 185, 129, 0.05)', 
               border: '1px dashed rgba(16, 185, 129, 0.4)', 
               borderRadius: '12px', 
-              cursor: 'pointer',
+              cursor: isLoadingHeavy ? 'default' : 'pointer',
               overflow: 'hidden',
               transition: 'all 0.2s'
             }}>
-              {trailer.inspection_sheet_file ? (
-                trailer.inspection_sheet_file.startsWith('data:image/') ? (
-                  <img src={trailer.inspection_sheet_file} alt="Inspection" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              {isLoadingHeavy ? (
+                <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Loading...</span>
+              ) : inspectionSheetFile ? (
+                inspectionSheetFile.startsWith('data:image/') ? (
+                  <img src={inspectionSheetFile} alt="Inspection" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', color: '#059669' }}>
                     <FileText size={24} />
@@ -797,7 +872,7 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
               ) : (
                 <span style={{ fontSize: '0.6rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', textAlign: 'center' }}>No<br/>Inspection</span>
               )}
-              {!trailer.isArchived && (
+              {!trailer.isArchived && !isLoadingHeavy && (
                 <input 
                   type="file" 
                   accept="image/*,.pdf" 
@@ -822,14 +897,14 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                 />
               )}
             </label>
-            {trailer.inspection_sheet_file && (
+            {inspectionSheetFile && !isLoadingHeavy && (
               <button
                 className="btn-icon"
                 style={{ position: 'absolute', top: '4px', left: '4px', background: 'rgba(0,0,0,0.5)', padding: '4px' }}
                 onClick={(e) => {
                   e.preventDefault();
                   const a = document.createElement('a');
-                  a.href = trailer.inspection_sheet_file!;
+                  a.href = inspectionSheetFile!;
                   const baseName = (trailer.serialNumber || trailer.model || 'Trailer').trim();
                   a.download = `${baseName}_InspectionSheet`;
                   a.click();
@@ -838,7 +913,7 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                 <Download size={12} color="#fff" />
               </button>
             )}
-            {trailer.inspection_sheet_file && !trailer.isArchived && (
+            {inspectionSheetFile && !trailer.isArchived && !isLoadingHeavy && (
               <button 
                 onClick={(e) => {
                   e.preventDefault();
