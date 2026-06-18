@@ -53,6 +53,7 @@ export interface Trailer {
   photo_3_url?: string;
   sale_price?: number | null;
   spec_sheet_file?: string;
+  inspection_sheet_file?: string;
   spec_sheet_versions?: SpecSheetVersion[];
   trailer_color?: string;
   trailer_plug?: string;
@@ -80,6 +81,7 @@ export interface ShippedTrailer {
   photo_3_url?: string;
   sale_price: number;
   spec_sheet_file?: string;
+  inspection_sheet_file?: string;
 }
 
 export interface Dealer {

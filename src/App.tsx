@@ -305,7 +305,8 @@ function Dashboard({
         photo_2_url: p2,
         photo_3_url: p3,
         sale_price: parseFloat(shippingForm.sale_price) || 0,
-        spec_sheet_file: pendingShippingTrailer.spec_sheet_file
+        spec_sheet_file: pendingShippingTrailer.spec_sheet_file,
+        inspection_sheet_file: pendingShippingTrailer.inspection_sheet_file
       };
 
       await onSaveShippedRecord(shippedRecord);
@@ -1042,6 +1043,78 @@ function Dashboard({
                           reader.onload = (evt) => {
                             if (evt.target?.result) {
                               setPendingShippingTrailer(prev => prev ? { ...prev, spec_sheet_file: evt.target?.result as string } : null);
+                            }
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Inspection Sheet Section */}
+          <div style={{ marginBottom: '1.5rem', background: 'rgba(16, 185, 129, 0.05)', padding: '1.25rem', borderRadius: '16px', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '1rem' }}>
+              <FileText size={16} color="#059669" />
+              <span style={{ fontSize: '0.75rem', fontWeight: 900, color: '#059669', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Inspection Sheet</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>Inspection Document</span>
+              {pendingShippingTrailer?.inspection_sheet_file ? (
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <button 
+                    type="button"
+                    className="btn btn-secondary" 
+                    onClick={() => {
+                      const a = document.createElement('a');
+                      a.href = pendingShippingTrailer.inspection_sheet_file!;
+                      a.download = `${pendingShippingTrailer.serialNumber}_InspectionSheet`;
+                      a.click();
+                    }}
+                    style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
+                  >
+                    Download
+                  </button>
+                  <label className="btn btn-primary shimmer" style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', cursor: 'pointer', margin: 0 }}>
+                    Replace
+                    <input 
+                      type="file" 
+                      accept="image/*,.pdf" 
+                      style={{ display: 'none' }} 
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onload = (evt) => {
+                            if (evt.target?.result) {
+                              setPendingShippingTrailer(prev => prev ? { ...prev, inspection_sheet_file: evt.target?.result as string } : null);
+                            }
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>No inspection sheet available.</span>
+                  <label className="btn btn-primary shimmer" style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', cursor: 'pointer', margin: 0, textAlign: 'center' }}>
+                    Upload File
+                    <input 
+                      type="file" 
+                      accept="image/*,.pdf" 
+                      style={{ display: 'none' }} 
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onload = (evt) => {
+                            if (evt.target?.result) {
+                              setPendingShippingTrailer(prev => prev ? { ...prev, inspection_sheet_file: evt.target?.result as string } : null);
                             }
                           };
                           reader.readAsDataURL(file);
