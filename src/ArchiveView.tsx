@@ -7,6 +7,7 @@ import type { Trailer, PhaseId, ShippedTrailer, UserRole } from './types';
 import { TrailerDetailsModal } from './components/TrailerDetailsModal';
 import { Modal } from './components/Modal';
 import { supabase } from './lib/supabase';
+import JSZip from 'jszip';
 
 interface Props {
   trailers: Trailer[];
@@ -319,35 +320,18 @@ const ShippedRecord: React.FC<{ record: ShippedTrailer; notes?: string; onClose:
   );
 };
 
-export const ArchiveView: React.FC<Props> = ({ trailers, onUpdateTrailer, localTargetHours, userRole, isPriceUnlockedGlobally, onUnlockPrices }) => {
-  const [shippedTrailers, setShippedTrailers] = useState<ShippedTrailer[]>([]);
-  const [loadingList, setLoadingList] = useState(false);
-
-  useEffect(() => {
-    const fetchShippedList = async () => {
-      setLoadingList(true);
-      try {
-        const { data } = await supabase
-          .from('shipped_trailers')
-          .select('serial_number, trailer_name, customer_name, vin_date, invoice_number, shipped_at, total_hours, prefab_hours, build_hours, paint_hours, outsource_hours, trim_hours, sale_price')
-          .order('shipped_at', { ascending: false });
-        if (data) {
-          setShippedTrailers(data);
-        }
-      } catch (err) {
-        console.error("Error loading shipped list:", err);
-      } finally {
-        setLoadingList(false);
-      }
-    };
-    fetchShippedList();
-  }, []);
-
+export const ArchiveView: React.FC<Props> = ({ trailers, onUpdateTrailer, localTargetHours, shippedTrailers = [], userRole, isPriceUnlockedGlobally, onUnlockPrices }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'shipped' | 'serial'>('shipped');
   const [selectedTrailerId, setSelectedTrailerId] = useState<string | null>(null);
   const [selectedSerial, setSelectedSerial] = useState<string | null>(null);
   const [tab, setTab] = useState<'shipped' | 'removed'>('shipped');
+  const [visibleCount, setVisibleCount] = useState(10);
+  const [exportStatus, setExportStatus] = useState<string | null>(null);
+
+  useEffect(() => {
+    setVisibleCount(10);
+  }, [searchQuery, sortBy, tab]);
 
   const filteredShipped = shippedTrailers
     .filter(t =>
@@ -441,49 +425,125 @@ export const ArchiveView: React.FC<Props> = ({ trailers, onUpdateTrailer, localT
           <div className="hide-on-mobile hide-under-900" style={{ display: 'flex', gap: '0.5rem' }}>
             <button 
               className="btn btn-secondary" 
-              onClick={() => {
-                const headers = ["Serial", "Model", "Customer", "Invoice", "VIN_Date", "Shipped_Date", "Sale_Price", "Total_Hours", "Prefab_H", "Build_H", "Paint_H", "Outsource_H", "Trim_H"];
-                
-                // Sort by monthly sales (most recent month first)
-                const sortedData = [...filteredShipped].sort((a, b) => {
-                  const dateA = new Date(a.shipped_at);
-                  const dateB = new Date(b.shipped_at);
-                  // Sort by Year then Month
-                  if (dateA.getFullYear() !== dateB.getFullYear()) {
-                    return dateB.getFullYear() - dateA.getFullYear();
+              disabled={exportStatus !== null}
+              onClick={async () => {
+                try {
+                  const headers = ["Serial", "Model", "Customer", "Invoice", "VIN_Date", "Shipped_Date", "Sale_Price", "Total_Hours", "Prefab_H", "Build_H", "Paint_H", "Outsource_H", "Trim_H"];
+                  
+                  // Sort by monthly sales (most recent month first)
+                  const sortedData = [...filteredShipped].sort((a, b) => {
+                    const dateA = new Date(a.shipped_at);
+                    const dateB = new Date(b.shipped_at);
+                    if (dateA.getFullYear() !== dateB.getFullYear()) {
+                      return dateB.getFullYear() - dateA.getFullYear();
+                    }
+                    return dateB.getMonth() - dateA.getMonth();
+                  });
+
+                  setExportStatus("Loading...");
+                  const batchSize = 25;
+                  const allTrailersWithMedia: ShippedTrailer[] = [];
+                  const serials = sortedData.map(t => t.serial_number);
+                  
+                  for (let i = 0; i < serials.length; i += batchSize) {
+                    const batchSerials = serials.slice(i, i + batchSize);
+                    setExportStatus(`Fetching (${i}/${serials.length})...`);
+                    const { data, error } = await supabase
+                      .from('shipped_trailers')
+                      .select('*')
+                      .in('serial_number', batchSerials);
+                    
+                    if (error) throw error;
+                    if (data) {
+                      allTrailersWithMedia.push(...data);
+                    }
                   }
-                  return dateB.getMonth() - dateA.getMonth();
-                });
 
-                const data = sortedData.map(t => ({
-                  "Serial": t.serial_number,
-                  "Model": t.trailer_name,
-                  "Customer": t.customer_name || 'Generic Stock',
-                  "Invoice": t.invoice_number,
-                  "VIN Date": t.vin_date || '',
-                  "Shipped Date": format(new Date(t.shipped_at), 'yyyy-MM-dd'),
-                  "Sale Price": t.sale_price || 0,
-                  "Total Hours": t.total_hours,
-                  "Prefab (h)": t.prefab_hours || 0,
-                  "Build (h)": t.build_hours || 0,
-                  "Paint (h)": t.paint_hours || 0,
-                  "Outsource (h)": t.outsource_hours || 0,
-                  "Trim (h)": t.trim_hours || 0
-                }));
+                  // Sort the fetched full data in the same order
+                  allTrailersWithMedia.sort((a, b) => {
+                    const idxA = serials.indexOf(a.serial_number);
+                    const idxB = serials.indexOf(b.serial_number);
+                    return idxA - idxB;
+                  });
 
-                const worksheet = XLSX.utils.json_to_sheet(data);
-                const workbook = XLSX.utils.book_new();
-                XLSX.utils.book_append_sheet(workbook, worksheet, "Production Archive");
-                
-                // Auto-size columns
-                const maxWidths = headers.map(h => ({ wch: Math.max(h.length, 15) }));
-                worksheet['!cols'] = maxWidths;
+                  const data = allTrailersWithMedia.map(t => ({
+                    "Serial": t.serial_number,
+                    "Model": t.trailer_name,
+                    "Customer": t.customer_name || 'Generic Stock',
+                    "Invoice": t.invoice_number,
+                    "VIN Date": t.vin_date || '',
+                    "Shipped Date": t.shipped_at ? format(new Date(t.shipped_at), 'yyyy-MM-dd') : '',
+                    "Sale Price": t.sale_price || 0,
+                    "Total Hours": t.total_hours,
+                    "Prefab (h)": t.prefab_hours || 0,
+                    "Build (h)": t.build_hours || 0,
+                    "Paint (h)": t.paint_hours || 0,
+                    "Outsource (h)": t.outsource_hours || 0,
+                    "Trim (h)": t.trim_hours || 0
+                  }));
 
-                XLSX.writeFile(workbook, `production_full_archive_${format(new Date(), 'yyyy_MM_dd')}.xlsx`);
+                  const worksheet = XLSX.utils.json_to_sheet(data);
+                  const workbook = XLSX.utils.book_new();
+                  XLSX.utils.book_append_sheet(workbook, worksheet, "Production Archive");
+                  
+                  // Auto-size columns
+                  const maxWidths = headers.map(h => ({ wch: Math.max(h.length, 15) }));
+                  worksheet['!cols'] = maxWidths;
+
+                  setExportStatus("Building Excel...");
+                  const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+
+                  setExportStatus("Packaging ZIP...");
+                  const zip = new JSZip();
+                  zip.file(`production_full_archive_${format(new Date(), 'yyyy_MM_dd')}.xlsx`, excelBuffer);
+
+                  const mediaFolder = zip.folder("media");
+                  allTrailersWithMedia.forEach(t => {
+                    const trailerFolder = mediaFolder?.folder(t.serial_number);
+                    
+                    const addBase64File = (base64String: string | undefined, defaultFilename: string) => {
+                      if (!base64String) return;
+                      const parts = base64String.split(';base64,');
+                      if (parts.length < 2) return;
+                      
+                      const contentType = parts[0].split(':')[1];
+                      const base64Data = parts[1];
+                      
+                      let ext = "";
+                      if (contentType.includes("jpeg") || contentType.includes("jpg")) ext = ".jpg";
+                      else if (contentType.includes("png")) ext = ".png";
+                      else if (contentType.includes("spreadsheetml") || contentType.includes("excel")) ext = ".xlsx";
+                      else if (contentType.includes("pdf")) ext = ".pdf";
+                      
+                      const filename = defaultFilename + ext;
+                      trailerFolder?.file(filename, base64Data, { base64: true });
+                    };
+
+                    addBase64File(t.photo_1_url, "photo_1");
+                    addBase64File(t.photo_2_url, "photo_2");
+                    addBase64File(t.photo_3_url, "photo_3");
+                    addBase64File(t.spec_sheet_file, `${t.serial_number}_Final-SpecSheet`);
+                    addBase64File(t.inspection_sheet_file, `${t.serial_number}_InspectionSheet`);
+                  });
+
+                  setExportStatus("Downloading ZIP...");
+                  const zipBlob = await zip.generateAsync({ type: "blob" });
+                  const link = document.createElement("a");
+                  link.href = URL.createObjectURL(zipBlob);
+                  link.download = `production_archive_export_${format(new Date(), 'yyyy_MM_dd')}.zip`;
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+                } catch (error: any) {
+                  console.error("Export failed:", error);
+                  alert("Export failed: " + error.message);
+                } finally {
+                  setExportStatus(null);
+                }
               }}
               style={{ fontSize: '0.75rem' }}
             >
-              <Download size={14} /> Export Excel
+              <Download size={14} /> {exportStatus || "Export ZIP (Excel+Media)"}
             </button>
             <label className="btn btn-secondary" style={{ fontSize: '0.75rem', cursor: 'pointer' }}>
               <Upload size={14} /> Import
@@ -547,15 +607,9 @@ export const ArchiveView: React.FC<Props> = ({ trailers, onUpdateTrailer, localT
 
         {/* Shipped Content */}
         {tab === 'shipped' && (
-          loadingList ? (
-            <div style={{ padding: '8rem', textAlign: 'center', background: 'var(--bg-card)', borderRadius: '32px', border: '2px dashed var(--border-default)' }}>
-              <Truck size={64} style={{ marginBottom: '1.5rem', opacity: 0.1, marginLeft: 'auto', marginRight: 'auto' }} />
-              <h3 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '0.5rem' }}>Loading Shipped Archives...</h3>
-              <p style={{ color: 'var(--text-muted)', fontWeight: 600 }}>Please wait while we fetch the records.</p>
-            </div>
-          ) : (
+          <>
             <div className="archive-card-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '1.5rem' }}>
-              {filteredShipped.length > 0 ? filteredShipped.map(t => (
+              {filteredShipped.length > 0 ? filteredShipped.slice(0, visibleCount).map(t => (
               <div
                 key={t.serial_number}
                 onClick={() => setSelectedSerial(t.serial_number)}
@@ -617,42 +671,66 @@ export const ArchiveView: React.FC<Props> = ({ trailers, onUpdateTrailer, localT
               </div>
             )}
           </div>
-          )
+          {filteredShipped.length > visibleCount && (
+            <div style={{ display: 'flex', justifyContent: 'center', marginTop: '2rem' }}>
+              <button 
+                className="btn btn-secondary" 
+                onClick={() => setVisibleCount(prev => prev + 10)}
+                style={{ padding: '0.75rem 2rem', fontWeight: 800, borderRadius: '12px', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-default)', color: 'var(--text-primary)', cursor: 'pointer' }}
+              >
+                Load More
+              </button>
+            </div>
+          )}
+          </>
         )}
 
         {/* Removed Content */}
         {tab === 'removed' && (
-          <div className="archive-card-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '1.5rem' }}>
-            {removedTrailers.length > 0 ? removedTrailers.map(t => (
-              <div 
-                key={t.id} 
-                onClick={() => setSelectedTrailerId(t.id)} 
-                style={{ background: 'var(--bg-card)', padding: '1.5rem', borderRadius: '24px', border: '1px solid var(--border-default)', cursor: 'pointer', opacity: 0.8 }}
-                className="hover-lift"
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
-                  <div>
-                    <h4 style={{ fontSize: '1.1rem', fontWeight: 900 }}>{t.model}</h4>
-                    <p style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)' }}>{t.serialNumber}</p>
+          <>
+            <div className="archive-card-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '1.5rem' }}>
+              {removedTrailers.length > 0 ? removedTrailers.slice(0, visibleCount).map(t => (
+                <div 
+                  key={t.id} 
+                  onClick={() => setSelectedTrailerId(t.id)} 
+                  style={{ background: 'var(--bg-card)', padding: '1.5rem', borderRadius: '24px', border: '1px solid var(--border-default)', cursor: 'pointer', opacity: 0.8 }}
+                  className="hover-lift"
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
+                    <div>
+                      <h4 style={{ fontSize: '1.1rem', fontWeight: 900 }}>{t.model}</h4>
+                      <p style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)' }}>{t.serialNumber}</p>
+                    </div>
+                    <div style={{ background: '#ef444415', color: '#ef4444', padding: '4px 10px', borderRadius: '8px', fontSize: '0.65rem', fontWeight: 900, textTransform: 'uppercase' }}>DELETED</div>
                   </div>
-                  <div style={{ background: '#ef444415', color: '#ef4444', padding: '4px 10px', borderRadius: '8px', fontSize: '0.65rem', fontWeight: 900, textTransform: 'uppercase' }}>DELETED</div>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '1rem' }}>
+                    Was active for {formatDistanceToNow(t.dateStarted)}
+                  </div>
+                  <div style={{ borderTop: '1px solid var(--border-default)', paddingTop: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>VIEW DETAILS</span>
+                    <ChevronRight size={18} color="var(--text-muted)" />
+                  </div>
                 </div>
-                <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '1rem' }}>
-                  Was active for {formatDistanceToNow(t.dateStarted)}
+              )) : (
+                <div className="archive-empty" style={{ gridColumn: '1 / -1', padding: '8rem', textAlign: 'center', background: 'var(--bg-card)', borderRadius: '32px', border: '2px dashed var(--border-default)' }}>
+                  <Package size={64} style={{ marginBottom: '1.5rem', opacity: 0.1 }} />
+                  <h3 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '0.5rem' }}>No Removed Units</h3>
+                  <p style={{ color: 'var(--text-muted)', fontWeight: 600 }}>Historical deletions will appear here.</p>
                 </div>
-                <div style={{ borderTop: '1px solid var(--border-default)', paddingTop: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>VIEW DETAILS</span>
-                  <ChevronRight size={18} color="var(--text-muted)" />
-                </div>
-              </div>
-            )) : (
-              <div className="archive-empty" style={{ gridColumn: '1 / -1', padding: '8rem', textAlign: 'center', background: 'var(--bg-card)', borderRadius: '32px', border: '2px dashed var(--border-default)' }}>
-                <Package size={64} style={{ marginBottom: '1.5rem', opacity: 0.1 }} />
-                <h3 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '0.5rem' }}>No Removed Units</h3>
-                <p style={{ color: 'var(--text-muted)', fontWeight: 600 }}>Historical deletions will appear here.</p>
+              )}
+            </div>
+            {removedTrailers.length > visibleCount && (
+              <div style={{ display: 'flex', justifyContent: 'center', marginTop: '2rem' }}>
+                <button 
+                  className="btn btn-secondary" 
+                  onClick={() => setVisibleCount(prev => prev + 10)}
+                  style={{ padding: '0.75rem 2rem', fontWeight: 800, borderRadius: '12px', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-default)', color: 'var(--text-primary)', cursor: 'pointer' }}
+                >
+                  Load More
+                </button>
               </div>
             )}
-          </div>
+          </>
         )}
       </main>
 
