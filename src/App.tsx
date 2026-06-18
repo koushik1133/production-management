@@ -181,7 +181,7 @@ function Dashboard({
       try {
         const { data } = await supabase
           .from('trailers')
-          .select('spec_sheet_file, inspection_sheet_file, photo_1_url, photo_2_url, photo_3_url, spec_sheet_versions')
+          .select('spec_sheet_file, inspection_sheet_file, photo_1_url, photo_2_url, photo_3_url')
           .eq('id', pendingShippingTrailer.id)
           .single();
         
@@ -192,8 +192,7 @@ function Dashboard({
             inspection_sheet_file: data.inspection_sheet_file || null,
             photo_1_url: data.photo_1_url || null,
             photo_2_url: data.photo_2_url || null,
-            photo_3_url: data.photo_3_url || null,
-            spec_sheet_versions: data.spec_sheet_versions || []
+            photo_3_url: data.photo_3_url || null
           } : null);
         }
       } catch (err) {
@@ -1649,8 +1648,7 @@ function App() {
                         photo_1_url: mapped.photo_1_url !== undefined ? mapped.photo_1_url : t.photo_1_url,
                         photo_2_url: mapped.photo_2_url !== undefined ? mapped.photo_2_url : t.photo_2_url,
                         photo_3_url: mapped.photo_3_url !== undefined ? mapped.photo_3_url : t.photo_3_url,
-                        inspection_sheet_file: mapped.inspection_sheet_file !== undefined ? mapped.inspection_sheet_file : t.inspection_sheet_file,
-                        spec_sheet_versions: mapped.spec_sheet_versions !== undefined ? mapped.spec_sheet_versions : t.spec_sheet_versions
+                        inspection_sheet_file: mapped.inspection_sheet_file !== undefined ? mapped.inspection_sheet_file : t.inspection_sheet_file
                       } as Trailer;
                     }
                     return t;

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { formatDistanceToNow, format } from 'date-fns';
 import { History, FileText, Send, Crown, Trash2, Image as ImageIcon, DollarSign, Download } from 'lucide-react';
-import type { Trailer, PhaseId, ShippedTrailer, UserRole, SpecSheetVersion } from '../types';
+import type { Trailer, PhaseId, ShippedTrailer, UserRole } from '../types';
 import { BAY_WEEKLY_HOURS, calculateTrailerRemainingHours, PHASES } from '../types';
 import { Modal } from './Modal';
 import { injectTrailerDataIntoSpec } from '../lib/injectSpecSheet';
@@ -32,7 +32,6 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
     photo_1_url?: string | null;
     photo_2_url?: string | null;
     photo_3_url?: string | null;
-    spec_sheet_versions?: SpecSheetVersion[];
   }>({});
   const [isLoadingHeavy, setIsLoadingHeavy] = useState(false);
 
@@ -46,8 +45,7 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
         inspection_sheet_file: trailer.inspection_sheet_file,
         photo_1_url: trailer.photo_1_url,
         photo_2_url: trailer.photo_2_url,
-        photo_3_url: trailer.photo_3_url,
-        spec_sheet_versions: trailer.spec_sheet_versions
+        photo_3_url: trailer.photo_3_url
       });
       return;
     }
@@ -57,7 +55,7 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
       try {
         const { data } = await supabase
           .from('trailers')
-          .select('spec_sheet_file, inspection_sheet_file, photo_1_url, photo_2_url, photo_3_url, spec_sheet_versions')
+          .select('spec_sheet_file, inspection_sheet_file, photo_1_url, photo_2_url, photo_3_url')
           .eq('id', trailer.id)
           .single();
         if (data) {
@@ -66,8 +64,7 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
             inspection_sheet_file: data.inspection_sheet_file || null,
             photo_1_url: data.photo_1_url || null,
             photo_2_url: data.photo_2_url || null,
-            photo_3_url: data.photo_3_url || null,
-            spec_sheet_versions: data.spec_sheet_versions || []
+            photo_3_url: data.photo_3_url || null
           });
         }
       } catch (err) {
@@ -81,7 +78,6 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
 
   const specSheetFile = trailer.spec_sheet_file !== undefined ? trailer.spec_sheet_file : heavyData.spec_sheet_file;
   const inspectionSheetFile = trailer.inspection_sheet_file !== undefined ? trailer.inspection_sheet_file : heavyData.inspection_sheet_file;
-  const specSheetVersions = trailer.spec_sheet_versions !== undefined ? trailer.spec_sheet_versions : heavyData.spec_sheet_versions;
 
   const [editForm, setEditForm] = useState({
     name: trailer.name || '',
@@ -135,27 +131,13 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
   };
 
   const handleSpecSheetUpdate = (newFileBase64: string) => {
-    const currentVersions = specSheetVersions || [];
-    const updatedVersions = [...currentVersions];
-    
-    // If there's an existing file, push it to history
-    if (specSheetFile && specSheetFile !== newFileBase64) {
-      updatedVersions.push({
-        id: Math.random().toString(36).substr(2, 9),
-        timestamp: new Date().toISOString(),
-        file: specSheetFile,
-        filename: `Version ${currentVersions.length + 1}`
-      });
-    }
-
     setEditForm(prev => ({ 
       ...prev, 
       spec_sheet_file: newFileBase64 
     }));
     
     onUpdate(trailer.id, { 
-      spec_sheet_file: newFileBase64,
-      spec_sheet_versions: updatedVersions
+      spec_sheet_file: newFileBase64
     });
   };
 
@@ -664,35 +646,6 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                 </button>
               )}
             </div>
-            
-            {specSheetVersions && specSheetVersions.length > 0 && (
-              <div style={{ marginBottom: '2rem', background: 'rgba(59, 130, 246, 0.05)', padding: '1.25rem', borderRadius: '12px', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
-                <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '1rem', display: 'block' }}>Version History</span>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  {[...specSheetVersions].reverse().map(version => (
-                    <div key={version.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-card)', padding: '0.5rem 0.75rem', borderRadius: '8px', border: '1px solid var(--border-default)' }}>
-                      <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <span style={{ fontSize: '0.75rem', fontWeight: 700 }}>{version.filename || 'Previous Version'}</span>
-                        <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>{new Date(version.timestamp).toLocaleString()}</span>
-                      </div>
-                      <button 
-                        type="button"
-                        className="btn-icon" 
-                        onClick={() => {
-                          const a = document.createElement('a');
-                          a.href = version.file;
-                          const baseName = (trailer.serialNumber || trailer.model || 'Trailer').trim();
-                          a.download = `${baseName}_${version.filename}.xlsx`;
-                          a.click();
-                        }}
-                      >
-                        <Download size={14} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
           </>
         )}
 
