@@ -245,7 +245,8 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                         onClick={() => {
                           const a = document.createElement('a');
                           a.href = editForm.spec_sheet_file!;
-                          a.download = `${editForm.serialNumber}_SpecSheet.xlsx`;
+                          const baseName = (editForm.serialNumber || trailer.model || 'Trailer').trim();
+                          a.download = `${baseName}_SpecSheet.xlsx`;
                           a.click();
                         }}
                         style={{ padding: '0.5rem', fontSize: '0.8rem', flex: 1 }}
@@ -303,7 +304,8 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                         onClick={() => {
                           const a = document.createElement('a');
                           a.href = editForm.inspection_sheet_file!;
-                          a.download = `${editForm.serialNumber}_InspectionSheet`;
+                          const baseName = (editForm.serialNumber || trailer.model || 'Trailer').trim();
+                          a.download = `${baseName}_InspectionSheet`;
                           a.click();
                         }}
                         style={{ padding: '0.5rem', fontSize: '0.8rem', flex: 1 }}
@@ -377,7 +379,8 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                               onClick={() => {
                                 const a = document.createElement('a');
                                 a.href = version.file;
-                                a.download = `${editForm.serialNumber}_${version.filename}.xlsx`;
+                                const baseName = (editForm.serialNumber || trailer.model || 'Trailer').trim();
+                                a.download = `${baseName}_${version.filename}.xlsx`;
                                 a.click();
                               }}
                             >
@@ -653,7 +656,8 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                     onClick={() => {
                       const a = document.createElement('a');
                       a.href = trailer.spec_sheet_file!;
-                      a.download = `${trailer.serialNumber}_SpecSheet.xlsx`;
+                      const baseName = (trailer.serialNumber || trailer.model || 'Trailer').trim();
+                      a.download = `${baseName}_SpecSheet.xlsx`;
                       a.click();
                     }}
                     style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
@@ -708,7 +712,8 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                         onClick={() => {
                           const a = document.createElement('a');
                           a.href = version.file;
-                          a.download = `${trailer.serialNumber}_${version.filename}.xlsx`;
+                          const baseName = (trailer.serialNumber || trailer.model || 'Trailer').trim();
+                          a.download = `${baseName}_${version.filename}.xlsx`;
                           a.click();
                         }}
                       >
@@ -734,7 +739,8 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                     onClick={() => {
                       const a = document.createElement('a');
                       a.href = trailer.inspection_sheet_file!;
-                      a.download = `${trailer.serialNumber}_InspectionSheet`;
+                      const baseName = (trailer.serialNumber || trailer.model || 'Trailer').trim();
+                      a.download = `${baseName}_InspectionSheet`;
                       a.click();
                     }}
                     style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}

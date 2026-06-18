@@ -999,7 +999,8 @@ function Dashboard({
                     onClick={() => {
                       const a = document.createElement('a');
                       a.href = pendingShippingTrailer.spec_sheet_file!;
-                      a.download = `${pendingShippingTrailer.serialNumber}_SpecSheet.xlsx`;
+                      const baseName = (pendingShippingTrailer.serialNumber || pendingShippingTrailer.model || 'Trailer').trim();
+                      a.download = `${baseName}_SpecSheet.xlsx`;
                       a.click();
                     }}
                     style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
@@ -1071,7 +1072,8 @@ function Dashboard({
                     onClick={() => {
                       const a = document.createElement('a');
                       a.href = pendingShippingTrailer.inspection_sheet_file!;
-                      a.download = `${pendingShippingTrailer.serialNumber}_InspectionSheet`;
+                      const baseName = (pendingShippingTrailer.serialNumber || pendingShippingTrailer.model || 'Trailer').trim();
+                      a.download = `${baseName}_InspectionSheet`;
                       a.click();
                     }}
                     style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
