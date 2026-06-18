@@ -1039,7 +1039,7 @@
 }
 
 .trailer-card.is-ultra-compact {
-  padding: 0.65rem 0.4rem;
+  padding: 0.4rem 0.6rem;
   gap: 0.35rem;
   border-radius: 8px;
   border: 1px solid var(--border-default);
