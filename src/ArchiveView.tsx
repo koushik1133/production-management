@@ -319,7 +319,30 @@ const ShippedRecord: React.FC<{ record: ShippedTrailer; notes?: string; onClose:
   );
 };
 
-export const ArchiveView: React.FC<Props> = ({ trailers, onUpdateTrailer, localTargetHours, shippedTrailers = [], userRole, isPriceUnlockedGlobally, onUnlockPrices }) => {
+export const ArchiveView: React.FC<Props> = ({ trailers, onUpdateTrailer, localTargetHours, userRole, isPriceUnlockedGlobally, onUnlockPrices }) => {
+  const [shippedTrailers, setShippedTrailers] = useState<ShippedTrailer[]>([]);
+  const [loadingList, setLoadingList] = useState(false);
+
+  useEffect(() => {
+    const fetchShippedList = async () => {
+      setLoadingList(true);
+      try {
+        const { data } = await supabase
+          .from('shipped_trailers')
+          .select('serial_number, trailer_name, customer_name, vin_date, invoice_number, shipped_at, total_hours, prefab_hours, build_hours, paint_hours, outsource_hours, trim_hours, sale_price')
+          .order('shipped_at', { ascending: false });
+        if (data) {
+          setShippedTrailers(data);
+        }
+      } catch (err) {
+        console.error("Error loading shipped list:", err);
+      } finally {
+        setLoadingList(false);
+      }
+    };
+    fetchShippedList();
+  }, []);
+
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'shipped' | 'serial'>('shipped');
   const [selectedTrailerId, setSelectedTrailerId] = useState<string | null>(null);
@@ -524,8 +547,15 @@ export const ArchiveView: React.FC<Props> = ({ trailers, onUpdateTrailer, localT
 
         {/* Shipped Content */}
         {tab === 'shipped' && (
-          <div className="archive-card-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '1.5rem' }}>
-            {filteredShipped.length > 0 ? filteredShipped.map(t => (
+          loadingList ? (
+            <div style={{ padding: '8rem', textAlign: 'center', background: 'var(--bg-card)', borderRadius: '32px', border: '2px dashed var(--border-default)' }}>
+              <Truck size={64} style={{ marginBottom: '1.5rem', opacity: 0.1, marginLeft: 'auto', marginRight: 'auto' }} />
+              <h3 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '0.5rem' }}>Loading Shipped Archives...</h3>
+              <p style={{ color: 'var(--text-muted)', fontWeight: 600 }}>Please wait while we fetch the records.</p>
+            </div>
+          ) : (
+            <div className="archive-card-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '1.5rem' }}>
+              {filteredShipped.length > 0 ? filteredShipped.map(t => (
               <div
                 key={t.serial_number}
                 onClick={() => setSelectedSerial(t.serial_number)}
@@ -587,6 +617,7 @@ export const ArchiveView: React.FC<Props> = ({ trailers, onUpdateTrailer, localT
               </div>
             )}
           </div>
+          )
         )}
 
         {/* Removed Content */}

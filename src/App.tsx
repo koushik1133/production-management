@@ -1548,13 +1548,12 @@ function App() {
   const fetchInitialData = useCallback(async () => {
     setLoading(true);
     try {
-      const [trailersRes, bayRes, modelsRes, shippedRes, dealersRes] = await Promise.all([
+      const [trailersRes, bayRes, modelsRes, dealersRes] = await Promise.all([
         // Exclude spec_sheet_file, photo_1_url, photo_2_url, photo_3_url, inspection_sheet_file, and spec_sheet_versions from bulk fetch.
         // These are huge Base64 columns causing timeouts and freezing. They are lazy-loaded.
         supabase.from('trailers').select('id,name,model,serialNumber,station,dateStarted,currentPhase,history,partsStatus,finishingType,isArchived,archivedAt,isDeleted,invoiceNumber,vinDate,expectedDueDate,promisedShippingDate,notes,isPriority,updated_at,vertical_order,bay_vertical_order,sale_price,trailer_color,trailer_plug,sales_person,dealer_location,dealer_common_address,dealer_id'),
         supabase.from('bay_settings').select('*'),
         supabase.from('production_models').select('*'),
-        supabase.from('shipped_trailers').select('serial_number, trailer_name, customer_name, vin_date, invoice_number, shipped_at, total_hours, prefab_hours, build_hours, paint_hours, outsource_hours, trim_hours, sale_price').order('shipped_at', { ascending: false }),
         supabase.from('dealers').select('*').order('name')
       ]);
       
@@ -1583,7 +1582,6 @@ function App() {
         setTrailers(sorted as Trailer[]);
       }
       if (modelsRes.data) setCatalogModels(modelsRes.data);
-      if (shippedRes.data) setShippedTrailers(shippedRes.data);
       if (dealersRes.data) setDealers(dealersRes.data);
       if (bayRes.data) {
         // Start with a clean slate — only 'None' gets a fixed 0
@@ -1740,28 +1738,7 @@ function App() {
           }
         });
 
-      const shippedChannel = supabase
-        .channel('shipped-changes')
-        .on(
-          'postgres_changes' as any,
-          { event: '*', schema: 'public', table: 'shipped_trailers' },
-          (payload: any) => {
-            if (payload.eventType === 'INSERT') {
-              setShippedTrailers(prev => prev.find(t => t.serial_number === payload.new.serial_number) ? prev : [payload.new as any, ...prev]);
-            } else if (payload.eventType === 'UPDATE') {
-              setShippedTrailers(prev => prev.map(t => t.serial_number === payload.new.serial_number ? { ...t, ...payload.new } : t));
-            } else if (payload.eventType === 'DELETE') {
-              setShippedTrailers(prev => prev.filter(t => t.serial_number !== payload.old.serial_number));
-            }
-          }
-        )
-        .subscribe((status: string) => {
-          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-            console.warn('Shipped channel error, will retry...');
-          }
-        });
-
-      return { trailerChannel, capChannel, modelChannel, dealerChannel, shippedChannel };
+      return { trailerChannel, capChannel, modelChannel, dealerChannel };
     };
 
     const channels = setupSubscriptions();
@@ -1772,7 +1749,6 @@ function App() {
       supabase.removeChannel(channels.capChannel);
       supabase.removeChannel(channels.modelChannel);
       supabase.removeChannel(channels.dealerChannel);
-      supabase.removeChannel(channels.shippedChannel);
     };
   }, []);
 
