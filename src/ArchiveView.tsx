@@ -154,7 +154,8 @@ const ShippedRecord: React.FC<{ record: ShippedTrailer; notes?: string; onClose:
               onClick={() => {
                 const link = document.createElement('a');
                 link.href = record.spec_sheet_file!;
-                link.download = `${record.serial_number}_SpecSheet.xlsx`;
+                const baseName = (record.serial_number || record.trailer_name || 'Trailer').trim();
+                link.download = `${baseName}_SpecSheet.xlsx`;
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
@@ -188,7 +189,8 @@ const ShippedRecord: React.FC<{ record: ShippedTrailer; notes?: string; onClose:
               onClick={() => {
                 const link = document.createElement('a');
                 link.href = record.inspection_sheet_file!;
-                link.download = `${record.serial_number}_InspectionSheet`;
+                const baseName = (record.serial_number || record.trailer_name || 'Trailer').trim();
+                link.download = `${baseName}_InspectionSheet`;
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
