@@ -333,9 +333,9 @@ function Dashboard({
       setShippingPhotos({ p1: null, p2: null, p3: null });
       setShippingForm({ invoice_number: '', vin_date: '', customer_name: '', sale_price: '', dealer_price: '', cost_price: '', shipped_date: new Date().toISOString().split('T')[0] });
       setShippingHours({ prefab: '0', build: '0', paint: '0', outsource: '0', trim: '0' });
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert('Failed to complete shipment.');
+      alert('Failed to complete shipment: ' + (err?.message || JSON.stringify(err)));
     } finally {
       setIsShipping(false);
     }
@@ -2406,6 +2406,7 @@ function getSuggestedBay(): StationId {
                 const { data, error } = await supabase.from('shipped_trailers').upsert([rec]).select().single(); 
                 if (error) {
                   console.error('SHIPMENT ERROR:', error);
+                  throw error;
                 } else if (data) {
                   setShippedTrailers(prev => [data, ...prev]); 
                 }
