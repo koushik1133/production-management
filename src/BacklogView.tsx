@@ -81,8 +81,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
     trailer_color: '',
     trailer_plug: '',
     salesPerson: '',
-    dealerLocation: '',
-    dealerCommonAddress: ''
+    dealerLocation: ''
   });
 
   const selectedModelHours = formData.model ? localTargetHours[formData.model] : null;
@@ -113,7 +112,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
         formData.sale_price ? parseFloat(formData.sale_price) : undefined,
         formData.salesPerson || undefined,
         formData.dealerLocation || undefined,
-        formData.dealerCommonAddress || selectedDealer?.common_address || undefined,
+        selectedDealer?.common_address || undefined,
         true // hideOtherSheets for Quotes
       );
 
@@ -143,7 +142,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
         trailer_plug: formData.trailer_plug || undefined,
         salesPerson: formData.salesPerson || undefined,
         dealerLocation: formData.dealerLocation || undefined,
-        dealerCommonAddress: formData.dealerCommonAddress || selectedDealer?.common_address || undefined,
+        dealerCommonAddress: selectedDealer?.common_address || undefined,
         dealerId: selectedDealer?.id || undefined
       };
       onAddTrailer(newQuote);
@@ -164,8 +163,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
         trailer_color: '',
         trailer_plug: '',
         salesPerson: '',
-        dealerLocation: '',
-        dealerCommonAddress: ''
+        dealerLocation: ''
       });
       setToastMessage('Quote Generated Successfully!');
       setTimeout(() => setToastMessage(null), 3000);
@@ -196,7 +194,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
           formData.sale_price ? parseFloat(formData.sale_price) : undefined,
           formData.salesPerson || undefined,
           formData.dealerLocation || undefined,
-          formData.dealerCommonAddress || selectedDealer?.common_address || undefined
+          selectedDealer?.common_address || undefined
         );
       } catch (error) {
         console.error("Failed to generate spec sheet", error);
@@ -219,7 +217,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
         trailer_plug: formData.trailer_plug || undefined,
         salesPerson: formData.salesPerson || undefined,
         dealerLocation: formData.dealerLocation || undefined,
-        dealerCommonAddress: formData.dealerCommonAddress || selectedDealer?.common_address || undefined,
+        dealerCommonAddress: selectedDealer?.common_address || undefined,
         dealerId: selectedDealer?.id || undefined
       });
       setApprovingQuoteId(null);
@@ -245,7 +243,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
         trailer_plug: formData.trailer_plug || undefined,
         salesPerson: formData.salesPerson || undefined,
         dealerLocation: formData.dealerLocation || undefined,
-        dealerCommonAddress: formData.dealerCommonAddress || selectedDealer?.common_address || undefined,
+        dealerCommonAddress: selectedDealer?.common_address || undefined,
         dealerId: selectedDealer?.id || undefined
       };
       onAddTrailer(newTrailer);
@@ -264,8 +262,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
       trailer_color: '',
       trailer_plug: '',
       salesPerson: '',
-      dealerLocation: '',
-      dealerCommonAddress: ''
+      dealerLocation: ''
     });
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -364,23 +361,14 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
                   {/* Dealer & Sales Info */}
                   <div style={{ padding: '1.25rem', background: 'var(--bg-secondary)', borderRadius: '12px', border: '1px solid var(--border-default)' }}>
                     <h3 style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '1rem', letterSpacing: '0.05em' }}>Dealer & Sales Info</h3>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
                       <div className="form-group" style={{ marginBottom: 0 }}>
                         <label className="form-label" style={{ fontSize: '0.75rem' }}>Dealer Name *</label>
                         <select 
                           className="form-select" 
                           style={{ padding: '0.75rem 1rem', fontSize: '0.95rem', background: 'var(--bg-card)' }}
                           value={formData.name} 
-                          onChange={e => {
-                            const dName = e.target.value;
-                            const selectedD = dealers.find(d => d.name === dName);
-                            setFormData({
-                              ...formData,
-                              name: dName,
-                              dealerLocation: '',
-                              dealerCommonAddress: selectedD?.common_address || ''
-                            });
-                          }} 
+                          onChange={e => setFormData({...formData, name: e.target.value, dealerLocation: ''})} 
                           required
                         >
                           <option value="">Select Dealer...</option>
@@ -389,33 +377,9 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
                           ))}
                         </select>
                       </div>
-
-                      <div className="form-group" style={{ marginBottom: 0 }}>
-                        <label className="form-label" style={{ fontSize: '0.75rem' }}>Salesman (Sales Rep)</label>
-                        <input 
-                          type="text" 
-                          className="form-input" 
-                          style={{ padding: '0.75rem 1rem', fontSize: '0.95rem', background: 'var(--bg-card)' }}
-                          placeholder="e.g. John Doe"
-                          value={formData.salesPerson} 
-                          onChange={e => setFormData({...formData, salesPerson: e.target.value})} 
-                        />
-                      </div>
-
-                      <div className="form-group" style={{ marginBottom: 0 }}>
-                        <label className="form-label" style={{ fontSize: '0.75rem' }}>Billing Address</label>
-                        <input 
-                          type="text" 
-                          className="form-input" 
-                          style={{ padding: '0.75rem 1rem', fontSize: '0.95rem', background: 'var(--bg-card)' }}
-                          placeholder="Dealer Billing Address"
-                          value={formData.dealerCommonAddress} 
-                          onChange={e => setFormData({...formData, dealerCommonAddress: e.target.value})} 
-                        />
-                      </div>
                       
                       <div className="form-group" style={{ marginBottom: 0 }}>
-                        <label className="form-label" style={{ fontSize: '0.75rem' }}>Shipping Address (Branch Location)</label>
+                        <label className="form-label" style={{ fontSize: '0.75rem' }}>Branch Location</label>
                         <select 
                           className="form-select" 
                           style={{ padding: '0.75rem 1rem', fontSize: '0.95rem', background: 'var(--bg-card)' }}
@@ -429,6 +393,18 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
                           ))}
                         </select>
                       </div>
+                    </div>
+                    
+                    <div className="form-group" style={{ marginBottom: 0 }}>
+                      <label className="form-label" style={{ fontSize: '0.75rem' }}>Sales Person</label>
+                      <input 
+                        type="text" 
+                        className="form-input" 
+                        style={{ padding: '0.75rem 1rem', fontSize: '0.95rem', background: 'var(--bg-card)' }}
+                        placeholder="e.g. John Doe"
+                        value={formData.salesPerson} 
+                        onChange={e => setFormData({...formData, salesPerson: e.target.value})} 
+                      />
                     </div>
                   </div>
 
@@ -810,8 +786,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
                               trailer_color: quote.trailer_color || '',
                               trailer_plug: quote.trailer_plug || '',
                               salesPerson: quote.salesPerson || '',
-                              dealerLocation: quote.dealerLocation || '',
-                              dealerCommonAddress: quote.dealerCommonAddress || ''
+                              dealerLocation: quote.dealerLocation || ''
                             });
                             setApprovingQuoteId(quote.id);
                             window.scrollTo({ top: 0, behavior: 'smooth' });

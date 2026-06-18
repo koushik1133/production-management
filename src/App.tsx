@@ -110,7 +110,8 @@ function Dashboard({
   isPriceUnlockedGlobally,
   onUnlockPrices,
   onLockPrices,
-  localSpecSheetTemplates
+  localSpecSheetTemplates,
+  dealers
 }: {
   trailers: Trailer[], 
   updateTrailer: (id: string, updates: Partial<Trailer>) => void,
@@ -143,7 +144,8 @@ function Dashboard({
   isPriceUnlockedGlobally?: boolean,
   onUnlockPrices?: () => boolean,
   onLockPrices?: () => void,
-  localSpecSheetTemplates?: Record<string, string>
+  localSpecSheetTemplates?: Record<string, string>,
+  dealers: { id: string; name: string; addresses?: string[]; common_address?: string; }[]
 }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const highlightedTrailerId = searchParams.get('highlight');
@@ -352,7 +354,10 @@ function Dashboard({
     partsStatus: { tyres: false, steel: false, parts: false },
     sale_price: '',
     trailer_color: '',
-    trailer_plug: ''
+    trailer_plug: '',
+    salesPerson: '',
+    dealerLocation: '',
+    dealerCommonAddress: ''
   });
 
   const handleAddTrailer = async (e: React.FormEvent) => {
@@ -360,6 +365,7 @@ function Dashboard({
     if (!newTrailerData.model) return;
     setIsAdding(true);
     try {
+      const selectedDealer = dealers.find(d => d.name === newTrailerData.name);
       const newTrailer: Trailer = {
         id: crypto.randomUUID(),
         name: newTrailerData.name || '---',
@@ -375,10 +381,28 @@ function Dashboard({
         sale_price: newTrailerData.sale_price ? parseFloat(newTrailerData.sale_price) : undefined,
         trailer_color: newTrailerData.trailer_color || undefined,
         trailer_plug: newTrailerData.trailer_plug || undefined,
+        salesPerson: newTrailerData.salesPerson || undefined,
+        dealerLocation: newTrailerData.dealerLocation || undefined,
+        dealerCommonAddress: newTrailerData.dealerCommonAddress || selectedDealer?.common_address || undefined,
+        dealerId: selectedDealer?.id || undefined
       };
       await addTrailer(newTrailer);
       setIsAddModalOpen(false);
-      setNewTrailerData({ serialNumber: '', name: '', model: '', station: 'None', isPriority: false, promisedShippingDate: '', partsStatus: { tyres: false, steel: false, parts: false }, sale_price: '', trailer_color: '', trailer_plug: '' });
+      setNewTrailerData({ 
+        serialNumber: '', 
+        name: '', 
+        model: '', 
+        station: 'None', 
+        isPriority: false, 
+        promisedShippingDate: '', 
+        partsStatus: { tyres: false, steel: false, parts: false }, 
+        sale_price: '', 
+        trailer_color: '', 
+        trailer_plug: '',
+        salesPerson: '',
+        dealerLocation: '',
+        dealerCommonAddress: ''
+      });
     } finally { setIsAdding(false); }
   };
 
@@ -719,8 +743,65 @@ function Dashboard({
           </div>
 
           <div className="form-group">
-            <label className="form-label">Customer / Purchase Order</label>
-            <input type="text" className="form-input" value={newTrailerData.name} onChange={e => setNewTrailerData({...newTrailerData, name: e.target.value})} placeholder="e.g. Stock Unit" />
+            <label className="form-label">Customer / Dealer *</label>
+            <select 
+              className="form-select" 
+              value={newTrailerData.name} 
+              onChange={e => {
+                const dName = e.target.value;
+                const selectedD = dealers.find(d => d.name === dName);
+                setNewTrailerData({
+                  ...newTrailerData, 
+                  name: dName,
+                  dealerCommonAddress: selectedD?.common_address || '',
+                  dealerLocation: ''
+                });
+              }}
+              required
+            >
+              <option value="">Select Dealer...</option>
+              {dealers.map(d => (
+                <option key={d.id} value={d.name}>{d.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
+            <div className="form-group">
+              <label className="form-label">Salesman (Sales Rep)</label>
+              <input 
+                type="text" 
+                className="form-input" 
+                placeholder="e.g. John Doe"
+                value={newTrailerData.salesPerson} 
+                onChange={e => setNewTrailerData({...newTrailerData, salesPerson: e.target.value})} 
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Billing Address</label>
+              <input 
+                type="text" 
+                className="form-input" 
+                placeholder="Dealer Billing Address"
+                value={newTrailerData.dealerCommonAddress} 
+                onChange={e => setNewTrailerData({...newTrailerData, dealerCommonAddress: e.target.value})} 
+              />
+            </div>
+          </div>
+
+          <div className="form-group" style={{ marginTop: '1rem' }}>
+            <label className="form-label">Shipping Address (Branch Location)</label>
+            <select 
+              className="form-select" 
+              value={newTrailerData.dealerLocation} 
+              onChange={e => setNewTrailerData({...newTrailerData, dealerLocation: e.target.value})} 
+              disabled={!newTrailerData.name}
+            >
+              <option value="">Select Address...</option>
+              {dealers.find(d => d.name === newTrailerData.name)?.addresses?.map(addr => (
+                <option key={addr} value={addr}>{addr}</option>
+              ))}
+            </select>
           </div>
           <div className="form-group">
             <label className="form-label">LANE TRAILERS *</label>
@@ -2437,6 +2518,7 @@ function getSuggestedBay(): StationId {
                 localStorage.setItem('prices_unlocked', 'false');
               }}
               localSpecSheetTemplates={localSpecSheetTemplates}
+              dealers={dealers}
             />} />
             <Route path="/backlog" element={<BacklogView trailers={trailers} onAddTrailer={addTrailer} onUpdateTrailer={updateTrailer} onDeleteTrailer={deleteTrailer} suggestedBay={suggestedBay} nextSuggestedSerial={nextSuggestedSerial} localModelCategories={localModelCategories} localTargetHours={localTargetHours} localSpecSheetTemplates={localSpecSheetTemplates} dealers={dealers} userRole={userRole} isPriceUnlockedGlobally={isPriceUnlockedGlobally} onUnlockPrices={unlockPricesGlobally} />} />
             <Route path="/stations" element={<StationView trailers={trailers} setTrailers={setTrailers} onUpdateTrailer={updateTrailer} bayCapacities={bayCapacities} onUpdateCapacity={updateCapacity} localTargetHours={localTargetHours} userRole={userRole} isPriceUnlockedGlobally={isPriceUnlockedGlobally} onUnlockPrices={unlockPricesGlobally} />} />
