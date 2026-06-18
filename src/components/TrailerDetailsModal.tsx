@@ -76,6 +76,34 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
     loadHeavyTrailer();
   }, [trailer.id, isOpen, trailer.spec_sheet_file]);
 
+  const [localShippedRecord, setLocalShippedRecord] = useState<ShippedTrailer | null>(null);
+
+  useEffect(() => {
+    if (!isOpen || !trailer.isArchived || !trailer.serialNumber) return;
+    
+    const found = shippedTrailers.find(s => s.serial_number === trailer.serialNumber);
+    if (found && found.photo_1_url !== undefined) {
+      setLocalShippedRecord(found);
+      return;
+    }
+
+    const loadShippedRecord = async () => {
+      try {
+        const { data } = await supabase
+          .from('shipped_trailers')
+          .select('photo_1_url, photo_2_url, photo_3_url')
+          .eq('serial_number', trailer.serialNumber)
+          .single();
+        if (data) {
+          setLocalShippedRecord(data as ShippedTrailer);
+        }
+      } catch (err) {
+        console.error("Error loading shipped record in details modal:", err);
+      }
+    };
+    loadShippedRecord();
+  }, [trailer.serialNumber, trailer.isArchived, isOpen, shippedTrailers]);
+
   const specSheetFile = trailer.spec_sheet_file !== undefined ? trailer.spec_sheet_file : heavyData.spec_sheet_file;
   const inspectionSheetFile = trailer.inspection_sheet_file !== undefined ? trailer.inspection_sheet_file : heavyData.inspection_sheet_file;
 
@@ -561,7 +589,7 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
             })()}
 
             {trailer.isArchived && (() => {
-              const shipped = shippedTrailers.find(s => s.serial_number === trailer.serialNumber);
+              const shipped = shippedTrailers.find(s => s.serial_number === trailer.serialNumber) || localShippedRecord;
               if (!shipped) return null;
               const photos = [shipped.photo_1_url, shipped.photo_2_url, shipped.photo_3_url].filter(Boolean) as string[];
               if (photos.length === 0) return null;
