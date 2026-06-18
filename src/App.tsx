@@ -299,7 +299,8 @@ function Dashboard({
         photo_1_url: p1,
         photo_2_url: p2,
         photo_3_url: p3,
-        sale_price: parseFloat(shippingForm.sale_price) || 0
+        sale_price: parseFloat(shippingForm.sale_price) || 0,
+        spec_sheet_file: pendingShippingTrailer.spec_sheet_file
       };
 
       await onSaveShippedRecord(shippedRecord);
@@ -470,7 +471,22 @@ function Dashboard({
             </button>
           </div>
 
-          <div className="util-group hide-on-mobile" style={{ display: 'flex', gap: '0.2rem', alignItems: 'center' }}>
+            <div className="util-group hide-on-mobile" style={{ display: 'flex', gap: '0.2rem', alignItems: 'center' }}>
+            <button 
+              className="btn btn-secondary btn-icon" 
+              onClick={() => {
+                if (isPriceUnlockedGlobally) {
+                  setIsPriceUnlockedGlobally(false);
+                  localStorage.setItem('prices_unlocked', 'false');
+                } else {
+                  setIsPinModalOpen(true);
+                }
+              }} 
+              title={isPriceUnlockedGlobally ? "Hide Prices" : "Show Prices"}
+              style={{ width: '30px', height: '30px', borderRadius: '6px' }}
+            >
+              {isPriceUnlockedGlobally ? <EyeOff size={14} /> : <Eye size={14} />}
+            </button>
             {userRole === 'manager' && (
               <div className="undo-redo-subgroup" style={{ display: 'flex', gap: '0.2rem' }}>
                 <button className="btn btn-secondary btn-icon" onClick={handleUndo} disabled={undoStack.length === 0} title="Undo" style={{ width: '30px', height: '30px', borderRadius: '6px' }}><Undo2 size={12} /></button>

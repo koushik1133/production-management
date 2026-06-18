@@ -147,6 +147,40 @@ const ShippedRecord: React.FC<{ record: ShippedTrailer; notes?: string; onClose:
           )}
         </div>
 
+        {/* Spec Sheet Download */}
+        {record.spec_sheet_file && (
+          <div style={{ marginTop: '0.5rem' }}>
+            <button
+              onClick={() => {
+                const link = document.createElement('a');
+                link.href = record.spec_sheet_file!;
+                link.download = `Final_Spec_Sheet_${record.serial_number}.xlsx`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+              }}
+              className="btn btn-secondary"
+              style={{
+                width: '100%',
+                padding: '0.85rem',
+                borderRadius: '12px',
+                border: '1px solid var(--accent)',
+                color: 'var(--accent)',
+                fontWeight: 800,
+                fontSize: '0.9rem',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '0.75rem',
+                background: 'rgba(59, 130, 246, 0.05)'
+              }}
+            >
+              <FileText size={18} />
+              Download Final Spec Sheet
+            </button>
+          </div>
+        )}
+
         {/* Pricing Segment */}
         {userRole === 'manager' && (
           <div style={{ 
