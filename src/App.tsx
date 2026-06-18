@@ -54,7 +54,9 @@ import {
   Minimize,
   Settings,
   BarChart2,
-  LogOut
+  LogOut,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 
 import { 
@@ -106,6 +108,7 @@ function Dashboard({
   localModelCategories,
   isPriceUnlockedGlobally,
   onUnlockPrices,
+  onLockPrices,
   localSpecSheetTemplates
 }: {
   trailers: Trailer[], 
@@ -138,6 +141,7 @@ function Dashboard({
   localModelCategories: { name: string; models: string[] }[],
   isPriceUnlockedGlobally?: boolean,
   onUnlockPrices?: () => boolean,
+  onLockPrices?: () => void,
   localSpecSheetTemplates?: Record<string, string>
 }) {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -476,10 +480,9 @@ function Dashboard({
               className="btn btn-secondary btn-icon" 
               onClick={() => {
                 if (isPriceUnlockedGlobally) {
-                  setIsPriceUnlockedGlobally(false);
-                  localStorage.setItem('prices_unlocked', 'false');
+                  if (onLockPrices) onLockPrices();
                 } else {
-                  setIsPinModalOpen(true);
+                  if (onUnlockPrices) onUnlockPrices();
                 }
               }} 
               title={isPriceUnlockedGlobally ? "Hide Prices" : "Show Prices"}
@@ -2264,6 +2267,10 @@ function getSuggestedBay(): StationId {
               localModelCategories={localModelCategories}
               isPriceUnlockedGlobally={isPriceUnlockedGlobally}
               onUnlockPrices={unlockPricesGlobally}
+              onLockPrices={() => {
+                setIsPriceUnlockedGlobally(false);
+                localStorage.setItem('prices_unlocked', 'false');
+              }}
               localSpecSheetTemplates={localSpecSheetTemplates}
             />} />
             <Route path="/backlog" element={<BacklogView trailers={trailers} onAddTrailer={addTrailer} onUpdateTrailer={updateTrailer} onDeleteTrailer={deleteTrailer} suggestedBay={suggestedBay} nextSuggestedSerial={nextSuggestedSerial} localModelCategories={localModelCategories} localTargetHours={localTargetHours} localSpecSheetTemplates={localSpecSheetTemplates} dealers={dealers} userRole={userRole} isPriceUnlockedGlobally={isPriceUnlockedGlobally} onUnlockPrices={unlockPricesGlobally} />} />
