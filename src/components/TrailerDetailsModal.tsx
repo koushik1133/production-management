@@ -33,7 +33,8 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
     serialNumber: trailer.serialNumber || '',
     partsStatus: trailer.partsStatus || { steel: false, tyres: false, parts: false },
     sale_price: trailer.sale_price?.toString() || '',
-    spec_sheet_file: trailer.spec_sheet_file || undefined
+    spec_sheet_file: trailer.spec_sheet_file || undefined,
+    inspection_sheet_file: trailer.inspection_sheet_file || undefined
   });
   const [localNotes, setLocalNotes] = React.useState(trailer.notes || '');
 
@@ -285,6 +286,76 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                           Generate from Model Template
                         </button>
                       )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* INSPECTION SHEET (EDIT MODE) */}
+              <div style={{ gridColumn: 'span 2', background: 'rgba(16, 185, 129, 0.05)', padding: '1.25rem', borderRadius: '12px', border: '1px solid rgba(16, 185, 129, 0.2)', marginTop: '0.5rem' }}>
+                <label className="form-label" style={{ fontSize: '0.65rem', color: '#059669', marginBottom: '1rem', display: 'block', fontWeight: 800 }}>INSPECTION SHEET</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  {editForm.inspection_sheet_file ? (
+                    <div style={{ display: 'flex', gap: '0.5rem', width: '100%' }}>
+                      <button 
+                        type="button"
+                        className="btn btn-secondary" 
+                        onClick={() => {
+                          const a = document.createElement('a');
+                          a.href = editForm.inspection_sheet_file!;
+                          a.download = `${editForm.serialNumber}_InspectionSheet`;
+                          a.click();
+                        }}
+                        style={{ padding: '0.5rem', fontSize: '0.8rem', flex: 1 }}
+                      >
+                        Download
+                      </button>
+                      <label className="btn btn-primary shimmer" style={{ padding: '0.5rem', fontSize: '0.8rem', flex: 1, margin: 0, cursor: 'pointer', textAlign: 'center' }}>
+                        Replace
+                        <input 
+                          type="file" 
+                          accept="image/*,.pdf" 
+                          style={{ display: 'none' }} 
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onload = (evt) => {
+                                if (evt.target?.result) {
+                                  onUpdate(trailer.id, { inspection_sheet_file: evt.target?.result as string });
+                                  setEditForm({ ...editForm, inspection_sheet_file: evt.target?.result as string });
+                                }
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                        />
+                      </label>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                      <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>No inspection sheet available.</span>
+                      <label className="btn btn-primary shimmer" style={{ padding: '0.5rem', fontSize: '0.8rem', flex: 1, margin: 0, cursor: 'pointer', textAlign: 'center' }}>
+                        Upload Inspection Sheet
+                        <input 
+                          type="file" 
+                          accept="image/*,.pdf" 
+                          style={{ display: 'none' }} 
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onload = (evt) => {
+                                if (evt.target?.result) {
+                                  onUpdate(trailer.id, { inspection_sheet_file: evt.target?.result as string });
+                                  setEditForm({ ...editForm, inspection_sheet_file: evt.target?.result as string });
+                                }
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                        />
+                      </label>
                     </div>
                   )}
                   
@@ -648,6 +719,72 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                 </div>
               </div>
             )}
+          </>
+        )}
+
+        {!isEditing && (
+          <>
+            <div className="section-title" style={{ marginTop: '2rem' }}><span>Inspection Sheet</span></div>
+            <div style={{ marginBottom: '2rem', background: 'rgba(16, 185, 129, 0.05)', padding: '1.25rem', borderRadius: '12px', border: '1px solid rgba(16, 185, 129, 0.2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>Inspection Document</span>
+              {trailer.inspection_sheet_file ? (
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <button 
+                    className="btn btn-secondary" 
+                    onClick={() => {
+                      const a = document.createElement('a');
+                      a.href = trailer.inspection_sheet_file!;
+                      a.download = `${trailer.serialNumber}_InspectionSheet`;
+                      a.click();
+                    }}
+                    style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
+                  >
+                    Download
+                  </button>
+                  <label className="btn btn-primary shimmer" style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', cursor: 'pointer', margin: 0 }}>
+                    Replace
+                    <input 
+                      type="file" 
+                      accept="image/*,.pdf" 
+                      style={{ display: 'none' }} 
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onload = (evt) => {
+                            if (evt.target?.result) {
+                              onUpdate(trailer.id, { inspection_sheet_file: evt.target?.result as string });
+                            }
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
+              ) : (
+                <label className="btn btn-primary shimmer" style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', cursor: 'pointer', margin: 0 }}>
+                  Upload File
+                  <input 
+                    type="file" 
+                    accept="image/*,.pdf" 
+                    style={{ display: 'none' }} 
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onload = (evt) => {
+                          if (evt.target?.result) {
+                            onUpdate(trailer.id, { inspection_sheet_file: evt.target?.result as string });
+                          }
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                  />
+                </label>
+              )}
+            </div>
           </>
         )}
 
