@@ -22,6 +22,7 @@ interface Props {
   userRole: UserRole;
   isPriceUnlockedGlobally?: boolean;
   onUnlockPrices?: () => boolean;
+  hidePrice?: boolean;
 }
 
 export const TrailerCard: React.FC<Props> = React.memo(({ 
@@ -39,7 +40,8 @@ export const TrailerCard: React.FC<Props> = React.memo(({
   isOverlay,
   userRole,
   isPriceUnlockedGlobally,
-  onUnlockPrices
+  onUnlockPrices,
+  hidePrice
 }) => {
   const cardRef = useRef<HTMLDivElement>(null);
   const {
@@ -102,7 +104,7 @@ export const TrailerCard: React.FC<Props> = React.memo(({
         (cardRef as any).current = node;
       }}
       style={style}
-      className={`trailer-card hover-lift ${isBottleneck ? 'is-bottleneck' : ''} ${isHighlighted ? 'is-highlighted' : ''}`}
+      className={`trailer-card hover-lift ${isBottleneck ? 'is-bottleneck' : ''} ${isHighlighted ? 'is-highlighted' : ''} ${isTVMode ? 'is-ultra-compact' : ''}`}
       {...attributes}
       {...(!isTablet ? listeners : {})}
       onClick={() => onCardClick?.('view')}
@@ -201,7 +203,7 @@ export const TrailerCard: React.FC<Props> = React.memo(({
         <div className="card-meta-item">
           <Hash className="card-meta-icon" />
           <span>{trailer.serialNumber}</span>
-          {userRole === 'manager' && trailer.sale_price !== undefined && (
+          {userRole === 'manager' && trailer.sale_price !== undefined && !hidePrice && !isTVMode && (
             <span 
               onClick={(e) => {
                 if (!isPriceUnlockedGlobally && onUnlockPrices) {

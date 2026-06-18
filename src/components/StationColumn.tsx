@@ -122,6 +122,7 @@ export const StationColumn: React.FC<Props> = ({ id, trailers, onUpdateTrailer, 
                 userRole={userRole}
                 isPriceUnlockedGlobally={isPriceUnlockedGlobally}
                 onUnlockPrices={onUnlockPrices}
+                hidePrice={true}
               />
           ))}
         </SortableContext>
