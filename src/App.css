@@ -790,7 +790,7 @@
 /* Mobile & Tablet Responsiveness */
 @media (max-width: 1200px) {
   .search-bar { width: 220px; }
-  .kanban-column { min-width: 260px; flex: 1 1 280px; }
+  .kanban-column { min-width: 320px; flex: 1 1 340px; }
 }
 
 @media (max-width: 1281px) {
