@@ -76,7 +76,7 @@ export async function injectTrailerDataIntoSpec(
     const xml = await file.async('string');
     
     // Quick regex check before doing expensive DOM parsing
-    if (!xml.match(/!\$?B\$?(2|13|14|15)<\/f>/i)) {
+    if (!xml.match(/!\$?B\$?(2|13|14|15)/i)) {
       continue;
     }
 
@@ -90,7 +90,7 @@ export async function injectTrailerDataIntoSpec(
       const fNodes = cell.getElementsByTagName('f');
       if (fNodes.length === 0) continue;
 
-      const formulaText = fNodes[0].textContent || '';
+      const formulaText = (fNodes[0].textContent || '').trim();
       
       let newValue: string | number | undefined = undefined;
       
