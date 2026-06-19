@@ -27,6 +27,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
+  const [visibleBacklogCount, setVisibleBacklogCount] = useState(8);
 
   const activeFloorTrailers = trailers.filter(t => !t.isArchived && t.currentPhase !== 'backlog');
   const factoryWorkloadHours = activeFloorTrailers.reduce((sum, t) => {
@@ -599,144 +600,171 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 {backlogTrailers.length > 0 ? (() => {
                   let cumulativeBacklogHours = 0;
-                  return backlogTrailers.map(t => {
-                    const modelHours = localTargetHours[t.model] || {};
-                    // Correct build hours calculation (excluding backlog/shipping)
-                    const actualBuildHours = PHASES.filter(p => p.id !== 'backlog' && p.id !== 'shipping').reduce((sum, p) => {
-                      return sum + (modelHours[p.id] || PHASE_METADATA[p.id].defaultTargetHours);
-                    }, 0);
-                    
-                    // Estimate = (Active Floor Delay) + (Hours of units ahead in backlog / 4 bays)
-                    const estimateHours = activeFloorDelayHours + (cumulativeBacklogHours / BAYS_COUNT);
-                    const estimatedDate = addHours(new Date(), estimateHours);
-                    
-                    // Add current unit's hours for the NEXT unit's calculation
-                    cumulativeBacklogHours += actualBuildHours;
+                  const displayedBacklog = backlogTrailers.slice(0, visibleBacklogCount);
+                  
+                  return (
+                    <>
+                      {displayedBacklog.map(t => {
+                        const modelHours = localTargetHours[t.model] || {};
+                        // Correct build hours calculation (excluding backlog/shipping)
+                        const actualBuildHours = PHASES.filter(p => p.id !== 'backlog' && p.id !== 'shipping').reduce((sum, p) => {
+                          return sum + (modelHours[p.id] || PHASE_METADATA[p.id].defaultTargetHours);
+                        }, 0);
+                        
+                        // Estimate = (Active Floor Delay) + (Hours of units ahead in backlog / 4 bays)
+                        const estimateHours = activeFloorDelayHours + (cumulativeBacklogHours / BAYS_COUNT);
+                        const estimatedDate = addHours(new Date(), estimateHours);
+                        
+                        // Add current unit's hours for the NEXT unit's calculation
+                        cumulativeBacklogHours += actualBuildHours;
 
-                    return (
-                      <div key={t.id} className="backlog-item-card">
-                        <div>
-                          <div style={{ fontWeight: 800, fontSize: '0.95rem', color: 'var(--text-primary)' }}>{t.model}</div>
-                          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                            {t.serialNumber} • {t.name}
-                            <span className="reco-badge-tag" style={{ marginLeft: '0.2rem' }}>RECO: {suggestedBay}</span>
-                            {userRole === 'manager' && t.sale_price !== undefined && (
-                              <span 
-                                onClick={(e) => {
-                                  if (!isPriceUnlockedGlobally && onUnlockPrices) {
-                                    e.stopPropagation();
-                                    onUnlockPrices();
-                                  }
-                                }}
-                                style={{ 
-                                  color: '#10b981', 
-                                  fontWeight: 900, 
-                                  background: 'rgba(16, 185, 129, 0.1)', 
-                                  padding: '1px 5px', 
-                                  borderRadius: '4px', 
-                                  fontSize: '0.75rem',
-                                  cursor: isPriceUnlockedGlobally ? 'default' : 'pointer'
-                                }}
-                              >
-                                {isPriceUnlockedGlobally ? (t.sale_price != null ? `$${t.sale_price.toLocaleString()}` : 'NOT SET') : '••••••'}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-
-                        <div style={{ display: 'flex', gap: '0.3rem' }}>
-                          {t.partsStatus && Object.entries(t.partsStatus).map(([key, val]) => (
-                            <div 
-                              key={key} 
-                              onClick={() => handleTogglePart(t, key as any)}
-                              style={{ 
-                                padding: '0.25rem 0.75rem', 
-                                borderRadius: '99px', 
-                                background: val ? 'rgba(34, 197, 94, 0.1)' : 'var(--priority-bg)', 
-                                color: val ? '#22c55e' : '#ef4444', 
-                                fontSize: '0.65rem', 
-                                fontWeight: 800, 
-                                textTransform: 'uppercase', 
-                                letterSpacing: '0.05em',
-                                border: `1px solid ${val ? 'rgba(34, 197, 94, 0.2)' : 'var(--priority-border)'}`,
-                                cursor: 'pointer',
-                                transition: 'all 0.15s ease',
-                                userSelect: 'none',
-                                minWidth: '60px',
-                                textAlign: 'center'
-                              }}
-                            >
-                              {key}
-                            </div>
-                          ))}
-                        </div>
-
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--text-secondary)' }}>
-                          <Clock size={14} />
-                          <span style={{ fontSize: '0.8rem', fontWeight: 700 }}>{actualBuildHours}h Build</span>
-                        </div>
-
-                        {confirmingDeleteId === t.id ? (
-                          <div style={{ gridColumn: '4 / 6', display: 'flex', gap: '0.5rem', background: '#fee2e2', padding: '0.5rem', borderRadius: '8px', border: '1px solid #ef4444' }}>
-                            <button 
-                              onClick={() => {
-                                onUpdateTrailer(t.id, { isArchived: true, archivedAt: Date.now(), isDeleted: true });
-                                setConfirmingDeleteId(null);
-                              }}
-                              style={{ flex: 1, padding: '0.4rem', background: '#ef4444', color: 'white', border: 'none', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 800, cursor: 'pointer' }}
-                            >
-                              CONFIRM
-                            </button>
-                            <button 
-                              onClick={() => setConfirmingDeleteId(null)}
-                              style={{ flex: 1, padding: '0.4rem', background: 'transparent', color: '#ef4444', border: '1px solid #ef4444', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 800, cursor: 'pointer' }}
-                            >
-                              CANCEL
-                            </button>
-                          </div>
-                        ) : (
-                          <>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', padding: '0.5rem', background: 'var(--bg-secondary)', borderRadius: '8px', border: '1px solid var(--border-default)' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--accent)' }}>
-                                <Calendar size={12} />
-                                <span style={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Est. Start Date</span>
-                              </div>
-                              <div style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-                                {format(estimatedDate, 'MMM d, h:mm a')}
+                        return (
+                          <div key={t.id} className="backlog-item-card">
+                            <div>
+                              <div style={{ fontWeight: 800, fontSize: '0.95rem', color: 'var(--text-primary)' }}>{t.model}</div>
+                              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                {t.serialNumber} • {t.name}
+                                <span className="reco-badge-tag" style={{ marginLeft: '0.2rem' }}>RECO: {suggestedBay}</span>
+                                {userRole === 'manager' && t.sale_price !== undefined && (
+                                  <span 
+                                    onClick={(e) => {
+                                      if (!isPriceUnlockedGlobally && onUnlockPrices) {
+                                        e.stopPropagation();
+                                        onUnlockPrices();
+                                      }
+                                    }}
+                                    style={{ 
+                                      color: '#10b981', 
+                                      fontWeight: 900, 
+                                      background: 'rgba(16, 185, 129, 0.1)', 
+                                      padding: '1px 5px', 
+                                      borderRadius: '4px', 
+                                      fontSize: '0.75rem',
+                                      cursor: isPriceUnlockedGlobally ? 'default' : 'pointer'
+                                    }}
+                                  >
+                                    {isPriceUnlockedGlobally ? (t.sale_price != null ? `$${t.sale_price.toLocaleString()}` : 'NOT SET') : '••••••'}
+                                  </span>
+                                )}
                               </div>
                             </div>
 
-                            {userRole === 'manager' && (
-                              <button 
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setConfirmingDeleteId(t.id);
-                                }}
-                                style={{ 
-                                  width: '36px', 
-                                  height: '36px', 
-                                  borderRadius: '10px', 
-                                  border: '1px solid #fee2e2', 
-                                  background: '#fff', 
-                                  color: '#ef4444', 
-                                  display: 'flex', 
-                                  alignItems: 'center', 
-                                  justifyContent: 'center',
-                                  cursor: 'pointer',
-                                  transition: 'all 0.2s ease',
-                                }}
-                                onMouseOver={(e) => { e.currentTarget.style.background = '#fef2f2'; e.currentTarget.style.borderColor = '#fca5a5'; }}
-                                onMouseOut={(e) => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.borderColor = '#fee2e2'; }}
-                              >
-                                <Trash2 size={16} />
-                              </button>
+                            <div style={{ display: 'flex', gap: '0.3rem' }}>
+                              {t.partsStatus && Object.entries(t.partsStatus).map(([key, val]) => (
+                                <div 
+                                  key={key} 
+                                  onClick={() => handleTogglePart(t, key as any)}
+                                  style={{ 
+                                    padding: '0.25rem 0.75rem', 
+                                    borderRadius: '99px', 
+                                    background: val ? 'rgba(34, 197, 94, 0.1)' : 'var(--priority-bg)', 
+                                    color: val ? '#22c55e' : '#ef4444', 
+                                    fontSize: '0.65rem', 
+                                    fontWeight: 800, 
+                                    textTransform: 'uppercase', 
+                                    letterSpacing: '0.05em',
+                                    border: `1px solid ${val ? 'rgba(34, 197, 94, 0.2)' : 'var(--priority-border)'}`,
+                                    cursor: 'pointer',
+                                    transition: 'all 0.15s ease',
+                                    userSelect: 'none',
+                                    minWidth: '60px',
+                                    textAlign: 'center'
+                                  }}
+                                >
+                                  {key}
+                                </div>
+                              ))}
+                            </div>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--text-secondary)' }}>
+                              <Clock size={14} />
+                              <span style={{ fontSize: '0.8rem', fontWeight: 700 }}>{actualBuildHours}h Build</span>
+                            </div>
+
+                            {confirmingDeleteId === t.id ? (
+                              <div style={{ gridColumn: '4 / 6', display: 'flex', gap: '0.5rem', background: '#fee2e2', padding: '0.5rem', borderRadius: '8px', border: '1px solid #ef4444' }}>
+                                <button 
+                                  onClick={() => {
+                                    onUpdateTrailer(t.id, { isArchived: true, archivedAt: Date.now(), isDeleted: true });
+                                    setConfirmingDeleteId(null);
+                                  }}
+                                  style={{ flex: 1, padding: '0.4rem', background: '#ef4444', color: 'white', border: 'none', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 800, cursor: 'pointer' }}
+                                >
+                                  CONFIRM
+                                </button>
+                                <button 
+                                  onClick={() => setConfirmingDeleteId(null)}
+                                  style={{ flex: 1, padding: '0.4rem', background: 'transparent', color: '#ef4444', border: '1px solid #ef4444', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 800, cursor: 'pointer' }}
+                                >
+                                  CANCEL
+                                </button>
+                              </div>
+                            ) : (
+                              <>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', padding: '0.5rem', background: 'var(--bg-secondary)', borderRadius: '8px', border: '1px solid var(--border-default)' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--accent)' }}>
+                                    <Calendar size={12} />
+                                    <span style={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Est. Start Date</span>
+                                  </div>
+                                  <div style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                                    {format(estimatedDate, 'MMM d, h:mm a')}
+                                  </div>
+                                </div>
+
+                                {userRole === 'manager' && (
+                                  <button 
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setConfirmingDeleteId(t.id);
+                                    }}
+                                    style={{ 
+                                      width: '36px', 
+                                      height: '36px', 
+                                      borderRadius: '10px', 
+                                      border: '1px solid #fee2e2', 
+                                      background: '#fff', 
+                                      color: '#ef4444', 
+                                      display: 'flex', 
+                                      alignItems: 'center', 
+                                      justifyContent: 'center',
+                                      cursor: 'pointer',
+                                      transition: 'all 0.2s ease',
+                                    }}
+                                    onMouseOver={(e) => { e.currentTarget.style.background = '#fef2f2'; e.currentTarget.style.borderColor = '#fca5a5'; }}
+                                    onMouseOut={(e) => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.borderColor = '#fee2e2'; }}
+                                  >
+                                    <Trash2 size={16} />
+                                  </button>
+                                )}
+                              </>
                             )}
-                          </>
-                        )}
-                      </div>
-                    );
-                  });
+                          </div>
+                        );
+                      })}
+                      
+                      {backlogTrailers.length > visibleBacklogCount && (
+                        <button 
+                          onClick={() => setVisibleBacklogCount(prev => prev + 8)}
+                          style={{
+                            padding: '0.8rem',
+                            background: 'var(--bg-card)',
+                            border: '1px solid var(--border-default)',
+                            borderRadius: '12px',
+                            color: 'var(--text-primary)',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            marginTop: '0.5rem',
+                            transition: 'all 0.2s ease'
+                          }}
+                          onMouseOver={(e) => e.currentTarget.style.background = 'var(--bg-secondary)'}
+                          onMouseOut={(e) => e.currentTarget.style.background = 'var(--bg-card)'}
+                        >
+                          Load More ({backlogTrailers.length - visibleBacklogCount} remaining)
+                        </button>
+                      )}
+                    </>
+                  );
                 })() : (
                   <div style={{ padding: '4rem', textAlign: 'center', background: 'var(--bg-card)', borderRadius: '12px', border: '2px dashed var(--border-default)', color: 'var(--text-muted)' }}>
                     No units found in backlog matching your filters.
