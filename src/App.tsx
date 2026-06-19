@@ -910,7 +910,8 @@ function Dashboard({
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '0.75rem', marginTop: '1.5rem' }}>
             <button 
-              type="submit" 
+              type="button" 
+              onClick={(e) => { e.preventDefault(); handleAddTrailer(e as any); }}
               className="btn btn-primary" 
               disabled={isAdding || !newTrailerData.name || !newTrailerData.serialNumber || trailers.some(t => t.serialNumber === newTrailerData.serialNumber)}
             >
@@ -1264,7 +1265,7 @@ function Dashboard({
             {!isShipping && (
               <button type="button" className="btn btn-secondary" onClick={() => setPendingShippingTrailer(null)}>Cancel</button>
             )}
-            <button type="submit" className="btn btn-primary" disabled={isShipping} style={{ padding: '0.75rem 2rem', minWidth: '200px' }}>
+            <button type="button" onClick={handleShipSubmit} className="btn btn-primary" disabled={isShipping} style={{ padding: '0.75rem 2rem', minWidth: '200px' }}>
               {isShipping ? 'Processing Shipment...' : 'Complete Shipment Checklist'}
             </button>
           </div>

@@ -644,7 +644,7 @@ export const CatalogView: React.FC<Props> = ({ categories, hours, specs, templat
           </div>
 
           <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
-            <button type="submit" className="btn btn-primary shimmer" style={{ flex: 1 }}>Create Model</button>
+            <button type="button" onClick={(e) => { e.preventDefault(); handleManualAdd(e as any); }} className="btn btn-primary shimmer" style={{ flex: 1 }}>Create Model</button>
             <button type="button" className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setIsAddingModel(false)}>Cancel</button>
           </div>
         </form>
@@ -773,7 +773,16 @@ export const CatalogView: React.FC<Props> = ({ categories, hours, specs, templat
           </div>
 
           <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
-            <button type="submit" className="btn btn-primary shimmer" style={{ flex: 1 }}>{editingDealerId ? "Save Changes" : "Create Dealer"}</button>
+            <button type="button" onClick={(e) => {
+              e.preventDefault();
+              if (editingDealerId) {
+                onEditDealer(editingDealerId, { name: dealerForm.name, common_address: dealerForm.common_address, addresses: dealerForm.addresses.filter(a => a.trim() !== '') });
+              } else {
+                onAddDealer({ name: dealerForm.name, common_address: dealerForm.common_address, addresses: dealerForm.addresses.filter(a => a.trim() !== '') });
+              }
+              setIsAddingDealer(false);
+              setEditingDealerId(null);
+            }} className="btn btn-primary shimmer" style={{ flex: 1 }}>{editingDealerId ? "Save Changes" : "Create Dealer"}</button>
             <button type="button" className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setIsAddingDealer(false)}>Cancel</button>
           </div>
         </form>
