@@ -73,7 +73,7 @@ export async function injectTrailerDataIntoSpec(
     const file = zip.file(sheetPath);
     if (!file) continue;
 
-    let xml = await file.async('string');
+    const xml = await file.async('string');
     
     // Quick regex check before doing expensive DOM parsing
     if (!xml.match(/!\$?B\$?(2|13|14|15)<\/f>/i)) {
@@ -183,7 +183,7 @@ export async function injectTrailerDataIntoSpec(
     const file = zip.file(sheetPath);
     if (!file) continue;
 
-    let xml = await file.async('string');
+    const xml = await file.async('string');
 
     const parser = new DOMParser();
     const doc = parser.parseFromString(xml, "application/xml");
@@ -193,7 +193,7 @@ export async function injectTrailerDataIntoSpec(
 
       const rowNum = cellRef.replace(/[A-Z]/g, '');
       
-      let row = doc.querySelector(`row[r="${rowNum}"]`);
+      const row = doc.querySelector(`row[r="${rowNum}"]`);
       if (!row) continue; // If row doesn't exist, skip.
 
       const ns = row.namespaceURI;
@@ -261,7 +261,7 @@ export async function injectTrailerDataIntoSpec(
             return match.replace(/state="[^"]+"/i, 'state="hidden"');
           } else {
             // Add state="hidden" right before the closing bracket
-            return match.replace(/\/?\>$/, ' state="hidden"/>');
+            return match.replace(/\/?>$/, ' state="hidden"/>');
           }
         }
         return match;
