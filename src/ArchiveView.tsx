@@ -594,9 +594,9 @@ export const ArchiveView: React.FC<Props> = ({ trailers, onUpdateTrailer, localT
               }}
               style={{ fontSize: '0.75rem' }}
             >
-              <Download size={14} /> {exportStatus || "Export ZIP (Excel+Media)"}
+              <Download size={14} /> {exportStatus || "Export"}
             </button>
-            <label className="btn btn-secondary" style={{ fontSize: '0.75rem', cursor: 'pointer' }}>
+            <label className="btn btn-secondary hide-on-mobile" style={{ fontSize: '0.75rem', cursor: 'pointer' }}>
               <Upload size={14} /> Import
               <input 
                 type="file" 
