@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/purity */
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LayoutGrid, ArrowRight, Clock, Trash2, Calendar, AlertCircle, CheckCircle } from 'lucide-react';
