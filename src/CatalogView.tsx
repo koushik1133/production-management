@@ -515,7 +515,7 @@ export const CatalogView: React.FC<Props> = ({ categories, hours, specs, templat
       )}
 
       <Modal isOpen={isAddingModel} onClose={() => setIsAddingModel(false)} title="Define New Trailer Model">
-        <form onSubmit={handleManualAdd}>
+        <form onSubmit={handleManualAdd} onKeyDown={(e) => { if (e.key === 'Enter' && (e.target as HTMLElement).tagName !== 'TEXTAREA') e.preventDefault(); }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
             <div className="form-group" style={{ gridColumn: 'span 2' }}>
               <label className="form-label" style={{ color: 'var(--text-secondary)' }}>Model Name</label>
@@ -694,7 +694,7 @@ export const CatalogView: React.FC<Props> = ({ categories, hours, specs, templat
 
       {/* Dealer Add/Edit Modal */}
       <Modal isOpen={isAddingDealer} onClose={() => setIsAddingDealer(false)} title={editingDealerId ? "Edit Dealer" : "Add New Dealer"}>
-        <form onSubmit={(e) => {
+        <form onKeyDown={(e) => { if (e.key === 'Enter' && (e.target as HTMLElement).tagName !== 'TEXTAREA') e.preventDefault(); }} onSubmit={(e) => {
           e.preventDefault();
           if (editingDealerId) {
             onEditDealer(editingDealerId, { name: dealerForm.name, common_address: dealerForm.common_address, addresses: dealerForm.addresses.filter(a => a.trim() !== '') });

@@ -711,7 +711,7 @@ function Dashboard({
       </div>
 
       <Modal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} title="Quick Unit Registration">
-        <form onSubmit={handleAddTrailer}>
+        <form onSubmit={handleAddTrailer} onKeyDown={(e) => { if (e.key === 'Enter' && (e.target as HTMLElement).tagName !== 'TEXTAREA') e.preventDefault(); }}>
           <div style={{ marginBottom: '1.25rem' }}>
             <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span>Serial Number</span>
@@ -963,7 +963,7 @@ function Dashboard({
       )}
       
       <Modal isOpen={!!pendingShippingTrailer} onClose={() => setPendingShippingTrailer(null)} title={`Shipment Checklist: ${pendingShippingTrailer?.serialNumber}`}>
-        <form onSubmit={handleShipSubmit} style={{ opacity: isShipping ? 0.7 : 1, pointerEvents: isShipping ? 'none' : 'all' }}>
+        <form onSubmit={handleShipSubmit} onKeyDown={(e) => { if (e.key === 'Enter' && (e.target as HTMLElement).tagName !== 'TEXTAREA') e.preventDefault(); }} style={{ opacity: isShipping ? 0.7 : 1, pointerEvents: isShipping ? 'none' : 'all' }}>
           
           <div style={{ padding: '1.25rem', background: 'var(--bg-secondary)', borderRadius: '16px', border: '1px solid var(--border-default)', marginBottom: '1.5rem' }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
