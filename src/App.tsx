@@ -1694,28 +1694,42 @@ function App() {
   useEffect(() => {
     fetchInitialData();
 
-    let retryTimeout: ReturnType<typeof setTimeout> | null = null;
+    // Track active channels and retry timers in refs to avoid stale closures
+    const activeChannels: Record<string, ReturnType<typeof supabase.channel>> = {};
+    const retryTimers: Record<string, ReturnType<typeof setTimeout>> = {};
+    let isMounted = true;
 
-    const setupSubscriptions = () => {
-      // Subscribe to trailer changes
-      const trailerChannel = supabase
-        .channel('trailers-changes')
+    const removeChannel = (name: string) => {
+      if (activeChannels[name]) {
+        try { supabase.removeChannel(activeChannels[name]); } catch (_) { /* ignore */ }
+        delete activeChannels[name];
+      }
+    };
+
+    const scheduleRetry = (name: string, setup: () => void, delay = 5000) => {
+      if (retryTimers[name]) clearTimeout(retryTimers[name]);
+      retryTimers[name] = setTimeout(() => {
+        if (!isMounted) return;
+        removeChannel(name);
+        setup();
+      }, delay);
+    };
+
+    // --- Trailer Channel ---
+    const setupTrailerChannel = () => {
+      const ch = supabase
+        .channel(`trailers-changes-${Date.now()}`)
         .on(
           'postgres_changes' as any,
           { event: '*', schema: 'public', table: 'trailers' },
           (payload: any) => {
-            // Guard: Don't let real-time updates overwrite the trailer we are currently dragging
-            if (activeIdRef.current === payload.new?.id || activeIdRef.current === payload.old?.id) {
-              return;
-            }
-
+            if (activeIdRef.current === payload.new?.id || activeIdRef.current === payload.old?.id) return;
             if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
               const mapped = { ...payload.new };
               if (mapped.sales_person) { mapped.salesPerson = mapped.sales_person; delete mapped.sales_person; }
               if (mapped.dealer_location) { mapped.dealerLocation = mapped.dealer_location; delete mapped.dealer_location; }
               if (mapped.dealer_common_address) { mapped.dealerCommonAddress = mapped.dealer_common_address; delete mapped.dealer_common_address; }
               if (mapped.dealer_id) { mapped.dealerId = mapped.dealer_id; delete mapped.dealer_id; }
-              
               if (payload.eventType === 'INSERT') {
                 setTrailers(prev => {
                   if (prev.find(t => t.id === mapped.id)) return prev;
@@ -1749,15 +1763,16 @@ function App() {
           if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
             console.warn('Trailer channel error, will re-fetch data and retry...');
             fetchInitialData();
-            retryTimeout = setTimeout(() => {
-              supabase.removeChannel(trailerChannel);
-              setupSubscriptions();
-            }, 3000);
+            scheduleRetry('trailers', setupTrailerChannel);
           }
         });
+      activeChannels['trailers'] = ch;
+    };
 
-      const capChannel = supabase
-        .channel('bay-settings-changes')
+    // --- Bay Settings Channel ---
+    const setupCapChannel = () => {
+      const ch = supabase
+        .channel(`bay-settings-changes-${Date.now()}`)
         .on(
           'postgres_changes' as any,
           { event: '*', schema: 'public', table: 'bay_settings' },
@@ -1770,11 +1785,16 @@ function App() {
         .subscribe((status: string) => {
           if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
             console.warn('Bay settings channel error, will retry...');
+            scheduleRetry('bay', setupCapChannel);
           }
         });
+      activeChannels['bay'] = ch;
+    };
 
-      const modelChannel = supabase
-        .channel('production-models-changes')
+    // --- Models Channel ---
+    const setupModelChannel = () => {
+      const ch = supabase
+        .channel(`production-models-changes-${Date.now()}`)
         .on(
           'postgres_changes' as any,
           { event: '*', schema: 'public', table: 'production_models' },
@@ -1784,11 +1804,7 @@ function App() {
             } else if (payload.eventType === 'UPDATE') {
               setCatalogModels(prev => prev.map(m => {
                 if (m.id === payload.new.id) {
-                  return {
-                    ...m,
-                    ...payload.new,
-                    spec_sheet_template: payload.new.spec_sheet_template || m.spec_sheet_template
-                  };
+                  return { ...m, ...payload.new, spec_sheet_template: payload.new.spec_sheet_template || m.spec_sheet_template };
                 }
                 return m;
               }));
@@ -1800,11 +1816,16 @@ function App() {
         .subscribe((status: string) => {
           if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
             console.warn('Models channel error, will retry...');
+            scheduleRetry('models', setupModelChannel);
           }
         });
+      activeChannels['models'] = ch;
+    };
 
-      const dealerChannel = supabase
-        .channel('dealers-changes')
+    // --- Dealers Channel ---
+    const setupDealerChannel = () => {
+      const ch = supabase
+        .channel(`dealers-changes-${Date.now()}`)
         .on(
           'postgres_changes' as any,
           { event: '*', schema: 'public', table: 'dealers' },
@@ -1821,11 +1842,16 @@ function App() {
         .subscribe((status: string) => {
           if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
             console.warn('Dealers channel error, will retry...');
+            scheduleRetry('dealers', setupDealerChannel);
           }
         });
+      activeChannels['dealers'] = ch;
+    };
 
-      const shippedChannel = supabase
-        .channel('shipped-changes')
+    // --- Shipped Channel ---
+    const setupShippedChannel = () => {
+      const ch = supabase
+        .channel(`shipped-changes-${Date.now()}`)
         .on(
           'postgres_changes' as any,
           { event: '*', schema: 'public', table: 'shipped_trailers' },
@@ -1842,21 +1868,27 @@ function App() {
         .subscribe((status: string) => {
           if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
             console.warn('Shipped channel error, will retry...');
+            scheduleRetry('shipped', setupShippedChannel);
           }
         });
-
-      return { trailerChannel, capChannel, modelChannel, dealerChannel, shippedChannel };
+      activeChannels['shipped'] = ch;
     };
 
-    const channels = setupSubscriptions();
+    // Start all channels
+    setupTrailerChannel();
+    setupCapChannel();
+    setupModelChannel();
+    setupDealerChannel();
+    setupShippedChannel();
 
     return () => {
-      if (retryTimeout) clearTimeout(retryTimeout);
-      supabase.removeChannel(channels.trailerChannel);
-      supabase.removeChannel(channels.capChannel);
-      supabase.removeChannel(channels.modelChannel);
-      supabase.removeChannel(channels.dealerChannel);
-      supabase.removeChannel(channels.shippedChannel);
+      isMounted = false;
+      // Cancel all pending retries
+      Object.values(retryTimers).forEach(t => clearTimeout(t));
+      // Remove all active channels
+      Object.values(activeChannels).forEach(ch => {
+        try { supabase.removeChannel(ch); } catch (_) { /* ignore */ }
+      });
     };
   }, []);
 
@@ -1934,21 +1966,16 @@ function App() {
   };
 
   const handleEditModel = async (name: string, spec: { targetHours?: Record<PhaseId, number>, spec_sheet_template?: string }) => {
-    console.log('[DEBUG] handleEditModel called for:', name, 'Has template?', !!spec.spec_sheet_template);
     if (spec.spec_sheet_template) {
       try {
         // Immediate save for spec sheet templates without opening the modal
         const existing = catalogModels.find(m => m.name === name);
-        console.log('[DEBUG] Existing model found:', !!existing);
         if (existing) {
           const updatedModel = { ...existing, spec_sheet_template: spec.spec_sheet_template };
           setCatalogModels(prev => prev.map(m => m.name === name ? updatedModel : m));
-          console.log('[DEBUG] Optimistic update applied. Sending upsert to Supabase...');
           const { error } = await supabase.from('production_models').upsert(updatedModel);
           if (error) throw error;
-          console.log('[DEBUG] Supabase upsert SUCCESS!');
         } else {
-          console.log('[DEBUG] Creating new model...');
           const newModel: CatalogModel = {
             id: crypto.randomUUID(),
             name: name,
@@ -1958,10 +1985,8 @@ function App() {
             spec_sheet_template: spec.spec_sheet_template
           };
           setCatalogModels(prev => [...prev, newModel]);
-          console.log('[DEBUG] Optimistic update applied for new model. Sending insert to Supabase...');
           const { error } = await supabase.from('production_models').insert(newModel);
           if (error) throw error;
-          console.log('[DEBUG] Supabase insert SUCCESS!');
         }
       } catch (err: any) {
         console.error('Failed to upload template:', err);
