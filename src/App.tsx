@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { Routes, Route, useNavigate, Link, useSearchParams } from 'react-router-dom';
+import { Routes, Route, useNavigate, Link, useSearchParams, Navigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import {
   DndContext,
@@ -486,9 +486,11 @@ function Dashboard({
             boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.05)',
             alignItems: 'center'
           }}>
-            <button className="btn btn-secondary" onClick={() => navigate('/catalog')} style={{ height: '28px', padding: '0 0.5rem', fontSize: '0.75rem', borderRadius: '6px', border: 'none', background: 'transparent' }}>
-              <BookOpen size={12} /> <span className="btn-text">Catalog</span>
-            </button>
+            {userRole === 'manager' && (
+              <button className="btn btn-secondary" onClick={() => navigate('/catalog')} style={{ height: '28px', padding: '0 0.5rem', fontSize: '0.75rem', borderRadius: '6px', border: 'none', background: 'transparent' }}>
+                <BookOpen size={12} /> <span className="btn-text">Catalog</span>
+              </button>
+            )}
             <button className="btn btn-secondary" onClick={() => navigate('/schedule')} style={{ height: '28px', padding: '0 0.5rem', fontSize: '0.75rem', borderRadius: '6px', border: 'none', background: 'transparent' }}>
               <Calendar size={12} /> <span className="btn-text">Timeline</span>
             </button>
@@ -560,9 +562,11 @@ function Dashboard({
               />
             </div>
 
-            <button className="btn btn-secondary" onClick={() => navigate('/catalog')} style={{ padding: '0.5rem 0.75rem', borderRadius: '8px', flexShrink: 0, fontWeight: 700, fontSize: '0.75rem' }}>
-              Catalog
-            </button>
+            {userRole === 'manager' && (
+              <button className="btn btn-secondary" onClick={() => navigate('/catalog')} style={{ padding: '0.5rem 0.75rem', borderRadius: '8px', flexShrink: 0, fontWeight: 700, fontSize: '0.75rem' }}>
+                Catalog
+              </button>
+            )}
 
             {userRole === 'manager' && (
             <button className="btn btn-primary" onClick={() => setIsAddModalOpen(true)} style={{ width: '38px', height: '38px', borderRadius: '8px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(37, 99, 235, 0.2)' }} title="Register Unit">
@@ -2559,7 +2563,7 @@ function getSuggestedBay(): StationId {
             <Route path="/tv/station2" element={<TVView trailers={trailers} monitorMode="station2" localTargetHours={localTargetHours} userRole={userRole} />} />
             <Route path="/archive" element={<ArchiveView trailers={trailers} onUpdateTrailer={updateTrailer} localTargetHours={localTargetHours} shippedTrailers={shippedTrailers} userRole={userRole} isPriceUnlockedGlobally={isPriceUnlockedGlobally} onUnlockPrices={unlockPricesGlobally} onLockPrices={() => { setIsPriceUnlockedGlobally(false); localStorage.setItem('lanetrailers_price_unlocked', 'false'); }} />} />
             <Route path="/schedule" element={<ScheduleView trailers={trailers} />} />
-            <Route path="/catalog" element={<CatalogView categories={localModelCategories} hours={localTargetHours} specs={localModelSpecs} templates={localSpecSheetTemplates} onAddModel={handleAddModel} onEditModel={handleEditModel} onDeleteModel={handleDeleteModel} dealers={dealers} onAddDealer={handleAddDealer} onEditDealer={handleEditDealer} onDeleteDealer={handleDeleteDealer} userRole={userRole} trailers={trailers} />} />
+            <Route path="/catalog" element={userRole === 'manager' ? <CatalogView categories={localModelCategories} hours={localTargetHours} specs={localModelSpecs} templates={localSpecSheetTemplates} onAddModel={handleAddModel} onEditModel={handleEditModel} onDeleteModel={handleDeleteModel} dealers={dealers} onAddDealer={handleAddDealer} onEditDealer={handleEditDealer} onDeleteDealer={handleDeleteDealer} userRole={userRole} trailers={trailers} /> : <Navigate to="/" replace />} />
           </Routes>
 
           {/* Quick Model Spec Editor - Only for Managers */}
