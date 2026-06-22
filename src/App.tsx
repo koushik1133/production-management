@@ -1704,31 +1704,13 @@ function App() {
   useEffect(() => {
     fetchInitialData();
 
-    // Track active channels and retry timers in refs to avoid stale closures
+    // Track active channels in refs to avoid stale closures
     const activeChannels: Record<string, ReturnType<typeof supabase.channel>> = {};
-    const retryTimers: Record<string, ReturnType<typeof setTimeout>> = {};
-    let isMounted = true;
-
-    const removeChannel = (name: string) => {
-      if (activeChannels[name]) {
-        try { supabase.removeChannel(activeChannels[name]); } catch (_) { /* ignore */ }
-        delete activeChannels[name];
-      }
-    };
-
-    const scheduleRetry = (name: string, setup: () => void, delay = 5000) => {
-      if (retryTimers[name]) clearTimeout(retryTimers[name]);
-      retryTimers[name] = setTimeout(() => {
-        if (!isMounted) return;
-        removeChannel(name);
-        setup();
-      }, delay);
-    };
 
     // --- Trailer Channel ---
     const setupTrailerChannel = () => {
       const ch = supabase
-        .channel(`trailers-changes-${Date.now()}`)
+        .channel('trailers-changes')
         .on(
           'postgres_changes' as any,
           { event: '*', schema: 'public', table: 'trailers' },
@@ -1771,9 +1753,8 @@ function App() {
         )
         .subscribe((status: string) => {
           if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-            console.warn('Trailer channel error, will re-fetch data and retry...');
+            console.warn('Trailer channel error, syncing data...');
             fetchInitialData();
-            scheduleRetry('trailers', setupTrailerChannel);
           }
         });
       activeChannels['trailers'] = ch;
@@ -1782,7 +1763,7 @@ function App() {
     // --- Bay Settings Channel ---
     const setupCapChannel = () => {
       const ch = supabase
-        .channel(`bay-settings-changes-${Date.now()}`)
+        .channel('bay-settings-changes')
         .on(
           'postgres_changes' as any,
           { event: '*', schema: 'public', table: 'bay_settings' },
@@ -1794,8 +1775,7 @@ function App() {
         )
         .subscribe((status: string) => {
           if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-            console.warn('Bay settings channel error, will retry...');
-            scheduleRetry('bay', setupCapChannel);
+            console.warn('Bay settings channel error.');
           }
         });
       activeChannels['bay'] = ch;
@@ -1804,7 +1784,7 @@ function App() {
     // --- Models Channel ---
     const setupModelChannel = () => {
       const ch = supabase
-        .channel(`production-models-changes-${Date.now()}`)
+        .channel('production-models-changes')
         .on(
           'postgres_changes' as any,
           { event: '*', schema: 'public', table: 'production_models' },
@@ -1825,8 +1805,7 @@ function App() {
         )
         .subscribe((status: string) => {
           if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-            console.warn('Models channel error, will retry...');
-            scheduleRetry('models', setupModelChannel);
+            console.warn('Models channel error.');
           }
         });
       activeChannels['models'] = ch;
@@ -1835,7 +1814,7 @@ function App() {
     // --- Dealers Channel ---
     const setupDealerChannel = () => {
       const ch = supabase
-        .channel(`dealers-changes-${Date.now()}`)
+        .channel('dealers-changes')
         .on(
           'postgres_changes' as any,
           { event: '*', schema: 'public', table: 'dealers' },
@@ -1851,8 +1830,7 @@ function App() {
         )
         .subscribe((status: string) => {
           if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-            console.warn('Dealers channel error, will retry...');
-            scheduleRetry('dealers', setupDealerChannel);
+            console.warn('Dealers channel error.');
           }
         });
       activeChannels['dealers'] = ch;
@@ -1861,7 +1839,7 @@ function App() {
     // --- Shipped Channel ---
     const setupShippedChannel = () => {
       const ch = supabase
-        .channel(`shipped-changes-${Date.now()}`)
+        .channel('shipped-changes')
         .on(
           'postgres_changes' as any,
           { event: '*', schema: 'public', table: 'shipped_trailers' },
@@ -1877,8 +1855,7 @@ function App() {
         )
         .subscribe((status: string) => {
           if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-            console.warn('Shipped channel error, will retry...');
-            scheduleRetry('shipped', setupShippedChannel);
+            console.warn('Shipped channel error.');
           }
         });
       activeChannels['shipped'] = ch;
@@ -1892,9 +1869,6 @@ function App() {
     setupShippedChannel();
 
     return () => {
-      isMounted = false;
-      // Cancel all pending retries
-      Object.values(retryTimers).forEach(t => clearTimeout(t));
       // Remove all active channels
       Object.values(activeChannels).forEach(ch => {
         try { supabase.removeChannel(ch); } catch (_) { /* ignore */ }

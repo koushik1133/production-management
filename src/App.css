@@ -2070,3 +2070,28 @@
   justify-content: center;
   margin-top: 0.5rem;
 }
+
+/* Landscape & Tablet Viewports: Keep Kanban Columns Horizontal & Spacious */
+@media (min-width: 768px), (max-width: 1024px) and (orientation: landscape) {
+  .main-content {
+    flex-direction: row !important;
+    overflow-x: auto !important;
+    overflow-y: auto !important;
+    display: flex !important;
+    gap: 1.25rem !important;
+    padding: 0.75rem 1.5vw 1rem 1.5vw !important;
+    width: 100vw !important;
+    max-width: 100% !important;
+  }
+
+  .kanban-column, .main-content > div.kanban-column {
+    width: 350px !important;
+    min-width: 350px !important;
+    max-width: 360px !important;
+    flex: 0 0 auto !important;
+    height: calc(100vh - 120px) !important;
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+  }
+}
+
