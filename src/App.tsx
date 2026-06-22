@@ -589,11 +589,32 @@ function Dashboard({
               <button className="btn btn-secondary mobile-nav-btn mobile-tv-btn" onClick={() => navigate('/tv')}>TV Mode</button>
             </div>
             
+            {userRole === 'manager' && (
+              <div className="mobile-undo-redo" style={{ display: 'flex', gap: '0.25rem', flexShrink: 0 }}>
+                <button 
+                  className="btn btn-secondary" 
+                  onClick={handleUndo} 
+                  disabled={undoStack.length === 0}
+                  style={{ height: '34px', padding: '0 0.5rem', borderRadius: '8px', fontSize: '0.75rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}
+                >
+                  <Undo2 size={12} /> Undo
+                </button>
+                <button 
+                  className="btn btn-secondary" 
+                  onClick={handleRedo} 
+                  disabled={redoStack.length === 0}
+                  style={{ height: '34px', padding: '0 0.5rem', borderRadius: '8px', fontSize: '0.75rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}
+                >
+                  <Redo2 size={12} /> Redo
+                </button>
+              </div>
+            )}
+
             <div className="mobile-scroll-arrows" style={{ display: 'flex', gap: '0.25rem', flexShrink: 0 }}>
-              <button className="btn btn-secondary btn-icon" onClick={() => scrollBoard('left')} style={{ width: '34px', height: '34px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <button className="btn btn-secondary btn-icon" onClick={() => scrollBoard('left')} style={{ width: '34px', height: '34px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Scroll Left">
                 <ChevronLeft size={16} />
               </button>
-              <button className="btn btn-secondary btn-icon" onClick={() => scrollBoard('right')} style={{ width: '34px', height: '34px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <button className="btn btn-secondary btn-icon" onClick={() => scrollBoard('right')} style={{ width: '34px', height: '34px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Scroll Right">
                 <ChevronRight size={16} />
               </button>
             </div>
