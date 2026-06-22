@@ -2095,3 +2095,13 @@
   }
 }
 
+/* Mobile Phone Viewports: Hide Price Display and Mobile Price Toggle */
+@media (max-width: 767px) {
+  .card-price-display {
+    display: none !important;
+  }
+  .tablet-only-price-toggle {
+    display: none !important;
+  }
+}
+

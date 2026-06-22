@@ -205,6 +205,7 @@ export const TrailerCard: React.FC<Props> = React.memo(({
           <span>{trailer.serialNumber}</span>
           {userRole === 'manager' && trailer.sale_price !== undefined && !hidePrice && !isTVMode && (
             <span 
+              className="card-price-display"
               onClick={(e) => {
                 if (!isPriceUnlockedGlobally && onUnlockPrices) {
                   e.stopPropagation();
