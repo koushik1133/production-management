@@ -79,8 +79,6 @@ import './App.css';
 import { supabase } from './lib/supabase';
 
 function Dashboard({ 
-  theme,
-  onToggleTheme,
   sensors,
   handleDragStart,
   handleDragOver,
@@ -122,8 +120,6 @@ function Dashboard({
   localTargetHours: Record<string, Record<PhaseId, number>>,
   onDeleteTrailer: (id: string) => void,
   onSaveShippedRecord: (record: Omit<ShippedTrailer, 'id'>) => Promise<void>,
-  theme: 'light' | 'dark',
-  onToggleTheme: () => void,
   sensors: any,
   handleDragStart: (event: DragStartEvent) => void,
   handleDragOver: (event: DragOverEvent) => void,
@@ -593,9 +589,14 @@ function Dashboard({
               <button className="btn btn-secondary mobile-nav-btn mobile-tv-btn" onClick={() => navigate('/tv')}>TV Mode</button>
             </div>
             
-            <button className="btn btn-secondary btn-icon theme-toggle" onClick={onToggleTheme} style={{ width: '34px', height: '34px', borderRadius: '8px', flexShrink: 0 }}>
-              {theme === 'light' ? <Moon size={16} color="#475569" /> : <Sun size={16} color="#fbbf24" />}
-            </button>
+            <div className="mobile-scroll-arrows" style={{ display: 'flex', gap: '0.25rem', flexShrink: 0 }}>
+              <button className="btn btn-secondary btn-icon" onClick={() => scrollBoard('left')} style={{ width: '34px', height: '34px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <ChevronLeft size={16} />
+              </button>
+              <button className="btn btn-secondary btn-icon" onClick={() => scrollBoard('right')} style={{ width: '34px', height: '34px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <ChevronRight size={16} />
+              </button>
+            </div>
           </div>
         </div>
       </header>
@@ -2504,8 +2505,6 @@ function getSuggestedBay(): StationId {
                   setShippedTrailers(prev => [data, ...prev]); 
                 }
               }}
-              theme={theme}
-              onToggleTheme={() => setTheme(prev => prev === 'light' ? 'dark' : 'light')}
               sensors={sensors}
               handleDragStart={handleDragStart}
               handleDragOver={handleDragOver}
