@@ -426,197 +426,199 @@ export const ArchiveView: React.FC<Props> = ({ trailers, onUpdateTrailer, localT
             />
           </div>
 
-          <div className="hide-on-mobile hide-under-900" style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-            <select 
-              value={exportFilter} 
-              onChange={(e) => setExportFilter(e.target.value as any)}
-              className="form-input" 
-              style={{ width: 'auto', fontSize: '0.75rem', padding: '4px 10px', height: '36px', borderRadius: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--border-default)', color: 'var(--text-primary)', fontWeight: 700 }}
-            >
-              <option value="all">Export: All Time</option>
-              <option value="today">Export: Today</option>
-              <option value="week">Export: This Week (7 Days)</option>
-              <option value="month">Export: This Month</option>
-            </select>
-            <button 
-              className="btn btn-secondary" 
-              disabled={exportStatus !== null}
-              onClick={async () => {
-                try {
-                  const headers = [
-                    "Serial", "Model", "Customer", "Invoice", "VIN_Date", "Shipped_Date", "Sale_Price", "Total_Hours", 
-                    "Prefab_H", "Build_H", "Paint_H", "Outsource_H", "Trim_H",
-                    "Photo_1_Path", "Photo_2_Path", "Photo_3_Path", "Spec_Sheet_Path", "Inspection_Sheet_Path"
-                  ];
-                  
-                  // Sort by monthly sales (most recent month first)
-                  const sortedData = [...filteredShipped].sort((a, b) => {
-                    const dateA = new Date(a.shipped_at);
-                    const dateB = new Date(b.shipped_at);
-                    if (dateA.getFullYear() !== dateB.getFullYear()) {
-                      return dateB.getFullYear() - dateA.getFullYear();
-                    }
-                    return dateB.getMonth() - dateA.getMonth();
-                  });
-
-                  const now = new Date();
-                  const filteredDataForExport = sortedData.filter(t => {
-                    if (!t.shipped_at) return false;
-                    const shipDate = new Date(t.shipped_at);
-                    if (exportFilter === 'today') {
-                      return shipDate.toDateString() === now.toDateString();
-                    } else if (exportFilter === 'week') {
-                      const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-                      return shipDate >= oneWeekAgo;
-                    } else if (exportFilter === 'month') {
-                      return shipDate.getMonth() === now.getMonth() && shipDate.getFullYear() === now.getFullYear();
-                    }
-                    return true;
-                  });
-
-                  if (filteredDataForExport.length === 0) {
-                    alert("No matching trailers found for the selected export date filter.");
-                    return;
-                  }
-
-                  setExportStatus("Loading...");
-                  const allTrailersWithMedia: ShippedTrailer[] = [];
-                  const serials = filteredDataForExport.map(t => t.serial_number);
-                  
-                  for (let i = 0; i < serials.length; i++) {
-                    setExportStatus(`Fetching (${i + 1}/${serials.length})...`);
-                    const { data, error } = await supabase
-                      .from('shipped_trailers')
-                      .select('*')
-                      .eq('serial_number', serials[i]);
+          {userRole === 'manager' && (
+            <div className="hide-on-mobile hide-under-900" style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+              <select 
+                value={exportFilter} 
+                onChange={(e) => setExportFilter(e.target.value as any)}
+                className="form-input" 
+                style={{ width: 'auto', fontSize: '0.75rem', padding: '4px 10px', height: '36px', borderRadius: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--border-default)', color: 'var(--text-primary)', fontWeight: 700 }}
+              >
+                <option value="all">Export: All Time</option>
+                <option value="today">Export: Today</option>
+                <option value="week">Export: This Week (7 Days)</option>
+                <option value="month">Export: This Month</option>
+              </select>
+              <button 
+                className="btn btn-secondary" 
+                disabled={exportStatus !== null}
+                onClick={async () => {
+                  try {
+                    const headers = [
+                      "Serial", "Model", "Customer", "Invoice", "VIN_Date", "Shipped_Date", "Sale_Price", "Total_Hours", 
+                      "Prefab_H", "Build_H", "Paint_H", "Outsource_H", "Trim_H",
+                      "Photo_1_Path", "Photo_2_Path", "Photo_3_Path", "Spec_Sheet_Path", "Inspection_Sheet_Path"
+                    ];
                     
-                    if (error) throw error;
-                    if (data && data.length > 0) {
-                      allTrailersWithMedia.push(data[0]);
+                    // Sort by monthly sales (most recent month first)
+                    const sortedData = [...filteredShipped].sort((a, b) => {
+                      const dateA = new Date(a.shipped_at);
+                      const dateB = new Date(b.shipped_at);
+                      if (dateA.getFullYear() !== dateB.getFullYear()) {
+                        return dateB.getFullYear() - dateA.getFullYear();
+                      }
+                      return dateB.getMonth() - dateA.getMonth();
+                    });
+
+                    const now = new Date();
+                    const filteredDataForExport = sortedData.filter(t => {
+                      if (!t.shipped_at) return false;
+                      const shipDate = new Date(t.shipped_at);
+                      if (exportFilter === 'today') {
+                        return shipDate.toDateString() === now.toDateString();
+                      } else if (exportFilter === 'week') {
+                        const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                        return shipDate >= oneWeekAgo;
+                      } else if (exportFilter === 'month') {
+                        return shipDate.getMonth() === now.getMonth() && shipDate.getFullYear() === now.getFullYear();
+                      }
+                      return true;
+                    });
+
+                    if (filteredDataForExport.length === 0) {
+                      alert("No matching trailers found for the selected export date filter.");
+                      return;
                     }
-                  }
 
-                  const data = allTrailersWithMedia.map(t => {
-                    const baseFolder = `media/${t.serial_number}/`;
+                    setExportStatus("Loading...");
+                    const allTrailersWithMedia: ShippedTrailer[] = [];
+                    const serials = filteredDataForExport.map(t => t.serial_number);
                     
-                    const getExt = (base64String: string | null | undefined, defaultExt: string) => {
-                      if (!base64String) return "";
-                      const parts = base64String.split(';base64,');
-                      if (parts.length < 2) return defaultExt;
-                      const contentType = parts[0].split(':')[1];
-                      if (contentType.includes("jpeg") || contentType.includes("jpg")) return ".jpg";
-                      if (contentType.includes("png")) return ".png";
-                      if (contentType.includes("spreadsheetml") || contentType.includes("excel")) return ".xlsx";
-                      if (contentType.includes("pdf")) return ".pdf";
-                      return defaultExt;
-                    };
+                    for (let i = 0; i < serials.length; i++) {
+                      setExportStatus(`Fetching (${i + 1}/${serials.length})...`);
+                      const { data, error } = await supabase
+                        .from('shipped_trailers')
+                        .select('*')
+                        .eq('serial_number', serials[i]);
+                      
+                      if (error) throw error;
+                      if (data && data.length > 0) {
+                        allTrailersWithMedia.push(data[0]);
+                      }
+                    }
 
-                    return {
-                      "Serial": t.serial_number,
-                      "Model": t.trailer_name,
-                      "Customer": t.customer_name || 'Generic Stock',
-                      "Invoice": t.invoice_number,
-                      "VIN Date": t.vin_date || '',
-                      "Shipped Date": t.shipped_at ? format(new Date(t.shipped_at), 'yyyy-MM-dd') : '',
-                      "Sale Price": t.sale_price || 0,
-                      "Total Hours": t.total_hours,
-                      "Prefab (h)": t.prefab_hours || 0,
-                      "Build (h)": t.build_hours || 0,
-                      "Paint (h)": t.paint_hours || 0,
-                      "Outsource (h)": t.outsource_hours || 0,
-                      "Trim (h)": t.trim_hours || 0,
-                      "Photo 1 Path": t.photo_1_url ? `${baseFolder}photo_1${getExt(t.photo_1_url, '.jpg')}` : '',
-                      "Photo 2 Path": t.photo_2_url ? `${baseFolder}photo_2${getExt(t.photo_2_url, '.jpg')}` : '',
-                      "Photo 3 Path": t.photo_3_url ? `${baseFolder}photo_3${getExt(t.photo_3_url, '.jpg')}` : '',
-                      "Spec Sheet Path": t.spec_sheet_file ? `${baseFolder}${t.serial_number}_Final-SpecSheet${getExt(t.spec_sheet_file, '.xlsx')}` : '',
-                      "Inspection Sheet Path": t.inspection_sheet_file ? `${baseFolder}${t.serial_number}_InspectionSheet${getExt(t.inspection_sheet_file, '.jpg')}` : ''
-                    };
-                  });
+                    const data = allTrailersWithMedia.map(t => {
+                      const baseFolder = `media/${t.serial_number}/`;
+                      
+                      const getExt = (base64String: string | null | undefined, defaultExt: string) => {
+                        if (!base64String) return "";
+                        const parts = base64String.split(';base64,');
+                        if (parts.length < 2) return defaultExt;
+                        const contentType = parts[0].split(':')[1];
+                        if (contentType.includes("jpeg") || contentType.includes("jpg")) return ".jpg";
+                        if (contentType.includes("png")) return ".png";
+                        if (contentType.includes("spreadsheetml") || contentType.includes("excel")) return ".xlsx";
+                        if (contentType.includes("pdf")) return ".pdf";
+                        return defaultExt;
+                      };
 
-                  const worksheet = XLSX.utils.json_to_sheet(data);
-                  const workbook = XLSX.utils.book_new();
-                  XLSX.utils.book_append_sheet(workbook, worksheet, "Production Archive");
-                  
-                  // Auto-size columns
-                  const maxWidths = headers.map(h => ({ wch: Math.max(h.length, 15) }));
-                  worksheet['!cols'] = maxWidths;
+                      return {
+                        "Serial": t.serial_number,
+                        "Model": t.trailer_name,
+                        "Customer": t.customer_name || 'Generic Stock',
+                        "Invoice": t.invoice_number,
+                        "VIN Date": t.vin_date || '',
+                        "Shipped Date": t.shipped_at ? format(new Date(t.shipped_at), 'yyyy-MM-dd') : '',
+                        "Sale Price": t.sale_price || 0,
+                        "Total Hours": t.total_hours,
+                        "Prefab (h)": t.prefab_hours || 0,
+                        "Build (h)": t.build_hours || 0,
+                        "Paint (h)": t.paint_hours || 0,
+                        "Outsource (h)": t.outsource_hours || 0,
+                        "Trim (h)": t.trim_hours || 0,
+                        "Photo 1 Path": t.photo_1_url ? `${baseFolder}photo_1${getExt(t.photo_1_url, '.jpg')}` : '',
+                        "Photo 2 Path": t.photo_2_url ? `${baseFolder}photo_2${getExt(t.photo_2_url, '.jpg')}` : '',
+                        "Photo 3 Path": t.photo_3_url ? `${baseFolder}photo_3${getExt(t.photo_3_url, '.jpg')}` : '',
+                        "Spec Sheet Path": t.spec_sheet_file ? `${baseFolder}${t.serial_number}_Final-SpecSheet${getExt(t.spec_sheet_file, '.xlsx')}` : '',
+                        "Inspection Sheet Path": t.inspection_sheet_file ? `${baseFolder}${t.serial_number}_InspectionSheet${getExt(t.inspection_sheet_file, '.jpg')}` : ''
+                      };
+                    });
 
-                  setExportStatus("Building Excel...");
-                  const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
-
-                  setExportStatus("Packaging ZIP...");
-                  const zip = new JSZip();
-                  zip.file(`production_full_archive_${format(new Date(), 'yyyy_MM_dd')}.xlsx`, excelBuffer);
-
-                  const mediaFolder = zip.folder("media");
-                  allTrailersWithMedia.forEach(t => {
-                    const trailerFolder = mediaFolder?.folder(t.serial_number);
+                    const worksheet = XLSX.utils.json_to_sheet(data);
+                    const workbook = XLSX.utils.book_new();
+                    XLSX.utils.book_append_sheet(workbook, worksheet, "Production Archive");
                     
-                    const addBase64File = (base64String: string | undefined | null, defaultFilename: string) => {
-                      if (!base64String) return;
-                      const parts = base64String.split(';base64,');
-                      if (parts.length < 2) return;
-                      
-                      const contentType = parts[0].split(':')[1];
-                      const base64Data = parts[1];
-                      
-                      let ext = "";
-                      if (contentType.includes("jpeg") || contentType.includes("jpg")) ext = ".jpg";
-                      else if (contentType.includes("png")) ext = ".png";
-                      else if (contentType.includes("spreadsheetml") || contentType.includes("excel")) ext = ".xlsx";
-                      else if (contentType.includes("pdf")) ext = ".pdf";
-                      
-                      const filename = defaultFilename + ext;
-                      trailerFolder?.file(filename, base64Data, { base64: true });
-                    };
+                    // Auto-size columns
+                    const maxWidths = headers.map(h => ({ wch: Math.max(h.length, 15) }));
+                    worksheet['!cols'] = maxWidths;
 
-                    addBase64File(t.photo_1_url, "photo_1");
-                    addBase64File(t.photo_2_url, "photo_2");
-                    addBase64File(t.photo_3_url, "photo_3");
-                    addBase64File(t.spec_sheet_file, `${t.serial_number}_Final-SpecSheet`);
-                    addBase64File(t.inspection_sheet_file, `${t.serial_number}_InspectionSheet`);
-                  });
+                    setExportStatus("Building Excel...");
+                    const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
 
-                  setExportStatus("Downloading ZIP...");
-                  const zipBlob = await zip.generateAsync({ type: "blob" });
-                  const link = document.createElement("a");
-                  link.href = URL.createObjectURL(zipBlob);
-                  link.download = `production_archive_export_${format(new Date(), 'yyyy_MM_dd')}.zip`;
-                  document.body.appendChild(link);
-                  link.click();
-                  document.body.removeChild(link);
-                } catch (error: any) {
-                  console.error("Export failed:", error);
-                  alert("Export failed: " + error.message);
-                } finally {
-                  setExportStatus(null);
-                }
-              }}
-              style={{ fontSize: '0.75rem' }}
-            >
-              <Download size={14} /> {exportStatus || "Export"}
-            </button>
-            <label className="btn btn-secondary hide-on-mobile" style={{ fontSize: '0.75rem', cursor: 'pointer' }}>
-              <Upload size={14} /> Import
-              <input 
-                type="file" 
-                accept=".csv" 
-                style={{ display: 'none' }} 
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) {
-                    const reader = new FileReader();
-                    reader.onload = (event) => {
-                      const text = event.target?.result as string;
-                      console.log("Imported CSV Data:", text);
-                      alert("CSV Import received. Processing logic would go here.");
-                    };
-                    reader.readAsText(file);
+                    setExportStatus("Packaging ZIP...");
+                    const zip = new JSZip();
+                    zip.file(`production_full_archive_${format(new Date(), 'yyyy_MM_dd')}.xlsx`, excelBuffer);
+
+                    const mediaFolder = zip.folder("media");
+                    allTrailersWithMedia.forEach(t => {
+                      const trailerFolder = mediaFolder?.folder(t.serial_number);
+                      
+                      const addBase64File = (base64String: string | undefined | null, defaultFilename: string) => {
+                        if (!base64String) return;
+                        const parts = base64String.split(';base64,');
+                        if (parts.length < 2) return;
+                        
+                        const contentType = parts[0].split(':')[1];
+                        const base64Data = parts[1];
+                        
+                        let ext = "";
+                        if (contentType.includes("jpeg") || contentType.includes("jpg")) ext = ".jpg";
+                        else if (contentType.includes("png")) ext = ".png";
+                        else if (contentType.includes("spreadsheetml") || contentType.includes("excel")) ext = ".xlsx";
+                        else if (contentType.includes("pdf")) ext = ".pdf";
+                        
+                        const filename = defaultFilename + ext;
+                        trailerFolder?.file(filename, base64Data, { base64: true });
+                      };
+
+                      addBase64File(t.photo_1_url, "photo_1");
+                      addBase64File(t.photo_2_url, "photo_2");
+                      addBase64File(t.photo_3_url, "photo_3");
+                      addBase64File(t.spec_sheet_file, `${t.serial_number}_Final-SpecSheet`);
+                      addBase64File(t.inspection_sheet_file, `${t.serial_number}_InspectionSheet`);
+                    });
+
+                    setExportStatus("Downloading ZIP...");
+                    const zipBlob = await zip.generateAsync({ type: "blob" });
+                    const link = document.createElement("a");
+                    link.href = URL.createObjectURL(zipBlob);
+                    link.download = `production_archive_export_${format(new Date(), 'yyyy_MM_dd')}.zip`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                  } catch (error: any) {
+                    console.error("Export failed:", error);
+                    alert("Export failed: " + error.message);
+                  } finally {
+                    setExportStatus(null);
                   }
                 }}
-              />
-            </label>
-          </div>
+                style={{ fontSize: '0.75rem' }}
+              >
+                <Download size={14} /> {exportStatus || "Export"}
+              </button>
+              <label className="btn btn-secondary hide-on-mobile" style={{ fontSize: '0.75rem', cursor: 'pointer' }}>
+                <Upload size={14} /> Import
+                <input 
+                  type="file" 
+                  accept=".csv" 
+                  style={{ display: 'none' }} 
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onload = (event) => {
+                        const text = event.target?.result as string;
+                        console.log("Imported CSV Data:", text);
+                        alert("CSV Import received. Processing logic would go here.");
+                      };
+                      reader.readAsText(file);
+                    }
+                  }}
+                />
+              </label>
+            </div>
+          )}
         </div>
       </header>
 
