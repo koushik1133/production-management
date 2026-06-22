@@ -6,6 +6,7 @@ import { PHASES, PHASE_METADATA } from './types';
 import type { Trailer, StationId, PhaseId, UserRole } from './types';
 import { addHours, format } from 'date-fns';
 import { injectTrailerDataIntoSpec } from './lib/injectSpecSheet';
+import { supabase } from './lib/supabase';
 
 interface Props {
   onAddTrailer: (trailer: Trailer) => void;
@@ -95,7 +96,20 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
       return;
     }
 
-    const templateBase64 = localSpecSheetTemplates[formData.model];
+    let templateBase64: string | undefined = localSpecSheetTemplates[formData.model];
+    
+    if (templateBase64 === 'EXISTS') {
+      try {
+        const { data, error } = await supabase.from('production_models').select('spec_sheet_template').eq('name', formData.model).single();
+        if (error) throw error;
+        templateBase64 = data.spec_sheet_template;
+      } catch (e) {
+        console.error('Failed to fetch template:', e);
+        alert('Failed to download template from server.');
+        return;
+      }
+    }
+
     if (!templateBase64) {
       alert("No Excel template is available for this model.");
       return;
@@ -182,7 +196,18 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
     const serialNum = formData.serialNumber || `UNIT-${Math.floor(10000 + Math.random() * 90000)}`;
 
     let finalSpecSheetFile = undefined;
-    const templateBase64 = localSpecSheetTemplates[formData.model];
+    let templateBase64: string | undefined = localSpecSheetTemplates[formData.model];
+    
+    if (templateBase64 === 'EXISTS') {
+      try {
+        const { data, error } = await supabase.from('production_models').select('spec_sheet_template').eq('name', formData.model).single();
+        if (error) throw error;
+        templateBase64 = data.spec_sheet_template;
+      } catch (e) {
+        console.error('Failed to fetch template:', e);
+        templateBase64 = undefined;
+      }
+    }
     const selectedDealer = dealers.find(d => d.name === formData.name);
     
     if (templateBase64) {

@@ -1632,12 +1632,13 @@ function App() {
   const fetchInitialData = useCallback(async () => {
     setLoading(true);
     try {
-      const [trailersRes, bayRes, modelsRes, shippedRes, dealersRes] = await Promise.all([
+      const [trailersRes, bayRes, modelsRes, templatesExistRes, shippedRes, dealersRes] = await Promise.all([
         // Exclude spec_sheet_file, photo_1_url, photo_2_url, photo_3_url, inspection_sheet_file, and spec_sheet_versions from bulk fetch.
         // These are huge Base64 columns causing timeouts and freezing. They are lazy-loaded.
         supabase.from('trailers').select('id,name,model,serialNumber,station,dateStarted,currentPhase,history,partsStatus,finishingType,isArchived,archivedAt,isDeleted,invoiceNumber,vinDate,expectedDueDate,promisedShippingDate,notes,isPriority,updated_at,vertical_order,bay_vertical_order,sale_price,trailer_color,trailer_plug,sales_person,dealer_location,dealer_common_address,dealer_id'),
         supabase.from('bay_settings').select('*'),
-        supabase.from('production_models').select('*'),
+        supabase.from('production_models').select('id, name, category, target_hours, specs'),
+        supabase.from('production_models').select('name').not('spec_sheet_template', 'is', null),
         supabase.from('shipped_trailers').select('serial_number, trailer_name, customer_name, vin_date, invoice_number, shipped_at, total_hours, prefab_hours, build_hours, paint_hours, outsource_hours, trim_hours, sale_price').order('shipped_at', { ascending: false }).limit(100),
         supabase.from('dealers').select('*').order('name')
       ]);
@@ -1666,7 +1667,16 @@ function App() {
         });
         setTrailers(sorted as Trailer[]);
       }
-      if (modelsRes.data) setCatalogModels(modelsRes.data);
+      
+      if (modelsRes.data) {
+        const templatesExistNames = new Set((templatesExistRes.data || []).map(r => r.name));
+        const finalModels = modelsRes.data.map(m => ({
+          ...m,
+          spec_sheet_template: templatesExistNames.has(m.name) ? 'EXISTS' : undefined
+        }));
+        setCatalogModels(finalModels);
+      }
+      
       if (shippedRes.data) setShippedTrailers(shippedRes.data);
       if (dealersRes.data) setDealers(dealersRes.data);
       if (bayRes.data) {
