@@ -377,11 +377,25 @@ export const CatalogView: React.FC<Props> = ({ categories, hours, specs, templat
                             <span style={{ fontSize: '0.8rem', color: 'var(--text-primary)', fontWeight: 700 }}>Template Attached</span>
                             <button 
                               className="btn btn-sm btn-secondary" 
-                              onClick={() => {
-                                const a = document.createElement('a');
-                                a.href = templates[model];
-                                a.download = `${model}_Template.xlsx`;
-                                a.click();
+                              onClick={async () => {
+                                let tpl = templates[model];
+                                if (tpl === 'EXISTS') {
+                                  try {
+                                    const { data, error } = await supabase.from('production_models').select('spec_sheet_template').eq('name', model).single();
+                                    if (error) throw error;
+                                    tpl = data.spec_sheet_template;
+                                  } catch (err) {
+                                    console.error(err);
+                                    alert('Failed to download template.');
+                                    return;
+                                  }
+                                }
+                                if (tpl) {
+                                  const a = document.createElement('a');
+                                  a.href = tpl;
+                                  a.download = `${model}_Template.xlsx`;
+                                  a.click();
+                                }
                               }}
                               style={{ padding: '0.3rem 0.6rem', fontSize: '0.7rem' }}
                             >

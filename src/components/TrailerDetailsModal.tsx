@@ -115,7 +115,20 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
       return;
     }
 
-    const templateBase64 = localSpecSheetTemplates[trailer.model];
+    let templateBase64: string | undefined = localSpecSheetTemplates[trailer.model];
+    
+    if (templateBase64 === 'EXISTS') {
+      try {
+        const { data, error } = await supabase.from('production_models').select('spec_sheet_template').eq('name', trailer.model).single();
+        if (error) throw error;
+        templateBase64 = data.spec_sheet_template;
+      } catch (e) {
+        console.error('Failed to fetch template:', e);
+        alert('Failed to download template from server.');
+        return;
+      }
+    }
+    
     if (!templateBase64) return;
     try {
       const injected = await injectTrailerDataIntoSpec(
