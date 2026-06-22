@@ -596,6 +596,20 @@ function Dashboard({
             {userRole === 'manager' && (
               <div className="mobile-undo-redo" style={{ display: 'flex', gap: '0.25rem', flexShrink: 0 }}>
                 <button 
+                  className="btn btn-secondary btn-icon tablet-only-price-toggle" 
+                  onClick={() => {
+                    if (isPriceUnlockedGlobally) {
+                      if (onLockPrices) onLockPrices();
+                    } else {
+                      if (onUnlockPrices) onUnlockPrices();
+                    }
+                  }} 
+                  title={isPriceUnlockedGlobally ? "Hide Prices" : "Show Prices"}
+                  style={{ width: '34px', height: '34px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                >
+                  {isPriceUnlockedGlobally ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+                <button 
                   className="btn btn-secondary" 
                   onClick={handleUndo} 
                   disabled={undoStack.length === 0}
