@@ -6,6 +6,7 @@ import { BAY_WEEKLY_HOURS, calculateTrailerRemainingHours, PHASES } from '../typ
 import { Modal } from './Modal';
 import { injectTrailerDataIntoSpec } from '../lib/injectSpecSheet';
 import { supabase } from '../lib/supabase';
+import { useResolvedUrl, uploadFileToGateway, deleteFileFromGateway, triggerFileDownload, dataURLtoFile, isRelativePath } from '../utils/storage';
 
 interface Props {
   trailer: Trailer;
@@ -83,6 +84,14 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
 
   const specSheetFile = trailer.spec_sheet_file !== undefined ? trailer.spec_sheet_file : heavyData.spec_sheet_file;
   const inspectionSheetFile = trailer.inspection_sheet_file !== undefined ? trailer.inspection_sheet_file : heavyData.inspection_sheet_file;
+  const photo1 = trailer.photo_1_url !== undefined ? trailer.photo_1_url : heavyData.photo_1_url;
+  const photo2 = trailer.photo_2_url !== undefined ? trailer.photo_2_url : heavyData.photo_2_url;
+  const photo3 = trailer.photo_3_url !== undefined ? trailer.photo_3_url : heavyData.photo_3_url;
+
+  const resolvedPhoto1 = useResolvedUrl(photo1);
+  const resolvedPhoto2 = useResolvedUrl(photo2);
+  const resolvedPhoto3 = useResolvedUrl(photo3);
+  const resolvedInspection = useResolvedUrl(inspectionSheetFile);
 
   const [editForm, setEditForm] = useState({
     name: trailer.name || '',
@@ -149,16 +158,24 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
     }
   };
 
-  const handleSpecSheetUpdate = (newFileBase64: string) => {
-    setEditForm(prev => ({ 
-      ...prev, 
-      spec_sheet_file: newFileBase64 
-    }));
-    
-    onUpdate(trailer.id, { 
-      spec_sheet_file: newFileBase64
-    });
-    triggerToast("Spec Sheet Uploaded Successfully!");
+  const handleSpecSheetUpdate = async (newFileBase64: string) => {
+    try {
+      const fileObj = dataURLtoFile(newFileBase64, `${(trailer.serialNumber || trailer.model || 'Trailer').trim()}_SpecSheet.xlsx`);
+      const filePath = await uploadFileToGateway(fileObj, trailer.id, 'spec_sheet', 'trailers', 'trailers');
+      
+      setEditForm(prev => ({ 
+        ...prev, 
+        spec_sheet_file: filePath 
+      }));
+      
+      onUpdate(trailer.id, { 
+        spec_sheet_file: filePath
+      });
+      triggerToast("Spec Sheet Uploaded Successfully!");
+    } catch (err: any) {
+      console.error("Failed to upload spec sheet to gateway", err);
+      alert("Failed to upload spec sheet: " + err.message);
+    }
   };
 
   const phaseTimes = React.useMemo(() => {
@@ -314,12 +331,9 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                       <button 
                         type="button"
                         className="btn btn-secondary" 
-                        onClick={() => {
-                          const a = document.createElement('a');
-                          a.href = editForm.spec_sheet_file!;
+                        onClick={async () => {
                           const baseName = (editForm.serialNumber || trailer.model || 'Trailer').trim();
-                          a.download = `${baseName}_SpecSheet.xlsx`;
-                          a.click();
+                          await triggerFileDownload(editForm.spec_sheet_file!, `${baseName}_SpecSheet.xlsx`);
                         }}
                         style={{ padding: '0.5rem', fontSize: '0.8rem', flex: 1 }}
                       >
@@ -594,9 +608,7 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: `repeat(${photos.length}, 1fr)`, gap: '0.75rem' }}>
                     {photos.map((url, i) => (
-                      <a key={i} href={url} target="_blank" rel="noreferrer" style={{ borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--border-default)', display: 'block' }}>
-                        <img src={url} alt="" style={{ width: '100%', height: '100px', objectFit: 'cover' }} />
-                      </a>
+                      <ShippedPhotoItem key={i} url={url} index={i} />
                     ))}
                   </div>
                 </div>
@@ -625,12 +637,9 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
                   <button 
                     className="btn btn-secondary" 
-                    onClick={() => {
-                      const a = document.createElement('a');
-                      a.href = specSheetFile!;
+                    onClick={async () => {
                       const baseName = (trailer.serialNumber || trailer.model || 'Trailer').trim();
-                      a.download = `${baseName}_SpecSheet.xlsx`;
-                      a.click();
+                      await triggerFileDownload(specSheetFile!, `${baseName}_SpecSheet.xlsx`);
                     }}
                     style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
                   >
@@ -751,6 +760,7 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                 {[1, 2, 3].map(num => {
                   const field = `photo_${num}_url` as keyof Trailer;
                   const url = (trailer[field] !== undefined ? trailer[field] : (heavyData as any)[field]) as string | undefined;
+                  const resolvedUrl = num === 1 ? resolvedPhoto1 : num === 2 ? resolvedPhoto2 : resolvedPhoto3;
 
                   return (
                     <div key={num} style={{ position: 'relative' }}>
@@ -770,7 +780,7 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                         {isLoadingHeavy ? (
                           <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Loading...</span>
                         ) : url ? (
-                          <img src={url} alt={`Photo ${num}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          <img src={resolvedUrl} alt={`Photo ${num}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         ) : !trailer.isArchived ? (
                           <>
                             <ImageIcon size={20} color="var(--text-muted)" />
@@ -787,9 +797,16 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                             onChange={async (e) => {
                               const file = e.target.files?.[0];
                               if (file) {
-                                const base64 = await fileToBase64(file);
-                                onUpdate(trailer.id, { [field]: base64 });
-                                triggerToast(`Photo ${num} Uploaded Successfully!`);
+                                try {
+                                  const base64 = await fileToBase64(file);
+                                  const compressedFile = dataURLtoFile(base64, file.name);
+                                  const relativePath = await uploadFileToGateway(compressedFile, trailer.id, field, 'trailers', 'photos');
+                                  onUpdate(trailer.id, { [field]: relativePath });
+                                  triggerToast(`Photo ${num} Uploaded Successfully!`);
+                                } catch (err: any) {
+                                  console.error(`Photo ${num} upload failed:`, err);
+                                  alert(`Upload failed: ${err.message}`);
+                                }
                               }
                             }}
                           />
@@ -797,7 +814,14 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                       </label>
                       {url && !trailer.isArchived && !isLoadingHeavy && (
                         <button 
-                          onClick={() => {
+                          onClick={async () => {
+                            if (isRelativePath(url)) {
+                              try {
+                                await deleteFileFromGateway(url, 'trailers', trailer.id, field);
+                              } catch (e) {
+                                console.error(`Error deleting Photo ${num} from gateway:`, e);
+                              }
+                            }
                             onUpdate(trailer.id, { [field]: null });
                             triggerToast(`Photo ${num} Removed!`);
                           }}
@@ -834,8 +858,8 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
               {isLoadingHeavy ? (
                 <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Loading...</span>
               ) : inspectionSheetFile ? (
-                inspectionSheetFile.startsWith('data:image/') ? (
-                  <img src={inspectionSheetFile} alt="Inspection" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                (inspectionSheetFile.startsWith('data:image/') || /\.(jpg|jpeg|png|webp)($|\?)/i.test(inspectionSheetFile)) ? (
+                  <img src={resolvedInspection} alt="Inspection" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', color: '#059669' }}>
                     <FileText size={24} />
@@ -858,19 +882,20 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                   onChange={async (e) => {
                     const file = e.target.files?.[0];
                     if (file) {
-                      if (file.type.startsWith('image/')) {
-                        const base64 = await fileToBase64(file);
-                        onUpdate(trailer.id, { inspection_sheet_file: base64 });
+                      try {
+                        let relativePath = '';
+                        if (file.type.startsWith('image/')) {
+                          const base64 = await fileToBase64(file);
+                          const compressedFile = dataURLtoFile(base64, file.name);
+                          relativePath = await uploadFileToGateway(compressedFile, trailer.id, 'inspection_sheet', 'trailers', 'inspections');
+                        } else {
+                          relativePath = await uploadFileToGateway(file, trailer.id, 'inspection_sheet', 'trailers', 'inspections');
+                        }
+                        onUpdate(trailer.id, { inspection_sheet_file: relativePath });
                         triggerToast('Inspection Sheet Uploaded Successfully!');
-                      } else {
-                        const reader = new FileReader();
-                        reader.onload = (evt) => {
-                          if (evt.target?.result) {
-                            onUpdate(trailer.id, { inspection_sheet_file: evt.target.result as string });
-                            triggerToast('Inspection Sheet Uploaded Successfully!');
-                          }
-                        };
-                        reader.readAsDataURL(file);
+                      } catch (err: any) {
+                        console.error('Inspection sheet upload failed:', err);
+                        alert(`Upload failed: ${err.message}`);
                       }
                     }
                   }}
@@ -881,13 +906,10 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
               <button
                 className="btn-icon"
                 style={{ position: 'absolute', top: '4px', left: '4px', background: 'rgba(0,0,0,0.5)', padding: '4px' }}
-                onClick={(e) => {
+                onClick={async (e) => {
                   e.preventDefault();
-                  const a = document.createElement('a');
-                  a.href = inspectionSheetFile!;
                   const baseName = (trailer.serialNumber || trailer.model || 'Trailer').trim();
-                  a.download = `${baseName}_InspectionSheet`;
-                  a.click();
+                  await triggerFileDownload(inspectionSheetFile, `${baseName}_InspectionSheet`);
                 }}
               >
                 <Download size={12} color="#fff" />
@@ -895,8 +917,15 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
             )}
             {inspectionSheetFile && !trailer.isArchived && !isLoadingHeavy && (
               <button 
-                onClick={(e) => {
+                onClick={async (e) => {
                   e.preventDefault();
+                  if (isRelativePath(inspectionSheetFile)) {
+                    try {
+                      await deleteFileFromGateway(inspectionSheetFile, 'trailers', trailer.id, 'inspection_sheet_file');
+                    } catch (e) {
+                      console.error('Error deleting inspection sheet from gateway:', e);
+                    }
+                  }
                   onUpdate(trailer.id, { inspection_sheet_file: undefined });
                   triggerToast('Inspection Sheet Removed!');
                 }}
@@ -962,5 +991,14 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
       </div>
     )}
     </>
+  );
+};
+
+const ShippedPhotoItem: React.FC<{ url: string; index: number }> = ({ url, index }) => {
+  const resolved = useResolvedUrl(url);
+  return (
+    <a href={resolved} target="_blank" rel="noreferrer" style={{ borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--border-default)', display: 'block' }}>
+      <img src={resolved} alt={`Photo ${index + 1}`} style={{ width: '100%', height: '100px', objectFit: 'cover' }} />
+    </a>
   );
 };

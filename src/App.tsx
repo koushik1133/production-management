@@ -32,6 +32,7 @@ import { ArchiveView } from './ArchiveView';
 import { ScheduleView } from './ScheduleView';
 import { CatalogView } from './CatalogView';
 import { BookOpen } from 'lucide-react';
+import { dataURLtoFile, uploadFileToGateway } from './utils/storage';
 
 import { 
   Search, 
@@ -1387,25 +1388,43 @@ function AuthGate({ children }: { children: (role: UserRole) => React.ReactNode 
   const [error, setError] = useState('');
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        const role = session.user.email?.toLowerCase() === 'manager@lanetrailers.com' ? 'manager' : 'worker';
-        setAuth({ isAuthenticated: true, role });
+    let active = true;
+
+    const checkSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (active) {
+          if (session?.user) {
+            const role = session.user.email?.toLowerCase() === 'manager@lanetrailers.com' ? 'manager' : 'worker';
+            setAuth({ isAuthenticated: true, role });
+          }
+          setLoading(false);
+        }
+      } catch (err) {
+        console.error("Error restoring session:", err);
+        if (active) setLoading(false);
       }
-      setLoading(false);
+    };
+
+    checkSession();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log("Auth state changed:", event, !!session);
+      if (active) {
+        if (session?.user) {
+          const role = session.user.email?.toLowerCase() === 'manager@lanetrailers.com' ? 'manager' : 'worker';
+          setAuth({ isAuthenticated: true, role });
+        } else {
+          setAuth({ isAuthenticated: false, role: null });
+        }
+        setLoading(false);
+      }
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) {
-        const role = session.user.email?.toLowerCase() === 'manager@lanetrailers.com' ? 'manager' : 'worker';
-        setAuth({ isAuthenticated: true, role });
-      } else {
-        setAuth({ isAuthenticated: false, role: null });
-      }
-      setLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -1965,37 +1984,65 @@ function App() {
   };
 
   const handleAddModel = async (data: { name: string, category: string, hours: Record<PhaseId, number>, spec: ModelSpec, spec_sheet_template?: string }) => {
-    const newModel: CatalogModel = {
-      id: crypto.randomUUID(),
-      name: data.name,
-      category: data.category,
-      target_hours: data.hours,
-      specs: data.spec,
-      spec_sheet_template: data.spec_sheet_template
-    };
-
-    // Optimistic update
-    setCatalogModels(prev => [...prev, newModel]);
-
-    const { error } = await supabase
-      .from('production_models')
-      .insert(newModel);
-      
-    if (error) {
-      console.error('Error adding model to catalog:', error);
-      // Rollback on failure
-      setCatalogModels(prev => prev.filter(m => m.id !== newModel.id));
-      alert('Failed to save model: ' + error.message);
+    let templatePath: string | undefined = undefined;
+    
+    try {
+      if (data.spec_sheet_template) {
+        const fileObj = dataURLtoFile(data.spec_sheet_template, `${data.name}_Template.xlsx`);
+        // Create model row first (spec_sheet_template is undefined initially)
+        const newModel: CatalogModel = {
+          id: crypto.randomUUID(),
+          name: data.name,
+          category: data.category,
+          target_hours: data.hours,
+          specs: data.spec,
+          spec_sheet_template: undefined
+        };
+        
+        // Optimistic update
+        setCatalogModels(prev => [...prev, newModel]);
+        
+        const { error: insertError } = await supabase.from('production_models').insert(newModel);
+        if (insertError) throw insertError;
+        
+        // Upload template to gateway (updates database row)
+        templatePath = await uploadFileToGateway(fileObj, data.name, 'spec_sheet_template', 'production_models', 'templates');
+        
+        // Update local state with the template path
+        setCatalogModels(prev => prev.map(m => m.name === data.name ? { ...m, spec_sheet_template: templatePath } : m));
+      } else {
+        const newModel: CatalogModel = {
+          id: crypto.randomUUID(),
+          name: data.name,
+          category: data.category,
+          target_hours: data.hours,
+          specs: data.spec,
+          spec_sheet_template: undefined
+        };
+        
+        // Optimistic update
+        setCatalogModels(prev => [...prev, newModel]);
+        
+        const { error } = await supabase.from('production_models').insert(newModel);
+        if (error) throw error;
+      }
+    } catch (err: any) {
+      console.error('Error adding model to catalog:', err);
+      // Revert optimistic update
+      setCatalogModels(prev => prev.filter(m => m.name !== data.name));
+      alert('Failed to save model: ' + err.message);
     }
   };
 
   const handleEditModel = async (name: string, spec: { targetHours?: Record<PhaseId, number>, spec_sheet_template?: string }) => {
     if (spec.spec_sheet_template) {
       try {
-        // Immediate save for spec sheet templates without opening the modal
+        const fileObj = dataURLtoFile(spec.spec_sheet_template, `${name}_Template.xlsx`);
+        const relativePath = await uploadFileToGateway(fileObj, name, 'spec_sheet_template', 'production_models', 'templates');
+        
         const existing = catalogModels.find(m => m.name === name);
         if (existing) {
-          const updatedModel = { ...existing, spec_sheet_template: spec.spec_sheet_template };
+          const updatedModel = { ...existing, spec_sheet_template: relativePath };
           setCatalogModels(prev => prev.map(m => m.name === name ? updatedModel : m));
           const { error } = await supabase.from('production_models').upsert(updatedModel);
           if (error) throw error;
@@ -2004,9 +2051,9 @@ function App() {
             id: crypto.randomUUID(),
             name: name,
             category: localModelCategories.find(c => c.models.includes(name))?.name || 'Uncategorized',
-            target_hours: localTargetHours[name] || { prefab: PHASE_METADATA.prefab.defaultTargetHours, build: PHASE_METADATA.build.defaultTargetHours, paint: PHASE_METADATA.paint.defaultTargetHours, outsource: PHASE_METADATA.outsource.defaultTargetHours, trim: PHASE_METADATA.trim.defaultTargetHours, shipping: 0 }, // fallback
+            target_hours: localTargetHours[name] || { prefab: PHASE_METADATA.prefab.defaultTargetHours, build: PHASE_METADATA.build.defaultTargetHours, paint: PHASE_METADATA.paint.defaultTargetHours, outsource: PHASE_METADATA.outsource.defaultTargetHours, trim: PHASE_METADATA.trim.defaultTargetHours, shipping: 0 },
             specs: {},
-            spec_sheet_template: spec.spec_sheet_template
+            spec_sheet_template: relativePath
           };
           setCatalogModels(prev => [...prev, newModel]);
           const { error } = await supabase.from('production_models').insert(newModel);
@@ -2014,8 +2061,7 @@ function App() {
         }
       } catch (err: any) {
         console.error('Failed to upload template:', err);
-        alert('Failed to upload template. The file might be too large. ' + (err.message || ''));
-        // Revert optimistic update by refetching or just letting them know
+        alert('Failed to upload template: ' + (err.message || ''));
         fetchInitialData();
       }
       return;
