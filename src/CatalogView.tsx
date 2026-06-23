@@ -6,6 +6,7 @@ import type { PhaseId, ModelSpec, UserRole, Dealer, CatalogModel, Trailer } from
 import { Modal } from './components/Modal';
 import Papa from 'papaparse';
 import { supabase } from './lib/supabase';
+import { triggerFileDownload } from './utils/storage';
 
 interface Props {
   categories: { name: string, models: string[] }[];
@@ -391,10 +392,7 @@ export const CatalogView: React.FC<Props> = ({ categories, hours, specs, templat
                                   }
                                 }
                                 if (tpl) {
-                                  const a = document.createElement('a');
-                                  a.href = tpl;
-                                  a.download = `${model}_Template.xlsx`;
-                                  a.click();
+                                  await triggerFileDownload(tpl, `${model}_Template.xlsx`);
                                 }
                               }}
                               style={{ padding: '0.3rem 0.6rem', fontSize: '0.7rem' }}

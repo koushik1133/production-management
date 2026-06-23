@@ -8,6 +8,7 @@ import { TrailerDetailsModal } from './components/TrailerDetailsModal';
 import { Modal } from './components/Modal';
 import { supabase } from './lib/supabase';
 import JSZip from 'jszip';
+import { useResolvedUrl, triggerFileDownload, fetchFileBlob, isRelativePath } from './utils/storage';
 
 interface Props {
   trailers: Trailer[];
@@ -73,7 +74,10 @@ const ShippedRecord: React.FC<{ record: ShippedTrailer; notes?: string; onClose:
   const specSheetFile = record.spec_sheet_file !== undefined ? record.spec_sheet_file : heavyData.spec_sheet_file;
   const inspectionSheetFile = record.inspection_sheet_file !== undefined ? record.inspection_sheet_file : heavyData.inspection_sheet_file;
 
-  const photos = [p1, p2, p3].filter(Boolean) as string[];
+  const resolvedP1 = useResolvedUrl(p1);
+  const resolvedP2 = useResolvedUrl(p2);
+  const resolvedP3 = useResolvedUrl(p3);
+  const resolvedPhotos = [resolvedP1, resolvedP2, resolvedP3].filter(Boolean);
 
   return (
     <Modal isOpen={true} onClose={onClose} title={`${record.serial_number} • Performance Report`}>
@@ -180,9 +184,9 @@ const ShippedRecord: React.FC<{ record: ShippedTrailer; notes?: string; onClose:
             <div style={{ padding: '2rem', textAlign: 'center', background: 'rgba(255,255,255,0.02)', borderRadius: '16px', border: '1px dashed var(--border-default)', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
               Loading media details...
             </div>
-          ) : photos.length > 0 ? (
-            <div style={{ display: 'grid', gridTemplateColumns: `repeat(${photos.length}, 1fr)`, gap: '1rem' }}>
-              {photos.map((url, i) => (
+          ) : resolvedPhotos.length > 0 ? (
+            <div style={{ display: 'grid', gridTemplateColumns: `repeat(${resolvedPhotos.length}, 1fr)`, gap: '1rem' }}>
+              {resolvedPhotos.map((url, i) => (
                 <div key={i} style={{ position: 'relative' }}>
                   <a href={url} target="_blank" rel="noreferrer" style={{ display: 'block', borderRadius: '16px', overflow: 'hidden', border: '1px solid var(--border-default)', textDecoration: 'none' }}>
                     <img src={url} alt={`Photo ${i + 1}`} style={{ width: '100%', height: '160px', objectFit: 'cover', display: 'block', transition: 'transform 0.3s' }} className="gallery-img" />
@@ -202,14 +206,9 @@ const ShippedRecord: React.FC<{ record: ShippedTrailer; notes?: string; onClose:
         {!loading && specSheetFile && (
           <div style={{ marginTop: '0.5rem' }}>
             <button
-              onClick={() => {
-                const link = document.createElement('a');
-                link.href = specSheetFile!;
+              onClick={async () => {
                 const baseName = (record.serial_number || record.trailer_name || 'Trailer').trim();
-                link.download = `${baseName}_Final-SpecSheet.xlsx`;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
+                await triggerFileDownload(specSheetFile, `${baseName}_Final-SpecSheet.xlsx`);
               }}
               className="btn btn-secondary"
               style={{
@@ -237,14 +236,9 @@ const ShippedRecord: React.FC<{ record: ShippedTrailer; notes?: string; onClose:
         {!loading && inspectionSheetFile && (
           <div style={{ marginTop: '0.5rem' }}>
             <button
-              onClick={() => {
-                const link = document.createElement('a');
-                link.href = inspectionSheetFile!;
+              onClick={async () => {
                 const baseName = (record.serial_number || record.trailer_name || 'Trailer').trim();
-                link.download = `${baseName}_InspectionSheet`;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
+                await triggerFileDownload(inspectionSheetFile, `${baseName}_InspectionSheet`);
               }}
               className="btn btn-secondary"
               style={{
@@ -550,33 +544,48 @@ export const ArchiveView: React.FC<Props> = ({ trailers, onUpdateTrailer, localT
                     zip.file(`production_full_archive_${format(new Date(), 'yyyy_MM_dd')}.xlsx`, excelBuffer);
 
                     const mediaFolder = zip.folder("media");
-                    allTrailersWithMedia.forEach(t => {
+                    
+                    const promises = allTrailersWithMedia.map(async (t) => {
                       const trailerFolder = mediaFolder?.folder(t.serial_number);
                       
-                      const addBase64File = (base64String: string | undefined | null, defaultFilename: string) => {
-                        if (!base64String) return;
-                        const parts = base64String.split(';base64,');
-                        if (parts.length < 2) return;
+                      const addFileToZip = async (pathOrBase64: string | undefined | null, defaultFilename: string) => {
+                        if (!pathOrBase64) return;
                         
-                        const contentType = parts[0].split(':')[1];
-                        const base64Data = parts[1];
-                        
-                        let ext = "";
-                        if (contentType.includes("jpeg") || contentType.includes("jpg")) ext = ".jpg";
-                        else if (contentType.includes("png")) ext = ".png";
-                        else if (contentType.includes("spreadsheetml") || contentType.includes("excel")) ext = ".xlsx";
-                        else if (contentType.includes("pdf")) ext = ".pdf";
-                        
-                        const filename = defaultFilename + ext;
-                        trailerFolder?.file(filename, base64Data, { base64: true });
+                        if (isRelativePath(pathOrBase64)) {
+                          try {
+                            const blob = await fetchFileBlob(pathOrBase64);
+                            const ext = '.' + pathOrBase64.split('.').pop()?.toLowerCase();
+                            const filename = defaultFilename + ext;
+                            trailerFolder?.file(filename, blob);
+                          } catch (err) {
+                            console.error(`Failed to fetch file ${pathOrBase64} for ZIP export:`, err);
+                          }
+                        } else {
+                          const parts = pathOrBase64.split(';base64,');
+                          if (parts.length < 2) return;
+                          
+                          const contentType = parts[0].split(':')[1];
+                          const base64Data = parts[1];
+                          
+                          let ext = "";
+                          if (contentType.includes("jpeg") || contentType.includes("jpg")) ext = ".jpg";
+                          else if (contentType.includes("png")) ext = ".png";
+                          else if (contentType.includes("spreadsheetml") || contentType.includes("excel")) ext = ".xlsx";
+                          else if (contentType.includes("pdf")) ext = ".pdf";
+                          
+                          const filename = defaultFilename + ext;
+                          trailerFolder?.file(filename, base64Data, { base64: true });
+                        }
                       };
 
-                      addBase64File(t.photo_1_url, "photo_1");
-                      addBase64File(t.photo_2_url, "photo_2");
-                      addBase64File(t.photo_3_url, "photo_3");
-                      addBase64File(t.spec_sheet_file, `${t.serial_number}_Final-SpecSheet`);
-                      addBase64File(t.inspection_sheet_file, `${t.serial_number}_InspectionSheet`);
+                      await addFileToZip(t.photo_1_url, "photo_1");
+                      await addFileToZip(t.photo_2_url, "photo_2");
+                      await addFileToZip(t.photo_3_url, "photo_3");
+                      await addFileToZip(t.spec_sheet_file, `${t.serial_number}_Final-SpecSheet`);
+                      await addFileToZip(t.inspection_sheet_file, `${t.serial_number}_InspectionSheet`);
                     });
+
+                    await Promise.all(promises);
 
                     setExportStatus("Downloading ZIP...");
                     const zipBlob = await zip.generateAsync({ type: "blob" });
