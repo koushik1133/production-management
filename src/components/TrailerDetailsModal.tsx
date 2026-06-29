@@ -6,7 +6,7 @@ import { BAY_WEEKLY_HOURS, calculateTrailerRemainingHours, PHASES } from '../typ
 import { Modal } from './Modal';
 import { injectTrailerDataIntoSpec } from '../lib/injectSpecSheet';
 import { supabase } from '../lib/supabase';
-import { useResolvedUrl, uploadFileToGateway, deleteFileFromGateway, triggerFileDownload, dataURLtoFile, isRelativePath } from '../utils/storage';
+import { useResolvedUrl, uploadFileToGateway, deleteFileFromGateway, triggerFileDownload, dataURLtoFile, isRelativePath, fetchFileBlob } from '../utils/storage';
 
 interface Props {
   trailer: Trailer;
@@ -40,6 +40,9 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
     photo_3_url?: string | null;
   }>({});
   const [isLoadingHeavy, setIsLoadingHeavy] = useState(false);
+  const [isUploadingSpecSheet, setIsUploadingSpecSheet] = useState(false);
+  const [uploadingPhotos, setUploadingPhotos] = useState<Record<number, boolean>>({});
+  const [isUploadingInspection, setIsUploadingInspection] = useState(false);
 
   useEffect(() => {
     if (!isOpen || !trailer.id) return;
@@ -124,22 +127,41 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
       return;
     }
 
-    let templateBase64: string | undefined = localSpecSheetTemplates[trailer.model];
-    
-    if (templateBase64 === 'EXISTS') {
-      try {
-        const { data, error } = await supabase.from('production_models').select('spec_sheet_template').eq('name', trailer.model).single();
-        if (error) throw error;
-        templateBase64 = data.spec_sheet_template;
-      } catch (e) {
-        console.error('Failed to fetch template:', e);
-        alert('Failed to download template from server.');
-        return;
-      }
-    }
-    
-    if (!templateBase64) return;
+    setIsUploadingSpecSheet(true);
     try {
+      let templateBase64: string | undefined = localSpecSheetTemplates[trailer.model];
+      
+      if (templateBase64 === 'EXISTS') {
+        try {
+          const { data, error } = await supabase.from('production_models').select('spec_sheet_template').eq('name', trailer.model).single();
+          if (error) throw error;
+          templateBase64 = data.spec_sheet_template;
+        } catch (e) {
+          console.error('Failed to fetch template:', e);
+          alert('Failed to download template from server.');
+          return;
+        }
+      }
+      
+      if (!templateBase64) return;
+
+      if (isRelativePath(templateBase64)) {
+        try {
+          const blob = await fetchFileBlob(templateBase64);
+          const reader = new FileReader();
+          const base64Promise = new Promise<string>((resolve, reject) => {
+            reader.onload = (e) => resolve(e.target?.result as string);
+            reader.onerror = () => reject(new Error("Failed to read template file."));
+            reader.readAsDataURL(blob);
+          });
+          templateBase64 = await base64Promise;
+        } catch (e: any) {
+          console.error('Failed to download template from storage gateway:', e);
+          alert(`Failed to download template from storage gateway: ${e.message}`);
+          return;
+        }
+      }
+
       const injected = await injectTrailerDataIntoSpec(
         templateBase64,
         trailer.serialNumber,
@@ -151,17 +173,21 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
         trailer.dealerLocation,
         trailer.dealerCommonAddress
       );
-      handleSpecSheetUpdate(injected);
+      await handleSpecSheetUpdate(injected);
       triggerToast("Spec Sheet Generated Successfully!");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to generate spec sheet", error);
+      alert(`Failed to generate spec sheet: ${error.message}`);
+    } finally {
+      setIsUploadingSpecSheet(false);
     }
   };
 
   const handleSpecSheetUpdate = async (newFileBase64: string) => {
+    setIsUploadingSpecSheet(true);
     try {
       const fileObj = dataURLtoFile(newFileBase64, `${(trailer.serialNumber || trailer.model || 'Trailer').trim()}_SpecSheet.xlsx`);
-      const filePath = await uploadFileToGateway(fileObj, trailer.id, 'spec_sheet', 'trailers', 'trailers');
+      const filePath = await uploadFileToGateway(fileObj, trailer.id, 'spec_sheet', 'trailers', 'trailers', trailer.serialNumber);
       
       setEditForm(prev => ({ 
         ...prev, 
@@ -175,6 +201,8 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
     } catch (err: any) {
       console.error("Failed to upload spec sheet to gateway", err);
       alert("Failed to upload spec sheet: " + err.message);
+    } finally {
+      setIsUploadingSpecSheet(false);
     }
   };
 
@@ -326,7 +354,20 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
               <div style={{ gridColumn: 'span 2', background: 'rgba(59, 130, 246, 0.05)', padding: '1.25rem', borderRadius: '12px', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
                 <label className="form-label" style={{ fontSize: '0.65rem', color: '#1d4ed8', marginBottom: '1rem', display: 'block', fontWeight: 800 }}>SPEC SHEET (EXCEL)</label>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                  {editForm.spec_sheet_file ? (
+                  {isUploadingSpecSheet ? (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.6rem', padding: '0.8rem', background: 'rgba(255,255,255,0.02)', borderRadius: '8px' }}>
+                      <span className="spinner-mini" style={{ 
+                        width: '16px', 
+                        height: '16px', 
+                        border: '2px solid rgba(59, 130, 246, 0.1)', 
+                        borderTopColor: 'var(--accent)', 
+                        borderRadius: '50%', 
+                        display: 'inline-block',
+                        animation: 'spin 1s linear infinite'
+                      }} />
+                      <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Uploading & Injecting Spec Sheet...</span>
+                    </div>
+                  ) : editForm.spec_sheet_file ? (
                     <div style={{ display: 'flex', gap: '0.5rem', width: '100%' }}>
                       <button 
                         type="button"
@@ -633,6 +674,19 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
               <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>Excel Spec Sheet</span>
               {isLoadingHeavy ? (
                 <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Loading...</span>
+              ) : isUploadingSpecSheet ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <span className="spinner-mini" style={{ 
+                    width: '14px', 
+                    height: '14px', 
+                    border: '2px solid rgba(59, 130, 246, 0.1)', 
+                    borderTopColor: 'var(--accent)', 
+                    borderRadius: '50%', 
+                    display: 'inline-block',
+                    animation: 'spin 1s linear infinite'
+                  }} />
+                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>Uploading...</span>
+                </div>
               ) : specSheetFile ? (
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
                   <button 
@@ -732,25 +786,35 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
           {(() => {
             const fileToBase64 = (file: File): Promise<string> => {
-              return new Promise((resolve) => {
+              return new Promise((resolve, reject) => {
                 const reader = new FileReader();
                 reader.readAsDataURL(file);
                 reader.onload = (e) => {
                   const img = new window.Image();
                   img.onload = () => {
-                    const canvas = document.createElement('canvas');
-                    let width = img.width;
-                    let height = img.height;
-                    const max = 1200;
-                    if (width > height && width > max) { height *= max / width; width = max; }
-                    else if (height > max) { width *= max / height; height = max; }
-                    canvas.width = width;
-                    canvas.height = height;
-                    const ctx = canvas.getContext('2d');
-                    ctx?.drawImage(img, 0, 0, width, height);
-                    resolve(canvas.toDataURL('image/jpeg', 0.6));
+                    try {
+                      const canvas = document.createElement('canvas');
+                      let width = img.width;
+                      let height = img.height;
+                      const max = 1200;
+                      if (width > height && width > max) { height *= max / width; width = max; }
+                      else if (height > max) { width *= max / height; height = max; }
+                      canvas.width = width;
+                      canvas.height = height;
+                      const ctx = canvas.getContext('2d');
+                      ctx?.drawImage(img, 0, 0, width, height);
+                      resolve(canvas.toDataURL('image/jpeg', 0.6));
+                    } catch (err) {
+                      reject(err);
+                    }
+                  };
+                  img.onerror = () => {
+                    reject(new Error("Failed to load image. If this is a HEIC/HEIF photo from an iPhone/iPad, please change your camera settings to 'Most Compatible' (JPEG) or try converting the image to JPEG/PNG first."));
                   };
                   img.src = e.target?.result as string;
+                };
+                reader.onerror = () => {
+                  reject(new Error("FileReader failed to read the file."));
                 };
               });
             };
@@ -764,23 +828,43 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
 
                   return (
                     <div key={num} style={{ position: 'relative' }}>
-                      <label style={{ 
-                        display: 'flex', 
-                        flexDirection: 'column', 
-                        alignItems: 'center', 
-                        justifyContent: 'center', 
-                        height: '100px', 
-                        background: url ? 'transparent' : 'rgba(255,255,255,0.02)', 
-                        border: '1px dashed var(--border-default)', 
-                        borderRadius: '12px', 
-                        cursor: isLoadingHeavy ? 'default' : 'pointer',
-                        overflow: 'hidden',
-                        transition: 'all 0.2s'
-                      }}>
+                      <label 
+                        htmlFor={`photo-upload-${num}`}
+                        style={{ 
+                          display: 'flex', 
+                          flexDirection: 'column', 
+                          alignItems: 'center', 
+                          justifyContent: 'center', 
+                          height: '100px', 
+                          background: url ? 'transparent' : 'rgba(255,255,255,0.02)', 
+                          border: '1px dashed var(--border-default)', 
+                          borderRadius: '12px', 
+                          cursor: (isLoadingHeavy || uploadingPhotos[num]) ? 'default' : 'pointer',
+                          overflow: 'hidden',
+                          transition: 'all 0.2s'
+                        }}
+                      >
                         {isLoadingHeavy ? (
                           <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Loading...</span>
+                        ) : uploadingPhotos[num] ? (
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.35rem' }}>
+                            <span className="spinner-mini" style={{ 
+                              width: '14px', 
+                              height: '14px', 
+                              border: '2px solid rgba(59, 130, 246, 0.1)', 
+                              borderTopColor: 'var(--accent)', 
+                              borderRadius: '50%', 
+                              display: 'inline-block',
+                              animation: 'spin 1s linear infinite'
+                            }} />
+                            <span style={{ fontSize: '0.55rem', color: 'var(--text-muted)', fontWeight: 600 }}>Uploading...</span>
+                          </div>
                         ) : url ? (
-                          <img src={resolvedUrl} alt={`Photo ${num}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          resolvedUrl ? (
+                            <img src={resolvedUrl} alt={`Photo ${num}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          ) : (
+                            <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Loading...</span>
+                          )
                         ) : !trailer.isArchived ? (
                           <>
                             <ImageIcon size={20} color="var(--text-muted)" />
@@ -789,35 +873,39 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                         ) : (
                           <span style={{ fontSize: '0.6rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>No Photo</span>
                         )}
-                        {!trailer.isArchived && !isLoadingHeavy && (
-                          <input 
-                            type="file" 
-                            accept="image/*" 
-                            style={{ display: 'none' }} 
-                            onChange={async (e) => {
-                              const file = e.target.files?.[0];
-                              if (file) {
-                                try {
-                                  const base64 = await fileToBase64(file);
-                                  const compressedFile = dataURLtoFile(base64, file.name);
-                                  const relativePath = await uploadFileToGateway(compressedFile, trailer.id, field, 'trailers', 'photos');
-                                  onUpdate(trailer.id, { [field]: relativePath });
-                                  triggerToast(`Photo ${num} Uploaded Successfully!`);
-                                } catch (err: any) {
-                                  console.error(`Photo ${num} upload failed:`, err);
-                                  alert(`Upload failed: ${err.message}`);
-                                }
-                              }
-                            }}
-                          />
-                        )}
                       </label>
+                      {!trailer.isArchived && !isLoadingHeavy && !uploadingPhotos[num] && (
+                        <input 
+                          id={`photo-upload-${num}`}
+                          type="file" 
+                          accept="image/*" 
+                          style={{ display: 'none' }} 
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              setUploadingPhotos(prev => ({ ...prev, [num]: true }));
+                              try {
+                                const base64 = await fileToBase64(file);
+                                const compressedFile = dataURLtoFile(base64, file.name);
+                                const relativePath = await uploadFileToGateway(compressedFile, trailer.id, field, 'trailers', 'photos', trailer.serialNumber);
+                                onUpdate(trailer.id, { [field]: relativePath });
+                                triggerToast(`Photo ${num} Uploaded Successfully!`);
+                              } catch (err: any) {
+                                console.error(`Photo ${num} upload failed:`, err);
+                                alert(`Upload failed: ${err.message}`);
+                              } finally {
+                                setUploadingPhotos(prev => ({ ...prev, [num]: false }));
+                              }
+                            }
+                          }}
+                        />
+                      )}
                       {url && !trailer.isArchived && !isLoadingHeavy && (
                         <button 
                           onClick={async () => {
                             if (isRelativePath(url)) {
                               try {
-                                await deleteFileFromGateway(url, 'trailers', trailer.id, field);
+                                await deleteFileFromGateway(url, 'trailers', trailer.id, field, trailer.serialNumber);
                               } catch (e) {
                                 console.error(`Error deleting Photo ${num} from gateway:`, e);
                               }
@@ -842,24 +930,44 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
 
           {/* Inspection Sheet Box */}
           <div style={{ position: 'relative' }}>
-            <label style={{ 
-              display: 'flex', 
-              flexDirection: 'column', 
-              alignItems: 'center', 
-              justifyContent: 'center', 
-              height: '100px', 
-              background: inspectionSheetFile ? 'transparent' : 'rgba(16, 185, 129, 0.05)', 
-              border: '1px dashed rgba(16, 185, 129, 0.4)', 
-              borderRadius: '12px', 
-              cursor: isLoadingHeavy ? 'default' : 'pointer',
-              overflow: 'hidden',
-              transition: 'all 0.2s'
-            }}>
+            <label 
+              htmlFor="inspection-upload"
+              style={{ 
+                display: 'flex', 
+                flexDirection: 'column', 
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                height: '100px', 
+                background: inspectionSheetFile ? 'transparent' : 'rgba(16, 185, 129, 0.05)', 
+                border: '1px dashed rgba(16, 185, 129, 0.4)', 
+                borderRadius: '12px', 
+                cursor: (isLoadingHeavy || isUploadingInspection) ? 'default' : 'pointer',
+                overflow: 'hidden',
+                transition: 'all 0.2s'
+              }}
+            >
               {isLoadingHeavy ? (
                 <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Loading...</span>
+              ) : isUploadingInspection ? (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.35rem' }}>
+                  <span className="spinner-mini" style={{ 
+                    width: '14px', 
+                    height: '14px', 
+                    border: '2px solid rgba(16, 185, 129, 0.1)', 
+                    borderTopColor: '#10b981', 
+                    borderRadius: '50%', 
+                    display: 'inline-block',
+                    animation: 'spin 1s linear infinite'
+                  }} />
+                  <span style={{ fontSize: '0.55rem', color: 'var(--text-muted)', fontWeight: 600 }}>Uploading...</span>
+                </div>
               ) : inspectionSheetFile ? (
                 (inspectionSheetFile.startsWith('data:image/') || /\.(jpg|jpeg|png|webp)($|\?)/i.test(inspectionSheetFile)) ? (
-                  <img src={resolvedInspection} alt="Inspection" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  resolvedInspection ? (
+                    <img src={resolvedInspection} alt="Inspection" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Loading...</span>
+                  )
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', color: '#059669' }}>
                     <FileText size={24} />
@@ -874,34 +982,38 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
               ) : (
                 <span style={{ fontSize: '0.6rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', textAlign: 'center' }}>No<br/>Inspection</span>
               )}
-              {!trailer.isArchived && !isLoadingHeavy && (
-                <input 
-                  type="file" 
-                  accept="image/*,.pdf" 
-                  style={{ display: 'none' }} 
-                  onChange={async (e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      try {
-                        let relativePath = '';
-                        if (file.type.startsWith('image/')) {
-                          const base64 = await fileToBase64(file);
-                          const compressedFile = dataURLtoFile(base64, file.name);
-                          relativePath = await uploadFileToGateway(compressedFile, trailer.id, 'inspection_sheet', 'trailers', 'inspections');
-                        } else {
-                          relativePath = await uploadFileToGateway(file, trailer.id, 'inspection_sheet', 'trailers', 'inspections');
-                        }
-                        onUpdate(trailer.id, { inspection_sheet_file: relativePath });
-                        triggerToast('Inspection Sheet Uploaded Successfully!');
-                      } catch (err: any) {
-                        console.error('Inspection sheet upload failed:', err);
-                        alert(`Upload failed: ${err.message}`);
-                      }
-                    }
-                  }}
-                />
-              )}
             </label>
+            {!trailer.isArchived && !isLoadingHeavy && !isUploadingInspection && (
+              <input 
+                id="inspection-upload"
+                type="file" 
+                accept="image/*,.pdf" 
+                style={{ display: 'none' }} 
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    setIsUploadingInspection(true);
+                    try {
+                      let relativePath = '';
+                      if (file.type.startsWith('image/')) {
+                        const base64 = await fileToBase64(file);
+                        const compressedFile = dataURLtoFile(base64, file.name);
+                        relativePath = await uploadFileToGateway(compressedFile, trailer.id, 'inspection_sheet', 'trailers', 'inspections', trailer.serialNumber);
+                      } else {
+                        relativePath = await uploadFileToGateway(file, trailer.id, 'inspection_sheet', 'trailers', 'inspections', trailer.serialNumber);
+                      }
+                      onUpdate(trailer.id, { inspection_sheet_file: relativePath });
+                      triggerToast('Inspection Sheet Uploaded Successfully!');
+                    } catch (err: any) {
+                      console.error('Inspection sheet upload failed:', err);
+                      alert(`Upload failed: ${err.message}`);
+                    } finally {
+                      setIsUploadingInspection(false);
+                    }
+                  }
+                }}
+              />
+            )}
             {inspectionSheetFile && !isLoadingHeavy && (
               <button
                 className="btn-icon"
@@ -921,7 +1033,7 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                   e.preventDefault();
                   if (isRelativePath(inspectionSheetFile)) {
                     try {
-                      await deleteFileFromGateway(inspectionSheetFile, 'trailers', trailer.id, 'inspection_sheet_file');
+                      await deleteFileFromGateway(inspectionSheetFile, 'trailers', trailer.id, 'inspection_sheet_file', trailer.serialNumber);
                     } catch (e) {
                       console.error('Error deleting inspection sheet from gateway:', e);
                     }
@@ -997,8 +1109,14 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
 const ShippedPhotoItem: React.FC<{ url: string; index: number }> = ({ url, index }) => {
   const resolved = useResolvedUrl(url);
   return (
-    <a href={resolved} target="_blank" rel="noreferrer" style={{ borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--border-default)', display: 'block' }}>
-      <img src={resolved} alt={`Photo ${index + 1}`} style={{ width: '100%', height: '100px', objectFit: 'cover' }} />
+    <a href={resolved || undefined} target="_blank" rel="noreferrer" style={{ borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--border-default)', display: 'block' }}>
+      {resolved ? (
+        <img src={resolved} alt={`Photo ${index + 1}`} style={{ width: '100%', height: '100px', objectFit: 'cover' }} />
+      ) : (
+        <div style={{ width: '100%', height: '100px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.02)' }}>
+          <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Loading...</span>
+        </div>
+      )}
     </a>
   );
 };

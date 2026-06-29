@@ -77,7 +77,7 @@ interface AuthenticatedRequest extends Request {
 }
 
 // JWT Token Authentication Middleware
-const authenticateJWT = (req: AuthenticatedRequest, res: Response, next: NextFunction): void => {
+const authenticateJWT = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     logger.warn(`Unauthorized access attempt to: ${req.path}`);
@@ -87,11 +87,19 @@ const authenticateJWT = (req: AuthenticatedRequest, res: Response, next: NextFun
 
   const token = authHeader.split(' ')[1];
   try {
-    const decoded = jwt.verify(token, SUPABASE_JWT_SECRET);
-    req.user = decoded;
+    // Call Supabase Auth directly to verify the token securely regardless of algorithm (ES256/HS256)
+    const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
+
+    if (error || !user) {
+      logger.error(`Supabase token verification failed: ${error?.message || 'No user returned'}`);
+      res.status(403).json({ error: 'Invalid or expired session token' });
+      return;
+    }
+
+    req.user = user;
     next();
   } catch (error: any) {
-    logger.error(`JWT Validation failed: ${error.message}`);
+    logger.error(`Auth middleware exception: ${error.message}`);
     res.status(403).json({ error: 'Invalid or expired session token' });
   }
 };
@@ -105,13 +113,24 @@ const ALLOWED_MIME_TYPES = [
   'application/pdf',
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
   'application/vnd.ms-excel',
-  'text/csv'
+  'text/csv',
+  'application/octet-stream' // Fallback for browsers that fail to parse Excel mime types properly
 ];
 
 // Multer Storage config
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const subFolder = req.body.category || 'misc';
+    const category = req.body.category || 'misc';
+    const id = req.body.id || 'unassigned';
+    const serialNumber = req.body.serialNumber || id;
+
+    let subFolder = category;
+    if (['photos', 'inspections', 'trailers', 'shipped', 'misc'].includes(category)) {
+      subFolder = path.join('media', serialNumber);
+    } else if (category === 'templates') {
+      subFolder = 'templates';
+    }
+
     const destinationPath = path.join(SMB_MOUNT_PATH, subFolder);
 
     // Prevent Directory Traversal in category property
@@ -126,11 +145,29 @@ const storage = multer.diskStorage({
     cb(null, normalizedDest);
   },
   filename: (req, file, cb) => {
-    // Sanitize filename to avoid collisions and clean naming
-    const fileId = req.body.id || 'unassigned';
+    const category = req.body.category || 'misc';
+    const id = req.body.id || 'unassigned';
+    const serialNumber = req.body.serialNumber || id;
+    const type = req.body.type || '';
     const ext = path.extname(file.originalname).toLowerCase();
-    const uniqueName = `${fileId}-${Date.now()}-${Math.round(Math.random() * 1E6)}${ext}`;
-    cb(null, uniqueName);
+
+    let name = '';
+    if (type.startsWith('photo_1')) {
+      name = `photo_1${ext}`;
+    } else if (type.startsWith('photo_2')) {
+      name = `photo_2${ext}`;
+    } else if (type.startsWith('photo_3')) {
+      name = `photo_3${ext}`;
+    } else if (type === 'inspection_sheet') {
+      name = `${serialNumber}_InspectionSheet${ext}`;
+    } else if (type === 'spec_sheet') {
+      name = `${serialNumber}_Final-SpecSheet${ext}`;
+    } else if (category === 'templates' || type === 'spec_sheet_template') {
+      name = `${serialNumber}${ext}`;
+    } else {
+      name = `${serialNumber}-${Date.now()}${ext}`;
+    }
+    cb(null, name);
   }
 });
 
@@ -200,9 +237,30 @@ app.post('/api/upload', authenticateJWT, (req: AuthenticatedRequest, res: Respon
 
       // Map columns correctly to match trailers/shipped tables
       let updatePayload: Record<string, string> = {};
-      if (type === 'photo_1') updatePayload = { photo_1_url: relativePath };
-      else if (type === 'photo_2') updatePayload = { photo_2_url: relativePath };
-      else if (type === 'photo_3') updatePayload = { photo_3_url: relativePath };
+
+      // Clean up old files in the same directory with the same base name but different extensions
+      const directory = path.dirname(serverPath);
+      const filename = path.basename(serverPath);
+      const ext = path.extname(filename);
+      const baseName = path.basename(filename, ext);
+
+      if (fs.existsSync(directory)) {
+        const files = fs.readdirSync(directory);
+        for (const f of files) {
+          if (f !== filename && f.startsWith(baseName)) {
+            const oldFilePath = path.join(directory, f);
+            try {
+              fs.unlinkSync(oldFilePath);
+              logger.info(`Cleaned up old/replaced file: ${f}`);
+            } catch (unlinkErr: any) {
+              logger.error(`Failed to clean up old file ${f}: ${unlinkErr.message}`);
+            }
+          }
+        }
+      }
+      if (type === 'photo_1' || type === 'photo_1_url') updatePayload = { photo_1_url: relativePath };
+      else if (type === 'photo_2' || type === 'photo_2_url') updatePayload = { photo_2_url: relativePath };
+      else if (type === 'photo_3' || type === 'photo_3_url') updatePayload = { photo_3_url: relativePath };
       else if (type === 'spec_sheet') updatePayload = { spec_sheet_file: relativePath };
       else if (type === 'inspection_sheet') updatePayload = { inspection_sheet_file: relativePath };
       else if (type === 'spec_sheet_template') updatePayload = { spec_sheet_template: relativePath };
