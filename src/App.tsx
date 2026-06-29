@@ -32,7 +32,7 @@ import { ArchiveView } from './ArchiveView';
 import { ScheduleView } from './ScheduleView';
 import { CatalogView } from './CatalogView';
 import { BookOpen } from 'lucide-react';
-import { dataURLtoFile, uploadFileToGateway } from './utils/storage';
+import { dataURLtoFile, uploadFileToGateway, triggerFileDownload } from './utils/storage';
 
 import { 
   Search, 
@@ -44,6 +44,8 @@ import {
   Crown,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
+  ChevronDown,
   Calendar,
   Image as ImageIcon,
   DollarSign,
@@ -155,6 +157,15 @@ function Dashboard({
       return () => clearTimeout(timer);
     }
   }, [highlightedTrailerId, setSearchParams]);
+  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth <= 768 : false);
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isStatsModalOpen, setIsStatsModalOpen] = useState(false);
   const [selectedTrailerId, setSelectedTrailerId] = useState<string | null>(null);
@@ -201,6 +212,8 @@ function Dashboard({
     loadHeavyForShipping();
   }, [pendingShippingTrailer]);
   const [shippingPhotos, setShippingPhotos] = useState<{ p1: File | null, p2: File | null, p3: File | null }>({ p1: null, p2: null, p3: null });
+  const [shippingSpecSheet, setShippingSpecSheet] = useState<File | null>(null);
+  const [shippingInspectionSheet, setShippingInspectionSheet] = useState<File | null>(null);
   const [shippingHours, setShippingHours] = useState<Record<string, string>>({
     prefab: '0', build: '0', paint: '0', outsource: '0', trim: '0'
   });
@@ -244,13 +257,32 @@ function Dashboard({
   const navigate = useNavigate();
   const mainContentRef = useRef<HTMLDivElement>(null);
 
-  const scrollBoard = (direction: 'left' | 'right') => {
+  const scrollBoard = (direction: 'left' | 'right' | 'up' | 'down') => {
     if (mainContentRef.current) {
       const amount = 400;
-      mainContentRef.current.scrollBy({ left: direction === 'left' ? -amount : amount, behavior: 'smooth' });
+      if (direction === 'up') {
+        mainContentRef.current.scrollBy({ top: -amount, behavior: 'smooth' });
+      } else if (direction === 'down') {
+        mainContentRef.current.scrollBy({ top: amount, behavior: 'smooth' });
+      } else {
+        mainContentRef.current.scrollBy({ left: direction === 'left' ? -amount : amount, behavior: 'smooth' });
+      }
     }
   };
 
+
+  const withRetry = async <T,>(fn: () => Promise<T>, retries = 3, delay = 1500): Promise<T> => {
+    try {
+      return await fn();
+    } catch (err: any) {
+      if (retries > 0 && (err?.code === '57014' || err?.status === 504 || String(err?.message || '').toLowerCase().includes('timeout') || String(err?.message || '').toLowerCase().includes('fetch'))) {
+        console.warn(`Database query timed out/failed. Retrying in ${delay}ms... (${retries} retries left)`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return withRetry(fn, retries - 1, delay * 2);
+      }
+      throw err;
+    }
+  };
 
   const handleShipSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -258,46 +290,98 @@ function Dashboard({
     
     setIsShipping(true);
     try {
-      const fileToBase64 = (file: File | null): Promise<string | undefined> => {
-        return new Promise((resolve) => {
-          if (!file) return resolve(undefined);
-          const reader = new FileReader();
-          reader.readAsDataURL(file);
-          reader.onload = (e) => {
-            const img = new window.Image();
-            img.onload = () => {
-              const canvas = document.createElement('canvas');
-              let width = img.width;
-              let height = img.height;
-              const max = 1200;
-              if (width > height && width > max) { height *= max / width; width = max; }
-              else if (height > max) { width *= max / height; height = max; }
-              canvas.width = width;
-              canvas.height = height;
-              const ctx = canvas.getContext('2d');
-              ctx?.drawImage(img, 0, 0, width, height);
-              resolve(canvas.toDataURL('image/jpeg', 0.6));
-            };
-            img.src = e.target?.result as string;
-          };
-          reader.onerror = () => resolve(undefined);
-        });
-      };
-
-      const [u1, u2, u3] = await Promise.all([
-        fileToBase64(shippingPhotos.p1),
-        fileToBase64(shippingPhotos.p2),
-        fileToBase64(shippingPhotos.p3)
-      ]);
-
-      // Fallback to production photos if shipping photos aren't provided
-      const p1 = u1 || pendingShippingTrailer.photo_1_url;
-      const p2 = u2 || pendingShippingTrailer.photo_2_url;
-      const p3 = u3 || pendingShippingTrailer.photo_3_url;
-
       const getH = (key: string) => parseFloat(shippingHours[key]) || 0;
       const hours = { prefab: getH('prefab'), build: getH('build'), paint: getH('paint'), outsource: getH('outsource'), trim: getH('trim') };
       const total_h = parseFloat(Object.values(hours).reduce((a, b) => a + b, 0).toFixed(1));
+
+      const getExt = (file: File | null) => {
+        if (!file) return '';
+        const name = file.name;
+        const lastDot = name.lastIndexOf('.');
+        return lastDot !== -1 ? name.substring(lastDot).toLowerCase() : '';
+      };
+
+      const serial = pendingShippingTrailer.serialNumber;
+
+      let finalP1 = shippingPhotos.p1;
+      let p1 = pendingShippingTrailer.photo_1_url || undefined;
+      if (p1 && p1.startsWith('data:')) {
+        try {
+          const mimeMatch = p1.match(/^data:(image\/[a-z]+);/);
+          const ext = mimeMatch ? `.${mimeMatch[1].split('/')[1]}` : '.png';
+          finalP1 = dataURLtoFile(p1, `photo_1${ext}`);
+          p1 = `media/${serial}/photo_1${ext}`;
+        } catch (e) {
+          console.error('Failed to convert legacy photo 1:', e);
+        }
+      } else if (shippingPhotos.p1) {
+        p1 = `media/${serial}/photo_1${getExt(shippingPhotos.p1)}`;
+      }
+
+      let finalP2 = shippingPhotos.p2;
+      let p2 = pendingShippingTrailer.photo_2_url || undefined;
+      if (p2 && p2.startsWith('data:')) {
+        try {
+          const mimeMatch = p2.match(/^data:(image\/[a-z]+);/);
+          const ext = mimeMatch ? `.${mimeMatch[1].split('/')[1]}` : '.png';
+          finalP2 = dataURLtoFile(p2, `photo_2${ext}`);
+          p2 = `media/${serial}/photo_2${ext}`;
+        } catch (e) {
+          console.error('Failed to convert legacy photo 2:', e);
+        }
+      } else if (shippingPhotos.p2) {
+        p2 = `media/${serial}/photo_2${getExt(shippingPhotos.p2)}`;
+      }
+
+      let finalP3 = shippingPhotos.p3;
+      let p3 = pendingShippingTrailer.photo_3_url || undefined;
+      if (p3 && p3.startsWith('data:')) {
+        try {
+          const mimeMatch = p3.match(/^data:(image\/[a-z]+);/);
+          const ext = mimeMatch ? `.${mimeMatch[1].split('/')[1]}` : '.png';
+          finalP3 = dataURLtoFile(p3, `photo_3${ext}`);
+          p3 = `media/${serial}/photo_3${ext}`;
+        } catch (e) {
+          console.error('Failed to convert legacy photo 3:', e);
+        }
+      } else if (shippingPhotos.p3) {
+        p3 = `media/${serial}/photo_3${getExt(shippingPhotos.p3)}`;
+      }
+
+      let spec_sheet_file = pendingShippingTrailer.spec_sheet_file || undefined;
+      let finalShippingSpecSheet = shippingSpecSheet;
+      if (spec_sheet_file && spec_sheet_file.startsWith('data:')) {
+        try {
+          const fileObj = dataURLtoFile(spec_sheet_file, `${serial}_Final-SpecSheet.xlsx`);
+          finalShippingSpecSheet = fileObj;
+          spec_sheet_file = `media/${serial}/${serial}_Final-SpecSheet.xlsx`;
+        } catch (e) {
+          console.error('Failed to convert legacy base64 spec sheet:', e);
+        }
+      } else if (shippingSpecSheet) {
+        spec_sheet_file = `media/${serial}/${serial}_Final-SpecSheet${getExt(shippingSpecSheet)}`;
+      } else if (spec_sheet_file && spec_sheet_file.startsWith('blob:')) {
+        spec_sheet_file = undefined;
+      }
+
+      let inspection_sheet_file = pendingShippingTrailer.inspection_sheet_file || undefined;
+      let finalShippingInspectionSheet = shippingInspectionSheet;
+      if (inspection_sheet_file && inspection_sheet_file.startsWith('data:')) {
+        try {
+          const mimeMatch = inspection_sheet_file.match(/^data:(image\/[a-z]+|application\/pdf);/);
+          const mime = mimeMatch ? mimeMatch[1] : 'image/png';
+          const ext = mime === 'application/pdf' ? '.pdf' : '.png';
+          const fileObj = dataURLtoFile(inspection_sheet_file, `${serial}_InspectionSheet${ext}`);
+          finalShippingInspectionSheet = fileObj;
+          inspection_sheet_file = `media/${serial}/${serial}_InspectionSheet${ext}`;
+        } catch (e) {
+          console.error('Failed to convert legacy base64 inspection sheet:', e);
+        }
+      } else if (shippingInspectionSheet) {
+        inspection_sheet_file = `media/${serial}/${serial}_InspectionSheet${getExt(shippingInspectionSheet)}`;
+      } else if (inspection_sheet_file && inspection_sheet_file.startsWith('blob:')) {
+        inspection_sheet_file = undefined;
+      }
 
       const shippedRecord: ShippedTrailer = {
         serial_number: pendingShippingTrailer.serialNumber,
@@ -316,20 +400,56 @@ function Dashboard({
         photo_2_url: p2,
         photo_3_url: p3,
         sale_price: parseFloat(shippingForm.sale_price) || 0,
-        spec_sheet_file: pendingShippingTrailer.spec_sheet_file,
-        inspection_sheet_file: pendingShippingTrailer.inspection_sheet_file
+        spec_sheet_file,
+        inspection_sheet_file
       };
 
-      await onSaveShippedRecord(shippedRecord);
-      await updateTrailer(pendingShippingTrailer.id, {
+      // 1. Save shipped trailer metadata in database (with retry support)
+      await withRetry(() => onSaveShippedRecord(shippedRecord));
+
+      // 2. Upload physical files through Storage Gateway concurrently to prevent sequential bottlenecks
+      const uploadPromises = [];
+      if (finalP1) {
+        uploadPromises.push(uploadFileToGateway(finalP1, pendingShippingTrailer.serialNumber, 'photo_1', 'shipped_trailers', 'shipped', pendingShippingTrailer.serialNumber));
+      }
+      if (finalP2) {
+        uploadPromises.push(uploadFileToGateway(finalP2, pendingShippingTrailer.serialNumber, 'photo_2', 'shipped_trailers', 'shipped', pendingShippingTrailer.serialNumber));
+      }
+      if (finalP3) {
+        uploadPromises.push(uploadFileToGateway(finalP3, pendingShippingTrailer.serialNumber, 'photo_3', 'shipped_trailers', 'shipped', pendingShippingTrailer.serialNumber));
+      }
+      if (finalShippingSpecSheet) {
+        uploadPromises.push(uploadFileToGateway(finalShippingSpecSheet, pendingShippingTrailer.serialNumber, 'spec_sheet', 'shipped_trailers', 'shipped', pendingShippingTrailer.serialNumber));
+      }
+      if (finalShippingInspectionSheet) {
+        uploadPromises.push(uploadFileToGateway(finalShippingInspectionSheet, pendingShippingTrailer.serialNumber, 'inspection_sheet', 'shipped_trailers', 'shipped', pendingShippingTrailer.serialNumber));
+      }
+
+      if (uploadPromises.length > 0) {
+        await Promise.all(uploadPromises);
+      }
+
+      // 3. Mark the active trailer as archived (calls the updateTrailer prop which handles DB with retries and React state)
+      const updateSuccess = await updateTrailer(pendingShippingTrailer.id, {
         invoiceNumber: shippingForm.invoice_number,
         vinDate: shippingForm.vin_date,
         isArchived: true,
-        archivedAt: Date.now()
+        archivedAt: Date.now(),
+        photo_1_url: p1,
+        photo_2_url: p2,
+        photo_3_url: p3,
+        spec_sheet_file,
+        inspection_sheet_file
       });
+
+      if (!updateSuccess) {
+        throw new Error('Failed to update active trailer record.');
+      }
 
       setPendingShippingTrailer(null);
       setShippingPhotos({ p1: null, p2: null, p3: null });
+      setShippingSpecSheet(null);
+      setShippingInspectionSheet(null);
       setShippingForm({ invoice_number: '', vin_date: '', customer_name: '', sale_price: '', dealer_price: '', cost_price: '', shipped_date: new Date().toISOString().split('T')[0] });
       setShippingHours({ prefab: '0', build: '0', paint: '0', outsource: '0', trim: '0' });
     } catch (err: any) {
@@ -630,11 +750,11 @@ function Dashboard({
             )}
 
             <div className="mobile-scroll-arrows" style={{ display: 'flex', gap: '0.25rem', flexShrink: 0 }}>
-              <button className="btn btn-secondary btn-icon" onClick={() => scrollBoard('left')} style={{ width: '34px', height: '34px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Scroll Left">
-                <ChevronLeft size={16} />
+              <button className="btn btn-secondary btn-icon" onClick={() => scrollBoard('up')} style={{ width: '34px', height: '34px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Scroll Up">
+                <ChevronUp size={16} />
               </button>
-              <button className="btn btn-secondary btn-icon" onClick={() => scrollBoard('right')} style={{ width: '34px', height: '34px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Scroll Right">
-                <ChevronRight size={16} />
+              <button className="btn btn-secondary btn-icon" onClick={() => scrollBoard('down')} style={{ width: '34px', height: '34px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Scroll Down">
+                <ChevronDown size={16} />
               </button>
             </div>
           </div>
@@ -1133,12 +1253,9 @@ function Dashboard({
                   <button 
                     type="button"
                     className="btn btn-secondary" 
-                    onClick={() => {
-                      const a = document.createElement('a');
-                      a.href = pendingShippingTrailer.spec_sheet_file!;
+                    onClick={async () => {
                       const baseName = (pendingShippingTrailer.serialNumber || pendingShippingTrailer.model || 'Trailer').trim();
-                      a.download = `${baseName}_SpecSheet.xlsx`;
-                      a.click();
+                      await triggerFileDownload(pendingShippingTrailer.spec_sheet_file!, `${baseName}_SpecSheet.xlsx`);
                     }}
                     style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
                   >
@@ -1153,13 +1270,8 @@ function Dashboard({
                       onChange={(e) => {
                         const file = e.target.files?.[0];
                         if (file) {
-                          const reader = new FileReader();
-                          reader.onload = (evt) => {
-                            if (evt.target?.result) {
-                              setPendingShippingTrailer(prev => prev ? { ...prev, spec_sheet_file: evt.target?.result as string } : null);
-                            }
-                          };
-                          reader.readAsDataURL(file);
+                          setShippingSpecSheet(file);
+                          setPendingShippingTrailer(prev => prev ? { ...prev, spec_sheet_file: URL.createObjectURL(file) } : null);
                         }
                       }}
                     />
@@ -1177,13 +1289,8 @@ function Dashboard({
                       onChange={(e) => {
                         const file = e.target.files?.[0];
                         if (file) {
-                          const reader = new FileReader();
-                          reader.onload = (evt) => {
-                            if (evt.target?.result) {
-                              setPendingShippingTrailer(prev => prev ? { ...prev, spec_sheet_file: evt.target?.result as string } : null);
-                            }
-                          };
-                          reader.readAsDataURL(file);
+                          setShippingSpecSheet(file);
+                          setPendingShippingTrailer(prev => prev ? { ...prev, spec_sheet_file: URL.createObjectURL(file) } : null);
                         }
                       }}
                     />
@@ -1206,12 +1313,9 @@ function Dashboard({
                   <button 
                     type="button"
                     className="btn btn-secondary" 
-                    onClick={() => {
-                      const a = document.createElement('a');
-                      a.href = pendingShippingTrailer.inspection_sheet_file!;
+                    onClick={async () => {
                       const baseName = (pendingShippingTrailer.serialNumber || pendingShippingTrailer.model || 'Trailer').trim();
-                      a.download = `${baseName}_InspectionSheet`;
-                      a.click();
+                      await triggerFileDownload(pendingShippingTrailer.inspection_sheet_file!, `${baseName}_InspectionSheet`);
                     }}
                     style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
                   >
@@ -1226,13 +1330,8 @@ function Dashboard({
                       onChange={(e) => {
                         const file = e.target.files?.[0];
                         if (file) {
-                          const reader = new FileReader();
-                          reader.onload = (evt) => {
-                            if (evt.target?.result) {
-                              setPendingShippingTrailer(prev => prev ? { ...prev, inspection_sheet_file: evt.target?.result as string } : null);
-                            }
-                          };
-                          reader.readAsDataURL(file);
+                          setShippingInspectionSheet(file);
+                          setPendingShippingTrailer(prev => prev ? { ...prev, inspection_sheet_file: URL.createObjectURL(file) } : null);
                         }
                       }}
                     />
@@ -1250,13 +1349,8 @@ function Dashboard({
                       onChange={(e) => {
                         const file = e.target.files?.[0];
                         if (file) {
-                          const reader = new FileReader();
-                          reader.onload = (evt) => {
-                            if (evt.target?.result) {
-                              setPendingShippingTrailer(prev => prev ? { ...prev, inspection_sheet_file: evt.target?.result as string } : null);
-                            }
-                          };
-                          reader.readAsDataURL(file);
+                          setShippingInspectionSheet(file);
+                          setPendingShippingTrailer(prev => prev ? { ...prev, inspection_sheet_file: URL.createObjectURL(file) } : null);
                         }
                       }}
                     />
@@ -1306,7 +1400,7 @@ function Dashboard({
             {!isShipping && (
               <button type="button" className="btn btn-secondary" onClick={() => setPendingShippingTrailer(null)}>Cancel</button>
             )}
-            <button type="button" onClick={handleShipSubmit} className="btn btn-primary" disabled={isShipping} style={{ padding: '0.75rem 2rem', minWidth: '200px' }}>
+            <button type="submit" className="btn btn-primary" disabled={isShipping} style={{ padding: '0.75rem 2rem', minWidth: '200px' }}>
               {isShipping ? 'Processing Shipment...' : 'Complete Shipment Checklist'}
             </button>
           </div>
@@ -1388,43 +1482,25 @@ function AuthGate({ children }: { children: (role: UserRole) => React.ReactNode 
   const [error, setError] = useState('');
 
   useEffect(() => {
-    let active = true;
-
-    const checkSession = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (active) {
-          if (session?.user) {
-            const role = session.user.email?.toLowerCase() === 'manager@lanetrailers.com' ? 'manager' : 'worker';
-            setAuth({ isAuthenticated: true, role });
-          }
-          setLoading(false);
-        }
-      } catch (err) {
-        console.error("Error restoring session:", err);
-        if (active) setLoading(false);
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        const role = session.user.email?.toLowerCase() === 'manager@lanetrailers.com' ? 'manager' : 'worker';
+        setAuth({ isAuthenticated: true, role });
       }
-    };
-
-    checkSession();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log("Auth state changed:", event, !!session);
-      if (active) {
-        if (session?.user) {
-          const role = session.user.email?.toLowerCase() === 'manager@lanetrailers.com' ? 'manager' : 'worker';
-          setAuth({ isAuthenticated: true, role });
-        } else {
-          setAuth({ isAuthenticated: false, role: null });
-        }
-        setLoading(false);
-      }
+      setLoading(false);
     });
 
-    return () => {
-      active = false;
-      subscription.unsubscribe();
-    };
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        const role = session.user.email?.toLowerCase() === 'manager@lanetrailers.com' ? 'manager' : 'worker';
+        setAuth({ isAuthenticated: true, role });
+      } else {
+        setAuth({ isAuthenticated: false, role: null });
+      }
+      setLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -1955,7 +2031,7 @@ function App() {
     }
   };
 
-  const updateTrailer = async (id: string, updates: Partial<Trailer>) => {
+  const updateTrailer = async (id: string, updates: Partial<Trailer>): Promise<boolean> => {
     // Optimistic update
     setTrailers(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t));
 
@@ -1966,15 +2042,26 @@ function App() {
     if ('dealerCommonAddress' in dbUpdates) { dbUpdates.dealer_common_address = dbUpdates.dealerCommonAddress; delete dbUpdates.dealerCommonAddress; }
     if ('dealerId' in dbUpdates) { dbUpdates.dealer_id = dbUpdates.dealerId; delete dbUpdates.dealerId; }
 
-    const { error } = await supabase
-      .from('trailers')
-      .update(dbUpdates)
-      .eq('id', id);
-    
-    if (error) {
-      console.error('Error updating trailer:', error);
-      fetchInitialData();
-    }
+    const runUpdate = async (retries = 3, delay = 1500): Promise<boolean> => {
+      const { error } = await supabase
+        .from('trailers')
+        .update(dbUpdates)
+        .eq('id', id);
+      
+      if (error) {
+        if (retries > 0 && (error.code === '57014' || String(error.message || '').toLowerCase().includes('timeout'))) {
+          console.warn(`Update trailer timed out. Retrying in ${delay}ms... (${retries} retries left)`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          return runUpdate(retries - 1, delay * 2);
+        }
+        console.error('Error updating trailer:', error);
+        fetchInitialData();
+        return false;
+      }
+      return true;
+    };
+
+    return await runUpdate();
   };
 
   const deleteTrailer = async (id: string) => {
@@ -2560,10 +2647,12 @@ function getSuggestedBay(): StationId {
 
                   <div className="settings-group">
                     <span className="settings-group-title">System</span>
-                    <button className="btn btn-secondary settings-action-btn" onClick={toggleFullscreen}>
-                      {isFullscreen ? <><Minimize size={14} /> Exit Fullscreen</> : <><Maximize size={14} /> Go Fullscreen</>}
-                    </button>
-                    <button className="btn btn-secondary settings-action-btn logout-btn" onClick={() => supabase.auth.signOut()} style={{ marginTop: '0.5rem', borderColor: 'rgba(239, 68, 68, 0.2)', color: '#ef4444' }}>
+                    {!isMobile && (
+                      <button className="btn btn-secondary settings-action-btn" onClick={toggleFullscreen}>
+                        {isFullscreen ? <><Minimize size={14} /> Exit Fullscreen</> : <><Maximize size={14} /> Go Fullscreen</>}
+                      </button>
+                    )}
+                    <button className="btn btn-secondary settings-action-btn logout-btn" onClick={() => supabase.auth.signOut()} style={{ marginTop: isMobile ? '0' : '0.5rem', borderColor: 'rgba(239, 68, 68, 0.2)', color: '#ef4444' }}>
                       <LogOut size={14} /> Logout
                     </button>
                   </div>

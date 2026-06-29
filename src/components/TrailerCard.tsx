@@ -93,9 +93,8 @@ export const TrailerCard: React.FC<Props> = React.memo(({
   const timeToShipping = calculateTrailerRemainingHours(trailer, localTargetHours);
 
   const isTablet = typeof window !== 'undefined' && 
-    window.innerWidth > 480 && 
     window.innerWidth <= 1366 && 
-    (window.matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0);
+    (window.matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0 || window.innerWidth <= 768);
 
   return (
     <div

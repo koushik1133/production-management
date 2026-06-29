@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 
 export const STORAGE_GATEWAY_URL = import.meta.env.VITE_STORAGE_GATEWAY_URL || 'http://localhost:3001';
@@ -28,14 +28,14 @@ export async function fetchFileBlob(relativePath: string): Promise<Blob> {
 export function useResolvedUrl(path: string | undefined | null): string {
   const [url, setUrl] = useState<string>('');
 
-  useEffect(() => {
-    if (!path) {
-      setUrl('');
-      return;
-    }
+  const resolvedSyncUrl = useMemo(() => {
+    if (!path) return '';
+    if (!isRelativePath(path)) return path;
+    return null;
+  }, [path]);
 
-    if (!isRelativePath(path)) {
-      setUrl(path);
+  useEffect(() => {
+    if (resolvedSyncUrl !== null) {
       return;
     }
 
@@ -44,7 +44,7 @@ export function useResolvedUrl(path: string | undefined | null): string {
 
     const load = async () => {
       try {
-        const blob = await fetchFileBlob(path);
+        const blob = await fetchFileBlob(path!);
         if (!active) return;
         objectUrl = URL.createObjectURL(blob);
         setUrl(objectUrl);
@@ -61,21 +61,24 @@ export function useResolvedUrl(path: string | undefined | null): string {
         URL.revokeObjectURL(objectUrl);
       }
     };
-  }, [path]);
+  }, [path, resolvedSyncUrl]);
 
-  return url;
+  return resolvedSyncUrl !== null ? resolvedSyncUrl : url;
 }
 
-export async function uploadFileToGateway(file: File, id: string, type: string, table: string, category: string): Promise<string> {
+export async function uploadFileToGateway(file: File, id: string, type: string, table: string, category: string, serialNumber?: string): Promise<string> {
   const { data: { session } } = await supabase.auth.getSession();
   const token = session?.access_token;
 
   const formData = new FormData();
-  formData.append('file', file);
   formData.append('id', id);
   formData.append('type', type);
   formData.append('table', table);
   formData.append('category', category);
+  if (serialNumber) {
+    formData.append('serialNumber', serialNumber);
+  }
+  formData.append('file', file);
 
   const res = await fetch(`${STORAGE_GATEWAY_URL}/api/upload`, {
     method: 'POST',
@@ -94,7 +97,7 @@ export async function uploadFileToGateway(file: File, id: string, type: string, 
   return result.filePath;
 }
 
-export async function deleteFileFromGateway(relativePath: string, table: string, id: string, column: string): Promise<void> {
+export async function deleteFileFromGateway(relativePath: string, table: string, id: string, column: string, serialNumber?: string): Promise<void> {
   const { data: { session } } = await supabase.auth.getSession();
   const token = session?.access_token;
 
@@ -104,7 +107,7 @@ export async function deleteFileFromGateway(relativePath: string, table: string,
       'Authorization': `Bearer ${token || ''}`,
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify({ path: relativePath, table, id, column })
+    body: JSON.stringify({ path: relativePath, table, id, column, serialNumber })
   });
 
   if (!res.ok) {

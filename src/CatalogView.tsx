@@ -26,6 +26,15 @@ interface Props {
 
 export const CatalogView: React.FC<Props> = ({ categories, hours, specs, templates, onAddModel, onEditModel, onDeleteModel, dealers, onAddDealer, onEditDealer, onDeleteDealer, userRole, trailers }) => {
   const navigate = useNavigate();
+  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth <= 768 : false);
+  React.useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const [activeTab, setActiveTab] = useState<'models' | 'dealers'>('models');
   const [isAddingDealer, setIsAddingDealer] = useState(false);
   const [editingDealerId, setEditingDealerId] = useState<string | null>(null);
@@ -235,14 +244,16 @@ export const CatalogView: React.FC<Props> = ({ categories, hours, specs, templat
               ref={activeTab === 'models' ? fileInputRefModels : fileInputRefDealers} 
               onChange={activeTab === 'models' ? handleImportModels : handleImportDealers} 
             />
-            <button 
-              className="btn btn-secondary" 
-              style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1rem', borderRadius: '10px' }}
-              onClick={() => activeTab === 'models' ? fileInputRefModels.current?.click() : fileInputRefDealers.current?.click()}
-              title={`Import ${activeTab === 'models' ? 'Models' : 'Dealers'} from CSV`}
-            >
-              <Upload size={18} /> Import
-            </button>
+            {!isMobile && (
+              <button 
+                className="btn btn-secondary" 
+                style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1rem', borderRadius: '10px' }}
+                onClick={() => activeTab === 'models' ? fileInputRefModels.current?.click() : fileInputRefDealers.current?.click()}
+                title={`Import ${activeTab === 'models' ? 'Models' : 'Dealers'} from CSV`}
+              >
+                <Upload size={18} /> Import
+              </button>
+            )}
             <button 
               className="btn btn-secondary" 
               style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1rem', borderRadius: '10px' }}
@@ -264,7 +275,10 @@ export const CatalogView: React.FC<Props> = ({ categories, hours, specs, templat
                 }
               }}
             >
-              <Plus size={20} strokeWidth={3} /> {activeTab === 'models' ? 'Define New Model' : 'Add Dealer'}
+              {activeTab === 'models' 
+                ? (isMobile ? '+ New Model' : <><Plus size={20} strokeWidth={3} /> Define New Model</>) 
+                : (isMobile ? '+ New Dealer' : <><Plus size={20} strokeWidth={3} /> Add Dealer</>)
+              }
             </button>
           </div>
         )}

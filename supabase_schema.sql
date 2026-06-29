@@ -91,6 +91,8 @@ CREATE TABLE IF NOT EXISTS public.production_models (
 
 ALTER TABLE public.production_models ADD COLUMN IF NOT EXISTS spec_sheet_template text;
 ALTER TABLE public.shipped_trailers ADD COLUMN IF NOT EXISTS spec_sheet_file text;
+ALTER TABLE public.shipped_trailers ADD COLUMN IF NOT EXISTS inspection_sheet_file text;
+ALTER TABLE public.trailers ADD COLUMN IF NOT EXISTS inspection_sheet_file text;
 
 -- 4.5. DEALERS TABLE
 CREATE TABLE IF NOT EXISTS public.dealers (
