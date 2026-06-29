@@ -115,7 +115,7 @@ function Dashboard({
   dealers
 }: {
   trailers: Trailer[], 
-  updateTrailer: (id: string, updates: Partial<Trailer>) => void,
+  updateTrailer: (id: string, updates: Partial<Trailer>) => Promise<boolean>,
   addTrailer: (trailer: Trailer) => Promise<void>,
   suggestedBay: StationId,
   runwayWeeks: number,
@@ -157,14 +157,6 @@ function Dashboard({
       return () => clearTimeout(timer);
     }
   }, [highlightedTrailerId, setSearchParams]);
-  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth <= 768 : false);
-  useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth <= 768);
-    };
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isStatsModalOpen, setIsStatsModalOpen] = useState(false);
@@ -1576,6 +1568,15 @@ function AuthGate({ children }: { children: (role: UserRole) => React.ReactNode 
 
 
 function App() {
+  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth <= 768 : false);
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const [trailers, setTrailers] = useState<Trailer[]>([]);
   const [loading, setLoading] = useState(true);
 
