@@ -51,6 +51,9 @@ const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 const app = express();
 
+// Trust proxy headers for express-rate-limit when running behind proxies like ngrok
+app.set('trust proxy', 1);
+
 // Security Headers
 app.use(helmet());
 
