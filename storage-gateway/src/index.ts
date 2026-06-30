@@ -61,7 +61,7 @@ app.use(helmet());
 app.use(cors({
   origin: '*', // Adjust to your production Vercel domain if strictly needed
   methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'ngrok-skip-browser-warning']
 }));
 
 app.use(express.json());
