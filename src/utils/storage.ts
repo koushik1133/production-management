@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 
 export const STORAGE_GATEWAY_URL = import.meta.env.VITE_STORAGE_GATEWAY_URL || 'http://localhost:3001';
+const CLEAN_GATEWAY_URL = STORAGE_GATEWAY_URL.endsWith('/') ? STORAGE_GATEWAY_URL.slice(0, -1) : STORAGE_GATEWAY_URL;
 
 export function isRelativePath(path: string | undefined | null): boolean {
   if (!path) return false;
@@ -12,7 +13,7 @@ export async function fetchFileBlob(relativePath: string): Promise<Blob> {
   const { data: { session } } = await supabase.auth.getSession();
   const token = session?.access_token;
 
-  const res = await fetch(`${STORAGE_GATEWAY_URL}/api/download?path=${encodeURIComponent(relativePath)}`, {
+  const res = await fetch(`${CLEAN_GATEWAY_URL}/api/download?path=${encodeURIComponent(relativePath)}`, {
     headers: {
       'Authorization': `Bearer ${token || ''}`,
       'ngrok-skip-browser-warning': 'true'
@@ -81,7 +82,7 @@ export async function uploadFileToGateway(file: File, id: string, type: string, 
   }
   formData.append('file', file);
 
-  const res = await fetch(`${STORAGE_GATEWAY_URL}/api/upload`, {
+  const res = await fetch(`${CLEAN_GATEWAY_URL}/api/upload`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${token || ''}`,
@@ -103,7 +104,7 @@ export async function deleteFileFromGateway(relativePath: string, table: string,
   const { data: { session } } = await supabase.auth.getSession();
   const token = session?.access_token;
 
-  const res = await fetch(`${STORAGE_GATEWAY_URL}/api/file`, {
+  const res = await fetch(`${CLEAN_GATEWAY_URL}/api/file`, {
     method: 'DELETE',
     headers: {
       'Authorization': `Bearer ${token || ''}`,
