@@ -14,7 +14,8 @@ export async function fetchFileBlob(relativePath: string): Promise<Blob> {
 
   const res = await fetch(`${STORAGE_GATEWAY_URL}/api/download?path=${encodeURIComponent(relativePath)}`, {
     headers: {
-      'Authorization': `Bearer ${token || ''}`
+      'Authorization': `Bearer ${token || ''}`,
+      'ngrok-skip-browser-warning': 'true'
     }
   });
 
@@ -83,7 +84,8 @@ export async function uploadFileToGateway(file: File, id: string, type: string, 
   const res = await fetch(`${STORAGE_GATEWAY_URL}/api/upload`, {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${token || ''}`
+      'Authorization': `Bearer ${token || ''}`,
+      'ngrok-skip-browser-warning': 'true'
     },
     body: formData
   });
@@ -105,7 +107,8 @@ export async function deleteFileFromGateway(relativePath: string, table: string,
     method: 'DELETE',
     headers: {
       'Authorization': `Bearer ${token || ''}`,
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json',
+      'ngrok-skip-browser-warning': 'true'
     },
     body: JSON.stringify({ path: relativePath, table, id, column, serialNumber })
   });
