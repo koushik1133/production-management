@@ -1035,7 +1035,7 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                   try {
                     await deleteFileFromSupabase(inspectionSheetFile);
                     setEditForm(prev => ({ ...prev, inspection_sheet_file: undefined }));
-                    onUpdate(trailer.id, { inspection_sheet_file: null });
+                    onUpdate(trailer.id, { inspection_sheet_file: null as unknown as string });
                     triggerToast("Inspection Sheet deleted!");
                   } catch (e) {
                     console.error('Error deleting inspection sheet from gateway:', e);

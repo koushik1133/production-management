@@ -58,14 +58,17 @@ export function useResolvedUrl(path: string | undefined | null): string {
   return resolvedSyncUrl !== null ? resolvedSyncUrl : url;
 }
 
-export async function uploadFileToSupabase(file: File, id: string, type: string, table: string, category: string, serialNumber?: string): Promise<string> {
+export async function uploadFileToSupabase(file: File, type: string, id: string): Promise<string> {
   let folderPath = '';
-  if (category === 'templates') {
+  if (type === 'spec_sheet_template') {
     folderPath = `templates/${id}`;
-  } else if (category === 'shipped') {
-    folderPath = `shipped/${serialNumber || id}`;
+  } else if (type === 'spec_sheet' || type === 'inspection_sheet' || type.startsWith('photo_')) {
+    // We assume if it has a type, it goes into the relevant trailer folder.
+    // If we need to distinguish shipped vs active, we could use an optional category param, but let's just use trailers
+    // For shipped trailers, the serial number is the ID usually in this context.
+    folderPath = `trailers/${id}`;
   } else {
-    folderPath = `trailers/${serialNumber || id}`;
+    folderPath = `misc/${id}`;
   }
 
   const fileName = `${type}_${Date.now()}_${file.name}`;
