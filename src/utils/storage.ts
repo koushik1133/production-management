@@ -1,8 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 
-export const STORAGE_GATEWAY_URL = import.meta.env.VITE_STORAGE_GATEWAY_URL || 'http://localhost:3001';
-const CLEAN_GATEWAY_URL = STORAGE_GATEWAY_URL.endsWith('/') ? STORAGE_GATEWAY_URL.slice(0, -1) : STORAGE_GATEWAY_URL;
+const BUCKET_NAME = 'trailers-files';
 
 export function isRelativePath(path: string | undefined | null): boolean {
   if (!path) return false;
@@ -10,20 +9,11 @@ export function isRelativePath(path: string | undefined | null): boolean {
 }
 
 export async function fetchFileBlob(relativePath: string): Promise<Blob> {
-  const { data: { session } } = await supabase.auth.getSession();
-  const token = session?.access_token;
-
-  const res = await fetch(`${CLEAN_GATEWAY_URL}/api/download?path=${encodeURIComponent(relativePath)}`, {
-    headers: {
-      'Authorization': `Bearer ${token || ''}`
-    }
-  });
-
-  if (!res.ok) {
-    throw new Error(`Failed to fetch file from gateway: ${res.statusText}`);
+  const { data, error } = await supabase.storage.from(BUCKET_NAME).download(relativePath);
+  if (error) {
+    throw new Error(`Failed to fetch file from Supabase: ${error.message}`);
   }
-
-  return await res.blob();
+  return data;
 }
 
 export function useResolvedUrl(path: string | undefined | null): string {
@@ -31,8 +21,9 @@ export function useResolvedUrl(path: string | undefined | null): string {
 
   const resolvedSyncUrl = useMemo(() => {
     if (!path) return '';
-    if (!isRelativePath(path)) return path;
-    return null;
+    if (!isRelativePath(path)) return path; 
+    const { data } = supabase.storage.from(BUCKET_NAME).getPublicUrl(path);
+    return data.publicUrl;
   }, [path]);
 
   useEffect(() => {
@@ -67,53 +58,47 @@ export function useResolvedUrl(path: string | undefined | null): string {
   return resolvedSyncUrl !== null ? resolvedSyncUrl : url;
 }
 
-export async function uploadFileToGateway(file: File, id: string, type: string, table: string, category: string, serialNumber?: string): Promise<string> {
-  const { data: { session } } = await supabase.auth.getSession();
-  const token = session?.access_token;
-
-  const formData = new FormData();
-  formData.append('id', id);
-  formData.append('type', type);
-  formData.append('table', table);
-  formData.append('category', category);
-  if (serialNumber) {
-    formData.append('serialNumber', serialNumber);
-  }
-  formData.append('file', file);
-
-  const res = await fetch(`${CLEAN_GATEWAY_URL}/api/upload`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${token || ''}`
-    },
-    body: formData
-  });
-
-  if (!res.ok) {
-    const errData = await res.json().catch(() => ({}));
-    throw new Error(errData.error || `Upload failed: ${res.statusText}`);
+export async function uploadFileToSupabase(file: File, id: string, type: string, table: string, category: string, serialNumber?: string): Promise<string> {
+  let folderPath = '';
+  if (category === 'templates') {
+    folderPath = `templates/${id}`;
+  } else if (category === 'shipped') {
+    folderPath = `shipped/${serialNumber || id}`;
+  } else {
+    folderPath = `trailers/${serialNumber || id}`;
   }
 
-  const result = await res.json();
-  return result.filePath;
+  const fileName = `${type}_${Date.now()}_${file.name}`;
+  const filePath = `${folderPath}/${fileName}`;
+
+  const { data, error } = await supabase.storage
+    .from(BUCKET_NAME)
+    .upload(filePath, file, {
+      cacheControl: '3600',
+      upsert: true
+    });
+
+  if (error) {
+    throw new Error(`Supabase upload failed: ${error.message}`);
+  }
+
+  const { data: publicUrlData } = supabase.storage.from(BUCKET_NAME).getPublicUrl(data.path);
+  return publicUrlData.publicUrl;
 }
 
-export async function deleteFileFromGateway(relativePath: string, table: string, id: string, column: string, serialNumber?: string): Promise<void> {
-  const { data: { session } } = await supabase.auth.getSession();
-  const token = session?.access_token;
+export async function deleteFileFromSupabase(publicUrl: string): Promise<void> {
+  if (!publicUrl || publicUrl.startsWith('data:')) return;
 
-  const res = await fetch(`${CLEAN_GATEWAY_URL}/api/file`, {
-    method: 'DELETE',
-    headers: {
-      'Authorization': `Bearer ${token || ''}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({ path: relativePath, table, id, column, serialNumber })
-  });
+  const bucketUrlPart = `/storage/v1/object/public/${BUCKET_NAME}/`;
+  const pathIndex = publicUrl.indexOf(bucketUrlPart);
+  
+  if (pathIndex === -1) return;
+  
+  const path = publicUrl.substring(pathIndex + bucketUrlPart.length);
 
-  if (!res.ok) {
-    const errData = await res.json().catch(() => ({}));
-    throw new Error(errData.error || `Delete failed: ${res.statusText}`);
+  const { error } = await supabase.storage.from(BUCKET_NAME).remove([path]);
+  if (error) {
+    throw new Error(`Delete failed: ${error.message}`);
   }
 }
 
@@ -130,22 +115,30 @@ export function dataURLtoFile(dataurl: string, filename: string): File {
 }
 
 export async function triggerFileDownload(path: string, defaultName: string): Promise<void> {
-  if (isRelativePath(path)) {
-    const blob = await fetchFileBlob(path);
-    const localUrl = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = localUrl;
-    a.download = defaultName;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(localUrl);
-  } else {
-    const a = document.createElement('a');
-    a.href = path;
-    a.download = defaultName;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+  const a = document.createElement('a');
+  a.href = path;
+  a.download = defaultName;
+  a.target = '_blank';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+export async function fetchTemplateAsBase64(templateValue: string): Promise<string> {
+  if (!templateValue) return '';
+  if (templateValue.startsWith('data:')) return templateValue;
+
+  try {
+    const res = await fetch(templateValue);
+    const blob = await res.blob();
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch (error) {
+    console.error('Failed to fetch template as base64:', error);
+    throw error;
   }
 }

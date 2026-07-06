@@ -32,7 +32,7 @@ import { ArchiveView } from './ArchiveView';
 import { ScheduleView } from './ScheduleView';
 import { CatalogView } from './CatalogView';
 import { BookOpen } from 'lucide-react';
-import { dataURLtoFile, uploadFileToGateway, triggerFileDownload } from './utils/storage';
+import { dataURLtoFile, uploadFileToSupabase, deleteFileFromSupabase, triggerFileDownload } from './utils/storage';
 
 import { 
   Search, 
@@ -402,19 +402,19 @@ function Dashboard({
       // 2. Upload physical files through Storage Gateway concurrently to prevent sequential bottlenecks
       const uploadPromises = [];
       if (finalP1) {
-        uploadPromises.push(uploadFileToGateway(finalP1, pendingShippingTrailer.serialNumber, 'photo_1', 'shipped_trailers', 'shipped', pendingShippingTrailer.serialNumber));
+        uploadPromises.push(uploadFileToSupabase(finalP1, 'photo_1', pendingShippingTrailer.serialNumber));
       }
       if (finalP2) {
-        uploadPromises.push(uploadFileToGateway(finalP2, pendingShippingTrailer.serialNumber, 'photo_2', 'shipped_trailers', 'shipped', pendingShippingTrailer.serialNumber));
+        uploadPromises.push(uploadFileToSupabase(finalP2, 'photo_2', pendingShippingTrailer.serialNumber));
       }
       if (finalP3) {
-        uploadPromises.push(uploadFileToGateway(finalP3, pendingShippingTrailer.serialNumber, 'photo_3', 'shipped_trailers', 'shipped', pendingShippingTrailer.serialNumber));
+        uploadPromises.push(uploadFileToSupabase(finalP3, 'photo_3', pendingShippingTrailer.serialNumber));
       }
       if (finalShippingSpecSheet) {
-        uploadPromises.push(uploadFileToGateway(finalShippingSpecSheet, pendingShippingTrailer.serialNumber, 'spec_sheet', 'shipped_trailers', 'shipped', pendingShippingTrailer.serialNumber));
+        uploadPromises.push(uploadFileToSupabase(finalShippingSpecSheet, 'spec_sheet', pendingShippingTrailer.serialNumber));
       }
       if (finalShippingInspectionSheet) {
-        uploadPromises.push(uploadFileToGateway(finalShippingInspectionSheet, pendingShippingTrailer.serialNumber, 'inspection_sheet', 'shipped_trailers', 'shipped', pendingShippingTrailer.serialNumber));
+        uploadPromises.push(uploadFileToSupabase(finalShippingInspectionSheet, 'inspection_sheet', pendingShippingTrailer.serialNumber));
       }
 
       if (uploadPromises.length > 0) {
@@ -2093,8 +2093,8 @@ function App() {
         const { error: insertError } = await supabase.from('production_models').insert(newModel);
         if (insertError) throw insertError;
         
-        // Upload template to gateway (updates database row)
-        templatePath = await uploadFileToGateway(fileObj, data.name, 'spec_sheet_template', 'production_models', 'templates');
+        // Upload template to Supabase Storage
+        templatePath = await uploadFileToSupabase(fileObj, 'spec_sheet_template', data.name);
         
         // Update local state with the template path
         setCatalogModels(prev => prev.map(m => m.name === data.name ? { ...m, spec_sheet_template: templatePath } : m));
@@ -2126,7 +2126,7 @@ function App() {
     if (spec.spec_sheet_template) {
       try {
         const fileObj = dataURLtoFile(spec.spec_sheet_template, `${name}_Template.xlsx`);
-        const relativePath = await uploadFileToGateway(fileObj, name, 'spec_sheet_template', 'production_models', 'templates');
+        const relativePath = await uploadFileToSupabase(fileObj, 'spec_sheet_template', name);
         
         const existing = catalogModels.find(m => m.name === name);
         if (existing) {
