@@ -886,9 +886,9 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                               setUploadingPhotos(prev => ({ ...prev, [num]: true }));
                               try {
                                 const base64 = await fileToBase64(file);
-                                const compressedFile = dataURLtoFile(base64, file.name);
                                 const relativePath = await uploadFileToSupabase(compressedFile, field, trailer.serialNumber);
                                 setEditForm(prev => ({ ...prev, [field]: relativePath }));
+                                onUpdate(trailer.id, { [field]: relativePath });
                                 triggerToast(`Photo ${num} Uploaded Successfully!`);
                               } catch (err: any) {
                                 console.error(`Photo ${num} upload failed:`, err);
@@ -907,6 +907,7 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                               try {
                                 await deleteFileFromSupabase(url);
                                 setEditForm(prev => ({ ...prev, [field]: undefined }));
+                                onUpdate(trailer.id, { [field]: null as unknown as string });
                               } catch (e) {
                                 console.error(`Error deleting Photo ${num} from gateway:`, e);
                               }
@@ -1004,6 +1005,7 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                         relativePath = await uploadFileToSupabase(file, 'inspection_sheet', trailer.serialNumber);
                       }
                       setEditForm(prev => ({ ...prev, inspection_sheet_file: relativePath }));
+                      onUpdate(trailer.id, { inspection_sheet_file: relativePath });
                       triggerToast('Inspection Sheet Uploaded Successfully!');
                     } catch (err: any) {
                       console.error('Inspection sheet upload failed:', err);
