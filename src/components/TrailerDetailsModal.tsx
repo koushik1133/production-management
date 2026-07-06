@@ -886,6 +886,7 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                               setUploadingPhotos(prev => ({ ...prev, [num]: true }));
                               try {
                                 const base64 = await fileToBase64(file);
+                                const compressedFile = dataURLtoFile(base64, file.name);
                                 const relativePath = await uploadFileToSupabase(compressedFile, field, trailer.serialNumber);
                                 setEditForm(prev => ({ ...prev, [field]: relativePath }));
                                 onUpdate(trailer.id, { [field]: relativePath });
