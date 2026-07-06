@@ -6,8 +6,7 @@ import {
   DragOverlay,
   closestCenter,
   KeyboardSensor,
-  MouseSensor,
-  TouchSensor,
+  PointerSensor,
   useSensor,
   useSensors,
   MeasuringStrategy,
@@ -1618,15 +1617,9 @@ function App() {
 
 
   const sensors = useSensors(
-    useSensor(MouseSensor, {
+    useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 10,
-      },
-    }),
-    useSensor(TouchSensor, {
-      activationConstraint: {
-        delay: 250,
-        tolerance: 5,
+        distance: 8,
       },
     }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
