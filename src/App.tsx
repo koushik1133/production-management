@@ -174,10 +174,19 @@ function Dashboard({
   });
   const selectedTrailer = useMemo(() => trailers.find(t => t.id === selectedTrailerId), [trailers, selectedTrailerId]);
 
-  // Fetch heavy files on-demand when a trailer is selected for shipping
+  // Fetch heavy files on-demand when a trailer is selected for shipping.
+  // We use the trailer ID to track what we have loaded so we always fetch
+  // fresh data whenever a different (or the same) trailer is opened.
+  const lastLoadedShippingIdRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!pendingShippingTrailer) return;
-    if (pendingShippingTrailer.spec_sheet_file !== undefined) return; // already fetched
+    if (!pendingShippingTrailer) {
+      lastLoadedShippingIdRef.current = null;
+      return;
+    }
+    // Don't re-fetch if we already loaded for this exact trailer
+    if (lastLoadedShippingIdRef.current === pendingShippingTrailer.id) return;
+
+    lastLoadedShippingIdRef.current = pendingShippingTrailer.id;
 
     const loadHeavyForShipping = async () => {
       try {
@@ -202,7 +211,8 @@ function Dashboard({
       }
     };
     loadHeavyForShipping();
-  }, [pendingShippingTrailer]);
+  }, [pendingShippingTrailer?.id]);
+
   const [shippingPhotos, setShippingPhotos] = useState<{ p1: File | null, p2: File | null, p3: File | null }>({ p1: null, p2: null, p3: null });
   const [shippingSpecSheet, setShippingSpecSheet] = useState<File | null>(null);
   const [shippingInspectionSheet, setShippingInspectionSheet] = useState<File | null>(null);
