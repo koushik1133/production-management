@@ -32,7 +32,7 @@ import { ArchiveView } from './ArchiveView';
 import { ScheduleView } from './ScheduleView';
 import { CatalogView } from './CatalogView';
 import { BookOpen } from 'lucide-react';
-import { dataURLtoFile, uploadFileToSupabase, deleteFileFromSupabase, triggerFileDownload } from './utils/storage';
+import { dataURLtoFile, uploadFileToSupabase, triggerFileDownload } from './utils/storage';
 
 import { 
   Search, 
