@@ -7,6 +7,7 @@ import type { Trailer, StationId, PhaseId, UserRole } from './types';
 import { addHours, format } from 'date-fns';
 import { injectTrailerDataIntoSpec } from './lib/injectSpecSheet';
 import { supabase } from './lib/supabase';
+import { fetchTemplateAsBase64 } from './utils/storage';
 
 interface Props {
   onAddTrailer: (trailer: Trailer) => void;
@@ -102,7 +103,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
       try {
         const { data, error } = await supabase.from('production_models').select('spec_sheet_template').eq('name', formData.model).single();
         if (error) throw error;
-        templateBase64 = data.spec_sheet_template;
+        templateBase64 = await fetchTemplateAsBase64(data.spec_sheet_template);
       } catch (e) {
         console.error('Failed to fetch template:', e);
         alert('Failed to download template from server.');
@@ -202,7 +203,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
       try {
         const { data, error } = await supabase.from('production_models').select('spec_sheet_template').eq('name', formData.model).single();
         if (error) throw error;
-        templateBase64 = data.spec_sheet_template;
+        templateBase64 = await fetchTemplateAsBase64(data.spec_sheet_template);
       } catch (e) {
         console.error('Failed to fetch template:', e);
         templateBase64 = undefined;

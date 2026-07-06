@@ -6,7 +6,7 @@ import type { PhaseId, ModelSpec, UserRole, Dealer, CatalogModel, Trailer } from
 import { Modal } from './components/Modal';
 import Papa from 'papaparse';
 import { supabase } from './lib/supabase';
-import { triggerFileDownload } from './utils/storage';
+import { fetchTemplateAsBase64, triggerFileDownload } from './utils/storage';
 
 interface Props {
   categories: { name: string, models: string[] }[];
@@ -398,7 +398,7 @@ export const CatalogView: React.FC<Props> = ({ categories, hours, specs, templat
                                   try {
                                     const { data, error } = await supabase.from('production_models').select('spec_sheet_template').eq('name', model).single();
                                     if (error) throw error;
-                                    tpl = data.spec_sheet_template;
+                                    tpl = await fetchTemplateAsBase64(data.spec_sheet_template);
                                   } catch (err) {
                                     console.error(err);
                                     alert('Failed to download template.');

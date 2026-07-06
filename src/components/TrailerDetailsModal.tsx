@@ -6,7 +6,7 @@ import { BAY_WEEKLY_HOURS, calculateTrailerRemainingHours, PHASES } from '../typ
 import { Modal } from './Modal';
 import { injectTrailerDataIntoSpec } from '../lib/injectSpecSheet';
 import { supabase } from '../lib/supabase';
-import { useResolvedUrl, uploadFileToGateway, deleteFileFromGateway, triggerFileDownload, dataURLtoFile, isRelativePath, fetchFileBlob } from '../utils/storage';
+import { useResolvedUrl, uploadFileToSupabase, deleteFileFromSupabase, fetchTemplateAsBase64, triggerFileDownload, dataURLtoFile, isRelativePath, fetchFileBlob } from '../utils/storage';
 
 interface Props {
   trailer: Trailer;
@@ -135,7 +135,7 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
         try {
           const { data, error } = await supabase.from('production_models').select('spec_sheet_template').eq('name', trailer.model).single();
           if (error) throw error;
-          templateBase64 = data.spec_sheet_template;
+          templateBase64 = await fetchTemplateAsBase64(data.spec_sheet_template);
         } catch (e) {
           console.error('Failed to fetch template:', e);
           alert('Failed to download template from server.');
@@ -187,7 +187,7 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
     setIsUploadingSpecSheet(true);
     try {
       const fileObj = dataURLtoFile(newFileBase64, `${(trailer.serialNumber || trailer.model || 'Trailer').trim()}_SpecSheet.xlsx`);
-      const filePath = await uploadFileToGateway(fileObj, trailer.id, 'spec_sheet', 'trailers', 'trailers', trailer.serialNumber);
+      const filePath = await uploadFileToSupabase(fileObj, 'spec_sheet', trailer.serialNumber);
       
       setEditForm(prev => ({ 
         ...prev, 
@@ -199,7 +199,7 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
       });
       triggerToast("Spec Sheet Uploaded Successfully!");
     } catch (err: any) {
-      console.error("Failed to upload spec sheet to gateway", err);
+      console.error("Failed to upload spec sheet", err);
       alert("Failed to upload spec sheet: " + err.message);
     } finally {
       setIsUploadingSpecSheet(false);
@@ -887,8 +887,8 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                               try {
                                 const base64 = await fileToBase64(file);
                                 const compressedFile = dataURLtoFile(base64, file.name);
-                                const relativePath = await uploadFileToGateway(compressedFile, trailer.id, field, 'trailers', 'photos', trailer.serialNumber);
-                                onUpdate(trailer.id, { [field]: relativePath });
+                                const relativePath = await uploadFileToSupabase(compressedFile, field, trailer.serialNumber);
+                                setEditForm(prev => ({ ...prev, [field]: relativePath }));
                                 triggerToast(`Photo ${num} Uploaded Successfully!`);
                               } catch (err: any) {
                                 console.error(`Photo ${num} upload failed:`, err);
@@ -905,7 +905,8 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                           onClick={async () => {
                             if (isRelativePath(url)) {
                               try {
-                                await deleteFileFromGateway(url, 'trailers', trailer.id, field, trailer.serialNumber);
+                                await deleteFileFromSupabase(url);
+                                setEditForm(prev => ({ ...prev, [field]: undefined }));
                               } catch (e) {
                                 console.error(`Error deleting Photo ${num} from gateway:`, e);
                               }
@@ -938,8 +939,8 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                 alignItems: 'center', 
                 justifyContent: 'center', 
                 height: '100px', 
-                background: inspectionSheetFile ? 'transparent' : 'rgba(16, 185, 129, 0.05)', 
-                border: '1px dashed rgba(16, 185, 129, 0.4)', 
+                background: inspectionSheetFile ? 'transparent' : 'rgba(10, 185, 129, 0.05)', 
+                border: '1px dashed rgba(10, 185, 129, 0.4)', 
                 borderRadius: '12px', 
                 cursor: (isLoadingHeavy || isUploadingInspection) ? 'default' : 'pointer',
                 overflow: 'hidden',
@@ -998,11 +999,11 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                       if (file.type.startsWith('image/')) {
                         const base64 = await fileToBase64(file);
                         const compressedFile = dataURLtoFile(base64, file.name);
-                        relativePath = await uploadFileToGateway(compressedFile, trailer.id, 'inspection_sheet', 'trailers', 'inspections', trailer.serialNumber);
+                        relativePath = await uploadFileToSupabase(compressedFile, 'inspection_sheet', trailer.serialNumber);
                       } else {
-                        relativePath = await uploadFileToGateway(file, trailer.id, 'inspection_sheet', 'trailers', 'inspections', trailer.serialNumber);
+                        relativePath = await uploadFileToSupabase(file, 'inspection_sheet', trailer.serialNumber);
                       }
-                      onUpdate(trailer.id, { inspection_sheet_file: relativePath });
+                      setEditForm(prev => ({ ...prev, inspection_sheet_file: relativePath }));
                       triggerToast('Inspection Sheet Uploaded Successfully!');
                     } catch (err: any) {
                       console.error('Inspection sheet upload failed:', err);
@@ -1029,17 +1030,18 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
             )}
             {inspectionSheetFile && !trailer.isArchived && !isLoadingHeavy && (
               <button 
-                onClick={async (e) => {
-                  e.preventDefault();
-                  if (isRelativePath(inspectionSheetFile)) {
-                    try {
-                      await deleteFileFromGateway(inspectionSheetFile, 'trailers', trailer.id, 'inspection_sheet_file', trailer.serialNumber);
-                    } catch (e) {
-                      console.error('Error deleting inspection sheet from gateway:', e);
-                    }
+                onClick={async () => {
+                  setIsUploadingInspection(true);
+                  try {
+                    await deleteFileFromSupabase(inspectionSheetFile);
+                    setEditForm(prev => ({ ...prev, inspection_sheet_file: undefined }));
+                    onUpdate(trailer.id, { inspection_sheet_file: null });
+                    triggerToast("Inspection Sheet deleted!");
+                  } catch (e) {
+                    console.error('Error deleting inspection sheet from gateway:', e);
+                  } finally {
+                    setIsUploadingInspection(false);
                   }
-                  onUpdate(trailer.id, { inspection_sheet_file: undefined });
-                  triggerToast('Inspection Sheet Removed!');
                 }}
                 style={{ 
                   position: 'absolute', top: '-8px', right: '-8px', 
