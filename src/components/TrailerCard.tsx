@@ -92,9 +92,10 @@ export const TrailerCard: React.FC<Props> = React.memo(({
 
   const timeToShipping = calculateTrailerRemainingHours(trailer, localTargetHours);
 
+  // Chrome on desktop reports maxTouchPoints > 0 even on non-touch machines, so we only
+  // use the pointer:coarse media query which accurately identifies real touch devices.
   const isTablet = typeof window !== 'undefined' && 
-    window.innerWidth <= 1366 && 
-    (window.matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0 || window.innerWidth <= 768);
+    window.matchMedia('(pointer: coarse)').matches;
 
   return (
     <div
