@@ -272,7 +272,7 @@ const TVView: React.FC<Props> = ({ trailers, monitorMode: initialMode = 'all', l
           overflowX: 'auto', 
           overflowY: 'hidden',
           display: 'flex',
-          justifyContent: windowWidth < 1024 
+          justifyContent: windowWidth < (columns.length * 380 + 32)
             ? 'flex-start' 
             : (monitorMode !== 'all' || columns.length <= 3 ? 'center' : 'flex-start'),
           alignItems: 'stretch'
