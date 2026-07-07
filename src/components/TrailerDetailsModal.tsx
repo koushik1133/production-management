@@ -48,13 +48,17 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
     if (!isOpen || !trailer.id) return;
     
     // Check if we already have the data in the passed trailer prop to avoid redundant loads
-    if (trailer.spec_sheet_file !== undefined) {
+    if (
+      trailer.spec_sheet_file !== undefined ||
+      trailer.inspection_sheet_file !== undefined ||
+      trailer.photo_1_url !== undefined
+    ) {
       setHeavyData({
-        spec_sheet_file: trailer.spec_sheet_file,
-        inspection_sheet_file: trailer.inspection_sheet_file,
-        photo_1_url: trailer.photo_1_url,
-        photo_2_url: trailer.photo_2_url,
-        photo_3_url: trailer.photo_3_url
+        spec_sheet_file: trailer.spec_sheet_file ?? null,
+        inspection_sheet_file: trailer.inspection_sheet_file ?? null,
+        photo_1_url: trailer.photo_1_url ?? null,
+        photo_2_url: trailer.photo_2_url ?? null,
+        photo_3_url: trailer.photo_3_url ?? null
       });
       return;
     }
@@ -62,11 +66,12 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
     const loadHeavyTrailer = async () => {
       setIsLoadingHeavy(true);
       try {
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from('trailers')
           .select('spec_sheet_file, inspection_sheet_file, photo_1_url, photo_2_url, photo_3_url')
           .eq('id', trailer.id)
           .single();
+        if (error) throw error;
         if (data) {
           setHeavyData({
             spec_sheet_file: data.spec_sheet_file || null,
@@ -83,7 +88,7 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
       }
     };
     loadHeavyTrailer();
-  }, [trailer.id, isOpen, trailer.spec_sheet_file]);
+  }, [trailer.id, isOpen, trailer.spec_sheet_file, trailer.inspection_sheet_file, trailer.photo_1_url]);
 
   const specSheetFile = trailer.spec_sheet_file !== undefined ? trailer.spec_sheet_file : heavyData.spec_sheet_file;
   const inspectionSheetFile = trailer.inspection_sheet_file !== undefined ? trailer.inspection_sheet_file : heavyData.inspection_sheet_file;
@@ -108,17 +113,24 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
     inspection_sheet_file: inspectionSheetFile || undefined
   });
 
+  const [localNotes, setLocalNotes] = React.useState(trailer.notes || '');
+
   useEffect(() => {
-    if (specSheetFile !== undefined || inspectionSheetFile !== undefined) {
-      setEditForm(prev => ({
-        ...prev,
+    if (isOpen && trailer.id) {
+      setEditForm({
+        name: trailer.name || '',
+        notes: trailer.notes || '',
+        isPriority: trailer.isPriority || false,
+        promisedShippingDate: trailer.promisedShippingDate || '',
+        serialNumber: trailer.serialNumber || '',
+        partsStatus: trailer.partsStatus || { steel: false, tyres: false, parts: false },
+        sale_price: trailer.sale_price?.toString() || '',
         spec_sheet_file: specSheetFile || undefined,
         inspection_sheet_file: inspectionSheetFile || undefined
-      }));
+      });
+      setLocalNotes(trailer.notes || '');
     }
-  }, [specSheetFile, inspectionSheetFile]);
-
-  const [localNotes, setLocalNotes] = React.useState(trailer.notes || '');
+  }, [trailer.id, isOpen, specSheetFile, inspectionSheetFile]);
 
   const handleGenerateSpecSheet = async () => {
     if (!trailer.trailer_color || !trailer.trailer_plug || !trailer.sale_price) {
@@ -155,9 +167,10 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
             reader.readAsDataURL(blob);
           });
           templateBase64 = await base64Promise;
-        } catch (e: any) {
+        } catch (e) {
+          const errMsg = e instanceof Error ? e.message : String(e);
           console.error('Failed to download template from storage gateway:', e);
-          alert(`Failed to download template from storage gateway: ${e.message}`);
+          alert(`Failed to download template from storage gateway: ${errMsg}`);
           return;
         }
       }
@@ -175,9 +188,10 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
       );
       await handleSpecSheetUpdate(injected);
       triggerToast("Spec Sheet Generated Successfully!");
-    } catch (error: any) {
+    } catch (error) {
+      const errMsg = error instanceof Error ? error.message : String(error);
       console.error("Failed to generate spec sheet", error);
-      alert(`Failed to generate spec sheet: ${error.message}`);
+      alert(`Failed to generate spec sheet: ${errMsg}`);
     } finally {
       setIsUploadingSpecSheet(false);
     }
@@ -198,9 +212,10 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
         spec_sheet_file: filePath
       });
       triggerToast("Spec Sheet Uploaded Successfully!");
-    } catch (err: any) {
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
       console.error("Failed to upload spec sheet", err);
-      alert("Failed to upload spec sheet: " + err.message);
+      alert("Failed to upload spec sheet: " + errMsg);
     } finally {
       setIsUploadingSpecSheet(false);
     }
@@ -248,7 +263,9 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
     return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
   };
 
-  const isDuplicateSerial = allTrailers.some(t => t.serialNumber === editForm.serialNumber && t.id !== trailer.id);
+  const isDuplicateSerial = React.useMemo(() => {
+    return allTrailers.some(t => t.serialNumber === editForm.serialNumber && t.id !== trailer.id);
+  }, [allTrailers, editForm.serialNumber, trailer.id]);
 
   const togglePart = (part: keyof typeof editForm.partsStatus) => {
     const newStatus = { ...editForm.partsStatus, [part]: !editForm.partsStatus[part] };
@@ -256,6 +273,11 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
     if (!isEditing) {
       onUpdate(trailer.id, { partsStatus: newStatus });
     }
+  };
+
+  const handleSaveNotes = () => {
+    onUpdate(trailer.id, { notes: localNotes });
+    triggerToast('Notes Updated Successfully!');
   };
 
   const handleSaveAll = () => {
@@ -779,7 +801,7 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
             onChange={(e) => setLocalNotes(e.target.value)}
             style={{ width: '100%', marginBottom: '1rem' }}
           />
-          <button className="btn btn-primary" style={{ width: '100%' }} onClick={handleSaveAll}><Send size={14} /> Update Notes</button>
+          <button className="btn btn-primary" style={{ width: '100%' }} onClick={handleSaveNotes}><Send size={14} /> Update Notes</button>
         </div>
 
         <div className="section-title"><ImageIcon size={16} /><span>Photos & Documents</span></div>
@@ -823,7 +845,8 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
               <>
                 {[1, 2, 3].map(num => {
                   const field = `photo_${num}_url` as keyof Trailer;
-                  const url = (trailer[field] !== undefined ? trailer[field] : (heavyData as any)[field]) as string | undefined;
+                  const photoKey = field as keyof typeof heavyData;
+                  const url = (trailer[field] !== undefined ? trailer[field] : heavyData[photoKey]) as string | undefined;
                   const resolvedUrl = num === 1 ? resolvedPhoto1 : num === 2 ? resolvedPhoto2 : resolvedPhoto3;
 
                   return (
@@ -891,9 +914,10 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                                 setEditForm(prev => ({ ...prev, [field]: relativePath }));
                                 onUpdate(trailer.id, { [field]: relativePath });
                                 triggerToast(`Photo ${num} Uploaded Successfully!`);
-                              } catch (err: any) {
+                              } catch (err) {
+                                const errMsg = err instanceof Error ? err.message : String(err);
                                 console.error(`Photo ${num} upload failed:`, err);
-                                alert(`Upload failed: ${err.message}`);
+                                alert(`Upload failed: ${errMsg}`);
                               } finally {
                                 setUploadingPhotos(prev => ({ ...prev, [num]: false }));
                               }
@@ -904,15 +928,14 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                       {url && !trailer.isArchived && !isLoadingHeavy && (
                         <button 
                           onClick={async () => {
-                            if (isRelativePath(url)) {
-                              try {
+                            try {
+                              if (isRelativePath(url)) {
                                 await deleteFileFromSupabase(url);
-                                setEditForm(prev => ({ ...prev, [field]: undefined }));
-                                onUpdate(trailer.id, { [field]: null as unknown as string });
-                              } catch (e) {
-                                console.error(`Error deleting Photo ${num} from gateway:`, e);
                               }
+                            } catch (e) {
+                              console.error(`Error deleting Photo ${num} from gateway:`, e);
                             }
+                            setEditForm(prev => ({ ...prev, [field]: null }));
                             onUpdate(trailer.id, { [field]: null });
                             triggerToast(`Photo ${num} Removed!`);
                           }}
@@ -1008,9 +1031,10 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                       setEditForm(prev => ({ ...prev, inspection_sheet_file: relativePath }));
                       onUpdate(trailer.id, { inspection_sheet_file: relativePath });
                       triggerToast('Inspection Sheet Uploaded Successfully!');
-                    } catch (err: any) {
+                    } catch (err) {
+                      const errMsg = err instanceof Error ? err.message : String(err);
                       console.error('Inspection sheet upload failed:', err);
-                      alert(`Upload failed: ${err.message}`);
+                      alert(`Upload failed: ${errMsg}`);
                     } finally {
                       setIsUploadingInspection(false);
                     }
@@ -1034,17 +1058,17 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
             {inspectionSheetFile && !trailer.isArchived && !isLoadingHeavy && (
               <button 
                 onClick={async () => {
-                  setIsUploadingInspection(true);
                   try {
-                    await deleteFileFromSupabase(inspectionSheetFile);
-                    setEditForm(prev => ({ ...prev, inspection_sheet_file: undefined }));
-                    onUpdate(trailer.id, { inspection_sheet_file: null as unknown as string });
-                    triggerToast("Inspection Sheet deleted!");
+                    if (isRelativePath(inspectionSheetFile)) {
+                      await deleteFileFromSupabase(inspectionSheetFile);
+                    }
                   } catch (e) {
                     console.error('Error deleting inspection sheet from gateway:', e);
-                  } finally {
-                    setIsUploadingInspection(false);
                   }
+                  setEditForm(prev => ({ ...prev, inspection_sheet_file: undefined }));
+                  onUpdate(trailer.id, { inspection_sheet_file: null });
+                  triggerToast("Inspection Sheet deleted!");
+                  setIsUploadingInspection(false);
                 }}
                 style={{ 
                   position: 'absolute', top: '-8px', right: '-8px', 

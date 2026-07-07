@@ -42,11 +42,11 @@ export const KanbanColumn: React.FC<Props> = React.memo(({ id, title, trailers, 
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <span className="column-title" style={{ fontSize: '0.85rem', fontWeight: 900, letterSpacing: '0.05em' }}>{title}</span>
         </div>
-        <span className="column-count" style={{ background: 'rgba(255,255,255,0.05)', color: 'var(--text-secondary)', fontWeight: 800 }}>{trailers.length}</span>
+        <span className="column-count" style={{ background: 'rgba(255,255,255,0.05)', color: 'var(--text-secondary)', fontWeight: 800 }}>{sortedTrailers.length}</span>
       </div>
       <div className="cards-container">
         <SortableContext
-          items={Array.from(new Set(sortedTrailers.map((t) => t.id)))}
+          items={sortedTrailers.map((t) => t.id)}
           strategy={verticalListSortingStrategy}
         >
           {sortedTrailers.map((trailer) => (

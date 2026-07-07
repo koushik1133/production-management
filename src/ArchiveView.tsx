@@ -77,7 +77,7 @@ const ShippedRecord: React.FC<{ record: ShippedTrailer; notes?: string; onClose:
   const resolvedP1 = useResolvedUrl(p1);
   const resolvedP2 = useResolvedUrl(p2);
   const resolvedP3 = useResolvedUrl(p3);
-  const resolvedPhotos = [resolvedP1, resolvedP2, resolvedP3].filter(Boolean);
+  const resolvedPhotos = [resolvedP1, resolvedP2, resolvedP3].filter((u): u is string => !!u);
 
   return (
     <Modal isOpen={true} onClose={onClose} title={`${record.serial_number} • Performance Report`}>
@@ -133,22 +133,25 @@ const ShippedRecord: React.FC<{ record: ShippedTrailer; notes?: string; onClose:
             <h3 style={{ fontSize: '0.9rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Production Timeline</h3>
           </div>
           <div className="shipped-phase-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '0.75rem' }}>
-            {PHASE_LABELS.map(({ key, label, color }) => (
-              <div key={key} style={{ 
-                background: 'var(--bg-card)', 
-                padding: '1rem', 
-                borderRadius: '16px', 
-                border: '1px solid var(--border-default)', 
-                textAlign: 'center',
-                transition: 'transform 0.2s',
-              }}>
-                <div style={{ fontSize: '0.6rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.5rem' }}>{label}</div>
-                <div style={{ fontSize: '1.25rem', fontWeight: 900, color }}>
-                  {(record as any)[key] ?? 0}
-                  <small style={{ fontSize: '0.6rem', fontWeight: 600, color: 'var(--text-muted)', marginLeft: '2px' }}>h</small>
+            {PHASE_LABELS.map(({ key, label, color }) => {
+              const value = record[key as keyof ShippedTrailer] as number ?? 0;
+              return (
+                <div key={key} style={{ 
+                  background: 'var(--bg-card)', 
+                  padding: '1rem', 
+                  borderRadius: '16px', 
+                  border: '1px solid var(--border-default)', 
+                  textAlign: 'center',
+                  transition: 'transform 0.2s',
+                }}>
+                  <div style={{ fontSize: '0.6rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.5rem' }}>{label}</div>
+                  <div style={{ fontSize: '1.25rem', fontWeight: 900, color }}>
+                    {value}
+                    <small style={{ fontSize: '0.6rem', fontWeight: 600, color: 'var(--text-muted)', marginLeft: '2px' }}>h</small>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
@@ -478,25 +481,28 @@ export const ArchiveView: React.FC<Props> = ({ trailers, onUpdateTrailer, localT
                     const allTrailersWithMedia: ShippedTrailer[] = [];
                     const serials = filteredDataForExport.map(t => t.serial_number);
                     
-                    for (let i = 0; i < serials.length; i++) {
-                      setExportStatus(`Fetching (${i + 1}/${serials.length})...`);
-                      const { data, error } = await supabase
-                        .from('shipped_trailers')
-                        .select('*')
-                        .eq('serial_number', serials[i]);
-                      
-                      if (error) throw error;
-                      if (data && data.length > 0) {
-                        allTrailersWithMedia.push(data[0]);
-                      }
+                    setExportStatus(`Fetching records...`);
+                    const { data: recordsData, error } = await supabase
+                      .from('shipped_trailers')
+                      .select('*')
+                      .in('serial_number', serials);
+                    
+                    if (error) throw error;
+                    if (recordsData) {
+                      allTrailersWithMedia.push(...recordsData);
                     }
 
                     const data = allTrailersWithMedia.map(t => {
                       const baseFolder = `media/${t.serial_number}/`;
                       
-                      const getExt = (base64String: string | null | undefined, defaultExt: string) => {
-                        if (!base64String) return "";
-                        const parts = base64String.split(';base64,');
+                      const getExt = (value: string | null | undefined, defaultExt: string) => {
+                        if (!value) return "";
+                        if (isRelativePath(value) || value.startsWith('http')) {
+                          const parts = value.split('?')[0].split('.');
+                          const ext = '.' + (parts.pop()?.toLowerCase() || defaultExt.replace('.', ''));
+                          return ['.jpg', '.jpeg', '.png', '.pdf', '.xlsx'].includes(ext) ? ext : defaultExt;
+                        }
+                        const parts = value.split(';base64,');
                         if (parts.length < 2) return defaultExt;
                         const contentType = parts[0].split(':')[1];
                         if (contentType.includes("jpeg") || contentType.includes("jpg")) return ".jpg";
@@ -616,9 +622,7 @@ export const ArchiveView: React.FC<Props> = ({ trailers, onUpdateTrailer, localT
                     const file = e.target.files?.[0];
                     if (file) {
                       const reader = new FileReader();
-                      reader.onload = (event) => {
-                        const text = event.target?.result as string;
-                        console.log("Imported CSV Data:", text);
+                      reader.onload = () => {
                         alert("CSV Import received. Processing logic would go here.");
                       };
                       reader.readAsText(file);
@@ -702,8 +706,8 @@ export const ArchiveView: React.FC<Props> = ({ trailers, onUpdateTrailer, localT
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.25rem' }}>
                   <div style={{ background: 'var(--bg-secondary)', padding: '0.75rem', borderRadius: '12px', border: '1px solid var(--border-default)' }}>
-                    <div style={{ fontSize: '0.6rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>Shipped Date</div>
-                    <div style={{ fontSize: '0.85rem', fontWeight: 700 }}>{format(new Date(t.shipped_at), 'MMM d, yyyy')}</div>
+                    <div style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>Shipped Date</div>
+                    <div style={{ fontSize: '0.85rem', fontWeight: 700 }}>{t.shipped_at ? format(new Date(t.shipped_at), 'MMM d, yyyy') : '—'}</div>
                   </div>
                   <div style={{ background: 'var(--bg-secondary)', padding: '0.75rem', borderRadius: '12px', border: '1px solid var(--border-default)' }}>
                     <div style={{ fontSize: '0.6rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>Total Hours</div>
