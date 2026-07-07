@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 
 const BUCKET_NAME = 'trailers-files';
@@ -9,7 +9,8 @@ export function isRelativePath(path: string | undefined | null): boolean {
 }
 
 export async function fetchFileBlob(relativePath: string): Promise<Blob> {
-  const { data, error } = await supabase.storage.from(BUCKET_NAME).download(relativePath);
+  const normalized = relativePath.replace(/\\/g, '/');
+  const { data, error } = await supabase.storage.from(BUCKET_NAME).download(normalized);
   if (error) {
     throw new Error(`Failed to fetch file from Supabase: ${error.message}`);
   }
@@ -17,45 +18,13 @@ export async function fetchFileBlob(relativePath: string): Promise<Blob> {
 }
 
 export function useResolvedUrl(path: string | undefined | null): string {
-  const [url, setUrl] = useState<string>('');
-
-  const resolvedSyncUrl = useMemo(() => {
+  return useMemo(() => {
     if (!path) return '';
-    if (!isRelativePath(path)) return path; 
-    const { data } = supabase.storage.from(BUCKET_NAME).getPublicUrl(path);
+    const normalized = path.replace(/\\/g, '/');
+    if (!isRelativePath(normalized)) return normalized; 
+    const { data } = supabase.storage.from(BUCKET_NAME).getPublicUrl(normalized);
     return data.publicUrl;
   }, [path]);
-
-  useEffect(() => {
-    if (resolvedSyncUrl !== null) {
-      return;
-    }
-
-    let active = true;
-    let objectUrl = '';
-
-    const load = async () => {
-      try {
-        const blob = await fetchFileBlob(path!);
-        if (!active) return;
-        objectUrl = URL.createObjectURL(blob);
-        setUrl(objectUrl);
-      } catch (err) {
-        console.error('Error resolving relative path through storage gateway:', err);
-      }
-    };
-
-    load();
-
-    return () => {
-      active = false;
-      if (objectUrl) {
-        URL.revokeObjectURL(objectUrl);
-      }
-    };
-  }, [path, resolvedSyncUrl]);
-
-  return resolvedSyncUrl !== null ? resolvedSyncUrl : url;
 }
 
 export async function uploadFileToSupabase(file: File, type: string, id: string): Promise<string> {
@@ -63,9 +32,6 @@ export async function uploadFileToSupabase(file: File, type: string, id: string)
   if (type === 'spec_sheet_template') {
     folderPath = `templates/${id}`;
   } else if (type === 'spec_sheet' || type === 'inspection_sheet' || type.startsWith('photo_')) {
-    // We assume if it has a type, it goes into the relevant trailer folder.
-    // If we need to distinguish shipped vs active, we could use an optional category param, but let's just use trailers
-    // For shipped trailers, the serial number is the ID usually in this context.
     folderPath = `trailers/${id}`;
   } else {
     folderPath = `misc/${id}`;
@@ -85,21 +51,23 @@ export async function uploadFileToSupabase(file: File, type: string, id: string)
     throw new Error(`Supabase upload failed: ${error.message}`);
   }
 
-  const { data: publicUrlData } = supabase.storage.from(BUCKET_NAME).getPublicUrl(data.path);
-  return publicUrlData.publicUrl;
+  return data.path;
 }
 
-export async function deleteFileFromSupabase(publicUrl: string): Promise<void> {
-  if (!publicUrl || publicUrl.startsWith('data:')) return;
+export async function deleteFileFromSupabase(pathOrUrl: string): Promise<void> {
+  if (!pathOrUrl || pathOrUrl.startsWith('data:')) return;
 
+  let path = pathOrUrl;
   const bucketUrlPart = `/storage/v1/object/public/${BUCKET_NAME}/`;
-  const pathIndex = publicUrl.indexOf(bucketUrlPart);
+  const pathIndex = pathOrUrl.indexOf(bucketUrlPart);
   
-  if (pathIndex === -1) return;
-  
-  const path = publicUrl.substring(pathIndex + bucketUrlPart.length);
+  if (pathIndex !== -1) {
+    path = pathOrUrl.substring(pathIndex + bucketUrlPart.length);
+  }
 
-  const { error } = await supabase.storage.from(BUCKET_NAME).remove([path]);
+  const normalized = path.replace(/\\/g, '/');
+
+  const { error } = await supabase.storage.from(BUCKET_NAME).remove([normalized]);
   if (error) {
     throw new Error(`Delete failed: ${error.message}`);
   }

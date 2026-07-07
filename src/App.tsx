@@ -249,13 +249,6 @@ function Dashboard({
       const hours = { prefab: getH('prefab'), build: getH('build'), paint: getH('paint'), outsource: getH('outsource'), trim: getH('trim') };
       const total_h = parseFloat(Object.values(hours).reduce((a, b) => a + b, 0).toFixed(1));
 
-      const getExt = (file: File | null) => {
-        if (!file) return '';
-        const name = file.name;
-        const lastDot = name.lastIndexOf('.');
-        return lastDot !== -1 ? name.substring(lastDot).toLowerCase() : '';
-      };
-
       const serial = pendingShippingTrailer.serialNumber;
 
       let finalP1 = shippingPhotos.p1;
@@ -265,12 +258,9 @@ function Dashboard({
           const mimeMatch = p1.match(/^data:(image\/[a-z]+);/);
           const ext = mimeMatch ? `.${mimeMatch[1].split('/')[1]}` : '.png';
           finalP1 = dataURLtoFile(p1, `photo_1${ext}`);
-          p1 = `media/${serial}/photo_1${ext}`;
         } catch (e) {
           console.error('Failed to convert legacy photo 1:', e);
         }
-      } else if (shippingPhotos.p1) {
-        p1 = `media/${serial}/photo_1${getExt(shippingPhotos.p1)}`;
       }
 
       let finalP2 = shippingPhotos.p2;
@@ -280,12 +270,9 @@ function Dashboard({
           const mimeMatch = p2.match(/^data:(image\/[a-z]+);/);
           const ext = mimeMatch ? `.${mimeMatch[1].split('/')[1]}` : '.png';
           finalP2 = dataURLtoFile(p2, `photo_2${ext}`);
-          p2 = `media/${serial}/photo_2${ext}`;
         } catch (e) {
           console.error('Failed to convert legacy photo 2:', e);
         }
-      } else if (shippingPhotos.p2) {
-        p2 = `media/${serial}/photo_2${getExt(shippingPhotos.p2)}`;
       }
 
       let finalP3 = shippingPhotos.p3;
@@ -295,12 +282,9 @@ function Dashboard({
           const mimeMatch = p3.match(/^data:(image\/[a-z]+);/);
           const ext = mimeMatch ? `.${mimeMatch[1].split('/')[1]}` : '.png';
           finalP3 = dataURLtoFile(p3, `photo_3${ext}`);
-          p3 = `media/${serial}/photo_3${ext}`;
         } catch (e) {
           console.error('Failed to convert legacy photo 3:', e);
         }
-      } else if (shippingPhotos.p3) {
-        p3 = `media/${serial}/photo_3${getExt(shippingPhotos.p3)}`;
       }
 
       let spec_sheet_file = pendingShippingTrailer.spec_sheet_file || undefined;
@@ -309,14 +293,9 @@ function Dashboard({
         try {
           const fileObj = dataURLtoFile(spec_sheet_file, `${serial}_Final-SpecSheet.xlsx`);
           finalShippingSpecSheet = fileObj;
-          spec_sheet_file = `media/${serial}/${serial}_Final-SpecSheet.xlsx`;
         } catch (e) {
           console.error('Failed to convert legacy base64 spec sheet:', e);
         }
-      } else if (shippingSpecSheet) {
-        spec_sheet_file = `media/${serial}/${serial}_Final-SpecSheet${getExt(shippingSpecSheet)}`;
-      } else if (spec_sheet_file && spec_sheet_file.startsWith('blob:')) {
-        spec_sheet_file = undefined;
       }
 
       let inspection_sheet_file = pendingShippingTrailer.inspection_sheet_file || undefined;
@@ -328,14 +307,53 @@ function Dashboard({
           const ext = mime === 'application/pdf' ? '.pdf' : '.png';
           const fileObj = dataURLtoFile(inspection_sheet_file, `${serial}_InspectionSheet${ext}`);
           finalShippingInspectionSheet = fileObj;
-          inspection_sheet_file = `media/${serial}/${serial}_InspectionSheet${ext}`;
         } catch (e) {
           console.error('Failed to convert legacy base64 inspection sheet:', e);
         }
-      } else if (shippingInspectionSheet) {
-        inspection_sheet_file = `media/${serial}/${serial}_InspectionSheet${getExt(shippingInspectionSheet)}`;
-      } else if (inspection_sheet_file && inspection_sheet_file.startsWith('blob:')) {
-        inspection_sheet_file = undefined;
+      }
+
+      // 1. Upload files first through storage to get their true relative paths
+      let finalP1Path = pendingShippingTrailer.photo_1_url || undefined;
+      if (finalP1) {
+        finalP1Path = await uploadFileToSupabase(finalP1, 'photo_1', serial);
+      } else if (finalP1Path) {
+        finalP1Path = finalP1Path.replace(/^media\//, 'trailers/').replace(/\\/g, '/');
+      }
+
+      let finalP2Path = pendingShippingTrailer.photo_2_url || undefined;
+      if (finalP2) {
+        finalP2Path = await uploadFileToSupabase(finalP2, 'photo_2', serial);
+      } else if (finalP2Path) {
+        finalP2Path = finalP2Path.replace(/^media\//, 'trailers/').replace(/\\/g, '/');
+      }
+
+      let finalP3Path = pendingShippingTrailer.photo_3_url || undefined;
+      if (finalP3) {
+        finalP3Path = await uploadFileToSupabase(finalP3, 'photo_3', serial);
+      } else if (finalP3Path) {
+        finalP3Path = finalP3Path.replace(/^media\//, 'trailers/').replace(/\\/g, '/');
+      }
+
+      let finalSpecPath = pendingShippingTrailer.spec_sheet_file || undefined;
+      if (finalShippingSpecSheet) {
+        finalSpecPath = await uploadFileToSupabase(finalShippingSpecSheet, 'spec_sheet', serial);
+      } else if (finalSpecPath) {
+        if (finalSpecPath.startsWith('blob:')) {
+          finalSpecPath = undefined;
+        } else {
+          finalSpecPath = finalSpecPath.replace(/^media\//, 'trailers/').replace(/\\/g, '/');
+        }
+      }
+
+      let finalInspectPath = pendingShippingTrailer.inspection_sheet_file || undefined;
+      if (finalShippingInspectionSheet) {
+        finalInspectPath = await uploadFileToSupabase(finalShippingInspectionSheet, 'inspection_sheet', serial);
+      } else if (finalInspectPath) {
+        if (finalInspectPath.startsWith('blob:')) {
+          finalInspectPath = undefined;
+        } else {
+          finalInspectPath = finalInspectPath.replace(/^media\//, 'trailers/').replace(/\\/g, '/');
+        }
       }
 
       const shippedRecord: ShippedTrailer = {
@@ -351,50 +369,28 @@ function Dashboard({
         paint_hours: hours.paint,
         outsource_hours: hours.outsource,
         trim_hours: hours.trim,
-        photo_1_url: p1,
-        photo_2_url: p2,
-        photo_3_url: p3,
+        photo_1_url: finalP1Path,
+        photo_2_url: finalP2Path,
+        photo_3_url: finalP3Path,
         sale_price: parseFloat(shippingForm.sale_price) || 0,
-        spec_sheet_file,
-        inspection_sheet_file
+        spec_sheet_file: finalSpecPath,
+        inspection_sheet_file: finalInspectPath
       };
 
-      // 1. Save shipped trailer metadata in database (with retry support)
+      // 2. Save shipped trailer metadata in database (with retry support)
       await withRetry(() => onSaveShippedRecord(shippedRecord));
 
-      // 2. Upload physical files through Storage Gateway concurrently to prevent sequential bottlenecks
-      const uploadPromises = [];
-      if (finalP1) {
-        uploadPromises.push(uploadFileToSupabase(finalP1, 'photo_1', pendingShippingTrailer.serialNumber));
-      }
-      if (finalP2) {
-        uploadPromises.push(uploadFileToSupabase(finalP2, 'photo_2', pendingShippingTrailer.serialNumber));
-      }
-      if (finalP3) {
-        uploadPromises.push(uploadFileToSupabase(finalP3, 'photo_3', pendingShippingTrailer.serialNumber));
-      }
-      if (finalShippingSpecSheet) {
-        uploadPromises.push(uploadFileToSupabase(finalShippingSpecSheet, 'spec_sheet', pendingShippingTrailer.serialNumber));
-      }
-      if (finalShippingInspectionSheet) {
-        uploadPromises.push(uploadFileToSupabase(finalShippingInspectionSheet, 'inspection_sheet', pendingShippingTrailer.serialNumber));
-      }
-
-      if (uploadPromises.length > 0) {
-        await Promise.all(uploadPromises);
-      }
-
-      // 3. Mark the active trailer as archived (calls the updateTrailer prop which handles DB with retries and React state)
+      // 3. Mark the active trailer as archived
       const updateSuccess = await updateTrailer(pendingShippingTrailer.id, {
         invoiceNumber: shippingForm.invoice_number,
         vinDate: shippingForm.vin_date,
         isArchived: true,
         archivedAt: Date.now(),
-        photo_1_url: p1,
-        photo_2_url: p2,
-        photo_3_url: p3,
-        spec_sheet_file,
-        inspection_sheet_file
+        photo_1_url: finalP1Path,
+        photo_2_url: finalP2Path,
+        photo_3_url: finalP3Path,
+        spec_sheet_file: finalSpecPath,
+        inspection_sheet_file: finalInspectPath
       });
 
       if (!updateSuccess) {
