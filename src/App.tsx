@@ -2079,48 +2079,27 @@ function App() {
   };
 
   const handleAddModel = async (data: { name: string, category: string, hours: Record<PhaseId, number>, spec: ModelSpec, spec_sheet_template?: string }) => {
-    let templatePath: string | undefined = undefined;
-    
     try {
-      if (data.spec_sheet_template) {
-        const fileObj = dataURLtoFile(data.spec_sheet_template, `${data.name}_Template.xlsx`);
-        // Create model row first (spec_sheet_template is undefined initially)
-        const newModel: CatalogModel = {
-          id: crypto.randomUUID(),
-          name: data.name,
-          category: data.category,
-          target_hours: data.hours,
-          specs: data.spec,
-          spec_sheet_template: undefined
-        };
-        
-        // Optimistic update
-        setCatalogModels(prev => [...prev, newModel]);
-        
-        const { error: insertError } = await supabase.from('production_models').insert(newModel);
-        if (insertError) throw insertError;
-        
-        // Upload template to Supabase Storage
+      let templatePath = data.spec_sheet_template;
+      if (templatePath && templatePath.startsWith('data:')) {
+        const fileObj = dataURLtoFile(templatePath, `${data.name}_Template.xlsx`);
         templatePath = await uploadFileToSupabase(fileObj, 'spec_sheet_template', data.name);
-        
-        // Update local state with the template path
-        setCatalogModels(prev => prev.map(m => m.name === data.name ? { ...m, spec_sheet_template: templatePath } : m));
-      } else {
-        const newModel: CatalogModel = {
-          id: crypto.randomUUID(),
-          name: data.name,
-          category: data.category,
-          target_hours: data.hours,
-          specs: data.spec,
-          spec_sheet_template: undefined
-        };
-        
-        // Optimistic update
-        setCatalogModels(prev => [...prev, newModel]);
-        
-        const { error } = await supabase.from('production_models').insert(newModel);
-        if (error) throw error;
       }
+
+      const newModel: CatalogModel = {
+        id: crypto.randomUUID(),
+        name: data.name,
+        category: data.category,
+        target_hours: data.hours,
+        specs: data.spec,
+        spec_sheet_template: templatePath
+      };
+      
+      // Optimistic update
+      setCatalogModels(prev => [...prev, newModel]);
+      
+      const { error } = await supabase.from('production_models').insert(newModel);
+      if (error) throw error;
     } catch (err: any) {
       console.error('Error adding model to catalog:', err);
       // Revert optimistic update
@@ -2132,12 +2111,15 @@ function App() {
   const handleEditModel = async (name: string, spec: { targetHours?: Record<PhaseId, number>, spec_sheet_template?: string }) => {
     if (spec.spec_sheet_template) {
       try {
-        const fileObj = dataURLtoFile(spec.spec_sheet_template, `${name}_Template.xlsx`);
-        const relativePath = await uploadFileToSupabase(fileObj, 'spec_sheet_template', name);
+        let templatePath = spec.spec_sheet_template;
+        if (templatePath.startsWith('data:')) {
+          const fileObj = dataURLtoFile(templatePath, `${name}_Template.xlsx`);
+          templatePath = await uploadFileToSupabase(fileObj, 'spec_sheet_template', name);
+        }
         
         const existing = catalogModels.find(m => m.name === name);
         if (existing) {
-          const updatedModel = { ...existing, spec_sheet_template: relativePath };
+          const updatedModel = { ...existing, spec_sheet_template: templatePath };
           setCatalogModels(prev => prev.map(m => m.name === name ? updatedModel : m));
           const { error } = await supabase.from('production_models').upsert(updatedModel);
           if (error) throw error;
@@ -2148,7 +2130,7 @@ function App() {
             category: localModelCategories.find(c => c.models.includes(name))?.name || 'Uncategorized',
             target_hours: localTargetHours[name] || { prefab: PHASE_METADATA.prefab.defaultTargetHours, build: PHASE_METADATA.build.defaultTargetHours, paint: PHASE_METADATA.paint.defaultTargetHours, outsource: PHASE_METADATA.outsource.defaultTargetHours, trim: PHASE_METADATA.trim.defaultTargetHours, shipping: 0 },
             specs: {},
-            spec_sheet_template: relativePath
+            spec_sheet_template: templatePath
           };
           setCatalogModels(prev => [...prev, newModel]);
           const { error } = await supabase.from('production_models').insert(newModel);
