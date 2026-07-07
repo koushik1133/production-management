@@ -88,6 +88,30 @@ export function dataURLtoFile(dataurl: string, filename: string): File {
 export async function triggerFileDownload(path: string, defaultName: string): Promise<void> {
   if (!path) return;
   
+  if (path.startsWith('data:')) {
+    try {
+      const file = dataURLtoFile(path, defaultName);
+      const objectUrl = URL.createObjectURL(file);
+      const a = document.createElement('a');
+      a.href = objectUrl;
+      a.download = defaultName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(objectUrl);
+      return;
+    } catch (err) {
+      console.error("Failed to download dataURL via blob:", err);
+      const a = document.createElement('a');
+      a.href = path;
+      a.download = defaultName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      return;
+    }
+  }
+  
   let downloadUrl = path;
   if (isRelativePath(path)) {
     const normalized = path.replace(/\\/g, '/');
