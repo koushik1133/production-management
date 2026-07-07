@@ -36,8 +36,8 @@ export async function uploadFileToSupabase(file: File, type: string, id: string)
   } else {
     folderPath = `misc/${id}`;
   }
-
-  const fileName = `${type}_${Date.now()}_${file.name}`;
+  const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+  const fileName = `${type}_${Date.now()}_${safeName}`;
   const filePath = `${folderPath}/${fileName}`;
 
   const { data, error } = await supabase.storage
@@ -86,13 +86,45 @@ export function dataURLtoFile(dataurl: string, filename: string): File {
 }
 
 export async function triggerFileDownload(path: string, defaultName: string): Promise<void> {
-  const a = document.createElement('a');
-  a.href = path;
-  a.download = defaultName;
-  a.target = '_blank';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
+  if (!path) return;
+  
+  let downloadUrl = path;
+  if (isRelativePath(path)) {
+    const normalized = path.replace(/\\/g, '/');
+    const { data } = supabase.storage.from(BUCKET_NAME).getPublicUrl(normalized);
+    downloadUrl = data.publicUrl;
+  }
+
+  try {
+    const response = await fetch(downloadUrl);
+    const blob = await response.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    
+    let finalName = defaultName;
+    if (!finalName.includes('.')) {
+      const ext = path.split('.').pop()?.split('?')[0] || '';
+      if (ext && ext.length <= 4) {
+        finalName = `${finalName}.${ext}`;
+      }
+    }
+
+    const a = document.createElement('a');
+    a.href = objectUrl;
+    a.download = finalName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(objectUrl);
+  } catch (err) {
+    console.error("Failed to download file via blob:", err);
+    const a = document.createElement('a');
+    a.href = downloadUrl;
+    a.download = defaultName;
+    a.target = '_blank';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
 }
 
 export async function fetchTemplateAsBase64(templateValue: string): Promise<string> {
