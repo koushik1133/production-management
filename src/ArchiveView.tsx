@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import * as XLSX from 'xlsx';
-import { ArrowLeft, Clock, Truck, Search, ChevronRight, Package, Eye, EyeOff, Image, Hash, User, DollarSign, BarChart3, Download, Upload, FileText } from 'lucide-react';
+import { ArrowLeft, Clock, Truck, Search, ChevronRight, Package, Eye, EyeOff, Image, Hash, User, DollarSign, BarChart3, Download, FileText } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import type { Trailer, PhaseId, ShippedTrailer, UserRole } from './types';
 import { TrailerDetailsModal } from './components/TrailerDetailsModal';
@@ -612,24 +612,7 @@ export const ArchiveView: React.FC<Props> = ({ trailers, onUpdateTrailer, localT
               >
                 <Download size={14} /> {exportStatus || "Export"}
               </button>
-              <label className="btn btn-secondary hide-on-mobile" style={{ fontSize: '0.75rem', cursor: 'pointer' }}>
-                <Upload size={14} /> Import
-                <input 
-                  type="file" 
-                  accept=".csv" 
-                  style={{ display: 'none' }} 
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      const reader = new FileReader();
-                      reader.onload = () => {
-                        alert("CSV Import received. Processing logic would go here.");
-                      };
-                      reader.readAsText(file);
-                    }
-                  }}
-                />
-              </label>
+
             </div>
           )}
         </div>
