@@ -149,9 +149,7 @@ export async function injectTrailerDataIntoSpec(
       'I53': today,
       'I49': trailerName || '',
       'I51': salesPerson || '',
-      'J55': salePrice || '',
-      'D44': trailerPlug || '',
-      'F55': trailerColor || ''
+      'J55': salePrice || ''
     },
     'xl/worksheets/sheet2.xml': {
       'B2': serialNumber,
@@ -166,9 +164,7 @@ export async function injectTrailerDataIntoSpec(
       'B12': salesPerson || ''
     },
     'xl/worksheets/sheet3.xml': { 
-      'H4': serialNumber,
-      'D44': trailerPlug || '',
-      'F55': trailerColor || ''
+      'H4': serialNumber
     },
     'xl/worksheets/sheet4.xml': {
       'G5': serialNumber,
