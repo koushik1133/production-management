@@ -65,6 +65,11 @@ export const TrailerCard: React.FC<Props> = React.memo(({
     }
   }, [isHighlighted]);
 
+  // Chrome on desktop reports maxTouchPoints > 0 even on non-touch machines, so we only
+  // use the pointer:coarse media query which accurately identifies real touch devices.
+  const isTablet = typeof window !== 'undefined' && 
+    window.matchMedia('(pointer: coarse)').matches;
+
   const style = {
     transition: isDragging ? 'none' : 'transform 0ms linear, opacity 0ms linear',
     transform: CSS.Transform.toString(transform ? {
@@ -78,7 +83,11 @@ export const TrailerCard: React.FC<Props> = React.memo(({
     boxShadow: isOverlay ? '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)' : (isDragging ? 'none' : undefined),
     rotate: isOverlay ? '2deg' : undefined,
     willChange: 'transform',
-    touchAction: isDragging ? 'none' : 'auto',
+    // CRITICAL for Chrome: touch-action must be 'none' on the draggable element BEFORE
+    // drag starts, otherwise Chrome consumes the pointerdown for its own scroll handling
+    // and dnd-kit never gets a chance to activate. On touch devices we use the grip handle
+    // (which already has touch-action:none) so the card itself can stay 'auto' for scrolling.
+    touchAction: isTablet ? 'auto' : 'none',
   };
 
   const currentLog = trailer.history.find(h => h.phase === trailer.currentPhase && !h.exitedAt);
@@ -91,11 +100,6 @@ export const TrailerCard: React.FC<Props> = React.memo(({
   const isBottleneck = trailer.currentPhase !== 'backlog' && hoursRemaining > targetHours;
 
   const timeToShipping = calculateTrailerRemainingHours(trailer, localTargetHours);
-
-  // Chrome on desktop reports maxTouchPoints > 0 even on non-touch machines, so we only
-  // use the pointer:coarse media query which accurately identifies real touch devices.
-  const isTablet = typeof window !== 'undefined' && 
-    window.matchMedia('(pointer: coarse)').matches;
 
   return (
     <div
