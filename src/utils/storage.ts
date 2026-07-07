@@ -100,8 +100,14 @@ export async function fetchTemplateAsBase64(templateValue: string): Promise<stri
   if (templateValue.startsWith('data:')) return templateValue;
 
   try {
-    const res = await fetch(templateValue);
-    const blob = await res.blob();
+    let blob: Blob;
+    if (templateValue.startsWith('http:') || templateValue.startsWith('https:')) {
+      const res = await fetch(templateValue);
+      blob = await res.blob();
+    } else {
+      blob = await fetchFileBlob(templateValue);
+    }
+
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onloadend = () => resolve(reader.result as string);
