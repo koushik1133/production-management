@@ -901,7 +901,7 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                         <input 
                           id={`photo-upload-${num}`}
                           type="file" 
-                          accept="image/*" 
+                          accept="image/*,image/heic,image/heif,image/jpeg,image/png,image/jpg" 
                           style={{ display: 'none' }} 
                           onChange={async (e) => {
                             const file = e.target.files?.[0];
