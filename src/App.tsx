@@ -60,7 +60,8 @@ import {
   LogOut,
   Eye,
   EyeOff,
-  FileText
+  FileText,
+  CheckCircle
 } from 'lucide-react';
 
 import { 
@@ -199,6 +200,12 @@ function Dashboard({
     prefab: '0', build: '0', paint: '0', outsource: '0', trim: '0'
   });
   const [isShipping, setIsShipping] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const triggerToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
 
   // (Form and hours initialization is now handled in onShipRequest below to prevent race conditions)
 
@@ -398,6 +405,7 @@ function Dashboard({
       }
 
       handleCloseShippingModal();
+      triggerToast('Trailer Shipped Successfully!');
     } catch (err: any) {
       console.error(err);
       alert('Failed to complete shipment: ' + (err?.message || JSON.stringify(err)));
@@ -1469,6 +1477,29 @@ function Dashboard({
           </div>
         </div>
       </Modal>
+
+      {toastMessage && (
+        <div style={{
+          position: 'fixed',
+          bottom: '24px',
+          right: '24px',
+          background: '#10b981',
+          color: 'white',
+          padding: '16px 24px',
+          borderRadius: '8px',
+          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          zIndex: 9999,
+          fontWeight: 700,
+          fontSize: '0.9rem',
+          animation: 'slideUp 0.3s ease-out'
+        }}>
+          <CheckCircle size={20} />
+          {toastMessage}
+        </div>
+      )}
     </div>
   );
 }
