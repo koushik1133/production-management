@@ -313,10 +313,11 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
         </button>
       </div>
 
-      <div className="backlog-grid-layout">
+      <div className="backlog-grid-layout" style={userRole !== 'manager' ? { display: 'block' } : undefined}>
         {/* Registration Section */}
-        <div style={{ position: 'sticky', top: '2rem' }}>
-          <h2 style={{ fontSize: '1rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: '1.5rem' }}>Registration Form</h2>
+        {userRole === 'manager' && (
+          <div style={{ position: 'sticky', top: '2rem' }}>
+            <h2 style={{ fontSize: '1rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: '1.5rem' }}>Registration Form</h2>
           {userRole === 'manager' ? (
             <section className="registration-card" style={{ background: 'var(--bg-card)', padding: '1.5rem', borderRadius: '16px', border: '1px solid var(--border-default)', boxShadow: 'var(--shadow-lg)' }}>
               <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
@@ -608,20 +609,23 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
             </div>
           )}
         </div>
+        )}
 
         {/* List Section */}
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', gap: '1rem' }}>
              <h2 style={{ fontSize: '1rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)' }}>Existing Backlog ({backlogTrailers.length})</h2>
-             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-               <input 
-                 type="text" 
-                 placeholder="Filter backlog..." 
-                 style={{ padding: '0.5rem 1rem', borderRadius: '8px', border: '1px solid var(--border-default)', background: 'var(--bg-card)', color: 'var(--text-primary)', width: '240px', fontSize: '0.875rem' }}
-                 value={searchQuery}
-                 onChange={e => setSearchQuery(e.target.value)}
-               />
-             </div>
+             {userRole === 'manager' && (
+               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                 <input 
+                   type="text" 
+                   placeholder="Filter backlog..." 
+                   style={{ padding: '0.5rem 1rem', borderRadius: '8px', border: '1px solid var(--border-default)', background: 'var(--bg-card)', color: 'var(--text-primary)', width: '240px', fontSize: '0.875rem' }}
+                   value={searchQuery}
+                   onChange={e => setSearchQuery(e.target.value)}
+                 />
+               </div>
+             )}
           </div>
           
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -802,7 +806,8 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
           </div>
           
           {/* Pending Quotes Section */}
-          <div style={{ marginTop: '2rem' }}>
+          {userRole === 'manager' && (
+            <div style={{ marginTop: '2rem' }}>
             <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
               Pending Quotes
               <span style={{ fontSize: '0.8rem', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '12px', color: 'var(--text-muted)' }}>
@@ -903,6 +908,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
               )}
             </div>
           </div>
+          )}
           
           {toastMessage && (
             <div style={{

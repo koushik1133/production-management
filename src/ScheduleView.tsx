@@ -7,9 +7,10 @@ import { PHASES } from './types';
 
 interface Props {
   trailers: Trailer[];
+  userRole?: string;
 }
 
-export const ScheduleView: React.FC<Props> = ({ trailers }) => {
+export const ScheduleView: React.FC<Props> = ({ trailers, userRole }) => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -136,9 +137,11 @@ export const ScheduleView: React.FC<Props> = ({ trailers }) => {
               style={{ width: '100%', padding: '0.6rem 1rem', borderRadius: '10px' }}
             />
           </div>
-          <button className="btn btn-primary hide-on-mobile" onClick={() => navigate('/backlog')}>
-            <Plus size={16} /> Register Unit
-          </button>
+          {userRole === 'manager' && (
+            <button className="btn btn-primary hide-on-mobile" onClick={() => navigate('/backlog')}>
+              <Plus size={16} /> Register Unit
+            </button>
+          )}
         </div>
       </header>
 
