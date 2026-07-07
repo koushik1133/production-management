@@ -22,6 +22,13 @@ const TVView: React.FC<Props> = ({ trailers, monitorMode: initialMode = 'all', l
   const [isCastModalOpen, setIsCastModalOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
 
+  const castUrl = (() => {
+    const baseHost = 'https://production-one-virid.vercel.app';
+    if (monitorMode === 'station1') return `${baseHost}/tv/station1`;
+    if (monitorMode === 'station2') return `${baseHost}/tv/station2`;
+    return `${baseHost}/tv`;
+  })();
+
 
   const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1024);
 
@@ -225,7 +232,7 @@ const TVView: React.FC<Props> = ({ trailers, monitorMode: initialMode = 'all', l
               textAlign: 'center'
             }}>
               <a 
-                href={`${window.location.origin}/tv`} 
+                href={castUrl} 
                 target="_blank" 
                 rel="noopener noreferrer"
                 style={{ 
@@ -236,7 +243,7 @@ const TVView: React.FC<Props> = ({ trailers, monitorMode: initialMode = 'all', l
                   wordBreak: 'break-all'
                 }}
               >
-                {`${window.location.origin}/tv`}
+                {castUrl}
               </a>
             </div>
             
@@ -245,7 +252,7 @@ const TVView: React.FC<Props> = ({ trailers, monitorMode: initialMode = 'all', l
                 className="btn btn-primary" 
                 style={{ flex: 1, padding: '0.75rem', fontSize: '0.85rem' }}
                 onClick={() => {
-                  navigator.clipboard.writeText(`${window.location.origin}/tv`);
+                  navigator.clipboard.writeText(castUrl);
                   alert("Link copied to clipboard!");
                 }}
               >
