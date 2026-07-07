@@ -2,11 +2,11 @@ import React, { useState, useRef } from 'react';
 import { Search, Clock, Weight, ChevronRight, LayoutGrid, Plus, Edit, Trash2, Info, MapPin, Download, Upload, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { PHASES } from './types';
-import type { PhaseId, ModelSpec, UserRole, Dealer, CatalogModel, Trailer } from './types';
+import type { PhaseId, ModelSpec, UserRole, Dealer, Trailer } from './types';
 import { Modal } from './components/Modal';
 import Papa from 'papaparse';
 import { supabase } from './lib/supabase';
-import { fetchTemplateAsBase64, triggerFileDownload } from './utils/storage';
+import { fetchTemplateAsBase64, triggerFileDownload, uploadFileToSupabase } from './utils/storage';
 
 interface Props {
   categories: { name: string, models: string[] }[];
@@ -84,21 +84,27 @@ export const CatalogView: React.FC<Props> = ({ categories, hours, specs, templat
       header: true,
       skipEmptyLines: true,
       complete: async (results) => {
-        const records = results.data as any[];
-        const upserts = records.map(r => ({
-          id: r.id || crypto.randomUUID(),
-          name: r.name,
-          common_address: r.common_address || null,
-          addresses: r.addresses ? r.addresses.split('|').map((a: string) => a.trim()).filter((a: string) => a !== '') : []
-        }));
+        try {
+          const records = results.data as any[];
+          const upserts = records.map(r => ({
+            id: r.id || crypto.randomUUID(),
+            name: r.name,
+            common_address: r.common_address || null,
+            addresses: r.addresses ? r.addresses.split('|').map((a: string) => a.trim()).filter((a: string) => a !== '') : []
+          }));
 
-        const { error } = await supabase.from('dealers').upsert(upserts);
-        if (error) {
-          alert('Failed to import dealers: ' + error.message);
-        } else {
-          alert(`Successfully imported ${upserts.length} dealers!`);
+          const { error } = await supabase.from('dealers').upsert(upserts);
+          if (error) {
+            alert('Failed to import dealers: ' + error.message);
+          } else {
+            alert(`Successfully imported ${upserts.length} dealers!`);
+          }
+        } catch (err) {
+          const errMsg = err instanceof Error ? err.message : String(err);
+          alert('Import failed: ' + errMsg);
+        } finally {
+          if (fileInputRefDealers.current) fileInputRefDealers.current.value = '';
         }
-        if (fileInputRefDealers.current) fileInputRefDealers.current.value = '';
       }
     });
   };
@@ -142,39 +148,41 @@ export const CatalogView: React.FC<Props> = ({ categories, hours, specs, templat
       header: true,
       skipEmptyLines: true,
       complete: async (results) => {
-        const records = results.data as any[];
-        const upserts: CatalogModel[] = records.map(r => ({
-          id: crypto.randomUUID(),
-          name: r.name,
-          category: r.category || 'Uncategorized',
-          target_hours: {
-            quote: 0,
-            backlog: 0,
-            prefab: parseFloat(r.prefab_hours) || 0,
-            build: parseFloat(r.build_hours) || 0,
-            paint: parseFloat(r.paint_hours) || 0,
-            outsource: parseFloat(r.outsource_hours) || 0,
-            trim: parseFloat(r.trim_hours) || 0,
-            shipping: parseFloat(r.shipping_hours) || 0
-          },
-          specs: {
-            steelWeight: r.steelWeight || '',
-            axles: r.axles || '',
-            description: r.description || ''
-          },
-          spec_sheet_template: r.spec_sheet_template || undefined
-        }));
+        try {
+          const records = results.data as any[];
+          const upserts = records.map(r => ({
+            name: r.name,
+            category: r.category || 'Uncategorized',
+            target_hours: {
+              quote: 0,
+              backlog: 0,
+              prefab: parseFloat(r.prefab_hours) || 0,
+              build: parseFloat(r.build_hours) || 0,
+              paint: parseFloat(r.paint_hours) || 0,
+              outsource: parseFloat(r.outsource_hours) || 0,
+              trim: parseFloat(r.trim_hours) || 0,
+              shipping: parseFloat(r.shipping_hours) || 0
+            },
+            specs: {
+              steelWeight: r.steelWeight || '',
+              axles: r.axles || '',
+              description: r.description || ''
+            },
+            spec_sheet_template: r.spec_sheet_template || undefined
+          }));
 
-        const names = upserts.map(u => u.name);
-        await supabase.from('production_models').delete().in('name', names);
-        
-        const { error } = await supabase.from('production_models').insert(upserts);
-        if (error) {
-          alert('Failed to import models: ' + error.message);
-        } else {
-          alert(`Successfully imported ${upserts.length} models!`);
+          const { error } = await supabase.from('production_models').upsert(upserts, { onConflict: 'name' });
+          if (error) {
+            alert('Failed to import models: ' + error.message);
+          } else {
+            alert(`Successfully imported ${upserts.length} models!`);
+          }
+        } catch (err) {
+          const errMsg = err instanceof Error ? err.message : String(err);
+          alert('Import failed: ' + errMsg);
+        } finally {
+          if (fileInputRefModels.current) fileInputRefModels.current.value = '';
         }
-        if (fileInputRefModels.current) fileInputRefModels.current.value = '';
       }
     });
   };
@@ -433,20 +441,19 @@ export const CatalogView: React.FC<Props> = ({ categories, hours, specs, templat
                                 type="file" 
                                 accept=".xlsx" 
                                 style={{ position: 'absolute', width: '1px', height: '1px', padding: 0, margin: '-1px', overflow: 'hidden', clip: 'rect(0, 0, 0, 0)', whiteSpace: 'nowrap', borderWidth: 0 }} 
-                                onChange={(e) => {
+                                onChange={async (e) => {
                                   const inputTarget = e.target as HTMLInputElement;
                                   const file = inputTarget.files?.[0];
                                   if (file) {
-                                    const reader = new FileReader();
-                                    reader.onload = (evt) => {
-                                      if (evt.target?.result) {
-                                        onEditModel(model, { spec_sheet_template: evt.target.result as string });
-                                      }
-                                    };
-                                    reader.onloadend = () => {
+                                    try {
+                                      const path = await uploadFileToSupabase(file, 'spec_sheet_template', model);
+                                      onEditModel(model, { spec_sheet_template: path });
+                                    } catch (err) {
+                                      const errMsg = err instanceof Error ? err.message : String(err);
+                                      alert('Upload failed: ' + errMsg);
+                                    } finally {
                                       inputTarget.value = '';
-                                    };
-                                    reader.readAsDataURL(file);
+                                    }
                                   } else {
                                     inputTarget.value = '';
                                   }
@@ -646,19 +653,19 @@ export const CatalogView: React.FC<Props> = ({ categories, hours, specs, templat
                   type="file" 
                   accept=".xlsx" 
                   style={{ display: 'none' }} 
-                  onChange={(e) => {
+                  onChange={async (e) => {
                     const file = e.target.files?.[0];
                     if (file) {
-                      const reader = new FileReader();
-                      reader.onload = (evt) => {
-                        if (evt.target?.result) {
-                          setNewModelForm({...newModelForm, spec_sheet_template: evt.target.result as string});
-                        }
-                      };
-                      reader.onloadend = () => {
+                      try {
+                        const tempId = `temp_${Date.now()}`;
+                        const path = await uploadFileToSupabase(file, 'spec_sheet_template', tempId);
+                        setNewModelForm({...newModelForm, spec_sheet_template: path});
+                      } catch (err) {
+                        const errMsg = err instanceof Error ? err.message : String(err);
+                        alert('Upload failed: ' + errMsg);
+                      } finally {
                         e.target.value = '';
-                      };
-                      reader.readAsDataURL(file);
+                      }
                     } else {
                       e.target.value = '';
                     }
@@ -670,7 +677,7 @@ export const CatalogView: React.FC<Props> = ({ categories, hours, specs, templat
           </div>
 
           <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
-            <button type="button" onClick={(e) => { e.preventDefault(); handleManualAdd(e as any); }} className="btn btn-primary shimmer" style={{ flex: 1 }}>Create Model</button>
+            <button type="submit" className="btn btn-primary shimmer" style={{ flex: 1 }}>Create Model</button>
             <button type="button" className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setIsAddingModel(false)}>Cancel</button>
           </div>
         </form>

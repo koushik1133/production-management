@@ -17,7 +17,7 @@ export interface TimeLog {
 export interface SpecSheetVersion {
   id: string;
   timestamp: string; // ISO date string
-  file: string; // Base64 string
+  file: string; // Supabase Storage path or legacy base64 string
   filename?: string;
 }
 
@@ -48,12 +48,12 @@ export interface Trailer {
   promisedShippingDate?: string;
   vertical_order?: number;
   bay_vertical_order?: number;
-  photo_1_url?: string;
-  photo_2_url?: string;
-  photo_3_url?: string;
+  photo_1_url?: string | null;
+  photo_2_url?: string | null;
+  photo_3_url?: string | null;
   sale_price?: number | null;
-  spec_sheet_file?: string;
-  inspection_sheet_file?: string;
+  spec_sheet_file?: string | null;
+  inspection_sheet_file?: string | null;
   spec_sheet_versions?: SpecSheetVersion[];
   trailer_color?: string;
   trailer_plug?: string;

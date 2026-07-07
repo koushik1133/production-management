@@ -174,44 +174,23 @@ function Dashboard({
   });
   const selectedTrailer = useMemo(() => trailers.find(t => t.id === selectedTrailerId), [trailers, selectedTrailerId]);
 
-  // Fetch heavy files on-demand when a trailer is selected for shipping.
-  // We use the trailer ID to track what we have loaded so we always fetch
-  // fresh data whenever a different (or the same) trailer is opened.
-  const lastLoadedShippingIdRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (!pendingShippingTrailer) {
-      lastLoadedShippingIdRef.current = null;
-      return;
-    }
-    // Don't re-fetch if we already loaded for this exact trailer
-    if (lastLoadedShippingIdRef.current === pendingShippingTrailer.id) return;
-
-    lastLoadedShippingIdRef.current = pendingShippingTrailer.id;
-
-    const loadHeavyForShipping = async () => {
-      try {
-        const { data } = await supabase
-          .from('trailers')
-          .select('spec_sheet_file, inspection_sheet_file, photo_1_url, photo_2_url, photo_3_url')
-          .eq('id', pendingShippingTrailer.id)
-          .single();
-        
-        if (data) {
-          setPendingShippingTrailer(prev => prev ? {
-            ...prev,
-            spec_sheet_file: data.spec_sheet_file || null,
-            inspection_sheet_file: data.inspection_sheet_file || null,
-            photo_1_url: data.photo_1_url || null,
-            photo_2_url: data.photo_2_url || null,
-            photo_3_url: data.photo_3_url || null
-          } : null);
-        }
-      } catch (err) {
-        console.error("Error fetching heavy fields for shipping:", err);
-      }
-    };
-    loadHeavyForShipping();
-  }, [pendingShippingTrailer?.id]);
+  // Reset all shipping form fields and state
+  const handleCloseShippingModal = () => {
+    setPendingShippingTrailer(null);
+    setShippingPhotos({ p1: null, p2: null, p3: null });
+    setShippingSpecSheet(null);
+    setShippingInspectionSheet(null);
+    setShippingHours({ prefab: '0', build: '0', paint: '0', outsource: '0', trim: '0' });
+    setShippingForm({ 
+      invoice_number: '', 
+      vin_date: '', 
+      customer_name: '', 
+      sale_price: '', 
+      dealer_price: '', 
+      cost_price: '', 
+      shipped_date: new Date().toISOString().split('T')[0] 
+    });
+  };
 
   const [shippingPhotos, setShippingPhotos] = useState<{ p1: File | null, p2: File | null, p3: File | null }>({ p1: null, p2: null, p3: null });
   const [shippingSpecSheet, setShippingSpecSheet] = useState<File | null>(null);
@@ -221,33 +200,7 @@ function Dashboard({
   });
   const [isShipping, setIsShipping] = useState(false);
 
-  useEffect(() => {
-    if (pendingShippingTrailer) {
-      const getPhaseHours = (phaseId: string) => {
-        const entries = pendingShippingTrailer.history.filter(h => h.phase === phaseId);
-        const manual = entries.reduce((s, h) => s + (h.phaseManualHours || h.bayManualHours || 0), 0);
-        if (manual > 0) return manual.toString();
-        const ms = entries.reduce((s, h) => s + (h.duration || (h.exitedAt ? h.exitedAt - h.enteredAt : 0)), 0);
-        return (ms / 3600000).toFixed(1);
-      };
-      
-      setShippingHours({
-        prefab: getPhaseHours('prefab'),
-        build: getPhaseHours('build'),
-        paint: getPhaseHours('paint'),
-        outsource: getPhaseHours('outsource'),
-        trim: getPhaseHours('trim')
-      });
-      
-      setShippingForm(prev => ({
-        ...prev,
-        customer_name: pendingShippingTrailer.name || prev.customer_name,
-        invoice_number: pendingShippingTrailer.invoiceNumber || prev.invoice_number,
-        vin_date: pendingShippingTrailer.vinDate || prev.vin_date,
-        sale_price: pendingShippingTrailer.sale_price?.toString() || ''
-      }));
-    }
-  }, [pendingShippingTrailer]);
+  // (Form and hours initialization is now handled in onShipRequest below to prevent race conditions)
 
   const [currentTime, setCurrentTime] = useState(new Date());
   
@@ -448,12 +401,7 @@ function Dashboard({
         throw new Error('Failed to update active trailer record.');
       }
 
-      setPendingShippingTrailer(null);
-      setShippingPhotos({ p1: null, p2: null, p3: null });
-      setShippingSpecSheet(null);
-      setShippingInspectionSheet(null);
-      setShippingForm({ invoice_number: '', vin_date: '', customer_name: '', sale_price: '', dealer_price: '', cost_price: '', shipped_date: new Date().toISOString().split('T')[0] });
-      setShippingHours({ prefab: '0', build: '0', paint: '0', outsource: '0', trim: '0' });
+      handleCloseShippingModal();
     } catch (err: any) {
       console.error(err);
       alert('Failed to complete shipment: ' + (err?.message || JSON.stringify(err)));
@@ -787,11 +735,64 @@ function Dashboard({
               title={phase.title} 
               trailers={filteredTrailers.filter(t => t.currentPhase === phase.id)} 
               onUpdateTrailer={updateTrailer} 
-              onShipRequest={(t) => {
+               onShipRequest={async (t) => {
                 if (t.vinDate && t.invoiceNumber) {
                   updateTrailer(t.id, { isArchived: true, archivedAt: Date.now() });
                 } else {
+                  // Initialize form fields immediately
+                  const getPhaseHours = (phaseId: string) => {
+                    const entries = t.history.filter(h => h.phase === phaseId);
+                    const manual = entries.reduce((s, h) => s + (h.phaseManualHours || h.bayManualHours || 0), 0);
+                    if (manual > 0) return manual.toString();
+                    const ms = entries.reduce((s, h) => s + (h.duration || (h.exitedAt ? h.exitedAt - h.enteredAt : 0)), 0);
+                    return (ms / 3600000).toFixed(1);
+                  };
+
+                  setShippingHours({
+                    prefab: getPhaseHours('prefab'),
+                    build: getPhaseHours('build'),
+                    paint: getPhaseHours('paint'),
+                    outsource: getPhaseHours('outsource'),
+                    trim: getPhaseHours('trim')
+                  });
+
+                  setShippingForm({
+                    invoice_number: t.invoiceNumber || '',
+                    vin_date: t.vinDate || '',
+                    customer_name: t.name || '',
+                    sale_price: t.sale_price?.toString() || '',
+                    dealer_price: '',
+                    cost_price: '',
+                    shipped_date: new Date().toISOString().split('T')[0]
+                  });
+
                   setPendingShippingTrailer(t);
+
+                  // Fetch heavy fields in background
+                  try {
+                    const { data } = await supabase
+                      .from('trailers')
+                      .select('spec_sheet_file, inspection_sheet_file, photo_1_url, photo_2_url, photo_3_url')
+                      .eq('id', t.id)
+                      .single();
+                    
+                    if (data) {
+                      setPendingShippingTrailer(prev => {
+                        // Guard: only apply if the user hasn't closed the modal or opened another one in the meantime
+                        if (!prev || prev.id !== t.id) return prev;
+                        return {
+                          ...prev,
+                          spec_sheet_file: data.spec_sheet_file || null,
+                          inspection_sheet_file: data.inspection_sheet_file || null,
+                          photo_1_url: data.photo_1_url || null,
+                          photo_2_url: data.photo_2_url || null,
+                          photo_3_url: data.photo_3_url || null
+                        };
+                      });
+                    }
+                  } catch (err) {
+                    console.error("Error fetching heavy fields for shipping:", err);
+                  }
                 }
               }}
               onCardClick={(t, mode = 'view') => {
@@ -1126,7 +1127,7 @@ function Dashboard({
         />
       )}
       
-      <Modal isOpen={!!pendingShippingTrailer} onClose={() => setPendingShippingTrailer(null)} title={`Shipment Checklist: ${pendingShippingTrailer?.serialNumber}`}>
+      <Modal isOpen={!!pendingShippingTrailer} onClose={handleCloseShippingModal} title={`Shipment Checklist: ${pendingShippingTrailer?.serialNumber}`}>
         <form onSubmit={handleShipSubmit} onKeyDown={(e) => { if (e.key === 'Enter' && (e.target as HTMLElement).tagName !== 'TEXTAREA') e.preventDefault(); }} style={{ opacity: isShipping ? 0.7 : 1, pointerEvents: isShipping ? 'none' : 'all' }}>
           
           <div style={{ padding: '1.25rem', background: 'var(--bg-secondary)', borderRadius: '16px', border: '1px solid var(--border-default)', marginBottom: '1.5rem' }}>
@@ -1400,7 +1401,7 @@ function Dashboard({
 
           <div className="form-footer">
             {!isShipping && (
-              <button type="button" className="btn btn-secondary" onClick={() => setPendingShippingTrailer(null)}>Cancel</button>
+               <button type="button" className="btn btn-secondary" onClick={handleCloseShippingModal}>Cancel</button>
             )}
             <button type="submit" className="btn btn-primary" disabled={isShipping} style={{ padding: '0.75rem 2rem', minWidth: '200px' }}>
               {isShipping ? 'Processing Shipment...' : 'Complete Shipment Checklist'}
@@ -2439,11 +2440,11 @@ function App() {
     const activeId = active.id as string;
     const overId = over.id as string;
     
-    const activeTrailer = trailers.find(t => t.id === activeId);
+    const activeTrailer = trailersRef.current.find(t => t.id === activeId);
     if (!activeTrailer) return;
 
     const isOverColumn = PHASES.some(p => p.id === overId);
-    const overTrailer = trailers.find(t => t.id === overId);
+    const overTrailer = trailersRef.current.find(t => t.id === overId);
     const overPhase = isOverColumn ? (overId as PhaseId) : overTrailer?.currentPhase;
     
     if (!overPhase) return;
@@ -2478,7 +2479,6 @@ function App() {
           });
         }
 
-        trailersRef.current = newTrailers;
         return newTrailers;
       });
     }
@@ -2687,7 +2687,7 @@ function getSuggestedBay(): StationId {
                   console.error('SHIPMENT ERROR:', error);
                   throw error;
                 } else if (data) {
-                  setShippedTrailers(prev => [data, ...prev]); 
+                  setShippedTrailers(prev => prev.some(t => t.serial_number === data.serial_number) ? prev : [data, ...prev]); 
                 }
               }}
               sensors={sensors}

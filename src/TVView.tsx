@@ -7,6 +7,8 @@ import { PHASES } from './types';
 import { TrailerCard } from './components/TrailerCard';
 import { format } from 'date-fns';
 
+import logo from './assets/lane-logo-v4.png';
+
 interface Props {
   trailers: Trailer[];
   monitorMode?: 'all' | 'station1' | 'station2';
@@ -14,14 +16,20 @@ interface Props {
   userRole: UserRole;
 }
 
-import logo from './assets/lane-logo-v4.png';
-
 const TVView: React.FC<Props> = ({ trailers, monitorMode: initialMode = 'all', localTargetHours, userRole }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [monitorMode, setMonitorMode] = useState(initialMode);
   const [isCastModalOpen, setIsCastModalOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
 
+
+  const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1024);
+
+  useEffect(() => {
+    const handleResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -52,7 +60,7 @@ const TVView: React.FC<Props> = ({ trailers, monitorMode: initialMode = 'all', l
   const monitorTitle = monitorMode === 'station1' ? 'STATION 1' : monitorMode === 'station2' ? 'STATION 2' : 'FULL PIPELINE';
 
   useEffect(() => {
-    if (window.innerWidth < 1024) return;
+    if (windowWidth < 1024) return;
     if (monitorMode === 'station2') return;
     
     const scrollContainer = scrollRef.current;
@@ -60,6 +68,7 @@ const TVView: React.FC<Props> = ({ trailers, monitorMode: initialMode = 'all', l
     
     let direction = 1;
     let isPaused = false;
+    let pauseTimeout: ReturnType<typeof setTimeout> | null = null;
 
     const scrollInterval = setInterval(() => {
       if (isPaused) return;
@@ -70,19 +79,25 @@ const TVView: React.FC<Props> = ({ trailers, monitorMode: initialMode = 'all', l
       if (scrollLeft + clientWidth >= scrollWidth - 1 && direction === 1) {
         direction = -1;
         isPaused = true;
-        setTimeout(() => { isPaused = false; }, 3000);
+        pauseTimeout = setTimeout(() => { isPaused = false; }, 3000);
       } else if (scrollLeft <= 0 && direction === -1) {
         direction = 1;
         isPaused = true;
-        setTimeout(() => { isPaused = false; }, 3000);
+        pauseTimeout = setTimeout(() => { isPaused = false; }, 3000);
       }
 
       if (!isPaused) {
         scrollContainer.scrollBy({ left: 1 * direction, behavior: 'auto' });
       }
     }, 30);
-    return () => clearInterval(scrollInterval);
-  }, [monitorMode]);
+
+    return () => {
+      clearInterval(scrollInterval);
+      if (pauseTimeout) {
+        clearTimeout(pauseTimeout);
+      }
+    };
+  }, [monitorMode, windowWidth]);
 
   // themeStyles removed in favor of CSS variables
 
@@ -210,7 +225,7 @@ const TVView: React.FC<Props> = ({ trailers, monitorMode: initialMode = 'all', l
               textAlign: 'center'
             }}>
               <a 
-                href="https://production-management-murex.vercel.app/tv" 
+                href={`${window.location.origin}/tv`} 
                 target="_blank" 
                 rel="noopener noreferrer"
                 style={{ 
@@ -221,7 +236,7 @@ const TVView: React.FC<Props> = ({ trailers, monitorMode: initialMode = 'all', l
                   wordBreak: 'break-all'
                 }}
               >
-                https://production-management-murex.vercel.app/tv
+                {`${window.location.origin}/tv`}
               </a>
             </div>
             
@@ -230,7 +245,7 @@ const TVView: React.FC<Props> = ({ trailers, monitorMode: initialMode = 'all', l
                 className="btn btn-primary" 
                 style={{ flex: 1, padding: '0.75rem', fontSize: '0.85rem' }}
                 onClick={() => {
-                  navigator.clipboard.writeText("https://production-management-murex.vercel.app/tv");
+                  navigator.clipboard.writeText(`${window.location.origin}/tv`);
                   alert("Link copied to clipboard!");
                 }}
               >
@@ -251,13 +266,13 @@ const TVView: React.FC<Props> = ({ trailers, monitorMode: initialMode = 'all', l
         className="main-content tv-main-content" 
         ref={scrollRef} 
         style={{ 
-          padding: window.innerWidth < 768 ? '1rem' : '2rem', 
-          gap: window.innerWidth < 768 ? '1rem' : '2rem', 
+          padding: windowWidth < 768 ? '1rem' : '2rem', 
+          gap: windowWidth < 768 ? '1rem' : '2rem', 
           flex: 1, 
           overflowX: 'auto', 
           overflowY: 'hidden',
           display: 'flex',
-          justifyContent: window.innerWidth < 1024 
+          justifyContent: windowWidth < 1024 
             ? 'flex-start' 
             : (monitorMode !== 'all' || columns.length <= 3 ? 'center' : 'flex-start'),
           alignItems: 'stretch'

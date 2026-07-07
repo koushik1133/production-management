@@ -67,7 +67,7 @@ export const TrailerCard: React.FC<Props> = React.memo(({
 
   // Chrome on desktop reports maxTouchPoints > 0 even on non-touch machines, so we only
   // use the pointer:coarse media query which accurately identifies real touch devices.
-  const isTablet = typeof window !== 'undefined' && 
+  const isTouchDevice = typeof window !== 'undefined' && 
     window.matchMedia('(pointer: coarse)').matches;
 
   const style = {
@@ -79,7 +79,7 @@ export const TrailerCard: React.FC<Props> = React.memo(({
     } : null),
     opacity: isDragging ? (isOverlay ? 1 : 0.15) : 1,
     zIndex: isDragging ? (isOverlay ? 1000 : 10) : 1,
-    cursor: isDragging ? 'grabbing' : 'grab',
+    cursor: userRole !== 'manager' ? 'default' : (isDragging ? 'grabbing' : 'grab'),
     boxShadow: isOverlay ? '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)' : (isDragging ? 'none' : undefined),
     rotate: isOverlay ? '2deg' : undefined,
     willChange: 'transform',
@@ -87,13 +87,12 @@ export const TrailerCard: React.FC<Props> = React.memo(({
     // drag starts, otherwise Chrome consumes the pointerdown for its own scroll handling
     // and dnd-kit never gets a chance to activate. On touch devices we use the grip handle
     // (which already has touch-action:none) so the card itself can stay 'auto' for scrolling.
-    touchAction: isTablet ? 'auto' : 'none',
+    touchAction: isTouchDevice ? 'auto' : 'none',
   };
 
   const currentLog = trailer.history.find(h => h.phase === trailer.currentPhase && !h.exitedAt);
   const timeInPhase = currentLog ? formatDistanceToNow(currentLog.enteredAt) : '0m';
 
-  // eslint-disable-next-line react-hooks/purity
   const hoursRemaining = currentLog ? (Date.now() - currentLog.enteredAt) / (1000 * 60 * 60) : 0;
   const targetHours = localTargetHours[trailer.model]?.[trailer.currentPhase] 
     || PHASE_METADATA[trailer.currentPhase].defaultTargetHours;
@@ -105,17 +104,19 @@ export const TrailerCard: React.FC<Props> = React.memo(({
     <div
       ref={(node) => {
         setNodeRef(node);
-        (cardRef as any).current = node;
+        if (cardRef) {
+          (cardRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
+        }
       }}
       style={style}
       className={`trailer-card hover-lift ${isBottleneck ? 'is-bottleneck' : ''} ${isHighlighted ? 'is-highlighted' : ''} ${isTVMode ? 'is-ultra-compact' : ''}`}
       {...attributes}
-      {...(!isTablet ? listeners : {})}
+      {...(!isTouchDevice ? listeners : {})}
       onClick={() => onCardClick?.('view')}
     >
       <div className="card-header-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.3rem' }}>
         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start', flex: 1, minWidth: 0 }}>
-          {isTablet && (
+          {isTouchDevice && (
             <div 
               {...listeners}
               className="drag-handle"
@@ -178,28 +179,35 @@ export const TrailerCard: React.FC<Props> = React.memo(({
             </div>
           )}
 
-          {trailer.promisedShippingDate && !isTVMode && (
-            <div style={{ 
-              padding: '0.3rem 0.6rem', 
-              background: trailer.isPriority ? 'rgba(239, 68, 68, 0.1)' : 'rgba(255, 255, 255, 0.03)', 
-              borderRadius: '8px', 
-              border: `1px solid ${trailer.isPriority ? 'rgba(239, 68, 68, 0.2)' : 'var(--border-default)'}`,
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.4rem',
-              whiteSpace: 'nowrap'
-            }}>
-              {trailer.isPriority && <Crown size={12} fill="#ef4444" color="#ef4444" />}
-              <Calendar size={12} color={trailer.isPriority ? '#ef4444' : 'var(--text-muted)'} />
-              <span style={{ 
-                fontSize: '0.75rem', 
-                fontWeight: 700, 
-                color: trailer.isPriority ? '#f87171' : 'var(--text-secondary)'
+          {(() => {
+            if (!trailer.promisedShippingDate || isTVMode) return null;
+            const parsedDate = new Date(trailer.promisedShippingDate);
+            const isValidDate = !isNaN(parsedDate.getTime());
+            if (!isValidDate) return null;
+
+            return (
+              <div style={{ 
+                padding: '0.3rem 0.6rem', 
+                background: trailer.isPriority ? 'rgba(239, 68, 68, 0.1)' : 'rgba(255, 255, 255, 0.03)', 
+                borderRadius: '8px', 
+                border: `1px solid ${trailer.isPriority ? 'rgba(239, 68, 68, 0.2)' : 'var(--border-default)'}`,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+                whiteSpace: 'nowrap'
               }}>
-                {format(new Date(trailer.promisedShippingDate), 'MMM d')}
-              </span>
-            </div>
-          )}
+                {trailer.isPriority && <Crown size={12} fill="#ef4444" color="#ef4444" />}
+                <Calendar size={12} color={trailer.isPriority ? '#ef4444' : 'var(--text-muted)'} />
+                <span style={{ 
+                  fontSize: '0.75rem', 
+                  fontWeight: 700, 
+                  color: trailer.isPriority ? '#f87171' : 'var(--text-secondary)'
+                }}>
+                  {format(parsedDate, 'MMM d')}
+                </span>
+              </div>
+            );
+          })()}
         </div>
       </div>
       

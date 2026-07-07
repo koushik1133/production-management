@@ -24,11 +24,10 @@ export const StationColumn: React.FC<Props> = ({ id, trailers, onUpdateTrailer, 
   });
 
   const [localCapacity, setLocalCapacity] = useState<string>(capacity?.toString() || '');
-  const [prevCapacity, setPrevCapacity] = useState(capacity);
-  if (capacity !== prevCapacity) {
-    setPrevCapacity(capacity);
+
+  React.useEffect(() => {
     setLocalCapacity(capacity?.toString() || '');
-  }
+  }, [capacity]);
 
   const handleCapacitySubmit = () => {
     const val = parseFloat(localCapacity);
@@ -138,7 +137,7 @@ export const StationColumn: React.FC<Props> = ({ id, trailers, onUpdateTrailer, 
           gap: '0.5rem'
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--accent)', letterSpacing: '0.05em' }}>STAGE LOAD:</span>
+            <span style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--accent)', letterSpacing: '0.05em' }}>PIPELINE LOAD:</span>
             <span style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--accent)' }}>{Math.round(workload.pipeline)}h</span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.25rem', paddingTop: '0.5rem', borderTop: '1px dashed rgba(56, 189, 248, 0.2)' }}>
