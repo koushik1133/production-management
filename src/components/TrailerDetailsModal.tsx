@@ -132,11 +132,24 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
     }
   }, [trailer.id, isOpen, specSheetFile, inspectionSheetFile]);
 
-  const handleGenerateSpecSheet = async () => {
-    if (!trailer.trailer_color || !trailer.trailer_plug || !trailer.sale_price) {
-      alert("Please fill in the missing Color, Plug, and Sale Price before generating the Spec Sheet.");
-      setIsEditing(true);
-      return;
+  const handleGenerateSpecSheet = async (customValues?: Partial<Trailer>): Promise<string | undefined> => {
+    const name = customValues ? customValues.name : trailer.name;
+    const serial = customValues ? customValues.serialNumber : trailer.serialNumber;
+    const color = customValues ? customValues.trailer_color : trailer.trailer_color;
+    const plug = customValues ? customValues.trailer_plug : trailer.trailer_plug;
+    const price = customValues ? customValues.sale_price : trailer.sale_price;
+    const salesPersonVal = customValues ? customValues.salesPerson : trailer.salesPerson;
+    const dealerLocationVal = customValues ? customValues.dealerLocation : trailer.dealerLocation;
+    const dealerCommonAddressVal = customValues ? customValues.dealerCommonAddress : trailer.dealerCommonAddress;
+    const purchaseOrderVal = customValues ? customValues.purchaseOrder : trailer.purchaseOrder;
+    const consignmentVal = customValues ? customValues.consignment : trailer.consignment;
+
+    if (!color || !plug || !price) {
+      if (!customValues) {
+        alert("Please fill in the missing Color, Plug, and Sale Price before generating the Spec Sheet.");
+        setIsEditing(true);
+      }
+      return undefined;
     }
 
     setIsUploadingSpecSheet(true);
@@ -150,12 +163,12 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
           templateBase64 = await fetchTemplateAsBase64(data.spec_sheet_template);
         } catch (e) {
           console.error('Failed to fetch template:', e);
-          alert('Failed to download template from server.');
-          return;
+          if (!customValues) alert('Failed to download template from server.');
+          return undefined;
         }
       }
       
-      if (!templateBase64) return;
+      if (!templateBase64) return undefined;
 
       if (isRelativePath(templateBase64)) {
         try {
@@ -170,8 +183,8 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
         } catch (e) {
           const errMsg = e instanceof Error ? e.message : String(e);
           console.error('Failed to download template from storage gateway:', e);
-          alert(`Failed to download template from storage gateway: ${errMsg}`);
-          return;
+          if (!customValues) alert(`Failed to download template from storage gateway: ${errMsg}`);
+          return undefined;
         }
       }
 
@@ -181,23 +194,40 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
 
       const injected = await injectTrailerDataIntoSpec(
         templateBase64,
-        trailer.serialNumber,
-        trailer.name,
-        trailer.trailer_color,
-        trailer.trailer_plug,
-        trailer.sale_price || undefined,
-        trailer.salesPerson,
-        trailer.dealerLocation,
-        trailer.dealerCommonAddress,
+        serial || '',
+        name,
+        color,
+        plug,
+        price || undefined,
+        salesPersonVal,
+        dealerLocationVal,
+        dealerCommonAddressVal,
         false,
-        formattedDate
+        formattedDate,
+        purchaseOrderVal,
+        consignmentVal
       );
-      await handleSpecSheetUpdate(injected);
-      triggerToast("Spec Sheet Generated Successfully!");
+
+      const fileObj = dataURLtoFile(injected, `${(serial || 'Trailer').trim()}_SpecSheet.xlsx`);
+      const filePath = await uploadFileToSupabase(fileObj, 'spec_sheet', serial || '');
+      
+      setEditForm(prev => ({ 
+        ...prev, 
+        spec_sheet_file: filePath 
+      }));
+      
+      if (!customValues) {
+        onUpdate(trailer.id, { 
+          spec_sheet_file: filePath
+        });
+        triggerToast("Spec Sheet Generated Successfully!");
+      }
+      return filePath;
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : String(error);
       console.error("Failed to generate spec sheet", error);
-      alert(`Failed to generate spec sheet: ${errMsg}`);
+      if (!customValues) alert(`Failed to generate spec sheet: ${errMsg}`);
+      return undefined;
     } finally {
       setIsUploadingSpecSheet(false);
     }
@@ -286,12 +316,46 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
     triggerToast('Notes Updated Successfully!');
   };
 
-  const handleSaveAll = () => {
+  const handleSaveAll = async () => {
     if (isDuplicateSerial) return;
+
+    let updatedSpecSheetFile = editForm.spec_sheet_file;
+
+    // Check if Excel values have changed
+    const hasExcelFieldChanges = 
+      editForm.serialNumber !== trailer.serialNumber ||
+      editForm.name !== trailer.name ||
+      editForm.sale_price !== (trailer.sale_price ? trailer.sale_price.toString() : '');
+
+    const templateBase64 = localSpecSheetTemplates[trailer.model];
+    if (templateBase64 && hasExcelFieldChanges) {
+      try {
+        const parsedPrice = editForm.sale_price ? parseFloat(editForm.sale_price) : null;
+        const newFilePath = await handleGenerateSpecSheet({
+          name: editForm.name,
+          serialNumber: editForm.serialNumber,
+          trailer_color: trailer.trailer_color,
+          trailer_plug: trailer.trailer_plug,
+          sale_price: parsedPrice,
+          salesPerson: trailer.salesPerson,
+          dealerLocation: trailer.dealerLocation,
+          dealerCommonAddress: trailer.dealerCommonAddress,
+          purchaseOrder: trailer.purchaseOrder,
+          consignment: trailer.consignment
+        });
+        if (newFilePath) {
+          updatedSpecSheetFile = newFilePath;
+        }
+      } catch (err) {
+        console.error("Auto-regenerate spec sheet failed:", err);
+      }
+    }
+
     const updates: Partial<Trailer> = {
       ...editForm,
       sale_price: editForm.sale_price ? parseFloat(editForm.sale_price) : (editForm.sale_price === '' ? null : undefined),
-      notes: localNotes 
+      notes: localNotes,
+      spec_sheet_file: updatedSpecSheetFile
     };
     onUpdate(trailer.id, updates);
     setIsEditing(false);
@@ -436,7 +500,7 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                         <button
                           type="button"
                           className="btn btn-primary shimmer"
-                          onClick={handleGenerateSpecSheet}
+                          onClick={() => handleGenerateSpecSheet()}
                           style={{ padding: '0.5rem', fontSize: '0.8rem', width: '100%' }}
                         >
                           Generate from Model Template
@@ -751,7 +815,7 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
               ) : (
                 <button 
                   className="btn btn-primary shimmer" 
-                  onClick={handleGenerateSpecSheet}
+                  onClick={() => handleGenerateSpecSheet()}
                   style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
                 >
                   Generate from Template
