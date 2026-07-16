@@ -872,7 +872,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
                               isPriority: quote.isPriority || false,
                               partsStatus: quote.partsStatus || { tyres: false, steel: false, parts: false },
                               promisedShippingDate: quote.promisedShippingDate || '',
-                              dateRegistered: quote.dateStarted ? new Date(quote.dateStarted).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+                              dateRegistered: new Date().toISOString().split('T')[0],
                               sale_price: quote.sale_price ? quote.sale_price.toString() : '',
                               trailer_color: quote.trailer_color || '',
                               trailer_plug: quote.trailer_plug || '',
