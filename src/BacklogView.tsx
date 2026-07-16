@@ -81,6 +81,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
       parts: false
     },
     promisedShippingDate: '',
+    dateRegistered: new Date().toISOString().split('T')[0],
     sale_price: '',
     trailer_color: '',
     trailer_plug: '',
@@ -130,7 +131,10 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
         formData.salesPerson || undefined,
         formData.dealerLocation || undefined,
         selectedDealer?.common_address || undefined,
-        true // hideOtherSheets for Quotes
+        true, // hideOtherSheets for Quotes
+        formData.dateRegistered ? new Date(formData.dateRegistered + 'T12:00:00').toLocaleDateString('en-US', {
+          month: '2-digit', day: '2-digit', year: 'numeric'
+        }) : undefined
       );
 
       const a = document.createElement('a');
@@ -145,7 +149,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
         model: formData.model,
         serialNumber: quoteId,
         isPriority: formData.isPriority,
-        dateStarted: Date.now(),
+        dateStarted: formData.dateRegistered ? new Date(formData.dateRegistered + 'T12:00:00').getTime() : Date.now(),
         currentPhase: 'quote',
         history: [{ phase: 'quote', enteredAt: Date.now() }],
         partsStatus: formData.partsStatus,
@@ -176,6 +180,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
           parts: false
         },
         promisedShippingDate: '',
+        dateRegistered: new Date().toISOString().split('T')[0],
         sale_price: '',
         trailer_color: '',
         trailer_plug: '',
@@ -222,7 +227,11 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
           formData.sale_price ? parseFloat(formData.sale_price) : undefined,
           formData.salesPerson || undefined,
           formData.dealerLocation || undefined,
-          selectedDealer?.common_address || undefined
+          selectedDealer?.common_address || undefined,
+          false,
+          formData.dateRegistered ? new Date(formData.dateRegistered + 'T12:00:00').toLocaleDateString('en-US', {
+            month: '2-digit', day: '2-digit', year: 'numeric'
+          }) : undefined
         );
       } catch (error) {
         console.error("Failed to generate spec sheet", error);
@@ -235,6 +244,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
         model: formData.model,
         serialNumber: serialNum,
         isPriority: formData.isPriority,
+        dateStarted: formData.dateRegistered ? new Date(formData.dateRegistered + 'T12:00:00').getTime() : Date.now(),
         currentPhase: 'backlog',
         history: [{ phase: 'backlog', enteredAt: Date.now() }],
         partsStatus: formData.partsStatus,
@@ -257,7 +267,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
         model: formData.model,
         serialNumber: serialNum,
         isPriority: formData.isPriority,
-        dateStarted: Date.now(),
+        dateStarted: formData.dateRegistered ? new Date(formData.dateRegistered + 'T12:00:00').getTime() : Date.now(),
         currentPhase: 'backlog',
         history: [{ phase: 'backlog', enteredAt: Date.now() }],
         partsStatus: formData.partsStatus,
@@ -286,6 +296,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
       isPriority: false, 
       partsStatus: { tyres: false, steel: false, parts: false },
       promisedShippingDate: '',
+      dateRegistered: new Date().toISOString().split('T')[0],
       sale_price: '',
       trailer_color: '',
       trailer_plug: '',
@@ -476,7 +487,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
                       </div>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: userRole === 'manager' ? '1fr 1fr 1fr' : '1fr 1fr', gap: '1rem' }}>
                       {userRole === 'manager' && (
                         <div className="form-group" style={{ marginBottom: 0 }}>
                           <label className="form-label" style={{ fontSize: '0.75rem', color: '#d97706', fontWeight: 800 }}>Sale Price ($)</label>
@@ -496,7 +507,18 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
                           />
                         </div>
                       )}
-                      <div className="form-group" style={{ marginBottom: 0, gridColumn: userRole === 'manager' ? undefined : 'span 2' }}>
+                      <div className="form-group" style={{ marginBottom: 0 }}>
+                        <label className="form-label" style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Date Registered</label>
+                        <input 
+                          type="date" 
+                          className="form-input" 
+                          style={{ padding: '0.75rem 1rem', fontSize: '0.95rem', background: 'var(--bg-card)' }}
+                          value={formData.dateRegistered} 
+                          onChange={e => setFormData({...formData, dateRegistered: e.target.value})} 
+                          required
+                        />
+                      </div>
+                      <div className="form-group" style={{ marginBottom: 0 }}>
                         <label className="form-label" style={{ fontSize: '0.75rem', color: 'var(--accent)' }}>Promised Shipping</label>
                         <input 
                           type="date" 
@@ -850,6 +872,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
                               isPriority: quote.isPriority || false,
                               partsStatus: quote.partsStatus || { tyres: false, steel: false, parts: false },
                               promisedShippingDate: quote.promisedShippingDate || '',
+                              dateRegistered: quote.dateStarted ? new Date(quote.dateStarted).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
                               sale_price: quote.sale_price ? quote.sale_price.toString() : '',
                               trailer_color: quote.trailer_color || '',
                               trailer_plug: quote.trailer_plug || '',

@@ -175,6 +175,10 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
         }
       }
 
+      const formattedDate = trailer.dateStarted ? new Date(trailer.dateStarted).toLocaleDateString('en-US', {
+        month: '2-digit', day: '2-digit', year: 'numeric'
+      }) : undefined;
+
       const injected = await injectTrailerDataIntoSpec(
         templateBase64,
         trailer.serialNumber,
@@ -184,7 +188,9 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
         trailer.sale_price || undefined,
         trailer.salesPerson,
         trailer.dealerLocation,
-        trailer.dealerCommonAddress
+        trailer.dealerCommonAddress,
+        false,
+        formattedDate
       );
       await handleSpecSheetUpdate(injected);
       triggerToast("Spec Sheet Generated Successfully!");

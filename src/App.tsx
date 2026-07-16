@@ -422,6 +422,7 @@ function Dashboard({
     station: 'None' as StationId, 
     isPriority: false,
     promisedShippingDate: '',
+    dateRegistered: new Date().toISOString().split('T')[0],
     partsStatus: { tyres: false, steel: false, parts: false },
     sale_price: '',
     trailer_color: '',
@@ -444,7 +445,7 @@ function Dashboard({
         serialNumber: newTrailerData.serialNumber || `UNIT-${Math.floor(10000 + Math.random() * 90000)}`,
         station: 'None',
         isPriority: newTrailerData.isPriority,
-        dateStarted: Date.now(),
+        dateStarted: newTrailerData.dateRegistered ? new Date(newTrailerData.dateRegistered + 'T12:00:00').getTime() : Date.now(),
         currentPhase: 'backlog',
         history: [{ phase: 'backlog', enteredAt: Date.now() }],
         promisedShippingDate: newTrailerData.promisedShippingDate,
@@ -466,6 +467,7 @@ function Dashboard({
         station: 'None', 
         isPriority: false, 
         promisedShippingDate: '', 
+        dateRegistered: new Date().toISOString().split('T')[0],
         partsStatus: { tyres: false, steel: false, parts: false }, 
         sale_price: '', 
         trailer_color: '', 
@@ -988,6 +990,17 @@ function Dashboard({
             </select>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
+            <div className="form-group">
+              <label className="form-label">Date Registered</label>
+              <input 
+                type="date" 
+                className="form-input" 
+                value={newTrailerData.dateRegistered} 
+                onChange={e => setNewTrailerData({...newTrailerData, dateRegistered: e.target.value})}
+                onFocus={(e) => e.target.showPicker()}
+                required
+              />
+            </div>
             <div className="form-group">
               <label className="form-label">Promised Shipping Date</label>
               <input 

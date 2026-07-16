@@ -16,20 +16,51 @@ export async function injectTrailerDataIntoSpec(
   salesPerson?: string,
   dealerLocation?: string,
   dealerCommonAddress?: string,
-  hideOtherSheets: boolean = false
+  hideOtherSheets: boolean = false,
+  dateCreated?: string
 ): Promise<string> {
   const base64Data = base64File.includes(',') ? base64File.split(',')[1] : base64File;
   
   const zip = new JSZip();
   await zip.loadAsync(base64Data, { base64: true });
 
-  const today = new Date().toLocaleDateString('en-US', {
+  const today = dateCreated ? dateCreated : new Date().toLocaleDateString('en-US', {
     month: '2-digit', day: '2-digit', year: 'numeric'
   });
 
+  // Load shared strings for dynamic cell content checks
+  const sharedStrings: string[] = [];
+  const sharedStringsFile = zip.file('xl/sharedStrings.xml');
+  if (sharedStringsFile) {
+    const sstXml = await sharedStringsFile.async('string');
+    const sstDoc = new DOMParser().parseFromString(sstXml, "application/xml");
+    const siNodes = sstDoc.getElementsByTagName('si');
+    for (let i = 0; i < siNodes.length; i++) {
+      sharedStrings.push(siNodes[i].textContent || '');
+    }
+  }
+
+  const getCellText = (cell: Element): string => {
+    const tAttr = cell.getAttribute('t');
+    if (tAttr === 'inlineStr') {
+      const tNode = cell.getElementsByTagName('t')[0];
+      return tNode ? tNode.textContent || '' : '';
+    } else if (tAttr === 's') {
+      const vNode = cell.getElementsByTagName('v')[0];
+      if (vNode) {
+        const idx = parseInt(vNode.textContent || '', 10);
+        return sharedStrings[idx] || '';
+      }
+    }
+    const vNode = cell.getElementsByTagName('v')[0];
+    if (vNode) return vNode.textContent || '';
+    return cell.textContent || '';
+  };
+
+  const cleanLabel = (str: string) => str.toLowerCase().replace(/[^a-z0-9]/g, '');
+
   // 1. Placeholder-based Replacement (Robust & Flexible)
   // Searches xl/sharedStrings.xml for {{PLACEHOLDER}} or [[PLACEHOLDER]] and replaces it everywhere.
-  const sharedStringsFile = zip.file('xl/sharedStrings.xml');
   if (sharedStringsFile) {
     let sharedStringsXml = await sharedStringsFile.async('string');
     
@@ -38,11 +69,11 @@ export async function injectTrailerDataIntoSpec(
       'TRAILER_COLOR': trailerColor || '',
       'TRAILER_PLUG': trailerPlug || '',
       'TRAILER_NAME': trailerName || '',
-      'SALE_PRICE': salePrice?.toString() || '',
-      'SALES_PERSON': salesPerson || '',
-      'DEALER_LOCATION': dealerLocation || '',
       'DEALER_ADDRESS': dealerCommonAddress || '',
-      'TODAYS_DATE': today
+      'DEALER_LOCATION': dealerLocation || '',
+      'SALES_PERSON': salesPerson || '',
+      'SALE_PRICE': salePrice !== undefined ? String(salePrice) : '',
+      'DATE_TODAY': today
     };
 
     for (const [key, val] of Object.entries(placeholderMap)) {
@@ -146,9 +177,6 @@ export async function injectTrailerDataIntoSpec(
   const updates: Record<string, Record<string, string | number | undefined>> = {
     'xl/worksheets/sheet1.xml': {
       'H4': serialNumber,
-      'I53': today,
-      'I49': trailerName || '',
-      'I51': salesPerson || '',
       'J55': salePrice || ''
     },
     'xl/worksheets/sheet2.xml': {
@@ -174,6 +202,47 @@ export async function injectTrailerDataIntoSpec(
     },
     'xl/worksheets/sheet5.xml': { 'B2': serialNumber }
   };
+
+  // Perform dynamic scanner in sheet1.xml
+  const sheet1File = zip.file('xl/worksheets/sheet1.xml');
+  let foundName = false;
+  let foundSalesPerson = false;
+  let foundDate = false;
+
+  if (sheet1File) {
+    const sheet1Xml = await sheet1File.async('string');
+    const parser = new DOMParser();
+    const sheet1Doc = parser.parseFromString(sheet1Xml, "application/xml");
+    const cells = sheet1Doc.getElementsByTagName('c');
+    
+    for (let i = 0; i < cells.length; i++) {
+      const cell = cells[i];
+      const cellRef = cell.getAttribute('r');
+      if (cellRef && (cellRef.startsWith('H') || cellRef.startsWith('G'))) {
+        const text = cleanLabel(getCellText(cell));
+        const rowNum = cellRef.replace(/[A-Z]/g, '');
+        const targetCellRef = `I${rowNum}`;
+        
+        if (text.includes('dealer') || text.includes('customer') || text === 'name') {
+          if (!text.includes('address') && !text.includes('loc') && !text.includes('phone')) {
+            updates['xl/worksheets/sheet1.xml'][targetCellRef] = trailerName || '';
+            foundName = true;
+          }
+        } else if (text.includes('salesperson') || text.includes('salesrep') || text.includes('salesperson')) {
+          updates['xl/worksheets/sheet1.xml'][targetCellRef] = salesPerson || '';
+          foundSalesPerson = true;
+        } else if (text === 'date' || text === 'datecreated' || text === 'dateregistered' || text === 'createddate' || text === 'registereddate') {
+          updates['xl/worksheets/sheet1.xml'][targetCellRef] = today;
+          foundDate = true;
+        }
+      }
+    }
+  }
+
+  // Fallbacks if dynamic scan couldn't find them
+  if (!foundName) updates['xl/worksheets/sheet1.xml']['I49'] = trailerName || '';
+  if (!foundSalesPerson) updates['xl/worksheets/sheet1.xml']['I51'] = salesPerson || '';
+  if (!foundDate) updates['xl/worksheets/sheet1.xml']['I53'] = today;
 
   for (const [sheetPath, cellUpdates] of Object.entries(updates)) {
     const file = zip.file(sheetPath);
