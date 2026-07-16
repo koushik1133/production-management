@@ -440,7 +440,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
                       </div>
                       
                       <div className="form-group" style={{ marginBottom: 0 }}>
-                        <label className="form-label" style={{ fontSize: '0.75rem' }}>Branch Location</label>
+                        <label className="form-label" style={{ fontSize: '0.75rem' }}>Shipping Address</label>
                         <select 
                           className="form-select" 
                           style={{ padding: '0.75rem 1rem', fontSize: '0.95rem', background: 'var(--bg-card)' }}
