@@ -1766,7 +1766,7 @@ function App() {
     return templatesMap;
   }, [catalogModels]);
 
-  // Dynamically merge static categories with any new models stored in Supabase
+  // Dynamically merge static categories with database models
   const localModelCategories = useMemo(() => {
     const merged = staticModelCategories.map(cat => ({ ...cat, models: [...cat.models] }));
     catalogModels.forEach(m => {
@@ -1779,6 +1779,11 @@ function App() {
         merged.push({ name: m.category, models: [m.name] });
       }
     });
+    // Sort models inside categories, and categories themselves alphabetically
+    merged.forEach(cat => {
+      cat.models.sort((a, b) => a.localeCompare(b));
+    });
+    merged.sort((a, b) => a.name.localeCompare(b.name));
     return merged;
   }, [catalogModels]);
 
@@ -1798,16 +1803,15 @@ function App() {
   }, [trailers, searchQuery]);
 
 
-
   const nextSuggestedSerial = useMemo(() => {
-    const registeredTrailers = trailers.filter(t => t.currentPhase !== 'quote');
+    const registeredTrailers = trailers.filter(t => t.currentPhase !== 'quote' && !t.isDeleted);
     if (registeredTrailers.length === 0) return 'T-100';
     
     const sorted = [...registeredTrailers].sort((a, b) => b.dateStarted - a.dateStarted);
 
     for (const t of sorted) {
-      // Ignore quote-like serial numbers (e.g., 06102025-4912 or 06102025-T-200) just in case
-      if (/^Q?-\?\d{8}-.*$/.test(t.serialNumber) || /^\d{8}-.*$/.test(t.serialNumber)) continue;
+      // Ignore quote-like serial numbers (e.g., 06102025-4912 or Q-06102025-T-200)
+      if (/^Q?-\d{8}/.test(t.serialNumber) || /^\d{8}/.test(t.serialNumber)) continue;
 
       const match = t.serialNumber.match(/^(.*?)([0-9]+)$/);
       if (match) {
