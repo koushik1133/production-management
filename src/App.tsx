@@ -885,7 +885,7 @@ function Dashboard({
           <div style={{ marginBottom: '1.25rem' }}>
             <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span>Serial Number</span>
-              {trailers.some(t => t.serialNumber === newTrailerData.serialNumber) && (
+              {trailers.some(t => t.serialNumber === newTrailerData.serialNumber && !t.isDeleted) && (
                 <span style={{ color: '#ef4444', fontSize: '0.7rem', fontWeight: 800 }}>ALREADY EXISTS!</span>
               )}
             </label>
@@ -895,8 +895,8 @@ function Dashboard({
                 className="form-input" 
                 style={{ 
                   borderRadius: '10px',
-                  borderColor: trailers.some(t => t.serialNumber === newTrailerData.serialNumber) ? '#fecdd3' : undefined,
-                  backgroundColor: trailers.some(t => t.serialNumber === newTrailerData.serialNumber) ? '#fff1f2' : undefined 
+                  borderColor: trailers.some(t => t.serialNumber === newTrailerData.serialNumber && !t.isDeleted) ? '#fecdd3' : undefined,
+                  backgroundColor: trailers.some(t => t.serialNumber === newTrailerData.serialNumber && !t.isDeleted) ? '#fff1f2' : undefined 
                 }}
                 value={newTrailerData.serialNumber} 
                 onChange={e => setNewTrailerData({ ...newTrailerData, serialNumber: e.target.value })}
@@ -1101,7 +1101,7 @@ function Dashboard({
               type="button" 
               onClick={(e) => { e.preventDefault(); handleAddTrailer(e as any); }}
               className="btn btn-primary" 
-              disabled={isAdding || !newTrailerData.name || !newTrailerData.serialNumber || trailers.some(t => t.serialNumber === newTrailerData.serialNumber)}
+              disabled={isAdding || !newTrailerData.name || !newTrailerData.serialNumber || trailers.some(t => t.serialNumber === newTrailerData.serialNumber && !t.isDeleted)}
             >
               {isAdding ? 'Registering Unit...' : 'Add to Backlog'}
               {!isAdding && (
