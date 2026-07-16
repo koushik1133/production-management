@@ -22,9 +22,11 @@ interface Props {
   isPriceUnlockedGlobally?: boolean;
   onUnlockPrices?: () => boolean;
   initialMode?: 'view' | 'edit';
+  dealers?: { id: string; name: string; addresses?: string[]; common_address?: string; }[];
+  onUpdateDealer?: (id: string, dealer: { name: string, addresses: string[], common_address: string }) => Promise<void>;
 }
 
-export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose, onUpdate, allTrailers = [], localTargetHours, localSpecSheetTemplates = {}, onDeleteTrailer, shippedTrailers = [], userRole, isPriceUnlockedGlobally, onUnlockPrices, initialMode = 'view' }) => {
+export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose, onUpdate, allTrailers = [], localTargetHours, localSpecSheetTemplates = {}, onDeleteTrailer, shippedTrailers = [], userRole, isPriceUnlockedGlobally, onUnlockPrices, initialMode = 'view', dealers = [], onUpdateDealer }) => {
   const [isEditing, setIsEditing] = React.useState(initialMode === 'edit');
   const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -110,10 +112,18 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
     partsStatus: trailer.partsStatus || { steel: false, tyres: false, parts: false },
     sale_price: trailer.sale_price?.toString() || '',
     spec_sheet_file: specSheetFile || undefined,
-    inspection_sheet_file: inspectionSheetFile || undefined
+    inspection_sheet_file: inspectionSheetFile || undefined,
+    salesPerson: trailer.salesPerson || '',
+    trailer_color: trailer.trailer_color || '',
+    trailer_plug: trailer.trailer_plug || '',
+    purchaseOrder: trailer.purchaseOrder || '',
+    consignment: trailer.consignment || '',
+    dealerLocation: trailer.dealerLocation || ''
   });
 
   const [localNotes, setLocalNotes] = React.useState(trailer.notes || '');
+  const [isCustomAddress, setIsCustomAddress] = useState(false);
+  const [customAddressText, setCustomAddressText] = useState('');
 
   useEffect(() => {
     if (isOpen && trailer.id) {
@@ -126,11 +136,19 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
         partsStatus: trailer.partsStatus || { steel: false, tyres: false, parts: false },
         sale_price: trailer.sale_price?.toString() || '',
         spec_sheet_file: specSheetFile || undefined,
-        inspection_sheet_file: inspectionSheetFile || undefined
+        inspection_sheet_file: inspectionSheetFile || undefined,
+        salesPerson: trailer.salesPerson || '',
+        trailer_color: trailer.trailer_color || '',
+        trailer_plug: trailer.trailer_plug || '',
+        purchaseOrder: trailer.purchaseOrder || '',
+        consignment: trailer.consignment || '',
+        dealerLocation: trailer.dealerLocation || ''
       });
       setLocalNotes(trailer.notes || '');
+      setIsCustomAddress(false);
+      setCustomAddressText('');
     }
-  }, [trailer.id, isOpen, specSheetFile, inspectionSheetFile]);
+  }, [trailer.id, isOpen, specSheetFile, inspectionSheetFile, trailer.salesPerson, trailer.trailer_color, trailer.trailer_plug, trailer.purchaseOrder, trailer.consignment, trailer.dealerLocation]);
 
   const handleGenerateSpecSheet = async (customValues?: Partial<Trailer>): Promise<string | undefined> => {
     const name = customValues ? customValues.name : trailer.name;
@@ -321,11 +339,34 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
 
     let updatedSpecSheetFile = editForm.spec_sheet_file;
 
+    let dealerLocationVal = editForm.dealerLocation;
+    if (isCustomAddress && customAddressText.trim()) {
+      dealerLocationVal = customAddressText.trim();
+      const selectedDealer = dealers.find(d => d.name === editForm.name);
+      if (selectedDealer && onUpdateDealer) {
+        const currentAddresses = selectedDealer.addresses || [];
+        if (!currentAddresses.includes(dealerLocationVal)) {
+          const updatedAddresses = [...currentAddresses, dealerLocationVal];
+          onUpdateDealer(selectedDealer.id, {
+            name: selectedDealer.name,
+            addresses: updatedAddresses,
+            common_address: selectedDealer.common_address || ''
+          });
+        }
+      }
+    }
+
     // Check if Excel values have changed
     const hasExcelFieldChanges = 
       editForm.serialNumber !== trailer.serialNumber ||
       editForm.name !== trailer.name ||
-      editForm.sale_price !== (trailer.sale_price ? trailer.sale_price.toString() : '');
+      editForm.sale_price !== (trailer.sale_price ? trailer.sale_price.toString() : '') ||
+      editForm.salesPerson !== (trailer.salesPerson || '') ||
+      editForm.trailer_color !== (trailer.trailer_color || '') ||
+      editForm.trailer_plug !== (trailer.trailer_plug || '') ||
+      editForm.purchaseOrder !== (trailer.purchaseOrder || '') ||
+      editForm.consignment !== (trailer.consignment || '') ||
+      dealerLocationVal !== (trailer.dealerLocation || '');
 
     const templateBase64 = localSpecSheetTemplates[trailer.model];
     if (templateBase64 && hasExcelFieldChanges) {
@@ -334,14 +375,14 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
         const newFilePath = await handleGenerateSpecSheet({
           name: editForm.name,
           serialNumber: editForm.serialNumber,
-          trailer_color: trailer.trailer_color,
-          trailer_plug: trailer.trailer_plug,
+          trailer_color: editForm.trailer_color,
+          trailer_plug: editForm.trailer_plug,
           sale_price: parsedPrice,
-          salesPerson: trailer.salesPerson,
-          dealerLocation: trailer.dealerLocation,
-          dealerCommonAddress: trailer.dealerCommonAddress,
-          purchaseOrder: trailer.purchaseOrder,
-          consignment: trailer.consignment
+          salesPerson: editForm.salesPerson,
+          dealerLocation: dealerLocationVal,
+          dealerCommonAddress: dealers.find(d => d.name === editForm.name)?.common_address || trailer.dealerCommonAddress,
+          purchaseOrder: editForm.purchaseOrder,
+          consignment: editForm.consignment
         });
         if (newFilePath) {
           updatedSpecSheetFile = newFilePath;
@@ -353,6 +394,9 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
 
     const updates: Partial<Trailer> = {
       ...editForm,
+      dealerLocation: dealerLocationVal,
+      dealerCommonAddress: dealers.find(d => d.name === editForm.name)?.common_address || trailer.dealerCommonAddress,
+      dealerId: dealers.find(d => d.name === editForm.name)?.id || trailer.dealerId,
       sale_price: editForm.sale_price ? parseFloat(editForm.sale_price) : (editForm.sale_price === '' ? null : undefined),
       notes: localNotes,
       spec_sheet_file: updatedSpecSheetFile
@@ -378,27 +422,76 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
         {isEditing ? (
           <div className="edit-form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '2rem' }}>
               <div>
-                <label className="form-label" style={{ color: 'var(--text-muted)' }}>Customer / PO</label>
-                <input 
-                  className="form-input" 
+                <label className="form-label" style={{ color: 'var(--text-muted)' }}>Dealer Name</label>
+                <select 
+                  className="form-select" 
+                  style={{ background: 'rgba(255,255,255,0.02)', fontWeight: 700, width: '100%', padding: '0.75rem 1rem', fontSize: '0.95rem' }}
                   value={editForm.name} 
-                  onChange={e => setEditForm({ ...editForm, name: e.target.value })}
-                  placeholder="Customer Name or Stock"
-                  style={{ background: 'rgba(255,255,255,0.02)', fontWeight: 700 }}
-                />
+                  onChange={e => setEditForm({ ...editForm, name: e.target.value, dealerLocation: '' })} 
+                >
+                  <option value="">Select Dealer...</option>
+                  {dealers.map(d => (
+                    <option key={d.id} value={d.name}>{d.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="form-label" style={{ color: 'var(--text-muted)' }}>Shipping Address</label>
+                <select 
+                  className="form-select" 
+                  style={{ background: 'rgba(255,255,255,0.02)', fontWeight: 700, width: '100%', padding: '0.75rem 1rem', fontSize: '0.95rem' }}
+                  value={isCustomAddress ? 'CUSTOM_ADD' : editForm.dealerLocation} 
+                  onChange={e => {
+                    if (e.target.value === 'CUSTOM_ADD') {
+                      setIsCustomAddress(true);
+                      setEditForm({ ...editForm, dealerLocation: '' });
+                    } else {
+                      setIsCustomAddress(false);
+                      setEditForm({ ...editForm, dealerLocation: e.target.value });
+                    }
+                  }} 
+                  disabled={!editForm.name}
+                >
+                  <option value="">Select Address...</option>
+                  {(() => {
+                    const d = dealers.find(dl => dl.name === editForm.name);
+                    if (!d) return null;
+                    const list = [];
+                    if (d.common_address) list.push(d.common_address);
+                    if (d.addresses) list.push(...d.addresses);
+                    const options = Array.from(new Set(list)).map(addr => (
+                      <option key={addr} value={addr}>{addr}</option>
+                    ));
+                    return [
+                      ...options,
+                      <option key="custom-add" value="CUSTOM_ADD" style={{ color: '#2563eb', fontWeight: 800 }}>+ Add Custom Address...</option>
+                    ];
+                  })()}
+                </select>
+                {isCustomAddress && (
+                  <input 
+                    type="text"
+                    className="form-input"
+                    style={{ marginTop: '0.5rem', background: 'rgba(255,255,255,0.02)', borderColor: 'var(--accent)', fontWeight: 700 }}
+                    placeholder="Enter custom shipping address..."
+                    value={customAddressText}
+                    onChange={e => setCustomAddressText(e.target.value)}
+                    required
+                  />
+                )}
               </div>
               <div>
                 <label className="form-label" style={{ color: 'var(--text-muted)' }}>Serial Number</label>
-                  <input 
-                    className="form-input" 
-                    value={editForm.serialNumber} 
-                    onChange={e => {
-                      const val = e.target.value;
-                      setEditForm({ ...editForm, serialNumber: val });
-                    }}
-                    style={{ background: 'rgba(255,255,255,0.02)', fontWeight: 700 }}
-                  />
-                </div>
+                <input 
+                  className="form-input" 
+                  value={editForm.serialNumber} 
+                  onChange={e => {
+                    const val = e.target.value;
+                    setEditForm({ ...editForm, serialNumber: val });
+                  }}
+                  style={{ background: 'rgba(255,255,255,0.02)', fontWeight: 700 }}
+                />
+              </div>
               <div>
                 <label className="form-label" style={{ color: 'var(--text-muted)' }}>Promised Shipping Date</label>
                 <input 
@@ -410,16 +503,61 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                   style={{ background: 'rgba(255,255,255,0.02)', fontWeight: 700 }}
                 />
               </div>
-              <div style={{ background: 'var(--priority-bg)', padding: '1rem', borderRadius: '12px', border: '1px solid var(--priority-border)', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <div>
+                <label className="form-label" style={{ color: 'var(--text-muted)' }}>Sales Person</label>
                 <input 
-                  type="checkbox" 
-                  checked={editForm.isPriority} 
-                  onChange={e => setEditForm({ ...editForm, isPriority: e.target.checked })} 
-                  style={{ width: '20px', height: '20px' }}
+                  className="form-input" 
+                  value={editForm.salesPerson} 
+                  onChange={e => setEditForm({ ...editForm, salesPerson: e.target.value })}
+                  placeholder="Sales Person Name"
+                  style={{ background: 'rgba(255,255,255,0.02)', fontWeight: 700 }}
                 />
-                <label style={{ fontSize: '0.85rem', fontWeight: 800, color: '#be123c', letterSpacing: '0.02em', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                  <Crown size={18} /> SET AS HIGH PRIORITY UNIT
-                </label>
+              </div>
+              <div>
+                <label className="form-label" style={{ color: 'var(--text-muted)' }}>Trailer Color</label>
+                <input 
+                  className="form-input" 
+                  value={editForm.trailer_color} 
+                  onChange={e => setEditForm({ ...editForm, trailer_color: e.target.value })}
+                  placeholder="e.target. Black, Charcoal, etc."
+                  style={{ background: 'rgba(255,255,255,0.02)', fontWeight: 700 }}
+                />
+              </div>
+              <div>
+                <label className="form-label" style={{ color: 'var(--text-muted)' }}>Trailer Plug</label>
+                <select 
+                  className="form-select" 
+                  style={{ background: 'rgba(255,255,255,0.02)', fontWeight: 700, width: '100%', padding: '0.75rem 1rem', fontSize: '0.95rem' }}
+                  value={editForm.trailer_plug} 
+                  onChange={e => setEditForm({ ...editForm, trailer_plug: e.target.value })} 
+                >
+                  <option value="">Select Plug...</option>
+                  <option value="7 RV Molded Plug">7 RV Molded Plug</option>
+                  <option value="7 Pole Semi Plug">7 Pole Semi Plug</option>
+                  <option value="6 Pole Molded Plug">6 Pole Molded Plug</option>
+                  <option value="4 Way Flat">4 Way Flat</option>
+                  <option value="None">None</option>
+                </select>
+              </div>
+              <div>
+                <label className="form-label" style={{ color: 'var(--text-muted)' }}>Purchase Order (PO)</label>
+                <input 
+                  className="form-input" 
+                  value={editForm.purchaseOrder} 
+                  onChange={e => setEditForm({ ...editForm, purchaseOrder: e.target.value })}
+                  placeholder="Purchase Order Number"
+                  style={{ background: 'rgba(255,255,255,0.02)', fontWeight: 700 }}
+                />
+              </div>
+              <div>
+                <label className="form-label" style={{ color: 'var(--text-muted)' }}>Consignment</label>
+                <input 
+                  className="form-input" 
+                  value={editForm.consignment} 
+                  onChange={e => setEditForm({ ...editForm, consignment: e.target.value })}
+                  placeholder="Consignment Info"
+                  style={{ background: 'rgba(255,255,255,0.02)', fontWeight: 700 }}
+                />
               </div>
               {userRole === 'manager' && (
                 <div style={{ background: 'rgba(217, 119, 6, 0.05)', padding: '1rem', borderRadius: '12px', border: '1px solid rgba(217, 119, 6, 0.2)' }}>
@@ -443,6 +581,17 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                   </div>
                 </div>
               )}
+              <div style={{ background: 'var(--priority-bg)', padding: '1rem', borderRadius: '12px', border: '1px solid var(--priority-border)', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <input 
+                  type="checkbox" 
+                  checked={editForm.isPriority} 
+                  onChange={e => setEditForm({ ...editForm, isPriority: e.target.checked })} 
+                  style={{ width: '20px', height: '20px' }}
+                />
+                <label style={{ fontSize: '0.85rem', fontWeight: 800, color: '#be123c', letterSpacing: '0.02em', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <Crown size={18} /> SET AS HIGH PRIORITY UNIT
+                </label>
+              </div>
               <div style={{ gridColumn: 'span 2', background: 'rgba(59, 130, 246, 0.05)', padding: '1.25rem', borderRadius: '12px', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
                 <label className="form-label" style={{ fontSize: '0.65rem', color: '#1d4ed8', marginBottom: '1rem', display: 'block', fontWeight: 800 }}>SPEC SHEET (EXCEL)</label>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>

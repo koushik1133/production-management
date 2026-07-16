@@ -23,9 +23,10 @@ interface Props {
   isPriceUnlockedGlobally?: boolean;
   onUnlockPrices?: () => boolean;
   dealers?: { id: string; name: string; addresses?: string[]; common_address?: string; }[];
+  onUpdateDealer?: (id: string, dealer: { name: string, addresses: string[], common_address: string }) => Promise<void>;
 }
 
-export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, onDeleteTrailer, trailers, suggestedBay, nextSuggestedSerial, localModelCategories, localTargetHours, localSpecSheetTemplates, userRole, isPriceUnlockedGlobally, onUnlockPrices, dealers = [] }) => {
+export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, onDeleteTrailer, trailers, suggestedBay, nextSuggestedSerial, localModelCategories, localTargetHours, localSpecSheetTemplates, userRole, isPriceUnlockedGlobally, onUnlockPrices, dealers = [], onUpdateDealer }) => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
@@ -90,6 +91,9 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
     purchaseOrder: '',
     consignment: ''
   });
+
+  const [isCustomAddress, setIsCustomAddress] = useState(false);
+  const [customAddressText, setCustomAddressText] = useState('');
 
   const selectedModelHours = formData.model ? localTargetHours[formData.model] : null;
   const totalHours = selectedModelHours ? Object.entries(selectedModelHours).reduce((a, [p, h]) => (p !== 'shipping' && p !== 'backlog') ? a + (h as number) : a, 0) : 0;
@@ -214,6 +218,23 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
       return;
     }
 
+    let dealerLocationVal = formData.dealerLocation;
+    if (isCustomAddress && customAddressText.trim()) {
+      dealerLocationVal = customAddressText.trim();
+      const selectedDealer = dealers.find(d => d.name === formData.name);
+      if (selectedDealer && onUpdateDealer) {
+        const currentAddresses = selectedDealer.addresses || [];
+        if (!currentAddresses.includes(dealerLocationVal)) {
+          const updatedAddresses = [...currentAddresses, dealerLocationVal];
+          onUpdateDealer(selectedDealer.id, {
+            name: selectedDealer.name,
+            addresses: updatedAddresses,
+            common_address: selectedDealer.common_address || ''
+          });
+        }
+      }
+    }
+
     let finalSpecSheetFile = undefined;
     let templateBase64: string | undefined = localSpecSheetTemplates[formData.model];
     
@@ -239,7 +260,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
           formData.trailer_plug || undefined,
           formData.sale_price ? parseFloat(formData.sale_price) : undefined,
           formData.salesPerson || undefined,
-          formData.dealerLocation || undefined,
+          dealerLocationVal || undefined,
           selectedDealer?.common_address || undefined,
           false,
           formData.dateRegistered ? new Date(formData.dateRegistered + 'T12:00:00').toLocaleDateString('en-US', {
@@ -269,7 +290,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
         trailer_color: formData.trailer_color || undefined,
         trailer_plug: formData.trailer_plug || undefined,
         salesPerson: formData.salesPerson || undefined,
-        dealerLocation: formData.dealerLocation || undefined,
+        dealerLocation: dealerLocationVal || undefined,
         dealerCommonAddress: selectedDealer?.common_address || undefined,
         dealerId: selectedDealer?.id || undefined,
         purchaseOrder: formData.purchaseOrder || undefined,
@@ -297,7 +318,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
         trailer_color: formData.trailer_color || undefined,
         trailer_plug: formData.trailer_plug || undefined,
         salesPerson: formData.salesPerson || undefined,
-        dealerLocation: formData.dealerLocation || undefined,
+        dealerLocation: dealerLocationVal || undefined,
         dealerCommonAddress: selectedDealer?.common_address || undefined,
         dealerId: selectedDealer?.id || undefined,
         purchaseOrder: formData.purchaseOrder || undefined,
@@ -307,6 +328,8 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
       setToastMessage('Added to Backlog Successfully!');
     }
     
+    setIsCustomAddress(false);
+    setCustomAddressText('');
     setFormData({ 
       name: '', 
       model: '', 
@@ -444,8 +467,16 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
                         <select 
                           className="form-select" 
                           style={{ padding: '0.75rem 1rem', fontSize: '0.95rem', background: 'var(--bg-card)' }}
-                          value={formData.dealerLocation} 
-                          onChange={e => setFormData({...formData, dealerLocation: e.target.value})} 
+                          value={isCustomAddress ? 'CUSTOM_ADD' : formData.dealerLocation} 
+                          onChange={e => {
+                            if (e.target.value === 'CUSTOM_ADD') {
+                              setIsCustomAddress(true);
+                              setFormData({ ...formData, dealerLocation: '' });
+                            } else {
+                              setIsCustomAddress(false);
+                              setFormData({ ...formData, dealerLocation: e.target.value });
+                            }
+                          }} 
                           disabled={!formData.name}
                         >
                           <option value="">Select Address...</option>
@@ -455,11 +486,26 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
                             const list = [];
                             if (d.common_address) list.push(d.common_address);
                             if (d.addresses) list.push(...d.addresses);
-                            return Array.from(new Set(list)).map(addr => (
+                            const options = Array.from(new Set(list)).map(addr => (
                               <option key={addr} value={addr}>{addr}</option>
                             ));
+                            return [
+                              ...options,
+                              <option key="custom-add" value="CUSTOM_ADD" style={{ color: '#2563eb', fontWeight: 800 }}>+ Add Custom Address...</option>
+                            ];
                           })()}
                         </select>
+                        {isCustomAddress && (
+                          <input 
+                            type="text"
+                            className="form-input"
+                            style={{ marginTop: '0.5rem', padding: '0.75rem 1rem', fontSize: '0.95rem', background: 'var(--bg-card)', borderColor: 'var(--accent)' }}
+                            placeholder="Enter custom shipping address..."
+                            value={customAddressText}
+                            onChange={e => setCustomAddressText(e.target.value)}
+                            required
+                          />
+                        )}
                       </div>
 
                       <div className="form-group" style={{ marginBottom: 0 }}>
