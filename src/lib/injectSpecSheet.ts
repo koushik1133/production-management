@@ -59,6 +59,13 @@ export async function injectTrailerDataIntoSpec(
 
   const cleanLabel = (str: string) => str.toLowerCase().replace(/[^a-z0-9]/g, '');
 
+  const formatPrice = (price: string | number | undefined): string => {
+    if (price === undefined || price === '') return '';
+    const num = typeof price === 'number' ? price : parseFloat(String(price).replace(/[^0-9.]/g, ''));
+    if (isNaN(num)) return String(price);
+    return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  };
+
   // 1. Placeholder-based Replacement (Robust & Flexible)
   // Searches xl/sharedStrings.xml for {{PLACEHOLDER}} or [[PLACEHOLDER]] and replaces it everywhere.
   if (sharedStringsFile) {
@@ -69,7 +76,7 @@ export async function injectTrailerDataIntoSpec(
       'TRAILER_COLOR': trailerColor || '',
       'TRAILER_PLUG': trailerPlug || '',
       'TRAILER_NAME': trailerName || '',
-      'SALE_PRICE': salePrice?.toString() || '',
+      'SALE_PRICE': formatPrice(salePrice),
       'SALES_PERSON': salesPerson || '',
       'DEALER_LOCATION': dealerLocation || '',
       'DEALER_ADDRESS': dealerCommonAddress || '',
@@ -177,14 +184,14 @@ export async function injectTrailerDataIntoSpec(
   const updates: Record<string, Record<string, string | number | undefined>> = {
     'xl/worksheets/sheet1.xml': {
       'H4': serialNumber,
-      'J55': salePrice || ''
+      'J55': formatPrice(salePrice)
     },
     'xl/worksheets/sheet2.xml': {
       'B2': serialNumber,
       'B4': today,
       'B13': trailerColor || '',
       'B14': trailerPlug || '',
-      'B15': salePrice || '',
+      'B15': formatPrice(salePrice),
       'B6': trailerName || '',
       'B7': dealerCommonAddress || '',
       'B8': dealerCommonAddress || '',
