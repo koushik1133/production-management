@@ -491,9 +491,10 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
                         <input 
                           type="date" 
                           className="form-input" 
-                          style={{ padding: '0.75rem 1rem', fontSize: '0.95rem', background: 'var(--bg-card)' }}
+                          style={{ padding: '0.75rem 1rem', fontSize: '0.95rem', background: 'var(--bg-card)', cursor: 'pointer' }}
                           value={formData.dateRegistered} 
                           onChange={e => setFormData({...formData, dateRegistered: e.target.value})} 
+                          onFocus={(e) => e.target.showPicker()}
                           required
                         />
                       </div>
@@ -503,9 +504,10 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
                           type="date" 
                           min={new Date().toISOString().split('T')[0]}
                           className="form-input" 
-                          style={{ padding: '0.75rem 1rem', fontSize: '0.95rem', background: 'var(--bg-card)' }}
+                          style={{ padding: '0.75rem 1rem', fontSize: '0.95rem', background: 'var(--bg-card)', cursor: 'pointer' }}
                           value={formData.promisedShippingDate} 
                           onChange={e => setFormData({...formData, promisedShippingDate: e.target.value})} 
+                          onFocus={(e) => e.target.showPicker()}
                         />
                       </div>
 
