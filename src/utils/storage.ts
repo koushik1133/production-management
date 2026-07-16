@@ -29,12 +29,13 @@ export function useResolvedUrl(path: string | undefined | null): string {
 
 export async function uploadFileToSupabase(file: File, type: string, id: string): Promise<string> {
   let folderPath = '';
+  const safeId = id.replace(/[^a-zA-Z0-9.-]/g, '_');
   if (type === 'spec_sheet_template') {
-    folderPath = `templates/${id}`;
+    folderPath = `templates/${safeId}`;
   } else if (type === 'spec_sheet' || type === 'inspection_sheet' || type.startsWith('photo_')) {
-    folderPath = `trailers/${id}`;
+    folderPath = `trailers/${safeId}`;
   } else {
-    folderPath = `misc/${id}`;
+    folderPath = `misc/${safeId}`;
   }
   const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
   const fileName = `${type}_${Date.now()}_${safeName}`;
