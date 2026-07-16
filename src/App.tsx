@@ -1637,6 +1637,7 @@ function App() {
 
   const [trailers, setTrailers] = useState<Trailer[]>([]);
   const [loading, setLoading] = useState(true);
+  const [hasPurchaseOrderCols, setHasPurchaseOrderCols] = useState(false);
 
   useEffect(() => {
     // No resize logic needed for current sensor configuration
@@ -1826,10 +1827,19 @@ function App() {
   const fetchInitialData = useCallback(async () => {
     setLoading(true);
     try {
-      const [trailersRes, bayRes, modelsRes, templatesExistRes, shippedRes, dealersRes] = await Promise.all([
-        // Exclude spec_sheet_file, photo_1_url, photo_2_url, photo_3_url, inspection_sheet_file, and spec_sheet_versions from bulk fetch.
-        // These are huge Base64 columns causing timeouts and freezing. They are lazy-loaded.
-        supabase.from('trailers').select('id,name,model,serialNumber,station,dateStarted,currentPhase,history,partsStatus,finishingType,isArchived,archivedAt,isDeleted,invoiceNumber,vinDate,expectedDueDate,promisedShippingDate,notes,isPriority,updated_at,vertical_order,bay_vertical_order,sale_price,trailer_color,trailer_plug,sales_person,dealer_location,dealer_common_address,dealer_id,purchase_order,consignment'),
+      let trailersRes;
+      let columnsSupported = true;
+      try {
+        trailersRes = await supabase.from('trailers').select('id,name,model,serialNumber,station,dateStarted,currentPhase,history,partsStatus,finishingType,isArchived,archivedAt,isDeleted,invoiceNumber,vinDate,expectedDueDate,promisedShippingDate,notes,isPriority,updated_at,vertical_order,bay_vertical_order,sale_price,trailer_color,trailer_plug,sales_person,dealer_location,dealer_common_address,dealer_id,purchase_order,consignment');
+        if (trailersRes.error) throw trailersRes.error;
+      } catch (err) {
+        console.warn("Main query failed (missing columns). Falling back to safe query without purchase_order and consignment.", err);
+        columnsSupported = false;
+        trailersRes = await supabase.from('trailers').select('id,name,model,serialNumber,station,dateStarted,currentPhase,history,partsStatus,finishingType,isArchived,archivedAt,isDeleted,invoiceNumber,vinDate,expectedDueDate,promisedShippingDate,notes,isPriority,updated_at,vertical_order,bay_vertical_order,sale_price,trailer_color,trailer_plug,sales_person,dealer_location,dealer_common_address,dealer_id');
+      }
+      setHasPurchaseOrderCols(columnsSupported);
+
+      const [bayRes, modelsRes, templatesExistRes, shippedRes, dealersRes] = await Promise.all([
         supabase.from('bay_settings').select('*'),
         supabase.from('production_models').select('id, name, category, target_hours, specs'),
         supabase.from('production_models').select('name').not('spec_sheet_template', 'is', null),
@@ -1895,7 +1905,7 @@ function App() {
     } finally {
       setLoading(false);
     }
-  }, [setLoading, setTrailers, setCatalogModels, setShippedTrailers, setBayCapacities]);
+  }, [setLoading, setTrailers, setCatalogModels, setShippedTrailers, setBayCapacities, setHasPurchaseOrderCols]);
 
   useEffect(() => {
     fetchInitialData();
@@ -2104,8 +2114,16 @@ function App() {
     if ('dealerLocation' in dbUpdates) { dbUpdates.dealer_location = dbUpdates.dealerLocation; delete dbUpdates.dealerLocation; }
     if ('dealerCommonAddress' in dbUpdates) { dbUpdates.dealer_common_address = dbUpdates.dealerCommonAddress; delete dbUpdates.dealerCommonAddress; }
     if ('dealerId' in dbUpdates) { dbUpdates.dealer_id = dbUpdates.dealerId; delete dbUpdates.dealerId; }
-    if ('purchaseOrder' in dbUpdates) { dbUpdates.purchase_order = dbUpdates.purchaseOrder; delete dbUpdates.purchaseOrder; }
-    if ('consignment' in dbUpdates) { dbUpdates.consignment = dbUpdates.consignment; delete dbUpdates.consignment; }
+    
+    if (hasPurchaseOrderCols) {
+      if ('purchaseOrder' in dbUpdates) { dbUpdates.purchase_order = dbUpdates.purchaseOrder; delete dbUpdates.purchaseOrder; }
+      if ('consignment' in dbUpdates) { dbUpdates.consignment = dbUpdates.consignment; delete dbUpdates.consignment; }
+    } else {
+      delete dbUpdates.purchaseOrder;
+      delete dbUpdates.consignment;
+      delete dbUpdates.purchase_order;
+      delete dbUpdates.consignment;
+    }
 
     const runUpdate = async (retries = 3, delay = 1500): Promise<boolean> => {
       const { error } = await supabase
@@ -2322,8 +2340,16 @@ function App() {
     if ('dealerLocation' in dbTrailer) { dbTrailer.dealer_location = dbTrailer.dealerLocation; delete dbTrailer.dealerLocation; }
     if ('dealerCommonAddress' in dbTrailer) { dbTrailer.dealer_common_address = dbTrailer.dealerCommonAddress; delete dbTrailer.dealerCommonAddress; }
     if ('dealerId' in dbTrailer) { dbTrailer.dealer_id = dbTrailer.dealerId; delete dbTrailer.dealerId; }
-    if ('purchaseOrder' in dbTrailer) { dbTrailer.purchase_order = dbTrailer.purchaseOrder; delete dbTrailer.purchaseOrder; }
-    if ('consignment' in dbTrailer) { dbTrailer.consignment = dbTrailer.consignment; delete dbTrailer.consignment; }
+    
+    if (hasPurchaseOrderCols) {
+      if ('purchaseOrder' in dbTrailer) { dbTrailer.purchase_order = dbTrailer.purchaseOrder; delete dbTrailer.purchaseOrder; }
+      if ('consignment' in dbTrailer) { dbTrailer.consignment = dbTrailer.consignment; delete dbTrailer.consignment; }
+    } else {
+      delete dbTrailer.purchaseOrder;
+      delete dbTrailer.consignment;
+      delete dbTrailer.purchase_order;
+      delete dbTrailer.consignment;
+    }
 
     const { error } = await supabase
       .from('trailers')

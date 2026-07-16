@@ -206,8 +206,13 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.model) return;
-
     const serialNum = formData.serialNumber || `UNIT-${Math.floor(10000 + Math.random() * 90000)}`;
+
+    const exists = trailers.some(t => t.serialNumber?.trim().toLowerCase() === serialNum.trim().toLowerCase() && !t.isDeleted && t.id !== approvingQuoteId);
+    if (exists) {
+      alert(`A trailer with serial number "${serialNum}" already exists. Serial numbers must be unique.`);
+      return;
+    }
 
     let finalSpecSheetFile = undefined;
     let templateBase64: string | undefined = localSpecSheetTemplates[formData.model];
