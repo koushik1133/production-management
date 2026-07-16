@@ -458,8 +458,8 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
                   {/* Specifications & Pricing */}
                   <div style={{ padding: '1.25rem', background: 'var(--bg-secondary)', borderRadius: '12px', border: '1px solid var(--border-default)' }}>
                     <h3 style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '1rem', letterSpacing: '0.05em' }}>Specifications & Pricing</h3>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                      <div className="form-group" style={{ marginBottom: 0 }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
+                      <div className="form-group" style={{ marginBottom: 0, flex: '1 1 calc(50% - 0.5rem)', minWidth: '150px' }}>
                         <label className="form-label" style={{ fontSize: '0.75rem' }}>🎨 Trailer Color</label>
                         <input 
                           type="text" 
@@ -470,7 +470,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
                           onChange={e => setFormData({...formData, trailer_color: e.target.value})} 
                         />
                       </div>
-                      <div className="form-group" style={{ marginBottom: 0 }}>
+                      <div className="form-group" style={{ marginBottom: 0, flex: '1 1 calc(50% - 0.5rem)', minWidth: '150px' }}>
                         <label className="form-label" style={{ fontSize: '0.75rem' }}>🔌 Trailer Plug</label>
                         <select 
                           className="form-select"
@@ -486,7 +486,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
                         </select>
                       </div>
 
-                      <div className="form-group" style={{ marginBottom: 0 }}>
+                      <div className="form-group" style={{ marginBottom: 0, flex: '1 1 calc(50% - 0.5rem)', minWidth: '150px' }}>
                         <label className="form-label" style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Date Registered</label>
                         <input 
                           type="date" 
@@ -498,7 +498,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
                           required
                         />
                       </div>
-                      <div className="form-group" style={{ marginBottom: 0 }}>
+                      <div className="form-group" style={{ marginBottom: 0, flex: '1 1 calc(50% - 0.5rem)', minWidth: '150px' }}>
                         <label className="form-label" style={{ fontSize: '0.75rem', color: 'var(--accent)' }}>Promised Shipping</label>
                         <input 
                           type="date" 
@@ -512,7 +512,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
                       </div>
 
                       {userRole === 'manager' && (
-                        <div className="form-group" style={{ marginBottom: 0, gridColumn: 'span 2' }}>
+                        <div className="form-group" style={{ marginBottom: 0, flex: '1 1 100%' }}>
                           <label className="form-label" style={{ fontSize: '0.75rem', color: '#d97706', fontWeight: 800 }}>Sale Price ($)</label>
                           <input 
                             key={isPriceUnlockedGlobally ? 'unlocked-backlog' : 'locked-backlog'}
