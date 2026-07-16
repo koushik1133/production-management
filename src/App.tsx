@@ -968,9 +968,16 @@ function Dashboard({
               disabled={!newTrailerData.name}
             >
               <option value="">Select Address...</option>
-              {dealers.find(d => d.name === newTrailerData.name)?.addresses?.map(addr => (
-                <option key={addr} value={addr}>{addr}</option>
-              ))}
+              {(() => {
+                const d = dealers.find(dl => dl.name === newTrailerData.name);
+                if (!d) return null;
+                const list = [];
+                if (d.common_address) list.push(d.common_address);
+                if (d.addresses) list.push(...d.addresses);
+                return Array.from(new Set(list)).map(addr => (
+                  <option key={addr} value={addr}>{addr}</option>
+                ));
+              })()}
             </select>
           </div>
           <div className="form-group">
