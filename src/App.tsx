@@ -113,7 +113,8 @@ function Dashboard({
   onUnlockPrices,
   onLockPrices,
   localSpecSheetTemplates,
-  dealers
+  dealers,
+  onUpdateDealer
 }: {
   trailers: Trailer[], 
   updateTrailer: (id: string, updates: Partial<Trailer>) => Promise<boolean>,
@@ -145,7 +146,8 @@ function Dashboard({
   onUnlockPrices?: () => boolean,
   onLockPrices?: () => void,
   localSpecSheetTemplates?: Record<string, string>,
-  dealers: { id: string; name: string; addresses?: string[]; common_address?: string; }[]
+  dealers: { id: string; name: string; addresses?: string[]; common_address?: string; }[],
+  onUpdateDealer?: (id: string, dealer: { name: string, addresses: string[], common_address: string }) => Promise<void>
 }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const highlightedTrailerId = searchParams.get('highlight');
@@ -1148,6 +1150,8 @@ function Dashboard({
           userRole={userRole}
           isPriceUnlockedGlobally={isPriceUnlockedGlobally}
           onUnlockPrices={onUnlockPrices}
+          dealers={dealers}
+          onUpdateDealer={onUpdateDealer}
         />
       )}
       
@@ -2261,7 +2265,7 @@ function App() {
     }
   };
 
-  const handleEditDealer = async (id: string, dealer: { name: string, addresses: string[], common_address: string }) => {
+  async function handleEditDealer(id: string, dealer: { name: string, addresses: string[], common_address: string }) {
     const existing = dealers.find(d => d.id === id);
     if (!existing) return;
     
@@ -2778,8 +2782,9 @@ function getSuggestedBay(): StationId {
               }}
               localSpecSheetTemplates={localSpecSheetTemplates}
               dealers={dealers}
+              onUpdateDealer={handleEditDealer}
             />} />
-            <Route path="/backlog" element={<BacklogView trailers={trailers} onAddTrailer={addTrailer} onUpdateTrailer={updateTrailer} onDeleteTrailer={deleteTrailer} suggestedBay={suggestedBay} nextSuggestedSerial={nextSuggestedSerial} localModelCategories={localModelCategories} localTargetHours={localTargetHours} localSpecSheetTemplates={localSpecSheetTemplates} dealers={dealers} userRole={userRole} isPriceUnlockedGlobally={isPriceUnlockedGlobally} onUnlockPrices={unlockPricesGlobally} />} />
+            <Route path="/backlog" element={<BacklogView trailers={trailers} onAddTrailer={addTrailer} onUpdateTrailer={updateTrailer} onDeleteTrailer={deleteTrailer} suggestedBay={suggestedBay} nextSuggestedSerial={nextSuggestedSerial} localModelCategories={localModelCategories} localTargetHours={localTargetHours} localSpecSheetTemplates={localSpecSheetTemplates} dealers={dealers} onUpdateDealer={handleEditDealer} userRole={userRole} isPriceUnlockedGlobally={isPriceUnlockedGlobally} onUnlockPrices={unlockPricesGlobally} />} />
             <Route path="/stations" element={<StationView trailers={trailers} setTrailers={setTrailers} onUpdateTrailer={updateTrailer} bayCapacities={bayCapacities} onUpdateCapacity={updateCapacity} localTargetHours={localTargetHours} userRole={userRole} isPriceUnlockedGlobally={isPriceUnlockedGlobally} onUnlockPrices={unlockPricesGlobally} />} />
             <Route path="/tv" element={<TVView trailers={trailers} localTargetHours={localTargetHours} userRole={userRole} />} />
             <Route path="/tv/station1" element={<TVView trailers={trailers} monitorMode="station1" localTargetHours={localTargetHours} userRole={userRole} />} />
