@@ -69,11 +69,11 @@ export async function injectTrailerDataIntoSpec(
       'TRAILER_COLOR': trailerColor || '',
       'TRAILER_PLUG': trailerPlug || '',
       'TRAILER_NAME': trailerName || '',
-      'DEALER_ADDRESS': dealerCommonAddress || '',
-      'DEALER_LOCATION': dealerLocation || '',
+      'SALE_PRICE': salePrice?.toString() || '',
       'SALES_PERSON': salesPerson || '',
-      'SALE_PRICE': salePrice !== undefined ? String(salePrice) : '',
-      'DATE_TODAY': today
+      'DEALER_LOCATION': dealerLocation || '',
+      'DEALER_ADDRESS': dealerCommonAddress || '',
+      'TODAYS_DATE': today
     };
 
     for (const [key, val] of Object.entries(placeholderMap)) {
