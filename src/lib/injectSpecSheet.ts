@@ -17,7 +17,9 @@ export async function injectTrailerDataIntoSpec(
   dealerLocation?: string,
   dealerCommonAddress?: string,
   hideOtherSheets: boolean = false,
-  dateCreated?: string
+  dateCreated?: string,
+  purchaseOrder?: string,
+  consignment?: string
 ): Promise<string> {
   const base64Data = base64File.includes(',') ? base64File.split(',')[1] : base64File;
   
@@ -80,7 +82,9 @@ export async function injectTrailerDataIntoSpec(
       'SALES_PERSON': salesPerson || '',
       'DEALER_LOCATION': dealerLocation || '',
       'DEALER_ADDRESS': dealerCommonAddress || '',
-      'TODAYS_DATE': today
+      'TODAYS_DATE': today,
+      'PURCHASE_ORDER': purchaseOrder || '',
+      'CONSIGNMENT': consignment || ''
     };
 
     for (const [key, val] of Object.entries(placeholderMap)) {
@@ -188,6 +192,7 @@ export async function injectTrailerDataIntoSpec(
     },
     'xl/worksheets/sheet2.xml': {
       'B2': serialNumber,
+      'B3': purchaseOrder || '',
       'B4': today,
       'B13': trailerColor || '',
       'B14': trailerPlug || '',
@@ -196,6 +201,7 @@ export async function injectTrailerDataIntoSpec(
       'B7': dealerCommonAddress || '',
       'B8': dealerCommonAddress || '',
       'B9': dealerLocation || '',
+      'B11': consignment || '',
       'B12': salesPerson || ''
     },
     'xl/worksheets/sheet3.xml': { 

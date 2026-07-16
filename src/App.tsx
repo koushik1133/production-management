@@ -1829,7 +1829,7 @@ function App() {
       const [trailersRes, bayRes, modelsRes, templatesExistRes, shippedRes, dealersRes] = await Promise.all([
         // Exclude spec_sheet_file, photo_1_url, photo_2_url, photo_3_url, inspection_sheet_file, and spec_sheet_versions from bulk fetch.
         // These are huge Base64 columns causing timeouts and freezing. They are lazy-loaded.
-        supabase.from('trailers').select('id,name,model,serialNumber,station,dateStarted,currentPhase,history,partsStatus,finishingType,isArchived,archivedAt,isDeleted,invoiceNumber,vinDate,expectedDueDate,promisedShippingDate,notes,isPriority,updated_at,vertical_order,bay_vertical_order,sale_price,trailer_color,trailer_plug,sales_person,dealer_location,dealer_common_address,dealer_id'),
+        supabase.from('trailers').select('id,name,model,serialNumber,station,dateStarted,currentPhase,history,partsStatus,finishingType,isArchived,archivedAt,isDeleted,invoiceNumber,vinDate,expectedDueDate,promisedShippingDate,notes,isPriority,updated_at,vertical_order,bay_vertical_order,sale_price,trailer_color,trailer_plug,sales_person,dealer_location,dealer_common_address,dealer_id,purchase_order,consignment'),
         supabase.from('bay_settings').select('*'),
         supabase.from('production_models').select('id, name, category, target_hours, specs'),
         supabase.from('production_models').select('name').not('spec_sheet_template', 'is', null),
@@ -1845,6 +1845,8 @@ function App() {
           if (mapped.dealer_location) { mapped.dealerLocation = mapped.dealer_location; delete mapped.dealer_location; }
           if (mapped.dealer_common_address) { mapped.dealerCommonAddress = mapped.dealer_common_address; delete mapped.dealer_common_address; }
           if (mapped.dealer_id) { mapped.dealerId = mapped.dealer_id; delete mapped.dealer_id; }
+          if (mapped.purchase_order) { mapped.purchaseOrder = mapped.purchase_order; delete mapped.purchase_order; }
+          if (mapped.consignment) { mapped.consignment = mapped.consignment; delete mapped.consignment; }
           return mapped;
         });
         
@@ -1916,6 +1918,8 @@ function App() {
               if (mapped.dealer_location) { mapped.dealerLocation = mapped.dealer_location; delete mapped.dealer_location; }
               if (mapped.dealer_common_address) { mapped.dealerCommonAddress = mapped.dealer_common_address; delete mapped.dealer_common_address; }
               if (mapped.dealer_id) { mapped.dealerId = mapped.dealer_id; delete mapped.dealer_id; }
+              if (mapped.purchase_order) { mapped.purchaseOrder = mapped.purchase_order; delete mapped.purchase_order; }
+              if (mapped.consignment) { mapped.consignment = mapped.consignment; delete mapped.consignment; }
               if (payload.eventType === 'INSERT') {
                 setTrailers(prev => {
                   if (prev.find(t => t.id === mapped.id)) return prev;
@@ -2100,6 +2104,8 @@ function App() {
     if ('dealerLocation' in dbUpdates) { dbUpdates.dealer_location = dbUpdates.dealerLocation; delete dbUpdates.dealerLocation; }
     if ('dealerCommonAddress' in dbUpdates) { dbUpdates.dealer_common_address = dbUpdates.dealerCommonAddress; delete dbUpdates.dealerCommonAddress; }
     if ('dealerId' in dbUpdates) { dbUpdates.dealer_id = dbUpdates.dealerId; delete dbUpdates.dealerId; }
+    if ('purchaseOrder' in dbUpdates) { dbUpdates.purchase_order = dbUpdates.purchaseOrder; delete dbUpdates.purchaseOrder; }
+    if ('consignment' in dbUpdates) { dbUpdates.consignment = dbUpdates.consignment; delete dbUpdates.consignment; }
 
     const runUpdate = async (retries = 3, delay = 1500): Promise<boolean> => {
       const { error } = await supabase
@@ -2316,6 +2322,8 @@ function App() {
     if ('dealerLocation' in dbTrailer) { dbTrailer.dealer_location = dbTrailer.dealerLocation; delete dbTrailer.dealerLocation; }
     if ('dealerCommonAddress' in dbTrailer) { dbTrailer.dealer_common_address = dbTrailer.dealerCommonAddress; delete dbTrailer.dealerCommonAddress; }
     if ('dealerId' in dbTrailer) { dbTrailer.dealer_id = dbTrailer.dealerId; delete dbTrailer.dealerId; }
+    if ('purchaseOrder' in dbTrailer) { dbTrailer.purchase_order = dbTrailer.purchaseOrder; delete dbTrailer.purchaseOrder; }
+    if ('consignment' in dbTrailer) { dbTrailer.consignment = dbTrailer.consignment; delete dbTrailer.consignment; }
 
     const { error } = await supabase
       .from('trailers')
