@@ -364,7 +364,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
                         <label className="form-label" style={{ fontSize: '0.75rem', display: 'flex', justifyContent: 'space-between' }}>
                           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                             <span>Serial Number *</span>
-                            {trailers.some(t => t.serialNumber === formData.serialNumber) && (
+                            {trailers.some(t => t.serialNumber === formData.serialNumber && !t.isDeleted) && (
                               <span style={{ color: '#ef4444', fontSize: '0.65rem', fontWeight: 800 }}>ALREADY EXISTS!</span>
                             )}
                           </div>
@@ -385,8 +385,8 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
                             padding: '0.75rem 1rem',
                             fontSize: '0.95rem', 
                             fontWeight: 700,
-                            borderColor: trailers.some(t => t.serialNumber === formData.serialNumber) ? '#fecdd3' : undefined,
-                            backgroundColor: trailers.some(t => t.serialNumber === formData.serialNumber) ? '#fff1f2' : 'var(--bg-card)' 
+                            borderColor: trailers.some(t => t.serialNumber === formData.serialNumber && !t.isDeleted) ? '#fecdd3' : undefined,
+                            backgroundColor: trailers.some(t => t.serialNumber === formData.serialNumber && !t.isDeleted) ? '#fff1f2' : 'var(--bg-card)' 
                           }}
                           placeholder="e.g. 10001" 
                           value={formData.serialNumber} 
@@ -630,9 +630,9 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
                       fontSize: '1rem', 
                       borderRadius: '12px', 
                       position: 'relative',
-                      opacity: trailers.some(t => t.serialNumber === formData.serialNumber) ? 0.6 : 1
+                      opacity: trailers.some(t => t.serialNumber === formData.serialNumber && !t.isDeleted) ? 0.6 : 1
                     }}
-                    disabled={trailers.some(t => t.serialNumber === formData.serialNumber)}
+                    disabled={trailers.some(t => t.serialNumber === formData.serialNumber && !t.isDeleted)}
                   >
                     Confirm Registration <ArrowRight size={18} />
                     <div className="reco-badge-tag" style={{ 
