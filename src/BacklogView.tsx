@@ -86,7 +86,9 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
     trailer_color: '',
     trailer_plug: '',
     salesPerson: '',
-    dealerLocation: ''
+    dealerLocation: '',
+    purchaseOrder: '',
+    consignment: ''
   });
 
   const selectedModelHours = formData.model ? localTargetHours[formData.model] : null;
@@ -134,7 +136,9 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
         true, // hideOtherSheets for Quotes
         formData.dateRegistered ? new Date(formData.dateRegistered + 'T12:00:00').toLocaleDateString('en-US', {
           month: '2-digit', day: '2-digit', year: 'numeric'
-        }) : undefined
+        }) : undefined,
+        formData.purchaseOrder || undefined,
+        formData.consignment || undefined
       );
 
       const a = document.createElement('a');
@@ -164,7 +168,9 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
         salesPerson: formData.salesPerson || undefined,
         dealerLocation: formData.dealerLocation || undefined,
         dealerCommonAddress: selectedDealer?.common_address || undefined,
-        dealerId: selectedDealer?.id || undefined
+        dealerId: selectedDealer?.id || undefined,
+        purchaseOrder: formData.purchaseOrder || undefined,
+        consignment: formData.consignment || undefined
       };
       onAddTrailer(newQuote);
 
@@ -185,7 +191,9 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
         trailer_color: '',
         trailer_plug: '',
         salesPerson: '',
-        dealerLocation: ''
+        dealerLocation: '',
+        purchaseOrder: '',
+        consignment: ''
       });
       setToastMessage('Quote Generated Successfully!');
       setTimeout(() => setToastMessage(null), 3000);
@@ -231,7 +239,9 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
           false,
           formData.dateRegistered ? new Date(formData.dateRegistered + 'T12:00:00').toLocaleDateString('en-US', {
             month: '2-digit', day: '2-digit', year: 'numeric'
-          }) : undefined
+          }) : undefined,
+          formData.purchaseOrder || undefined,
+          formData.consignment || undefined
         );
       } catch (error) {
         console.error("Failed to generate spec sheet", error);
@@ -256,7 +266,9 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
         salesPerson: formData.salesPerson || undefined,
         dealerLocation: formData.dealerLocation || undefined,
         dealerCommonAddress: selectedDealer?.common_address || undefined,
-        dealerId: selectedDealer?.id || undefined
+        dealerId: selectedDealer?.id || undefined,
+        purchaseOrder: formData.purchaseOrder || undefined,
+        consignment: formData.consignment || undefined
       });
       setApprovingQuoteId(null);
       setToastMessage('Quote Approved & Added to Backlog!');
@@ -282,7 +294,9 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
         salesPerson: formData.salesPerson || undefined,
         dealerLocation: formData.dealerLocation || undefined,
         dealerCommonAddress: selectedDealer?.common_address || undefined,
-        dealerId: selectedDealer?.id || undefined
+        dealerId: selectedDealer?.id || undefined,
+        purchaseOrder: formData.purchaseOrder || undefined,
+        consignment: formData.consignment || undefined
       };
       onAddTrailer(newTrailer);
       setToastMessage('Added to Backlog Successfully!');
@@ -301,7 +315,9 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
       trailer_color: '',
       trailer_plug: '',
       salesPerson: '',
-      dealerLocation: ''
+      dealerLocation: '',
+      purchaseOrder: '',
+      consignment: ''
     });
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -401,7 +417,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
                   {/* Dealer & Sales Info */}
                   <div style={{ padding: '1.25rem', background: 'var(--bg-secondary)', borderRadius: '12px', border: '1px solid var(--border-default)' }}>
                     <h3 style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '1rem', letterSpacing: '0.05em' }}>Dealer & Sales Info</h3>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                       <div className="form-group" style={{ marginBottom: 0 }}>
                         <label className="form-label" style={{ fontSize: '0.75rem' }}>Dealer Name *</label>
                         <select 
@@ -440,18 +456,42 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
                           })()}
                         </select>
                       </div>
-                    </div>
-                    
-                    <div className="form-group" style={{ marginBottom: 0 }}>
-                      <label className="form-label" style={{ fontSize: '0.75rem' }}>Sales Person</label>
-                      <input 
-                        type="text" 
-                        className="form-input" 
-                        style={{ padding: '0.75rem 1rem', fontSize: '0.95rem', background: 'var(--bg-card)' }}
-                        placeholder="e.g. John Doe"
-                        value={formData.salesPerson} 
-                        onChange={e => setFormData({...formData, salesPerson: e.target.value})} 
-                      />
+
+                      <div className="form-group" style={{ marginBottom: 0 }}>
+                        <label className="form-label" style={{ fontSize: '0.75rem' }}>Sales Person</label>
+                        <input 
+                          type="text" 
+                          className="form-input" 
+                          style={{ padding: '0.75rem 1rem', fontSize: '0.95rem', background: 'var(--bg-card)' }}
+                          placeholder="e.g. John Doe"
+                          value={formData.salesPerson} 
+                          onChange={e => setFormData({...formData, salesPerson: e.target.value})} 
+                        />
+                      </div>
+
+                      <div className="form-group" style={{ marginBottom: 0 }}>
+                        <label className="form-label" style={{ fontSize: '0.75rem' }}>Purchase Order (PO)</label>
+                        <input 
+                          type="text" 
+                          className="form-input" 
+                          style={{ padding: '0.75rem 1rem', fontSize: '0.95rem', background: 'var(--bg-card)' }}
+                          placeholder="e.g. PO-12345"
+                          value={formData.purchaseOrder} 
+                          onChange={e => setFormData({...formData, purchaseOrder: e.target.value})} 
+                        />
+                      </div>
+
+                      <div className="form-group" style={{ marginBottom: 0, gridColumn: 'span 2' }}>
+                        <label className="form-label" style={{ fontSize: '0.75rem' }}>Consignment</label>
+                        <input 
+                          type="text" 
+                          className="form-input" 
+                          style={{ padding: '0.75rem 1rem', fontSize: '0.95rem', background: 'var(--bg-card)' }}
+                          placeholder="e.g. Consignment Info"
+                          value={formData.consignment} 
+                          onChange={e => setFormData({...formData, consignment: e.target.value})} 
+                        />
+                      </div>
                     </div>
                   </div>
 
@@ -878,7 +918,9 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
                               trailer_color: quote.trailer_color || '',
                               trailer_plug: quote.trailer_plug || '',
                               salesPerson: quote.salesPerson || '',
-                              dealerLocation: quote.dealerLocation || ''
+                              dealerLocation: quote.dealerLocation || '',
+                              purchaseOrder: quote.purchaseOrder || '',
+                              consignment: quote.consignment || ''
                             });
                             setApprovingQuoteId(quote.id);
                             window.scrollTo({ top: 0, behavior: 'smooth' });
