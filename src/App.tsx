@@ -32,7 +32,8 @@ import { ArchiveView } from './ArchiveView';
 import { ScheduleView } from './ScheduleView';
 import { CatalogView } from './CatalogView';
 import { BookOpen } from 'lucide-react';
-import { dataURLtoFile, uploadFileToSupabase, triggerFileDownload } from './utils/storage';
+import { dataURLtoFile, uploadFileToSupabase, triggerFileDownload, fetchTemplateAsBase64 } from './utils/storage';
+import { injectTrailerDataIntoSpec } from './lib/injectSpecSheet';
 
 import { 
   Search, 
@@ -162,6 +163,8 @@ function Dashboard({
   }, [highlightedTrailerId, setSearchParams]);
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [quickCustomAddress, setQuickCustomAddress] = useState(false);
+  const [quickCustomAddressText, setQuickCustomAddressText] = useState('');
   const [isStatsModalOpen, setIsStatsModalOpen] = useState(false);
   const [selectedTrailerId, setSelectedTrailerId] = useState<string | null>(null);
   const [selectedTrailerMode, setSelectedTrailerMode] = useState<'view' | 'edit'>('view');
@@ -431,7 +434,9 @@ function Dashboard({
     trailer_plug: '',
     salesPerson: '',
     dealerLocation: '',
-    dealerCommonAddress: ''
+    dealerCommonAddress: '',
+    purchaseOrder: '',
+    consignment: ''
   });
 
   const handleAddTrailer = async (e: React.FormEvent) => {
@@ -439,12 +444,75 @@ function Dashboard({
     if (!newTrailerData.model) return;
     setIsAdding(true);
     try {
+      let dealerLocationVal = newTrailerData.dealerLocation;
+      if (quickCustomAddress && quickCustomAddressText.trim()) {
+        dealerLocationVal = quickCustomAddressText.trim();
+        const selectedD = dealers.find(d => d.name === newTrailerData.name);
+        if (selectedD && onUpdateDealer) {
+          const currentAddresses = selectedD.addresses || [];
+          if (!currentAddresses.includes(dealerLocationVal)) {
+            const updatedAddresses = [...currentAddresses, dealerLocationVal];
+            await onUpdateDealer(selectedD.id, {
+              name: selectedD.name,
+              addresses: updatedAddresses,
+              common_address: selectedD.common_address || ''
+            });
+          }
+        }
+      }
+
+      const serialNum = newTrailerData.serialNumber || `UNIT-${Math.floor(10000 + Math.random() * 90000)}`;
+
+      let finalSpecSheetFile = undefined;
+      let templateBase64: string | undefined = localSpecSheetTemplates ? localSpecSheetTemplates[newTrailerData.model] : undefined;
+      
+      if (templateBase64 === 'EXISTS') {
+        try {
+          const { data, error } = await supabase.from('production_models').select('spec_sheet_template').eq('name', newTrailerData.model).single();
+          if (error) throw error;
+          templateBase64 = await fetchTemplateAsBase64(data.spec_sheet_template);
+        } catch (err) {
+          console.error('Failed to fetch template:', err);
+          templateBase64 = undefined;
+        }
+      }
+
       const selectedDealer = dealers.find(d => d.name === newTrailerData.name);
+
+      if (templateBase64) {
+        try {
+          const formattedDate = newTrailerData.dateRegistered ? new Date(newTrailerData.dateRegistered + 'T12:00:00').toLocaleDateString('en-US', {
+            month: '2-digit', day: '2-digit', year: 'numeric'
+          }) : undefined;
+
+          const base64Data = await injectTrailerDataIntoSpec(
+            templateBase64,
+            serialNum,
+            newTrailerData.name || undefined,
+            newTrailerData.trailer_color || undefined,
+            newTrailerData.trailer_plug || undefined,
+            newTrailerData.sale_price ? parseFloat(newTrailerData.sale_price) : undefined,
+            newTrailerData.salesPerson || undefined,
+            dealerLocationVal || undefined,
+            newTrailerData.dealerCommonAddress || selectedDealer?.common_address || undefined,
+            false,
+            formattedDate,
+            newTrailerData.purchaseOrder || undefined,
+            newTrailerData.consignment || undefined
+          );
+
+          const fileObj = dataURLtoFile(base64Data, `${serialNum.trim()}_SpecSheet.xlsx`);
+          finalSpecSheetFile = await uploadFileToSupabase(fileObj, 'spec_sheet', serialNum);
+        } catch (error) {
+          console.error("Failed to generate spec sheet during quick register:", error);
+        }
+      }
+
       const newTrailer: Trailer = {
         id: crypto.randomUUID(),
         name: newTrailerData.name || '---',
         model: newTrailerData.model,
-        serialNumber: newTrailerData.serialNumber || `UNIT-${Math.floor(10000 + Math.random() * 90000)}`,
+        serialNumber: serialNum,
         station: 'None',
         isPriority: newTrailerData.isPriority,
         dateStarted: newTrailerData.dateRegistered ? new Date(newTrailerData.dateRegistered + 'T12:00:00').getTime() : Date.now(),
@@ -456,12 +524,17 @@ function Dashboard({
         trailer_color: newTrailerData.trailer_color || undefined,
         trailer_plug: newTrailerData.trailer_plug || undefined,
         salesPerson: newTrailerData.salesPerson || undefined,
-        dealerLocation: newTrailerData.dealerLocation || undefined,
+        dealerLocation: dealerLocationVal || undefined,
         dealerCommonAddress: newTrailerData.dealerCommonAddress || selectedDealer?.common_address || undefined,
-        dealerId: selectedDealer?.id || undefined
+        dealerId: selectedDealer?.id || undefined,
+        purchaseOrder: newTrailerData.purchaseOrder || undefined,
+        consignment: newTrailerData.consignment || undefined,
+        spec_sheet_file: finalSpecSheetFile
       };
       await addTrailer(newTrailer);
       setIsAddModalOpen(false);
+      setQuickCustomAddress(false);
+      setQuickCustomAddressText('');
       setNewTrailerData({ 
         serialNumber: '', 
         name: '', 
@@ -476,7 +549,9 @@ function Dashboard({
         trailer_plug: '',
         salesPerson: '',
         dealerLocation: '',
-        dealerCommonAddress: ''
+        dealerCommonAddress: '',
+        purchaseOrder: '',
+        consignment: ''
       });
     } finally { setIsAdding(false); }
   };
@@ -967,8 +1042,16 @@ function Dashboard({
             <label className="form-label">Shipping Address (Branch Location)</label>
             <select 
               className="form-select" 
-              value={newTrailerData.dealerLocation} 
-              onChange={e => setNewTrailerData({...newTrailerData, dealerLocation: e.target.value})} 
+              value={quickCustomAddress ? 'CUSTOM_ADD' : newTrailerData.dealerLocation} 
+              onChange={e => {
+                if (e.target.value === 'CUSTOM_ADD') {
+                  setQuickCustomAddress(true);
+                  setNewTrailerData({ ...newTrailerData, dealerLocation: '' });
+                } else {
+                  setQuickCustomAddress(false);
+                  setNewTrailerData({ ...newTrailerData, dealerLocation: e.target.value });
+                }
+              }} 
               disabled={!newTrailerData.name}
             >
               <option value="">Select Address...</option>
@@ -978,11 +1061,26 @@ function Dashboard({
                 const list = [];
                 if (d.common_address) list.push(d.common_address);
                 if (d.addresses) list.push(...d.addresses);
-                return Array.from(new Set(list)).map(addr => (
+                const options = Array.from(new Set(list)).map(addr => (
                   <option key={addr} value={addr}>{addr}</option>
                 ));
+                return [
+                  ...options,
+                  <option key="quick-custom-add" value="CUSTOM_ADD" style={{ color: '#2563eb', fontWeight: 800 }}>+ Add Custom Address...</option>
+                ];
               })()}
             </select>
+            {quickCustomAddress && (
+              <input 
+                type="text"
+                className="form-input"
+                style={{ marginTop: '0.5rem', borderColor: 'var(--accent)' }}
+                placeholder="Enter custom shipping address..."
+                value={quickCustomAddressText}
+                onChange={e => setQuickCustomAddressText(e.target.value)}
+                required
+              />
+            )}
           </div>
           <div className="form-group">
             <label className="form-label">LANE TRAILERS *</label>
@@ -1061,6 +1159,30 @@ function Dashboard({
                 <option value="6 Pole Molded Plug">6 Pole Molded Plug</option>
                 <option value="4 Way Flat">4 Way Flat</option>
               </select>
+            </div>
+          </div>
+
+          {/* Purchase Order & Consignment fields */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
+            <div className="form-group">
+              <label className="form-label">Purchase Order</label>
+              <input 
+                type="text" 
+                className="form-input" 
+                placeholder="Purchase Order Number" 
+                value={newTrailerData.purchaseOrder}
+                onChange={e => setNewTrailerData({...newTrailerData, purchaseOrder: e.target.value})}
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Consignment</label>
+              <input 
+                type="text" 
+                className="form-input" 
+                placeholder="Consignment Info" 
+                value={newTrailerData.consignment}
+                onChange={e => setNewTrailerData({...newTrailerData, consignment: e.target.value})}
+              />
             </div>
           </div>
 
