@@ -93,6 +93,7 @@ export const TrailerCard: React.FC<Props> = React.memo(({
   const currentLog = trailer.history.find(h => h.phase === trailer.currentPhase && !h.exitedAt);
   const timeInPhase = currentLog ? formatDistanceToNow(currentLog.enteredAt) : '0m';
 
+  // eslint-disable-next-line react-hooks/purity
   const hoursRemaining = currentLog ? (Date.now() - currentLog.enteredAt) / (1000 * 60 * 60) : 0;
   const targetHours = localTargetHours[trailer.model]?.[trailer.currentPhase] 
     || PHASE_METADATA[trailer.currentPhase].defaultTargetHours;

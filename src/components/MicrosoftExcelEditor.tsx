@@ -93,7 +93,7 @@ export const MicrosoftExcelEditor: React.FC<Props> = ({ base64File, serialNumber
     if (isLoggedIn && inProgress === InteractionStatus.None && status === "initializing") {
       uploadFile();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, [isLoggedIn, inProgress]);
 
   const handleSync = async () => {
