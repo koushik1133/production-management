@@ -37,6 +37,7 @@ import { injectTrailerDataIntoSpec } from './lib/injectSpecSheet';
 
 import { 
   Search, 
+  ArrowUpDown,
   Plus, 
   MapPin,
   Tv,
@@ -103,6 +104,8 @@ function Dashboard({
   onSaveShippedRecord,
   searchQuery,
   setSearchQuery,
+  sortBy,
+  setSortBy,
   shippedTrailers,
   userRole,
   undoStack,
@@ -136,6 +139,8 @@ function Dashboard({
   totalProductionTime: number,
   searchQuery: string,
   setSearchQuery: React.Dispatch<React.SetStateAction<string>>,
+  sortBy: string,
+  setSortBy: React.Dispatch<React.SetStateAction<string>>,
   shippedTrailers: ShippedTrailer[],
   userRole: UserRole,
   undoStack: Array<Array<{ id: string } & Partial<Trailer>>>,
@@ -264,7 +269,7 @@ function Dashboard({
       const serial = pendingShippingTrailer.serialNumber;
 
       let finalP1 = shippingPhotos.p1;
-      let p1 = pendingShippingTrailer.photo_1_url || undefined;
+      const p1 = pendingShippingTrailer.photo_1_url || undefined;
       if (p1 && p1.startsWith('data:')) {
         try {
           const mimeMatch = p1.match(/^data:(image\/[a-z]+);/);
@@ -276,7 +281,7 @@ function Dashboard({
       }
 
       let finalP2 = shippingPhotos.p2;
-      let p2 = pendingShippingTrailer.photo_2_url || undefined;
+      const p2 = pendingShippingTrailer.photo_2_url || undefined;
       if (p2 && p2.startsWith('data:')) {
         try {
           const mimeMatch = p2.match(/^data:(image\/[a-z]+);/);
@@ -288,7 +293,7 @@ function Dashboard({
       }
 
       let finalP3 = shippingPhotos.p3;
-      let p3 = pendingShippingTrailer.photo_3_url || undefined;
+      const p3 = pendingShippingTrailer.photo_3_url || undefined;
       if (p3 && p3.startsWith('data:')) {
         try {
           const mimeMatch = p3.match(/^data:(image\/[a-z]+);/);
@@ -299,7 +304,7 @@ function Dashboard({
         }
       }
 
-      let spec_sheet_file = pendingShippingTrailer.spec_sheet_file || undefined;
+      const spec_sheet_file = pendingShippingTrailer.spec_sheet_file || undefined;
       let finalShippingSpecSheet = shippingSpecSheet;
       if (spec_sheet_file && spec_sheet_file.startsWith('data:')) {
         try {
@@ -310,7 +315,7 @@ function Dashboard({
         }
       }
 
-      let inspection_sheet_file = pendingShippingTrailer.inspection_sheet_file || undefined;
+      const inspection_sheet_file = pendingShippingTrailer.inspection_sheet_file || undefined;
       let finalShippingInspectionSheet = shippingInspectionSheet;
       if (inspection_sheet_file && inspection_sheet_file.startsWith('data:')) {
         try {
@@ -589,7 +594,7 @@ function Dashboard({
           
           <div className="header-clock-pill hide-on-mobile" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.2rem 0.6rem', borderRadius: '100px', background: 'var(--bg-secondary)', border: '1px solid var(--border-default)', fontSize: '0.75rem' }}>
             <Clock size={12} color="var(--accent)" />
-            <span style={{ fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
+            <span className="header-time" style={{ fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
               {format(currentTime, 'hh:mm')}
               <span className="time-seconds">{format(currentTime, ':ss')}</span>
               {format(currentTime, ' a')}
@@ -604,14 +609,14 @@ function Dashboard({
           </div>
         </div>
 
-        <div className="header-center-group hide-on-mobile" style={{ flex: '1 1 auto', display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: '100px', justifyContent: 'center' }}>
+        <div className="header-center-group hide-on-mobile" style={{ flex: '1 1 auto', display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: '100px', justifyContent: 'center' }}>
           <div className="header-search-container" style={{ 
             background: 'var(--glass-bg)', 
             border: '1px solid var(--border-default)', 
             borderRadius: '8px', 
             padding: '0.35rem 0.6rem', 
             width: '100%', 
-            maxWidth: '240px', 
+            maxWidth: '200px', 
             minWidth: '80px',
             display: 'flex', 
             alignItems: 'center', 
@@ -626,6 +631,40 @@ function Dashboard({
               onChange={(e) => setSearchQuery(e.target.value)} 
               style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)', outline: 'none', width: '100%', fontSize: '0.8rem' }} 
             />
+          </div>
+
+          <div className="header-sort-container" style={{ 
+            background: 'var(--glass-bg)', 
+            border: '1px solid var(--border-default)', 
+            borderRadius: '8px', 
+            padding: '0.3rem 0.5rem', 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '0.3rem',
+            flexShrink: 0
+          }}>
+            <ArrowUpDown size={12} color="var(--text-muted)" />
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              style={{ 
+                background: 'transparent', 
+                border: 'none', 
+                color: 'var(--text-primary)', 
+                outline: 'none', 
+                fontSize: '0.78rem',
+                fontWeight: 700,
+                cursor: 'pointer'
+              }}
+            >
+              <option value="default" style={{ background: 'var(--bg-card)', color: 'var(--text-primary)' }}>Sort: Board Position</option>
+              <option value="recently_added" style={{ background: 'var(--bg-card)', color: 'var(--text-primary)' }}>Sort: Recently Added</option>
+              <option value="oldest_added" style={{ background: 'var(--bg-card)', color: 'var(--text-primary)' }}>Sort: Oldest Added</option>
+              <option value="serial_asc" style={{ background: 'var(--bg-card)', color: 'var(--text-primary)' }}>Sort: Serial (A → Z)</option>
+              <option value="serial_desc" style={{ background: 'var(--bg-card)', color: 'var(--text-primary)' }}>Sort: Serial (Z → A)</option>
+              <option value="priority" style={{ background: 'var(--bg-card)', color: 'var(--text-primary)' }}>Sort: High Priority</option>
+              <option value="promised_date" style={{ background: 'var(--bg-card)', color: 'var(--text-primary)' }}>Sort: Promised Date</option>
+            </select>
           </div>
         </div>
 
@@ -714,6 +753,31 @@ function Dashboard({
                 onChange={(e) => setSearchQuery(e.target.value)} 
                 style={{ width: '100%', background: 'var(--bg-secondary)', border: '1px solid var(--border-default)', borderRadius: '8px', padding: '0.4rem 0.5rem 0.4rem 1.8rem', fontSize: '0.85rem', color: 'var(--text-primary)', outline: 'none' }}
               />
+            </div>
+
+            <div className="mobile-sort-wrapper" style={{ position: 'relative', flexShrink: 0 }}>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                style={{ 
+                  background: 'var(--bg-secondary)', 
+                  border: '1px solid var(--border-default)', 
+                  borderRadius: '8px', 
+                  padding: '0.4rem 0.5rem', 
+                  fontSize: '0.8rem', 
+                  color: 'var(--text-primary)', 
+                  outline: 'none',
+                  fontWeight: 700
+                }}
+              >
+                <option value="default" style={{ background: 'var(--bg-card)', color: 'var(--text-primary)' }}>Position</option>
+                <option value="recently_added" style={{ background: 'var(--bg-card)', color: 'var(--text-primary)' }}>Recently Added</option>
+                <option value="oldest_added" style={{ background: 'var(--bg-card)', color: 'var(--text-primary)' }}>Oldest Added</option>
+                <option value="serial_asc" style={{ background: 'var(--bg-card)', color: 'var(--text-primary)' }}>Serial (A → Z)</option>
+                <option value="serial_desc" style={{ background: 'var(--bg-card)', color: 'var(--text-primary)' }}>Serial (Z → A)</option>
+                <option value="priority" style={{ background: 'var(--bg-card)', color: 'var(--text-primary)' }}>High Priority</option>
+                <option value="promised_date" style={{ background: 'var(--bg-card)', color: 'var(--text-primary)' }}>Promised Date</option>
+              </select>
             </div>
 
             {userRole === 'manager' && (
@@ -1769,6 +1833,7 @@ function App() {
     // No resize logic needed for current sensor configuration
   }, []);
   const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState<string>('default');
   const [activeId, setActiveId] = useState<string | null>(null);
   const [editingModelName, setEditingModelName] = useState<string | null>(null);
   const [modelFormData, setModelFormData] = useState<Record<PhaseId, number> | null>(null);
@@ -1917,12 +1982,42 @@ function App() {
       return true;
     });
 
-    return unique.filter(t => !t.isArchived && (
+    const filtered = unique.filter(t => !t.isArchived && (
       t.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
       t.serialNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
       t.model.toLowerCase().includes(searchQuery.toLowerCase())
     ));
-  }, [trailers, searchQuery]);
+
+    return [...filtered].sort((a, b) => {
+      if (sortBy === 'recently_added') {
+        return (b.dateStarted || 0) - (a.dateStarted || 0);
+      }
+      if (sortBy === 'oldest_added') {
+        return (a.dateStarted || 0) - (b.dateStarted || 0);
+      }
+      if (sortBy === 'serial_asc') {
+        return (a.serialNumber || '').localeCompare(b.serialNumber || '', undefined, { numeric: true, sensitivity: 'base' });
+      }
+      if (sortBy === 'serial_desc') {
+        return (b.serialNumber || '').localeCompare(a.serialNumber || '', undefined, { numeric: true, sensitivity: 'base' });
+      }
+      if (sortBy === 'priority') {
+        if (a.isPriority && !b.isPriority) return -1;
+        if (!a.isPriority && b.isPriority) return 1;
+        return (a.vertical_order ?? 0) - (b.vertical_order ?? 0);
+      }
+      if (sortBy === 'promised_date') {
+        if (!a.promisedShippingDate && !b.promisedShippingDate) return 0;
+        if (!a.promisedShippingDate) return 1;
+        if (!b.promisedShippingDate) return -1;
+        return new Date(a.promisedShippingDate).getTime() - new Date(b.promisedShippingDate).getTime();
+      }
+      if (a.vertical_order !== undefined && b.vertical_order !== undefined) {
+        return a.vertical_order - b.vertical_order;
+      }
+      return (b.dateStarted || 0) - (a.dateStarted || 0);
+    });
+  }, [trailers, searchQuery, sortBy]);
 
 
   const nextSuggestedSerial = useMemo(() => {
@@ -1981,12 +2076,15 @@ function App() {
         // Map backend snake_case columns back to frontend camelCase properties
         const mappedTrailers = trailersRes.data.map(t => {
           const mapped: any = { ...t };
-          if (mapped.sales_person) { mapped.salesPerson = mapped.sales_person; delete mapped.sales_person; }
-          if (mapped.dealer_location) { mapped.dealerLocation = mapped.dealer_location; delete mapped.dealer_location; }
-          if (mapped.dealer_common_address) { mapped.dealerCommonAddress = mapped.dealer_common_address; delete mapped.dealer_common_address; }
-          if (mapped.dealer_id) { mapped.dealerId = mapped.dealer_id; delete mapped.dealer_id; }
-          if (mapped.purchase_order) { mapped.purchaseOrder = mapped.purchase_order; delete mapped.purchase_order; }
-          if (mapped.consignment) { mapped.consignment = mapped.consignment; delete mapped.consignment; }
+          // Always delete snake_case keys and promote to camelCase (even when null)
+          if ('sales_person' in mapped) { mapped.salesPerson = mapped.sales_person ?? undefined; delete mapped.sales_person; }
+          if ('dealer_location' in mapped) { mapped.dealerLocation = mapped.dealer_location ?? undefined; delete mapped.dealer_location; }
+          if ('dealer_common_address' in mapped) { mapped.dealerCommonAddress = mapped.dealer_common_address ?? undefined; delete mapped.dealer_common_address; }
+          if ('dealer_id' in mapped) { mapped.dealerId = mapped.dealer_id ?? undefined; delete mapped.dealer_id; }
+          if ('purchase_order' in mapped) { mapped.purchaseOrder = mapped.purchase_order ?? undefined; delete mapped.purchase_order; }
+          // consignment is the same in both DB and frontend, but ensure no stale key
+          if ('consignment' in mapped && mapped.consignment === null) { mapped.consignment = undefined; }
+
           return mapped;
         });
         
@@ -2054,12 +2152,14 @@ function App() {
             if (activeIdRef.current === payload.new?.id || activeIdRef.current === payload.old?.id) return;
             if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
               const mapped = { ...payload.new };
-              if (mapped.sales_person) { mapped.salesPerson = mapped.sales_person; delete mapped.sales_person; }
-              if (mapped.dealer_location) { mapped.dealerLocation = mapped.dealer_location; delete mapped.dealer_location; }
-              if (mapped.dealer_common_address) { mapped.dealerCommonAddress = mapped.dealer_common_address; delete mapped.dealer_common_address; }
-              if (mapped.dealer_id) { mapped.dealerId = mapped.dealer_id; delete mapped.dealer_id; }
-              if (mapped.purchase_order) { mapped.purchaseOrder = mapped.purchase_order; delete mapped.purchase_order; }
-              if (mapped.consignment) { mapped.consignment = mapped.consignment; delete mapped.consignment; }
+              // Always delete snake_case keys and promote to camelCase (even when null)
+              if ('sales_person' in mapped) { mapped.salesPerson = mapped.sales_person ?? undefined; delete mapped.sales_person; }
+              if ('dealer_location' in mapped) { mapped.dealerLocation = mapped.dealer_location ?? undefined; delete mapped.dealer_location; }
+              if ('dealer_common_address' in mapped) { mapped.dealerCommonAddress = mapped.dealer_common_address ?? undefined; delete mapped.dealer_common_address; }
+              if ('dealer_id' in mapped) { mapped.dealerId = mapped.dealer_id ?? undefined; delete mapped.dealer_id; }
+              if ('purchase_order' in mapped) { mapped.purchaseOrder = mapped.purchase_order ?? undefined; delete mapped.purchase_order; }
+              if ('consignment' in mapped && mapped.consignment === null) { mapped.consignment = undefined; }
+
               if (payload.eventType === 'INSERT') {
                 setTrailers(prev => {
                   if (prev.find(t => t.id === mapped.id)) return prev;
@@ -2247,7 +2347,7 @@ function App() {
     
     if (hasPurchaseOrderCols) {
       if ('purchaseOrder' in dbUpdates) { dbUpdates.purchase_order = dbUpdates.purchaseOrder; delete dbUpdates.purchaseOrder; }
-      if ('consignment' in dbUpdates) { dbUpdates.consignment = dbUpdates.consignment; delete dbUpdates.consignment; }
+
     } else {
       delete dbUpdates.purchaseOrder;
       delete dbUpdates.consignment;
@@ -2473,7 +2573,7 @@ function App() {
     
     if (hasPurchaseOrderCols) {
       if ('purchaseOrder' in dbTrailer) { dbTrailer.purchase_order = dbTrailer.purchaseOrder; delete dbTrailer.purchaseOrder; }
-      if ('consignment' in dbTrailer) { dbTrailer.consignment = dbTrailer.consignment; delete dbTrailer.consignment; }
+
     } else {
       delete dbTrailer.purchaseOrder;
       delete dbTrailer.consignment;
@@ -2893,6 +2993,8 @@ function getSuggestedBay(): StationId {
               totalProductionTime={totalProductionTime}
               searchQuery={searchQuery}
               setSearchQuery={setSearchQuery}
+              sortBy={sortBy}
+              setSortBy={setSortBy}
               shippedTrailers={shippedTrailers}
               userRole={userRole}
               undoStack={undoStack}

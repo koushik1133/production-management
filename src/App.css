@@ -793,8 +793,16 @@
   .kanban-column { min-width: 320px; flex: 1 1 340px; }
 }
 
-@media (max-width: 1281px) {
+@media (max-width: 1400px) {
   .scroll-arrows-group { display: none !important; }
+}
+
+@media (max-width: 1300px) {
+  .header-date, .header-clock-divider { display: none !important; }
+}
+
+@media (max-width: 1200px) {
+  .header-time, .header-clock-pill { display: none !important; }
 }
 
 @media (max-width: 1024px) {

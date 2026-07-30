@@ -519,7 +519,7 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                   className="form-input" 
                   value={editForm.trailer_color} 
                   onChange={e => setEditForm({ ...editForm, trailer_color: e.target.value })}
-                  placeholder="e.target. Black, Charcoal, etc."
+                  placeholder="e.g. Black, Charcoal, etc."
                   style={{ background: 'rgba(255,255,255,0.02)', fontWeight: 700 }}
                 />
               </div>
