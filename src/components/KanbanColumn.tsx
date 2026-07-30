@@ -23,8 +23,8 @@ interface Props {
 export const KanbanColumn: React.FC<Props> = React.memo(({ id, title, trailers, onCardClick, onUpdateTrailer, onShipRequest, workload, highlightedId, suggestedBay, localTargetHours, userRole, isPriceUnlockedGlobally, onUnlockPrices }) => {
   const { setNodeRef, isOver } = useDroppable({ id });
 
-  // Sort within column by vertical_order so real-time updates render in correct order
-  const sortedTrailers = [...trailers].sort((a, b) => (a.vertical_order ?? 0) - (b.vertical_order ?? 0));
+  // Column receives trailers in the active sort order selected in the header
+  const sortedTrailers = trailers;
 
   return (
     <div 
