@@ -169,14 +169,13 @@ const StationView: React.FC<Props> = ({ trailers, setTrailers, onUpdateTrailer, 
           });
         });
 
-        // Single batch upsert — atomic, avoids rate limiting, prevents partial-failure corruption
-        const upsertRows = reordered.map(t => ({
-          id: t.id,
-          station: t.station,
-          bay_vertical_order: t.bay_vertical_order,
-        }));
-        const { error } = await supabase.from('trailers').upsert(upsertRows, { onConflict: 'id' });
-        if (error) throw error;
+        // Targeted update calls so PostgREST only updates station and bay_vertical_order
+        await Promise.all(
+          reordered.map(t => supabase.from('trailers').update({
+            station: t.station,
+            bay_vertical_order: t.bay_vertical_order,
+          }).eq('id', t.id))
+        );
 
       } catch (err) {
         console.error('StationView DragEnd Error:', err);

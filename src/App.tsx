@@ -2937,32 +2937,37 @@ function App() {
           });
         });
 
-        // ── Single batch upsert ─────────────────────────────────────────────
-        // Previously fired N individual UPDATE requests (one per trailer in the phase).
-        // A single upsert is atomic, avoids Supabase rate limits, and cannot partially fail.
+        // ── Persist to DB ──────────────────────────────────────────────────
+        // Use targeted update() so PostgREST only modifies ordering columns without wiping other fields
         const movedRow = reorderedWithBay.find(r => r.id === activeId);
-        const upsertRows = reorderedWithBay.map(t => ({
-          id: t.id,
-          vertical_order: t.vertical_order,
-          bay_vertical_order: t.bay_vertical_order,
-          // Only write phase/history for the moved card
-          ...(t.id === activeId ? {
-            currentPhase: trailer.currentPhase,
-            history: finalHistory,
-          } : {}),
-        }));
+        const { error: moveError } = await supabase.from('trailers').update({
+          currentPhase: trailer.currentPhase,
+          vertical_order: movedRow?.vertical_order ?? 0,
+          bay_vertical_order: movedRow?.bay_vertical_order ?? 0,
+          history: finalHistory
+        }).eq('id', activeId);
 
-        const { error } = await supabase.from('trailers').upsert(upsertRows, { onConflict: 'id' });
-        if (error) {
-          console.error('DragEnd upsert failed:', error);
+        if (moveError) {
+          console.error('DragEnd update failed:', moveError);
           // Rollback local state on DB failure
           setTrailers(prev => prev.map(t => {
             const orig = trailersRef.current.find(r => r.id === t.id);
             return orig ?? t;
           }));
+          return;
         }
-        // Suppress unused var warning
-        void movedRow;
+
+        // Update ordering columns for sibling cards in the same phase column
+        const siblingUpdates = reorderedWithBay
+          .filter(t => t.id !== activeId)
+          .map(t => supabase.from('trailers').update({
+            vertical_order: t.vertical_order,
+            bay_vertical_order: t.bay_vertical_order
+          }).eq('id', t.id));
+
+        if (siblingUpdates.length > 0) {
+          await Promise.all(siblingUpdates);
+        }
 
       } catch (err) {
         console.error('DragEnd Sync Error:', err);
