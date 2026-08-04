@@ -29,6 +29,18 @@ const PHASE_LABELS = [
   { key: 'trim_hours', label: 'Trim', color: '#10b981' },
 ];
 
+/** Safely format a date string — returns '\u2014' instead of crashing on invalid dates */
+const safeFormat = (dateStr: string | null | undefined, fmt: string, suffix = ''): string => {
+  if (!dateStr) return '\u2014';
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return '\u2014';
+    return format(d, fmt) + suffix;
+  } catch {
+    return '\u2014';
+  }
+};
+
 const ShippedRecord: React.FC<{ record: ShippedTrailer; notes?: string; onClose: () => void; userRole: UserRole; isPriceUnlockedGlobally?: boolean; onUnlockPrices?: () => boolean; onLockPrices?: () => void }> = ({ record, notes, onClose, userRole, isPriceUnlockedGlobally, onUnlockPrices, onLockPrices }) => {
   const [heavyData, setHeavyData] = useState<Partial<ShippedTrailer>>({});
   const [loading, setLoading] = useState(false);
@@ -113,11 +125,11 @@ const ShippedRecord: React.FC<{ record: ShippedTrailer; notes?: string; onClose:
           <div className="shipped-hero-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginTop: '0.5rem', zIndex: 1 }}>
             <div style={{ background: 'rgba(255,255,255,0.03)', padding: '0.75rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
               <div style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>Date Shipped</div>
-              <div style={{ fontSize: '0.9rem', fontWeight: 700 }}>{record.shipped_at ? format(new Date(record.shipped_at), 'MMM d, yyyy') : '—'}</div>
+              <div style={{ fontSize: '0.9rem', fontWeight: 700 }}>{safeFormat(record.shipped_at, 'MMM d, yyyy')}</div>
             </div>
             <div style={{ background: 'rgba(255,255,255,0.03)', padding: '0.75rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
               <div style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>VIN Date</div>
-              <div style={{ fontSize: '0.9rem', fontWeight: 700 }}>{record.vin_date ? format(new Date(record.vin_date + 'T12:00:00'), 'MMM d, yyyy') : '—'}</div>
+              <div style={{ fontSize: '0.9rem', fontWeight: 700 }}>{safeFormat(record.vin_date ? record.vin_date + 'T12:00:00' : null, 'MMM d, yyyy')}</div>
             </div>
             <div style={{ background: 'rgba(255,255,255,0.03)', padding: '0.75rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
               <div style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>Build Efficiency</div>
@@ -473,7 +485,9 @@ export const ArchiveView: React.FC<Props> = ({ trailers, onUpdateTrailer, localT
                     });
 
                     if (filteredDataForExport.length === 0) {
-                      alert("No matching trailers found for the selected export date filter.");
+                      console.warn('Export: no records match the selected date filter.');
+                      setExportStatus('No records match the selected filter.');
+                      setTimeout(() => setExportStatus(''), 3000);
                       return;
                     }
 
@@ -690,7 +704,7 @@ export const ArchiveView: React.FC<Props> = ({ trailers, onUpdateTrailer, localT
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.25rem' }}>
                   <div style={{ background: 'var(--bg-secondary)', padding: '0.75rem', borderRadius: '12px', border: '1px solid var(--border-default)' }}>
                     <div style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>Shipped Date</div>
-                    <div style={{ fontSize: '0.85rem', fontWeight: 700 }}>{t.shipped_at ? format(new Date(t.shipped_at), 'MMM d, yyyy') : '—'}</div>
+                    <div style={{ fontSize: '0.85rem', fontWeight: 700 }}>{safeFormat(t.shipped_at, 'MMM d, yyyy')}</div>
                   </div>
                   <div style={{ background: 'var(--bg-secondary)', padding: '0.75rem', borderRadius: '12px', border: '1px solid var(--border-default)' }}>
                     <div style={{ fontSize: '0.6rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>Total Hours</div>

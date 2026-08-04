@@ -44,17 +44,17 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
   const backlogTrailers = trailers
     .filter(t => !t.isArchived && t.currentPhase === 'backlog')
     .filter(t => 
-      t.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-      t.serialNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      t.model.toLowerCase().includes(searchQuery.toLowerCase())
+      (t.name?.toLowerCase() ?? '').includes(searchQuery.toLowerCase()) || 
+      (t.serialNumber?.toLowerCase() ?? '').includes(searchQuery.toLowerCase()) ||
+      (t.model?.toLowerCase() ?? '').includes(searchQuery.toLowerCase())
     );
 
   const quoteTrailers = trailers
     .filter(t => !t.isArchived && t.currentPhase === 'quote')
     .filter(t => 
-      t.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-      t.serialNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      t.model.toLowerCase().includes(searchQuery.toLowerCase())
+      (t.name?.toLowerCase() ?? '').includes(searchQuery.toLowerCase()) || 
+      (t.serialNumber?.toLowerCase() ?? '').includes(searchQuery.toLowerCase()) ||
+      (t.model?.toLowerCase() ?? '').includes(searchQuery.toLowerCase())
     )
     .sort((a, b) => (a.dateStarted || 0) - (b.dateStarted || 0));
 
@@ -69,6 +69,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
   };
 
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [approvingQuoteId, setApprovingQuoteId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: '',
@@ -110,6 +111,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
       try {
         const { data, error } = await supabase.from('production_models').select('spec_sheet_template').eq('name', formData.model).single();
         if (error) throw error;
+        if (!data?.spec_sheet_template) throw new Error('No spec sheet template configured for this model.');
         templateBase64 = await fetchTemplateAsBase64(data.spec_sheet_template);
       } catch (e) {
         console.error('Failed to fetch template:', e);
@@ -210,13 +212,17 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.model) return;
-    const serialNum = formData.serialNumber || `UNIT-${Math.floor(10000 + Math.random() * 90000)}`;
+    if (isSubmitting) return; // Prevent double-submission
+    setIsSubmitting(true);
+    try {
+      const serialNum = formData.serialNumber || `UNIT-${Math.floor(10000 + Math.random() * 90000)}`;
 
-    const exists = trailers.some(t => t.serialNumber?.trim().toLowerCase() === serialNum.trim().toLowerCase() && !t.isDeleted && t.id !== approvingQuoteId);
-    if (exists) {
-      alert(`A trailer with serial number "${serialNum}" already exists. Serial numbers must be unique.`);
-      return;
-    }
+      const exists = trailers.some(t => t.serialNumber?.trim().toLowerCase() === serialNum.trim().toLowerCase() && !t.isDeleted && t.id !== approvingQuoteId);
+      if (exists) {
+        alert(`A trailer with serial number "${serialNum}" already exists. Serial numbers must be unique.`);
+        setIsSubmitting(false);
+        return;
+      }
 
     let dealerLocationVal = formData.dealerLocation;
     if (isCustomAddress && customAddressText.trim()) {
@@ -328,28 +334,30 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
       setToastMessage('Added to Backlog Successfully!');
     }
     
-    setIsCustomAddress(false);
-    setCustomAddressText('');
-    setFormData({ 
-      name: '', 
-      model: '', 
-      serialNumber: '', 
-      station: 'B1', 
-      isPriority: false, 
-      partsStatus: { tyres: false, steel: false, parts: false },
-      promisedShippingDate: '',
-      dateRegistered: new Date().toISOString().split('T')[0],
-      sale_price: '',
-      trailer_color: '',
-      trailer_plug: '',
-      salesPerson: '',
-      dealerLocation: '',
-      purchaseOrder: '',
-      consignment: ''
-    });
-
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    setTimeout(() => setToastMessage(null), 3000);
+      setIsCustomAddress(false);
+      setCustomAddressText('');
+      setFormData({ 
+        name: '', 
+        model: '', 
+        serialNumber: '', 
+        station: 'B1', 
+        isPriority: false, 
+        partsStatus: { tyres: false, steel: false, parts: false },
+        promisedShippingDate: '',
+        dateRegistered: new Date().toISOString().split('T')[0],
+        sale_price: '',
+        trailer_color: '',
+        trailer_plug: '',
+        salesPerson: '',
+        dealerLocation: '',
+        purchaseOrder: '',
+        consignment: ''
+      });
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      setTimeout(() => setToastMessage(null), 3000);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -678,7 +686,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
                       position: 'relative',
                       opacity: trailers.some(t => t.serialNumber === formData.serialNumber && !t.isDeleted) ? 0.6 : 1
                     }}
-                    disabled={trailers.some(t => t.serialNumber === formData.serialNumber && !t.isDeleted)}
+                    disabled={isSubmitting || trailers.some(t => t.serialNumber === formData.serialNumber && !t.isDeleted && t.id !== approvingQuoteId)}
                   >
                     Confirm Registration <ArrowRight size={18} />
                     <div className="reco-badge-tag" style={{ 

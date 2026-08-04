@@ -124,7 +124,7 @@ const StationView: React.FC<Props> = ({ trailers, setTrailers, onUpdateTrailer, 
     }
   };
 
-  const handleDragEnd = async (event: any) => {
+  const handleDragEnd = async (event: { active: { id: string | number }; over: { id: string | number } | null }) => {
     const { active, over } = event;
     const activeId = active.id as string;
     
@@ -169,16 +169,14 @@ const StationView: React.FC<Props> = ({ trailers, setTrailers, onUpdateTrailer, 
           });
         });
 
-        // Batch persist to DB
-        await Promise.all([
-          supabase.from('trailers').update({
-            station: trailer.station,
-            bay_vertical_order: reordered.find(r => r.id === activeId)?.bay_vertical_order ?? 0,
-          }).eq('id', activeId),
-          ...reordered
-            .filter(t => t.id !== activeId)
-            .map(t => supabase.from('trailers').update({ bay_vertical_order: t.bay_vertical_order }).eq('id', t.id))
-        ]);
+        // Single batch upsert — atomic, avoids rate limiting, prevents partial-failure corruption
+        const upsertRows = reordered.map(t => ({
+          id: t.id,
+          station: t.station,
+          bay_vertical_order: t.bay_vertical_order,
+        }));
+        const { error } = await supabase.from('trailers').upsert(upsertRows, { onConflict: 'id' });
+        if (error) throw error;
 
       } catch (err) {
         console.error('StationView DragEnd Error:', err);

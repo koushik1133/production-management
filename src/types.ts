@@ -167,7 +167,7 @@ export function calculateTrailerRemainingHours(trailer: Trailer, hoursConfig?: R
     const target = config[trailer.model]?.[pId] || PHASE_METADATA[pId].defaultTargetHours;
     
     // Check for manual hours in history
-    const log = trailer.history.slice().reverse().find(h => h.phase === pId);
+    const log = (trailer.history ?? []).slice().reverse().find(h => h.phase === pId);
     if (pId === trailer.currentPhase && log) {
       const loggedHours = log.phaseManualHours || log.bayManualHours || 0;
       total += Math.max(0, target - loggedHours);
