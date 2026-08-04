@@ -88,8 +88,9 @@ const StationView: React.FC<Props> = ({ trailers, setTrailers, onUpdateTrailer, 
     
     if (!overStation) return;
 
-    // Trigger update if station changed OR if we are reordering
-    if (activeTrailer.station !== overStation || activeId !== overId) {
+    // Trigger update ONLY if station changed (cross-station drag)
+    // Intra-station reordering is handled visually by SortableContext and committed on handleDragEnd
+    if (activeTrailer.station !== overStation) {
       setTrailers(prev => {
         const activeIdx = prev.findIndex(t => t.id === activeId);
         if (activeIdx === -1) return prev;
