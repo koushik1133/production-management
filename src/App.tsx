@@ -161,7 +161,11 @@ function Dashboard({
   useEffect(() => {
     if (highlightedTrailerId) {
       const timer = setTimeout(() => {
-        setSearchParams({});
+        setSearchParams(prev => {
+          const next = new URLSearchParams(prev);
+          next.delete('highlight');
+          return next;
+        });
       }, 2500);
       return () => clearTimeout(timer);
     }
@@ -447,6 +451,7 @@ function Dashboard({
   const handleAddTrailer = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTrailerData.model) return;
+    if (isAdding) return; // Prevent double-submission
     setIsAdding(true);
     try {
       let dealerLocationVal = newTrailerData.dealerLocation;
@@ -467,6 +472,16 @@ function Dashboard({
       }
 
       const serialNum = newTrailerData.serialNumber || `UNIT-${Math.floor(10000 + Math.random() * 90000)}`;
+
+      // ── Serial-number uniqueness guard ──────────────────────────────────────
+      // Check against current in-memory trailers (case-insensitive, trimmed)
+      const serialExists = trailers.some(
+        t => t.serialNumber?.trim().toLowerCase() === serialNum.trim().toLowerCase() && !t.isDeleted
+      );
+      if (serialExists) {
+        alert(`A trailer with serial number "${serialNum}" already exists. Serial numbers must be unique.`);
+        return;
+      }
 
       let finalSpecSheetFile = undefined;
       let templateBase64: string | undefined = localSpecSheetTemplates ? localSpecSheetTemplates[newTrailerData.model] : undefined;
@@ -891,7 +906,7 @@ function Dashboard({
                     const entries = t.history.filter(h => h.phase === phaseId);
                     const manual = entries.reduce((s, h) => s + (h.phaseManualHours || h.bayManualHours || 0), 0);
                     if (manual > 0) return manual.toString();
-                    const ms = entries.reduce((s, h) => s + (h.duration || (h.exitedAt ? h.exitedAt - h.enteredAt : 0)), 0);
+                    const ms = entries.reduce((s, h) => s + (h.duration || ((h.exitedAt && h.enteredAt) ? h.exitedAt - h.enteredAt : 0)), 0);
                     return (ms / 3600000).toFixed(1);
                   };
 
@@ -1400,7 +1415,12 @@ function Dashboard({
                     className="form-input" 
                     style={{ padding: '0.5rem', textAlign: 'center' }}
                     value={shippingHours[phase]}
-                    onChange={e => setShippingHours(prev => ({ ...prev, [phase]: e.target.value }))}
+                    onChange={e => {
+                      const raw = e.target.value;
+                      // Clamp to '0' if the user clears the field or enters non-numeric text
+                      const safe = raw === '' || isNaN(parseFloat(raw)) ? '0' : raw;
+                      setShippingHours(prev => ({ ...prev, [phase]: safe }));
+                    }}
                   />
                 </div>
               ))}
@@ -1975,10 +1995,17 @@ function App() {
   }, [catalogModels]);
 
   const filteredTrailers = useMemo(() => {
-    const seen = new Set<string>();
+    // Deduplicate by id first, then by serialNumber — guards against any duplicate that
+    // slipped into state (optimistic race, realtime double-fire, or stale DB records).
+    const seenIds = new Set<string>();
+    const seenSerials = new Set<string>();
     const unique = trailers.filter(t => {
-      if (!t.id || seen.has(t.id)) return false;
-      seen.add(t.id);
+      if (!t.id || seenIds.has(t.id)) return false;
+      seenIds.add(t.id);
+      // For serial dedup: keep the first occurrence (earliest in sorted order = oldest)
+      const serial = t.serialNumber?.trim().toLowerCase();
+      if (serial && !t.isDeleted && seenSerials.has(serial)) return false;
+      if (serial && !t.isDeleted) seenSerials.add(serial);
       return true;
     });
 
@@ -2037,8 +2064,12 @@ function App() {
         let nextNum = parseInt(numStr, 10) + 1;
         
         let suggested = `${prefix}${nextNum.toString().padStart(numStr.length, "0")}`;
-        while (trailers.some(tr => tr.serialNumber === suggested)) {
+        // Guard against infinite loop on dense serial ranges
+        const MAX_SERIAL_ITER = 10000;
+        let iter = 0;
+        while (trailers.some(tr => tr.serialNumber === suggested) && iter < MAX_SERIAL_ITER) {
           nextNum++;
+          iter++;
           suggested = `${prefix}${nextNum.toString().padStart(numStr.length, "0")}`;
         }
         
@@ -2057,10 +2088,18 @@ function App() {
       try {
         trailersRes = await supabase.from('trailers').select('id,name,model,serialNumber,station,dateStarted,currentPhase,history,partsStatus,finishingType,isArchived,archivedAt,isDeleted,invoiceNumber,vinDate,expectedDueDate,promisedShippingDate,notes,isPriority,updated_at,vertical_order,bay_vertical_order,sale_price,trailer_color,trailer_plug,sales_person,dealer_location,dealer_common_address,dealer_id,purchase_order,consignment');
         if (trailersRes.error) throw trailersRes.error;
-      } catch (err) {
-        console.warn("Main query failed (missing columns). Falling back to safe query without purchase_order and consignment.", err);
-        columnsSupported = false;
-        trailersRes = await supabase.from('trailers').select('id,name,model,serialNumber,station,dateStarted,currentPhase,history,partsStatus,finishingType,isArchived,archivedAt,isDeleted,invoiceNumber,vinDate,expectedDueDate,promisedShippingDate,notes,isPriority,updated_at,vertical_order,bay_vertical_order,sale_price,trailer_color,trailer_plug,sales_person,dealer_location,dealer_common_address,dealer_id');
+      } catch (err: any) {
+        // Only fall back if the error is specifically a column-not-found error (42703)
+        // Transient network failures should NOT permanently disable purchase_order fields
+        const isColumnError = err?.code === '42703' || (typeof err?.message === 'string' && err.message.includes('column') && err.message.includes('does not exist'));
+        if (isColumnError) {
+          console.warn('Column not found — falling back to safe query without purchase_order and consignment.', err);
+          columnsSupported = false;
+          trailersRes = await supabase.from('trailers').select('id,name,model,serialNumber,station,dateStarted,currentPhase,history,partsStatus,finishingType,isArchived,archivedAt,isDeleted,invoiceNumber,vinDate,expectedDueDate,promisedShippingDate,notes,isPriority,updated_at,vertical_order,bay_vertical_order,sale_price,trailer_color,trailer_plug,sales_person,dealer_location,dealer_common_address,dealer_id');
+        } else {
+          // Re-throw so the outer catch can show an error state
+          throw err;
+        }
       }
       setHasPurchaseOrderCols(columnsSupported);
 
@@ -2088,10 +2127,29 @@ function App() {
           return mapped;
         });
         
-        // De-duplicate items by ID just in case
-        const uniqueTrailers = mappedTrailers.filter((t, index, self) => 
-          index === self.findIndex((u) => u.id === t.id)
-        );
+        // De-duplicate by ID, then by serialNumber (keeping the most recently updated record per serial)
+        const idSeen = new Set<string>();
+        const idUnique = mappedTrailers.filter((t: any) => {
+          if (!t.id || idSeen.has(t.id)) return false;
+          idSeen.add(t.id);
+          return true;
+        });
+        const serialSeen = new Map<string, any>(); // serial -> best record
+        idUnique.forEach((t: any) => {
+          const serial = t.serialNumber?.trim().toLowerCase();
+          if (!serial || t.isDeleted) return;
+          const existing = serialSeen.get(serial);
+          if (!existing || (t.updated_at || '') > (existing.updated_at || '')) {
+            serialSeen.set(serial, t);
+          }
+        });
+        // Collect: all deleted/no-serial records + winner-per-serial
+        const winnerIds = new Set(Array.from(serialSeen.values()).map((t: any) => t.id));
+        const uniqueTrailers = idUnique.filter((t: any) => {
+          const serial = t.serialNumber?.trim().toLowerCase();
+          if (!serial || t.isDeleted) return true; // always keep deleted / no-serial
+          return winnerIds.has(t.id);
+        });
         // Local sort: vertical_order ASC, then dateStarted DESC fallback
         const sorted = [...uniqueTrailers].sort((a, b) => {
           if (a.vertical_order !== undefined && b.vertical_order !== undefined) {
@@ -2162,7 +2220,16 @@ function App() {
 
               if (payload.eventType === 'INSERT') {
                 setTrailers(prev => {
+                  // Guard against duplicate id
                   if (prev.find(t => t.id === mapped.id)) return prev;
+                  // Guard against duplicate serialNumber (case-insensitive)
+                  const incomingSerial = mapped.serialNumber?.trim().toLowerCase();
+                  if (incomingSerial && !mapped.isDeleted && prev.some(
+                    t => t.serialNumber?.trim().toLowerCase() === incomingSerial && !t.isDeleted
+                  )) {
+                    // A record with this serial already exists locally — skip the realtime insert
+                    return prev;
+                  }
                   return [mapped as Trailer, ...prev].sort((a, b) => (a.vertical_order ?? 0) - (b.vertical_order ?? 0));
                 });
               } else {
@@ -2561,8 +2628,25 @@ function App() {
   };
 
   const addTrailer = async (newTrailer: Trailer) => {
-    // Optimistic update
-    setTrailers(prev => [newTrailer, ...prev]);
+    // ── Atomic serial-number guard: check inside the state updater to prevent race conditions ──
+    // If another optimistic insert with the same serial already exists, abort before touching state.
+    let isDuplicate = false;
+    setTrailers(prev => {
+      const normalised = newTrailer.serialNumber?.trim().toLowerCase();
+      const conflict = normalised && prev.some(
+        t => t.serialNumber?.trim().toLowerCase() === normalised && !t.isDeleted && t.id !== newTrailer.id
+      );
+      if (conflict) {
+        isDuplicate = true;
+        return prev; // no-op – don't add
+      }
+      return [newTrailer, ...prev];
+    });
+
+    if (isDuplicate) {
+      alert(`A trailer with serial number "${newTrailer.serialNumber}" already exists. Serial numbers must be unique.`);
+      return;
+    }
 
     // Map frontend camelCase properties to backend snake_case columns
     const dbTrailer: any = { ...newTrailer };
@@ -2573,7 +2657,6 @@ function App() {
     
     if (hasPurchaseOrderCols) {
       if ('purchaseOrder' in dbTrailer) { dbTrailer.purchase_order = dbTrailer.purchaseOrder; delete dbTrailer.purchaseOrder; }
-
     } else {
       delete dbTrailer.purchaseOrder;
       delete dbTrailer.consignment;
@@ -2586,7 +2669,11 @@ function App() {
       .insert([dbTrailer]);
     
     if (error) {
-      alert("Error adding trailer: " + error.message);
+      // If the DB rejected due to a unique constraint violation, silently roll back.
+      const isUniqueViolation = error.code === '23505';
+      if (!isUniqueViolation) {
+        alert("Error adding trailer: " + error.message);
+      }
       // Rollback on error
       setTrailers(prev => prev.filter(t => t.id !== newTrailer.id));
     }
@@ -2781,9 +2868,8 @@ function App() {
     const { active, over } = event;
     const activeId = active.id as string;
     
-    // 1. Immediately clear activeId to prevent "blurred out" state
-    setActiveId(null);
-    
+    // Delay clearing activeId by one frame so DragOverlay animation finishes before disappearing
+    requestAnimationFrame(() => setActiveId(null));
 
     const trailer = trailersRef.current.find(t => t.id === activeId);
     
@@ -2807,10 +2893,8 @@ function App() {
         }
 
         // Work only with active trailers in the destination PHASE
-        // (trailer.currentPhase is already the destination after handleDragOver)
         const overId = over.id as string;
         const currentItems = trailersRef.current;
-        // 1. Get trailers in destination phase, SORTED by existing vertical_order
         const phaseTrailers = currentItems
           .filter(t => t.currentPhase === trailer.currentPhase && !t.isArchived && !t.isDeleted)
           .sort((a, b) => (a.vertical_order ?? 0) - (b.vertical_order ?? 0));
@@ -2823,42 +2907,61 @@ function App() {
 
         if (currentIdx === -1) return;
 
-        // 2. Perform the move and re-assign sequential vertical_order
+        // Reorder and assign sequential vertical_order values
         const reordered = arrayMove([...phaseTrailers], currentIdx, targetIdx)
           .map((t, idx) => ({ ...t, vertical_order: idx * 1000 }));
 
-        // Instant local update with re-sorting and final history
+        // Also keep bay_vertical_order in sync within the same station
+        const sameStation = trailer.station;
+        const bayTrailers = reordered.filter(t => t.station === sameStation);
+        const reorderedWithBay = reordered.map((t, _idx) => {
+          const bayIdx = bayTrailers.findIndex(b => b.id === t.id);
+          return { ...t, bay_vertical_order: bayIdx >= 0 ? bayIdx * 1000 : (t.bay_vertical_order ?? 0) };
+        });
+
+        // Instant local update
         setTrailers(prev => {
           const updatedList = prev.map(t => {
-            const updated = reordered.find(r => r.id === t.id);
+            const updated = reorderedWithBay.find(r => r.id === t.id);
             if (updated) {
               return t.id === activeId ? { ...updated, history: finalHistory } : updated;
             }
             return t;
           });
-          
-          // Re-sort the entire list to ensure the UI respects the new vertical_order
           return [...updatedList].sort((a, b) => {
             if (a.currentPhase === b.currentPhase && a.vertical_order !== undefined && b.vertical_order !== undefined) {
               return a.vertical_order - b.vertical_order;
             }
-            return 0; // Keep relative order of different phases
+            return 0;
           });
         });
 
-        // Persist to DB:
-        // - moved trailer: full update (phase, history, dateStarted, vertical_order)
-        // - other trailers in phase: vertical_order only
-        await Promise.all([
-          supabase.from('trailers').update({
+        // ── Single batch upsert ─────────────────────────────────────────────
+        // Previously fired N individual UPDATE requests (one per trailer in the phase).
+        // A single upsert is atomic, avoids Supabase rate limits, and cannot partially fail.
+        const movedRow = reorderedWithBay.find(r => r.id === activeId);
+        const upsertRows = reorderedWithBay.map(t => ({
+          id: t.id,
+          vertical_order: t.vertical_order,
+          bay_vertical_order: t.bay_vertical_order,
+          // Only write phase/history for the moved card
+          ...(t.id === activeId ? {
             currentPhase: trailer.currentPhase,
-            vertical_order: reordered.find(r => r.id === activeId)?.vertical_order ?? 0,
-            history: finalHistory
-          }).eq('id', activeId),
-          ...reordered
-            .filter(t => t.id !== activeId)
-            .map(t => supabase.from('trailers').update({ vertical_order: t.vertical_order }).eq('id', t.id))
-        ]);
+            history: finalHistory,
+          } : {}),
+        }));
+
+        const { error } = await supabase.from('trailers').upsert(upsertRows, { onConflict: 'id' });
+        if (error) {
+          console.error('DragEnd upsert failed:', error);
+          // Rollback local state on DB failure
+          setTrailers(prev => prev.map(t => {
+            const orig = trailersRef.current.find(r => r.id === t.id);
+            return orig ?? t;
+          }));
+        }
+        // Suppress unused var warning
+        void movedRow;
 
       } catch (err) {
         console.error('DragEnd Sync Error:', err);
@@ -2890,7 +2993,9 @@ function getSuggestedBay(): StationId {
       }
     });
 
-    const scores = STATIONS.map(b => ({
+    const scores = STATIONS
+      .filter(b => b !== 'None') // 'None' has capacity 0 — exclude from suggestions
+      .map(b => ({
       id: b,
       load: bayLoads[b] || 0,
       capacity: bayCapacities[b] || 40,

@@ -31,5 +31,10 @@ msalInstance.initialize().then(async () => {
   )
 }).catch((error) => {
   console.error("MSAL Initialization failed:", error);
-  document.getElementById('root')!.innerHTML = `<h1>MSAL Init Failed: ${error.message}</h1>`;
+  // Use textContent instead of innerHTML to prevent XSS via error.message
+  const root = document.getElementById('root')!;
+  const h1 = document.createElement('h1');
+  h1.style.cssText = 'font-family:sans-serif;color:#dc2626;padding:2rem;';
+  h1.textContent = `App failed to initialize. Please refresh. (${error?.message ?? 'Unknown error'})`;
+  root.appendChild(h1);
 });

@@ -87,7 +87,7 @@ export const CatalogView: React.FC<Props> = ({ categories, hours, specs, templat
         try {
           const records = results.data as any[];
           const upserts = records.map(r => ({
-            id: r.id || crypto.randomUUID(),
+            id: r.id || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36)),
             name: r.name,
             common_address: r.common_address || null,
             addresses: r.addresses ? r.addresses.split('|').map((a: string) => a.trim()).filter((a: string) => a !== '') : []
@@ -406,6 +406,7 @@ export const CatalogView: React.FC<Props> = ({ categories, hours, specs, templat
                                   try {
                                     const { data, error } = await supabase.from('production_models').select('spec_sheet_template').eq('name', model).single();
                                     if (error) throw error;
+                                    if (!data?.spec_sheet_template) throw new Error('No template found for this model.');
                                     tpl = await fetchTemplateAsBase64(data.spec_sheet_template);
                                   } catch (err) {
                                     console.error(err);

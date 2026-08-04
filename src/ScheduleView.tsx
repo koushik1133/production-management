@@ -17,9 +17,9 @@ export const ScheduleView: React.FC<Props> = ({ trailers, userRole }) => {
   const activeTrailers = trailers.filter(t => !t.isArchived && !t.isDeleted);
   
   const filteredTrailers = activeTrailers.filter(t => 
-    t.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    t.serialNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    t.model.toLowerCase().includes(searchQuery.toLowerCase())
+    (t.name?.toLowerCase() ?? '').includes(searchQuery.toLowerCase()) || 
+    (t.serialNumber?.toLowerCase() ?? '').includes(searchQuery.toLowerCase()) ||
+    (t.model?.toLowerCase() ?? '').includes(searchQuery.toLowerCase())
   );
 
   // Grouping logic

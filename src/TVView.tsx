@@ -23,7 +23,8 @@ const TVView: React.FC<Props> = ({ trailers, monitorMode: initialMode = 'all', l
   const [currentTime, setCurrentTime] = useState(new Date());
 
   const castUrl = (() => {
-    const baseHost = 'https://production-one-virid.vercel.app';
+    // Use VITE_APP_URL env var if set, otherwise derive from current page origin
+    const baseHost = import.meta.env.VITE_APP_URL || window.location.origin;
     if (monitorMode === 'station1') return `${baseHost}/tv/station1`;
     if (monitorMode === 'station2') return `${baseHost}/tv/station2`;
     return `${baseHost}/tv`;
