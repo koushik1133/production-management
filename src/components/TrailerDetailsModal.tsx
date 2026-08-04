@@ -278,7 +278,7 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
   const phaseTimes = React.useMemo(() => {
     const result: Record<string, { h: number, m: number }> = {};
     PHASES.forEach(p => {
-      const entries = trailer.history.filter(h => h.phase === p.id);
+      const entries = (trailer.history ?? []).filter(h => h.phase === p.id);
       let totalMs = 0;
       
       entries.forEach(log => {
@@ -797,7 +797,7 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                   const time = phaseTimes[phase.id] || { h: 0, m: 0 };
                   const updateManualTime = (newH: number) => {
                     const decimalVal = newH;
-                    const updatedHistory = [...trailer.history];
+                    const updatedHistory = [...(trailer.history ?? [])];
                     let targetIdx = -1;
                     for (let i = updatedHistory.length - 1; i >= 0; i--) {
                       if (updatedHistory[i].phase === phase.id) { targetIdx = i; break; }
@@ -1308,7 +1308,7 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
 
         <div className="section-title" style={{ marginTop: '2.5rem' }}><History size={16} /><span>Unit History</span></div>
         <div className="audit-log">
-          {trailer.history.slice().reverse().map((log, idx) => (
+          {(trailer.history ?? []).slice().reverse().map((log, idx) => (
             <div key={idx} className="audit-item">
               <div className="audit-dot" />
               <div className="audit-content">
