@@ -768,7 +768,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
                         const modelHours = localTargetHours[t.model] || {};
                         // Correct build hours calculation (excluding backlog/shipping)
                         const actualBuildHours = PHASES.filter(p => p.id !== 'backlog' && p.id !== 'shipping').reduce((sum, p) => {
-                          return sum + (modelHours[p.id] || PHASE_METADATA[p.id].defaultTargetHours);
+                          return sum + (modelHours[p.id] || PHASE_METADATA[p.id]?.defaultTargetHours || 0);
                         }, 0);
                         
                         // Estimate = (Active Floor Delay) + (Hours of units ahead in backlog / 4 bays)

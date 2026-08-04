@@ -589,7 +589,7 @@ function Dashboard({
           if (fp.id !== 'shipping' && fp.id !== 'backlog') {
             if (t.finishingType === 'Outsource' && fp.id === 'paint') return;
             if (t.finishingType === 'Paint' && fp.id === 'outsource') return;
-            pipeRem += (localTargetHours[t.model]?.[fp.id] || PHASE_METADATA[fp.id].defaultTargetHours);
+            pipeRem += (localTargetHours[t.model]?.[fp.id] || PHASE_METADATA[fp.id]?.defaultTargetHours || 0);
           }
         });
       }

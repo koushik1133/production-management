@@ -96,7 +96,7 @@ export const TrailerCard: React.FC<Props> = React.memo(({
   // eslint-disable-next-line react-hooks/purity
   const hoursRemaining = currentLog ? (Date.now() - currentLog.enteredAt) / (1000 * 60 * 60) : 0;
   const targetHours = localTargetHours[trailer.model]?.[trailer.currentPhase] 
-    || PHASE_METADATA[trailer.currentPhase].defaultTargetHours;
+    || PHASE_METADATA[trailer.currentPhase]?.defaultTargetHours || 40;
   const isBottleneck = trailer.currentPhase !== 'backlog' && hoursRemaining > targetHours;
 
   const timeToShipping = calculateTrailerRemainingHours(trailer, localTargetHours);
@@ -256,7 +256,7 @@ export const TrailerCard: React.FC<Props> = React.memo(({
                border: '1px solid var(--border-default)'
              }}>
                <Layers size={10} color="var(--text-muted)" strokeWidth={3} />
-               {PHASE_METADATA[trailer.currentPhase].title}
+               {PHASE_METADATA[trailer.currentPhase]?.title || trailer.currentPhase || 'Unknown'}
              </div>
           )}
         </div>
