@@ -6,6 +6,7 @@ import {
   DragOverlay,
   closestCorners,
   pointerWithin,
+  rectIntersection,
   KeyboardSensor,
   PointerSensor,
   useSensor,
@@ -35,6 +36,10 @@ import { ScheduleView } from './ScheduleView';
 import { CatalogView } from './CatalogView';
 
 const customCollisionDetection: CollisionDetection = (args) => {
+  const rectCollisions = rectIntersection(args);
+  if (rectCollisions.length > 0) {
+    return rectCollisions;
+  }
   const pointerCollisions = pointerWithin(args);
   if (pointerCollisions.length > 0) {
     return pointerCollisions;
@@ -2833,27 +2838,60 @@ function App() {
 
     if (activeId === overId) return;
 
-    const activeTrailer = trailersRef.current.find(t => t.id === activeId);
+    const currentTrailers = trailersRef.current;
+    const activeTrailer = currentTrailers.find(t => t.id === activeId);
     if (!activeTrailer) return;
 
     const isOverColumn = PHASES.some(p => p.id === overId);
-    const overTrailer = trailersRef.current.find(t => t.id === overId);
+    const overTrailer = currentTrailers.find(t => t.id === overId);
     const overPhase = isOverColumn ? (overId as PhaseId) : overTrailer?.currentPhase;
     
     if (!overPhase) return;
 
-    // Update state ONLY if phase changed (cross-column drag)
-    // Intra-column reordering is handled visually by SortableContext and committed on handleDragEnd
-    if (activeTrailer.currentPhase !== overPhase) {
-      setTrailers(prev => {
-        const activeIdx = prev.findIndex(t => t.id === activeId);
-        if (activeIdx === -1) return prev;
-        
-        const newTrailers = [...prev];
-        newTrailers[activeIdx] = { ...newTrailers[activeIdx], currentPhase: overPhase };
-        return newTrailers;
-      });
+    const samePhase = activeTrailer.currentPhase === overPhase;
+
+    // Get sorted items in target phase
+    const phaseItems = currentTrailers
+      .filter(t => t.currentPhase === overPhase && !t.isArchived && !t.isDeleted)
+      .sort((a, b) => (a.vertical_order ?? 0) - (b.vertical_order ?? 0));
+
+    const oldIdx = phaseItems.findIndex(t => t.id === activeId);
+    let newIdx = overTrailer ? phaseItems.findIndex(t => t.id === overId) : phaseItems.length - 1;
+    if (newIdx === -1) newIdx = phaseItems.length - 1;
+
+    // If dragging in SAME phase and position hasn't changed, return immediately without re-rendering!
+    if (samePhase && oldIdx !== -1 && oldIdx === newIdx) {
+      return;
     }
+
+    setTrailers(prev => {
+      const activeIdx = prev.findIndex(t => t.id === activeId);
+      if (activeIdx === -1) return prev;
+
+      const newTrailers = [...prev];
+      newTrailers[activeIdx] = { ...newTrailers[activeIdx], currentPhase: overPhase };
+
+      const currentPhaseItems = newTrailers
+        .filter(t => t.currentPhase === overPhase && !t.isArchived && !t.isDeleted)
+        .sort((a, b) => (a.vertical_order ?? 0) - (b.vertical_order ?? 0));
+
+      const oIdx = currentPhaseItems.findIndex(t => t.id === activeId);
+      let nIdx = overTrailer ? currentPhaseItems.findIndex(t => t.id === overId) : currentPhaseItems.length - 1;
+      if (nIdx === -1) nIdx = currentPhaseItems.length - 1;
+
+      if (oIdx !== -1 && nIdx !== -1 && oIdx !== nIdx) {
+        const reorderedPhase = arrayMove(currentPhaseItems, oIdx, nIdx);
+        reorderedPhase.forEach((t, idx) => {
+          const globalIdx = newTrailers.findIndex(gt => gt.id === t.id);
+          if (globalIdx !== -1) {
+            newTrailers[globalIdx] = { ...newTrailers[globalIdx], vertical_order: idx * 1000 };
+          }
+        });
+      }
+
+      trailersRef.current = newTrailers;
+      return newTrailers;
+    });
   };
 
   const handleDragEnd = async (event: DragEndEvent) => {

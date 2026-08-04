@@ -7,6 +7,7 @@ import {
   DragOverlay,
   closestCorners,
   pointerWithin,
+  rectIntersection,
   KeyboardSensor,
   PointerSensor,
   useSensor,
@@ -75,6 +76,10 @@ const StationView: React.FC<Props> = ({ trailers, setTrailers, onUpdateTrailer, 
   };
 
   const customCollisionDetection: CollisionDetection = (args) => {
+    const rectCollisions = rectIntersection(args);
+    if (rectCollisions.length > 0) {
+      return rectCollisions;
+    }
     const pointerCollisions = pointerWithin(args);
     if (pointerCollisions.length > 0) {
       return pointerCollisions;
@@ -90,28 +95,58 @@ const StationView: React.FC<Props> = ({ trailers, setTrailers, onUpdateTrailer, 
 
     if (activeId === overId) return;
 
-    const activeTrailer = trailersRef.current.find(t => t.id === activeId);
+    const currentTrailers = trailersRef.current;
+    const activeTrailer = currentTrailers.find(t => t.id === activeId);
     if (!activeTrailer) return;
 
     const isOverStation = STATIONS.some(s => s === overId);
-    const overTrailer = trailersRef.current.find(t => t.id === overId);
+    const overTrailer = currentTrailers.find(t => t.id === overId);
     const overStation = isOverStation ? (overId as StationId) : overTrailer?.station;
     
     if (!overStation) return;
 
-    // Trigger update ONLY if station changed (cross-station drag)
-    if (activeTrailer.station !== overStation) {
-      setTrailers(prev => {
-        const activeIdx = prev.findIndex(t => t.id === activeId);
-        if (activeIdx === -1) return prev;
-        
-        const newTrailers = [...prev];
-        const updatedActive = { ...newTrailers[activeIdx], station: overStation };
-        newTrailers[activeIdx] = updatedActive;
-        trailersRef.current = newTrailers;
-        return newTrailers;
-      });
+    const sameStation = activeTrailer.station === overStation;
+
+    const stationItems = currentTrailers
+      .filter(t => t.station === overStation && !t.isArchived && !t.isDeleted)
+      .sort((a, b) => (a.bay_vertical_order ?? 0) - (b.bay_vertical_order ?? 0));
+
+    const oldIdx = stationItems.findIndex(t => t.id === activeId);
+    let newIdx = overTrailer ? stationItems.findIndex(t => t.id === overId) : stationItems.length - 1;
+    if (newIdx === -1) newIdx = stationItems.length - 1;
+
+    if (sameStation && oldIdx !== -1 && oldIdx === newIdx) {
+      return;
     }
+
+    setTrailers(prev => {
+      const activeIdx = prev.findIndex(t => t.id === activeId);
+      if (activeIdx === -1) return prev;
+
+      const newTrailers = [...prev];
+      newTrailers[activeIdx] = { ...newTrailers[activeIdx], station: overStation };
+
+      const currentStationItems = newTrailers
+        .filter(t => t.station === overStation && !t.isArchived && !t.isDeleted)
+        .sort((a, b) => (a.bay_vertical_order ?? 0) - (b.bay_vertical_order ?? 0));
+
+      const oIdx = currentStationItems.findIndex(t => t.id === activeId);
+      let nIdx = overTrailer ? currentStationItems.findIndex(t => t.id === overId) : currentStationItems.length - 1;
+      if (nIdx === -1) nIdx = currentStationItems.length - 1;
+
+      if (oIdx !== -1 && nIdx !== -1 && oIdx !== nIdx) {
+        const reorderedStation = arrayMove(currentStationItems, oIdx, nIdx);
+        reorderedStation.forEach((t, idx) => {
+          const globalIdx = newTrailers.findIndex(gt => gt.id === t.id);
+          if (globalIdx !== -1) {
+            newTrailers[globalIdx] = { ...newTrailers[globalIdx], bay_vertical_order: idx * 1000 };
+          }
+        });
+      }
+
+      trailersRef.current = newTrailers;
+      return newTrailers;
+    });
   };
 
   const handleDragEnd = async (event: { active: { id: string | number }; over: { id: string | number } | null }) => {
