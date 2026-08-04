@@ -2010,9 +2010,9 @@ function App() {
     });
 
     const filtered = unique.filter(t => !t.isArchived && (
-      t.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-      t.serialNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      t.model.toLowerCase().includes(searchQuery.toLowerCase())
+      (t.name?.toLowerCase() ?? '').includes(searchQuery.toLowerCase()) || 
+      (t.serialNumber?.toLowerCase() ?? '').includes(searchQuery.toLowerCase()) ||
+      (t.model?.toLowerCase() ?? '').includes(searchQuery.toLowerCase())
     ));
 
     return [...filtered].sort((a, b) => {
