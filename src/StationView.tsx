@@ -78,51 +78,60 @@ const StationView: React.FC<Props> = ({ trailers, setTrailers, onUpdateTrailer, 
     if (!over) return;
     const activeId = active.id as string;
     const overId = over.id as string;
-    
-    const activeTrailer = trailers.find(t => t.id === activeId);
+
+    if (activeId === overId) return;
+
+    const activeTrailer = trailersRef.current.find(t => t.id === activeId);
     if (!activeTrailer) return;
 
     const isOverStation = STATIONS.some(s => s === overId);
-    const overTrailer = trailers.find(t => t.id === overId);
+    const overTrailer = trailersRef.current.find(t => t.id === overId);
     const overStation = isOverStation ? (overId as StationId) : overTrailer?.station;
     
     if (!overStation) return;
 
-    // Trigger update ONLY if station changed (cross-station drag)
-    // Intra-station reordering is handled visually by SortableContext and committed on handleDragEnd
-    if (activeTrailer.station !== overStation) {
-      setTrailers(prev => {
-        const activeIdx = prev.findIndex(t => t.id === activeId);
-        if (activeIdx === -1) return prev;
-        
-        const newTrailers = [...prev];
-        const updatedActive = { ...newTrailers[activeIdx], station: overStation };
-        newTrailers[activeIdx] = updatedActive;
+    const stationItems = trailersRef.current
+      .filter(t => t.station === overStation && !t.isArchived && !t.isDeleted)
+      .sort((a, b) => (a.bay_vertical_order ?? 0) - (b.bay_vertical_order ?? 0));
 
-        // Get sorted items in target station
-        const stationItems = newTrailers
-          .filter(t => t.station === overStation && !t.isArchived && !t.isDeleted)
-          .sort((a, b) => (a.bay_vertical_order ?? 0) - (b.bay_vertical_order ?? 0));
+    const oldIdx = stationItems.findIndex(t => t.id === activeId);
+    let newIdx = overTrailer ? stationItems.findIndex(t => t.id === overId) : stationItems.length - 1;
+    if (newIdx === -1) newIdx = stationItems.length - 1;
 
-        const oldIdx = stationItems.findIndex(t => t.id === activeId);
-        let newIdx = overTrailer ? stationItems.findIndex(t => t.id === overId) : stationItems.length - 1;
-        if (newIdx === -1) newIdx = stationItems.length - 1;
-
-        if (oldIdx !== -1 && oldIdx !== newIdx) {
-          const reorderedStation = arrayMove(stationItems, oldIdx, newIdx);
-          // Update bay_vertical_orders globally
-          reorderedStation.forEach((t, idx) => {
-            const globalIdx = newTrailers.findIndex(gt => gt.id === t.id);
-            if (globalIdx !== -1) {
-              newTrailers[globalIdx] = { ...newTrailers[globalIdx], bay_vertical_order: idx * 1000 };
-            }
-          });
-        }
-
-        trailersRef.current = newTrailers;
-        return newTrailers;
-      });
+    // If same station AND position hasn't changed, return immediately!
+    if (activeTrailer.station === overStation && oldIdx !== -1 && oldIdx === newIdx) {
+      return;
     }
+
+    setTrailers(prev => {
+      const activeIdx = prev.findIndex(t => t.id === activeId);
+      if (activeIdx === -1) return prev;
+      
+      const newTrailers = [...prev];
+      const updatedActive = { ...newTrailers[activeIdx], station: overStation };
+      newTrailers[activeIdx] = updatedActive;
+
+      const currentStationItems = newTrailers
+        .filter(t => t.station === overStation && !t.isArchived && !t.isDeleted)
+        .sort((a, b) => (a.bay_vertical_order ?? 0) - (b.bay_vertical_order ?? 0));
+
+      const oIdx = currentStationItems.findIndex(t => t.id === activeId);
+      let nIdx = overTrailer ? currentStationItems.findIndex(t => t.id === overId) : currentStationItems.length - 1;
+      if (nIdx === -1) nIdx = currentStationItems.length - 1;
+
+      if (oIdx !== -1 && nIdx !== -1 && oIdx !== nIdx) {
+        const reorderedStation = arrayMove(currentStationItems, oIdx, nIdx);
+        reorderedStation.forEach((t, idx) => {
+          const globalIdx = newTrailers.findIndex(gt => gt.id === t.id);
+          if (globalIdx !== -1) {
+            newTrailers[globalIdx] = { ...newTrailers[globalIdx], bay_vertical_order: idx * 1000 };
+          }
+        });
+      }
+
+      trailersRef.current = newTrailers;
+      return newTrailers;
+    });
   };
 
   const handleDragEnd = async (event: { active: { id: string | number }; over: { id: string | number } | null }) => {

@@ -2820,7 +2820,9 @@ function App() {
     if (!over) return;
     const activeId = active.id as string;
     const overId = over.id as string;
-    
+
+    if (activeId === overId) return;
+
     const activeTrailer = trailersRef.current.find(t => t.id === activeId);
     if (!activeTrailer) return;
 
@@ -2830,40 +2832,48 @@ function App() {
     
     if (!overPhase) return;
 
-    // Trigger update ONLY if phase changed (cross-column drag)
-    // Intra-column reordering is handled visually by SortableContext and committed on handleDragEnd
-    if (activeTrailer.currentPhase !== overPhase) {
-      setTrailers(prev => {
-        const activeIdx = prev.findIndex(t => t.id === activeId);
-        if (activeIdx === -1) return prev;
-        
-        const newTrailers = [...prev];
-        const updatedActive = { ...newTrailers[activeIdx], currentPhase: overPhase };
-        newTrailers[activeIdx] = updatedActive;
+    // Check index change in phase
+    const phaseItems = trailersRef.current
+      .filter(t => t.currentPhase === overPhase && !t.isArchived && !t.isDeleted)
+      .sort((a, b) => (a.vertical_order ?? 0) - (b.vertical_order ?? 0));
 
-        // Get sorted items in the target phase
-        const phaseItems = newTrailers
-          .filter(t => t.currentPhase === overPhase && !t.isArchived && !t.isDeleted)
-          .sort((a, b) => (a.vertical_order ?? 0) - (b.vertical_order ?? 0));
+    const oldIdx = phaseItems.findIndex(t => t.id === activeId);
+    let newIdx = overTrailer ? phaseItems.findIndex(t => t.id === overId) : phaseItems.length - 1;
+    if (newIdx === -1) newIdx = phaseItems.length - 1;
 
-        const oldIdx = phaseItems.findIndex(t => t.id === activeId);
-        let newIdx = overTrailer ? phaseItems.findIndex(t => t.id === overId) : phaseItems.length - 1;
-        if (newIdx === -1) newIdx = phaseItems.length - 1;
-
-        if (oldIdx !== -1 && oldIdx !== newIdx) {
-          const reorderedPhase = arrayMove(phaseItems, oldIdx, newIdx);
-          // Update vertical_orders globally
-          reorderedPhase.forEach((t, idx) => {
-            const globalIdx = newTrailers.findIndex(gt => gt.id === t.id);
-            if (globalIdx !== -1) {
-              newTrailers[globalIdx] = { ...newTrailers[globalIdx], vertical_order: idx * 1000 };
-            }
-          });
-        }
-
-        return newTrailers;
-      });
+    // If same phase AND position hasn't changed, return immediately without re-rendering!
+    if (activeTrailer.currentPhase === overPhase && oldIdx !== -1 && oldIdx === newIdx) {
+      return;
     }
+
+    setTrailers(prev => {
+      const activeIdx = prev.findIndex(t => t.id === activeId);
+      if (activeIdx === -1) return prev;
+      
+      const newTrailers = [...prev];
+      const updatedActive = { ...newTrailers[activeIdx], currentPhase: overPhase };
+      newTrailers[activeIdx] = updatedActive;
+
+      const currentPhaseItems = newTrailers
+        .filter(t => t.currentPhase === overPhase && !t.isArchived && !t.isDeleted)
+        .sort((a, b) => (a.vertical_order ?? 0) - (b.vertical_order ?? 0));
+
+      const oIdx = currentPhaseItems.findIndex(t => t.id === activeId);
+      let nIdx = overTrailer ? currentPhaseItems.findIndex(t => t.id === overId) : currentPhaseItems.length - 1;
+      if (nIdx === -1) nIdx = currentPhaseItems.length - 1;
+
+      if (oIdx !== -1 && nIdx !== -1 && oIdx !== nIdx) {
+        const reorderedPhase = arrayMove(currentPhaseItems, oIdx, nIdx);
+        reorderedPhase.forEach((t, idx) => {
+          const globalIdx = newTrailers.findIndex(gt => gt.id === t.id);
+          if (globalIdx !== -1) {
+            newTrailers[globalIdx] = { ...newTrailers[globalIdx], vertical_order: idx * 1000 };
+          }
+        });
+      }
+
+      return newTrailers;
+    });
   };
 
   const handleDragEnd = async (event: DragEndEvent) => {
