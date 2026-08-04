@@ -193,7 +193,7 @@ const StationView: React.FC<Props> = ({ trailers, setTrailers, onUpdateTrailer, 
       
       // stage-only hours for some logic possibly, 
       // but for pipeline it's straightforward now.
-      const currentPhaseTarget = localTargetHours[t.model]?.[t.currentPhase] || PHASE_METADATA[t.currentPhase].defaultTargetHours;
+      const currentPhaseTarget = localTargetHours[t.model]?.[t.currentPhase] || PHASE_METADATA[t.currentPhase]?.defaultTargetHours || 0;
       return {
         stage: acc.stage + currentPhaseTarget,
         pipeline: acc.pipeline + remainingHours

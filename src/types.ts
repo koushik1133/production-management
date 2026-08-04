@@ -164,7 +164,7 @@ export function calculateTrailerRemainingHours(trailer: Trailer, hoursConfig?: R
     if (trailer.finishingType === 'Paint' && pId === 'outsource') return;
 
     const config = hoursConfig || MODEL_TARGET_HOURS;
-    const target = config[trailer.model]?.[pId] || PHASE_METADATA[pId].defaultTargetHours;
+    const target = config[trailer.model]?.[pId] || PHASE_METADATA[pId]?.defaultTargetHours || 0;
     
     // Check for manual hours in history
     const log = (trailer.history ?? []).slice().reverse().find(h => h.phase === pId);
