@@ -2830,8 +2830,9 @@ function App() {
     
     if (!overPhase) return;
 
-    // Trigger update if phase changed OR if we are reordering
-    if (activeTrailer.currentPhase !== overPhase || activeId !== overId) {
+    // Trigger update ONLY if phase changed (cross-column drag)
+    // Intra-column reordering is handled visually by SortableContext and committed on handleDragEnd
+    if (activeTrailer.currentPhase !== overPhase) {
       setTrailers(prev => {
         const activeIdx = prev.findIndex(t => t.id === activeId);
         if (activeIdx === -1) return prev;
