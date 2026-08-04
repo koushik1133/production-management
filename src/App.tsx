@@ -4,7 +4,8 @@ import { format } from 'date-fns';
 import {
   DndContext,
   DragOverlay,
-  closestCenter,
+  closestCorners,
+  pointerWithin,
   KeyboardSensor,
   PointerSensor,
   useSensor,
@@ -14,7 +15,8 @@ import {
 import type {
   DragStartEvent,
   DragOverEvent,
-  DragEndEvent
+  DragEndEvent,
+  CollisionDetection
 } from '@dnd-kit/core';
 import {
   sortableKeyboardCoordinates,
@@ -31,6 +33,14 @@ import StationView from './StationView';
 import { ArchiveView } from './ArchiveView';
 import { ScheduleView } from './ScheduleView';
 import { CatalogView } from './CatalogView';
+
+const customCollisionDetection: CollisionDetection = (args) => {
+  const pointerCollisions = pointerWithin(args);
+  if (pointerCollisions.length > 0) {
+    return pointerCollisions;
+  }
+  return closestCorners(args);
+};
 import { BookOpen } from 'lucide-react';
 import { dataURLtoFile, uploadFileToSupabase, triggerFileDownload, fetchTemplateAsBase64 } from './utils/storage';
 import { injectTrailerDataIntoSpec } from './lib/injectSpecSheet';
@@ -876,7 +886,7 @@ function Dashboard({
       <main className="main-content" ref={mainContentRef}>
         <DndContext 
           sensors={sensors} 
-          collisionDetection={closestCenter} 
+          collisionDetection={customCollisionDetection} 
           autoScroll={{
             acceleration: 5000,
             threshold: { x: 0.1, y: 0.5 },
@@ -2832,48 +2842,18 @@ function App() {
     
     if (!overPhase) return;
 
-    // Check index change in phase
-    const phaseItems = trailersRef.current
-      .filter(t => t.currentPhase === overPhase && !t.isArchived && !t.isDeleted)
-      .sort((a, b) => (a.vertical_order ?? 0) - (b.vertical_order ?? 0));
-
-    const oldIdx = phaseItems.findIndex(t => t.id === activeId);
-    let newIdx = overTrailer ? phaseItems.findIndex(t => t.id === overId) : phaseItems.length - 1;
-    if (newIdx === -1) newIdx = phaseItems.length - 1;
-
-    // If same phase AND position hasn't changed, return immediately without re-rendering!
-    if (activeTrailer.currentPhase === overPhase && oldIdx !== -1 && oldIdx === newIdx) {
-      return;
+    // Update state ONLY if phase changed (cross-column drag)
+    // Intra-column reordering is handled visually by SortableContext and committed on handleDragEnd
+    if (activeTrailer.currentPhase !== overPhase) {
+      setTrailers(prev => {
+        const activeIdx = prev.findIndex(t => t.id === activeId);
+        if (activeIdx === -1) return prev;
+        
+        const newTrailers = [...prev];
+        newTrailers[activeIdx] = { ...newTrailers[activeIdx], currentPhase: overPhase };
+        return newTrailers;
+      });
     }
-
-    setTrailers(prev => {
-      const activeIdx = prev.findIndex(t => t.id === activeId);
-      if (activeIdx === -1) return prev;
-      
-      const newTrailers = [...prev];
-      const updatedActive = { ...newTrailers[activeIdx], currentPhase: overPhase };
-      newTrailers[activeIdx] = updatedActive;
-
-      const currentPhaseItems = newTrailers
-        .filter(t => t.currentPhase === overPhase && !t.isArchived && !t.isDeleted)
-        .sort((a, b) => (a.vertical_order ?? 0) - (b.vertical_order ?? 0));
-
-      const oIdx = currentPhaseItems.findIndex(t => t.id === activeId);
-      let nIdx = overTrailer ? currentPhaseItems.findIndex(t => t.id === overId) : currentPhaseItems.length - 1;
-      if (nIdx === -1) nIdx = currentPhaseItems.length - 1;
-
-      if (oIdx !== -1 && nIdx !== -1 && oIdx !== nIdx) {
-        const reorderedPhase = arrayMove(currentPhaseItems, oIdx, nIdx);
-        reorderedPhase.forEach((t, idx) => {
-          const globalIdx = newTrailers.findIndex(gt => gt.id === t.id);
-          if (globalIdx !== -1) {
-            newTrailers[globalIdx] = { ...newTrailers[globalIdx], vertical_order: idx * 1000 };
-          }
-        });
-      }
-
-      return newTrailers;
-    });
   };
 
   const handleDragEnd = async (event: DragEndEvent) => {
