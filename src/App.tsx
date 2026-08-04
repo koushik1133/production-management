@@ -580,7 +580,7 @@ function Dashboard({
     if (phaseId === 'shipping') return { stage: 0, pipeline: 0 };
     return trailers.filter(t => t.currentPhase === phaseId && !t.isArchived).reduce((acc, t) => {
       const target = (localTargetHours[t.model]?.[phaseId] || PHASE_METADATA[phaseId]?.defaultTargetHours || 0);
-      const curLog = t.history.find(h => h.phase === t.currentPhase && !h.exitedAt);
+      const curLog = (t.history ?? []).find(h => h.phase === t.currentPhase && !h.exitedAt);
       const stageRem = Math.max(0, target - (curLog?.bayManualHours || curLog?.phaseManualHours || 0));
       let pipeRem = stageRem;
       const pIdx = PHASES.findIndex(p => p.id === phaseId);
@@ -903,7 +903,7 @@ function Dashboard({
                 } else {
                   // Initialize form fields immediately
                   const getPhaseHours = (phaseId: string) => {
-                    const entries = t.history.filter(h => h.phase === phaseId);
+                    const entries = (t.history ?? []).filter(h => h.phase === phaseId);
                     const manual = entries.reduce((s, h) => s + (h.phaseManualHours || h.bayManualHours || 0), 0);
                     if (manual > 0) return manual.toString();
                     const ms = entries.reduce((s, h) => s + (h.duration || ((h.exitedAt && h.enteredAt) ? h.exitedAt - h.enteredAt : 0)), 0);
@@ -2123,6 +2123,7 @@ function App() {
           if ('purchase_order' in mapped) { mapped.purchaseOrder = mapped.purchase_order ?? undefined; delete mapped.purchase_order; }
           // consignment is the same in both DB and frontend, but ensure no stale key
           if ('consignment' in mapped && mapped.consignment === null) { mapped.consignment = undefined; }
+          mapped.history = Array.isArray(mapped.history) ? mapped.history : [];
 
           return mapped;
         });
@@ -2876,12 +2877,12 @@ function App() {
     if (trailer && over) {
       try {
         // Handle history update if phase changed
-        let finalHistory = trailer.history;
+        let finalHistory = trailer.history ?? [];
         const phaseChanged = dragStartPhaseRef.current && trailer.currentPhase !== dragStartPhaseRef.current;
         
         if (phaseChanged) {
           const now = Date.now();
-          const updatedHistory = [...trailer.history];
+          const updatedHistory = [...(trailer.history ?? [])];
           const currentLogIndex = updatedHistory.findIndex(h => h.phase === dragStartPhaseRef.current && !h.exitedAt);
           
           if (currentLogIndex !== -1) {
@@ -2976,8 +2977,8 @@ function App() {
     return trailers
       .filter(t => !t.isArchived && t.currentPhase !== 'shipping')
       .reduce((acc, t) => {
-        const curLog = t.history.find(h => h.phase === t.currentPhase && !h.exitedAt);
-        const timeInStage = curLog ? (Date.now() - curLog.enteredAt) / (1000 * 60 * 60) : 0;
+        const curLog = (t.history ?? []).find(h => h.phase === t.currentPhase && !h.exitedAt);
+        const timeInStage = (curLog && curLog.enteredAt) ? (Date.now() - curLog.enteredAt) / (1000 * 60 * 60) : 0;
         return acc + timeInStage;
       }, 0);
   }, [trailers]);

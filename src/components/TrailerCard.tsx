@@ -90,7 +90,7 @@ export const TrailerCard: React.FC<Props> = React.memo(({
     touchAction: isTouchDevice ? 'auto' : 'none',
   };
 
-  const currentLog = trailer.history.find(h => h.phase === trailer.currentPhase && !h.exitedAt);
+  const currentLog = (trailer.history ?? []).find(h => h.phase === trailer.currentPhase && !h.exitedAt);
   const timeInPhase = currentLog ? formatDistanceToNow(currentLog.enteredAt) : '0m';
 
   // eslint-disable-next-line react-hooks/purity
