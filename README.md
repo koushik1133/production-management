@@ -1,4 +1,4 @@
-# Lane Trailers - Production & Sales Management System
+# Lane Trailers - Production & Sales Management System 
 
 A high-performance, real-time web application built for **Lane Trailers** to manage trailer manufacturing pipelines, bay allocations, backlog registrations, dealer networks, quote generation, and shipping archives.
 
