@@ -1,4 +1,4 @@
-# Lane Trailers - Production & Sales Management System
+# LT - Production & Sales Management System
 
 A high-performance, real-time web application built for **Lane Trailers** to manage trailer manufacturing pipelines, bay allocations, backlog registrations, dealer networks, quote generation, and shipping archives.
 
@@ -67,8 +67,8 @@ A high-performance, real-time web application built for **Lane Trailers** to man
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/lanetrailers/production.git
-   cd production
+   git clone https://github.com/****
+   cd *****
    ```
 
 2. **Install dependencies:**
