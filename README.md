@@ -97,4 +97,4 @@ A high-performance, real-time web application built for **** to manage manufactu
 
 ## 📄 License
 
-Internal Proprietary Software for **Lane Trailers**. All Rights Reserved.
+Internal Proprietary Software for **Koushik1133**. All Rights Reserved.
