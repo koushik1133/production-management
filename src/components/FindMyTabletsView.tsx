@@ -160,6 +160,7 @@ export const FindMyTabletsView: React.FC<FindMyTabletsViewProps> = ({
 
   return (
     <div
+      className="find-my-container"
       style={{
         display: 'flex',
         flexDirection: 'column',
@@ -172,6 +173,7 @@ export const FindMyTabletsView: React.FC<FindMyTabletsViewProps> = ({
     >
       {/* Top Header Navigation */}
       <div
+        className="find-my-header"
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -184,7 +186,7 @@ export const FindMyTabletsView: React.FC<FindMyTabletsViewProps> = ({
           gap: '1rem',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+        <div className="find-my-header-title-group" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <div
             style={{
               width: '42px',
@@ -227,7 +229,7 @@ export const FindMyTabletsView: React.FC<FindMyTabletsViewProps> = ({
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+        <div className="find-my-header-buttons-group" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
           <button
             onClick={() => handleSimulatePing('T1')}
             title="Enable 24/7 location & battery tracking for T1"
@@ -311,6 +313,7 @@ export const FindMyTabletsView: React.FC<FindMyTabletsViewProps> = ({
 
       {/* Dual Panel Layout: Device Sidebar + Map Visualization */}
       <div
+        className="find-my-grid"
         style={{
           display: 'grid',
           gridTemplateColumns: 'minmax(320px, 380px) 1fr',
@@ -518,8 +521,9 @@ export const FindMyTabletsView: React.FC<FindMyTabletsViewProps> = ({
           )}
         </div>
 
-        {/* Right Panel: Interactive Shop Floor Location Map */}
+        {/* Right Panel: Factory Shop Floor Grid Map */}
         <div
+          className="find-my-map-container"
           style={{
             background: 'var(--bg-secondary)',
             borderRadius: '16px',

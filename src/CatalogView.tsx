@@ -220,8 +220,8 @@ export const CatalogView: React.FC<Props> = ({ categories, hours, specs, templat
 
   return (
     <div className="catalog-container" style={{ width: '100%', padding: '2rem', maxWidth: '1400px', margin: '0 auto', minHeight: '100vh', background: 'var(--bg-main)' }}>
-      <header style={{ marginBottom: '3rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+      <header className="catalog-header" style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+        <div className="catalog-header-left" style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
           <button className="btn btn-secondary" onClick={() => navigate('/')} style={{ borderRadius: '10px', padding: '0.45rem 0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: 700, fontSize: '0.85rem' }} title="Home">
             <Home size={18} /> Home
           </button>
@@ -244,7 +244,7 @@ export const CatalogView: React.FC<Props> = ({ categories, hours, specs, templat
           </div>
         </div>
         {userRole === 'manager' && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <div className="catalog-header-actions" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
             <input 
               type="file" 
               accept=".csv" 
@@ -294,13 +294,13 @@ export const CatalogView: React.FC<Props> = ({ categories, hours, specs, templat
 
       {activeTab === 'models' && (
         <>
-          <div style={{ position: 'relative', marginBottom: '3rem' }}>
+          <div className="catalog-search-row" style={{ position: 'relative', marginBottom: '2rem', width: '100%' }}>
         <Search style={{ position: 'absolute', left: '1.25rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} size={22} />
         <input 
           type="text" 
-          placeholder="Search models, categories, or specifications..." 
-          className="form-input"
-          style={{ paddingLeft: '3.5rem', height: '3rem', fontSize: '0.9rem', borderRadius: '12px', border: '1px solid var(--border-default)', background: 'var(--bg-card)', color: 'var(--text-primary)', fontWeight: 600 }}
+          placeholder="Search models, categories, or specs..." 
+          className="form-input catalog-search-box"
+          style={{ paddingLeft: '3.5rem', height: '3rem', fontSize: '0.9rem', borderRadius: '12px', border: '1px solid var(--border-default)', background: 'var(--bg-card)', color: 'var(--text-primary)', fontWeight: 600, width: '100%', maxWidth: '100%' }}
           value={searchTerm}
           onChange={e => setSearchTerm(e.target.value)}
         />
