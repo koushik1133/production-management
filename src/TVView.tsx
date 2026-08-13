@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Tv, Share2 } from 'lucide-react';
+import { Home, Tv, Share2 } from 'lucide-react';
 import { Modal } from './components/Modal';
 import type { Trailer, PhaseId, UserRole } from './types';
 import { PHASES } from './types';
@@ -141,13 +141,8 @@ const TVView: React.FC<Props> = ({ trailers, monitorMode: initialMode = 'all', l
       }}>
         {/* Left Section: Branding & Title */}
         <div className="header-left" style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexShrink: 0 }}>
-          <Link to="/" className="btn btn-secondary" style={{ 
-            padding: '0.4rem 0.75rem',
-            borderRadius: '10px',
-            fontSize: '0.75rem',
-            fontWeight: 700
-          }}>
-            <ArrowLeft size={14} /> Exit
+          <Link to="/" className="btn btn-secondary" style={{ padding: '0.45rem 0.85rem', borderRadius: '10px', fontSize: '0.85rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.4rem' }} title="Home">
+            <Home size={18} /> Home
           </Link>
           
           <div style={{ width: '1px', height: '24px', background: 'var(--border-default)' }} />

@@ -1,7 +1,7 @@
  
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LayoutGrid, ArrowRight, Clock, Trash2, Calendar, AlertCircle, CheckCircle } from 'lucide-react';
+import { Home, ArrowRight, Clock, Trash2, Calendar, AlertCircle, CheckCircle } from 'lucide-react';
 import { PHASES, PHASE_METADATA } from './types';
 import type { Trailer, StationId, PhaseId, UserRole } from './types';
 import { addHours, format } from 'date-fns';
@@ -362,18 +362,30 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
 
   return (
     <div className="backlog-page-wrapper">
-      <div className="backlog-header-section">
-        <div className="backlog-title-group">
-          <h1 className="backlog-page-title">Backlog Manager</h1>
-          <p className="backlog-page-subtitle">Management of units awaiting production slot assignment.</p>
-        </div>
+      <div className="backlog-header-section" style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '2.5rem', minHeight: '52px' }}>
         <button 
-          className="btn btn-primary shimmer backlog-nav-btn" 
           onClick={() => navigate('/')}
-          style={{ padding: '0.85rem 1.75rem', borderRadius: '14px', fontWeight: 800, fontSize: '0.95rem' }}
+          className="btn btn-secondary"
+          style={{
+            position: 'absolute',
+            left: 0,
+            borderRadius: '10px',
+            padding: '0.45rem 0.85rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.4rem',
+            fontWeight: 700,
+            fontSize: '0.85rem',
+          }}
+          title="Home"
         >
-          <LayoutGrid size={20} /> <span className="btn-text">Open Kanban View</span>
+          <Home size={18} /> Home
         </button>
+
+        <div className="backlog-title-group" style={{ textAlign: 'center' }}>
+          <h1 className="backlog-page-title" style={{ margin: 0, textAlign: 'center', fontSize: '1.85rem', fontWeight: 900 }}>Backlog Manager</h1>
+          <p className="backlog-page-subtitle" style={{ margin: '0.35rem 0 0', textAlign: 'center', color: 'var(--text-secondary)' }}>Management of units awaiting production slot assignment.</p>
+        </div>
       </div>
 
       <div className="backlog-grid-layout" style={userRole !== 'manager' ? { display: 'block' } : undefined}>
@@ -731,7 +743,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
           ) : (
             <div style={{ padding: '2rem', background: 'var(--bg-card)', borderRadius: '16px', border: '2px dashed var(--border-default)', textAlign: 'center' }}>
               <div style={{ padding: '1.25rem', background: 'rgba(59, 130, 246, 0.05)', borderRadius: '12px', marginBottom: '1.25rem', width: 'fit-content', margin: '0 auto 1.25rem' }}>
-                <LayoutGrid size={32} color="var(--accent)" />
+                <Home size={32} color="var(--accent)" />
               </div>
               <h3 style={{ fontSize: '1.1rem', fontWeight: 900, color: 'var(--text-primary)', marginBottom: '0.5rem' }}>Read-Only Access</h3>
               <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>You are logged in as a <strong>Worker</strong>. Unit registration and management is restricted to Managers.</p>

@@ -1535,13 +1535,12 @@
   }
 }
 
-@media (max-width: 890px) {
+/* Hide TV Mode button under 1550px screen resolution */
+@media (max-width: 1549px) {
   .nav-tv-btn, .mobile-tv-btn {
     display: none !important;
   }
 }
-
-/* .nav-tv-btn visible at all resolutions */
 
 @media (max-width: 1170px) {
   .time-seconds {
@@ -2112,4 +2111,92 @@
     display: none !important;
   }
 }
+
+/* ==========================================
+   INTERNAL MESSAGING V1 STYLES
+   ========================================== */
+
+.messages-view-page {
+  animation: fadeIn 0.2s ease-in-out;
+}
+
+@keyframes animateSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.animate-spin {
+  animation: animateSpin 1s linear infinite;
+}
+
+.message-bubble-wrapper.own-message .message-bubble {
+  background: var(--accent-gradient);
+  color: #ffffff;
+}
+
+.message-bubble-wrapper.other-message .message-bubble {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
+}
+
+.recipient-select:focus {
+  border-color: var(--border-focus) !important;
+}
+
+.message-composer-card textarea:focus {
+  border-color: var(--border-focus) !important;
+}
+
+.unread-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  font-size: 0.65rem;
+  font-weight: 800;
+  border-radius: 999px;
+  background: #ef4444;
+  color: #ffffff;
+  line-height: 1;
+}
+
+@media (max-width: 768px) {
+  .messages-view-page {
+    height: calc(100vh - 120px) !important;
+  }
+  .sidebar-wrapper {
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 1000;
+    transform: translateX(-100%);
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 10px 0 25px rgba(0, 0, 0, 0.5);
+  }
+  .sidebar-wrapper.mobile-open {
+    transform: translateX(0);
+  }
+  .message-composer-card {
+    padding: 0.75rem !important;
+  }
+  .hide-on-desktop {
+    display: flex !important;
+  }
+}
+
+@media (min-width: 769px) {
+  .sidebar-wrapper {
+    display: block !important;
+    position: relative !important;
+    transform: none !important;
+  }
+  .hide-on-desktop {
+    display: none !important;
+  }
+}
+
 
