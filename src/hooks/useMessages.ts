@@ -10,7 +10,7 @@ import {
   sendMessage as apiSendMessage,
   markMessagesAsRead,
 } from '../lib/messaging';
-import { updatePayloadReactions } from '../lib/messagePayloads';
+import { updatePayloadReactions, formatCleanNotificationMessage } from '../lib/messagePayloads';
 import { useMessageNotifications } from './useMessageNotifications';
 import type { ConversationItem } from '../components/Messaging/ConversationSidebar';
 
@@ -356,8 +356,9 @@ export function useMessages(currentUser: User | null, isViewingMessagesPage: boo
 
           if (!isSelf) {
             const senderTitle = senderProf?.name || 'User';
-            notifications.sendNotification(`💬 Message from ${senderTitle}`, {
-              body: newMsg.body,
+            const cleanBodyText = formatCleanNotificationMessage(newMsg.body, senderTitle);
+            notifications.sendNotification(`Message from ${senderTitle}`, {
+              body: cleanBodyText,
               senderName: senderTitle,
             });
 
