@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { Routes, Route, useNavigate, Link, useSearchParams, Navigate } from 'react-router-dom';
+import { Routes, Route, useNavigate, Link, useSearchParams, Navigate, useLocation } from 'react-router-dom';
+import type { User } from '@supabase/supabase-js';
 import { format } from 'date-fns';
 import {
   DndContext,
@@ -34,6 +35,12 @@ import StationView from './StationView';
 import { ArchiveView } from './ArchiveView';
 import { ScheduleView } from './ScheduleView';
 import { CatalogView } from './CatalogView';
+import { MessagesView } from './components/Messaging/MessagesView';
+import { useMessages, type UseMessagesReturn } from './hooks/useMessages';
+import { NotificationToast } from './components/Messaging/NotificationToast';
+import { FindMyTabletsView } from './components/FindMyTabletsView';
+import { useTabletTracker } from './hooks/useTabletTracker';
+import { LocationPermissionModal } from './components/LocationPermissionModal';
 
 const customCollisionDetection: CollisionDetection = (args) => {
   const rectCollisions = rectIntersection(args);
@@ -46,7 +53,7 @@ const customCollisionDetection: CollisionDetection = (args) => {
   }
   return closestCorners(args);
 };
-import { BookOpen } from 'lucide-react';
+import { BookOpen, MessageSquare } from 'lucide-react';
 import { dataURLtoFile, uploadFileToSupabase, triggerFileDownload, fetchTemplateAsBase64 } from './utils/storage';
 import { injectTrailerDataIntoSpec } from './lib/injectSpecSheet';
 
@@ -55,6 +62,7 @@ import {
   ArrowUpDown,
   Plus, 
   MapPin,
+  Compass,
   Tv,
   Clock,
   Archive,
@@ -133,7 +141,8 @@ function Dashboard({
   onLockPrices,
   localSpecSheetTemplates,
   dealers,
-  onUpdateDealer
+  onUpdateDealer,
+  messaging
 }: {
   trailers: Trailer[], 
   updateTrailer: (id: string, updates: Partial<Trailer>) => Promise<boolean>,
@@ -168,7 +177,8 @@ function Dashboard({
   onLockPrices?: () => void,
   localSpecSheetTemplates?: Record<string, string>,
   dealers: { id: string; name: string; addresses?: string[]; common_address?: string; }[],
-  onUpdateDealer?: (id: string, dealer: { name: string, addresses: string[], common_address: string }) => Promise<void>
+  onUpdateDealer?: (id: string, dealer: { name: string, addresses: string[], common_address: string }) => Promise<void>,
+  messaging: UseMessagesReturn
 }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const highlightedTrailerId = searchParams.get('highlight');
@@ -714,6 +724,14 @@ function Dashboard({
                 <BookOpen size={12} /> <span className="btn-text">Catalog</span>
               </button>
             )}
+            <button className="btn btn-secondary nav-messages-btn" onClick={() => navigate('/messages')} style={{ height: '28px', padding: '0 0.5rem', fontSize: '0.75rem', borderRadius: '6px', border: 'none', background: 'transparent', position: 'relative' }}>
+              <MessageSquare size={12} /> <span className="btn-text">Messages</span>
+              {messaging.unreadCount > 0 && (
+                <span className="unread-badge" style={{ marginLeft: '4px' }}>
+                  {messaging.unreadCount}
+                </span>
+              )}
+            </button>
             <button className="btn btn-secondary" onClick={() => navigate('/schedule')} style={{ height: '28px', padding: '0 0.5rem', fontSize: '0.75rem', borderRadius: '6px', border: 'none', background: 'transparent' }}>
               <Calendar size={12} /> <span className="btn-text">Timeline</span>
             </button>
@@ -729,9 +747,11 @@ function Dashboard({
             <button className="btn btn-secondary" onClick={() => navigate('/stations')} style={{ height: '30px', padding: '0 0.6rem', fontSize: '0.8rem', borderRadius: '6px' }}>
               <MapPin size={12} /> <span className="btn-text">Bays</span>
             </button>
-            <button className="btn btn-secondary" onClick={() => navigate('/backlog')} style={{ height: '30px', padding: '0 0.6rem', fontSize: '0.8rem', borderRadius: '6px' }}>
-              <Plus size={12} /> <span className="btn-text">Backlog</span>
-            </button>
+            {userRole === 'manager' && (
+              <button className="btn btn-secondary" onClick={() => navigate('/find-my')} style={{ height: '30px', padding: '0 0.6rem', fontSize: '0.8rem', borderRadius: '6px' }}>
+                <Compass size={12} /> <span className="btn-text">Find My</span>
+              </button>
+            )}
           </div>
 
           <div className="util-group hide-on-mobile" style={{ display: 'flex', gap: '0.2rem', alignItems: 'center' }}>
@@ -759,11 +779,11 @@ function Dashboard({
             )}
           </div>
 
-          {userRole === 'manager' && (
-          <button className="btn btn-primary register-btn hide-on-mobile" onClick={() => setIsAddModalOpen(true)} style={{ height: '34px', padding: '0 0.75rem', borderRadius: '8px', fontWeight: 700, fontSize: '0.85rem', whiteSpace: 'nowrap' }}>
-            <Plus size={14} /> <span className="btn-text">Register</span>
+          <button className="btn btn-secondary hide-on-mobile" onClick={() => navigate('/backlog')} style={{ height: '30px', padding: '0 0.6rem', fontSize: '0.8rem', borderRadius: '6px', marginLeft: '0.2rem' }}>
+            <Plus size={12} /> <span className="btn-text">Backlog</span>
           </button>
-          )}
+
+
         </div>
 
         {/* MOBILE OVERHAUL NAV */}
@@ -816,11 +836,7 @@ function Dashboard({
               </button>
             )}
 
-            {userRole === 'manager' && (
-            <button className="btn btn-primary" onClick={() => setIsAddModalOpen(true)} style={{ width: '38px', height: '38px', borderRadius: '8px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(37, 99, 235, 0.2)' }} title="Register Unit">
-              <Plus size={18} strokeWidth={3} />
-            </button>
-            )}
+
           </div>
 
           {/* Row 2: Nav Bar + Theme Toggle */}
@@ -835,10 +851,13 @@ function Dashboard({
               msOverflowStyle: 'none'
             }}>
               <button className="btn btn-secondary mobile-nav-btn" onClick={() => navigate('/stations')}>Bays</button>
-              <button className="btn btn-secondary mobile-nav-btn" onClick={() => navigate('/backlog')}>Backlog</button>
+              <button className="btn btn-secondary mobile-nav-btn" onClick={() => navigate('/messages')} style={{ position: 'relative' }}>
+                Messages {messaging.unreadCount > 0 && `(${messaging.unreadCount})`}
+              </button>
               <button className="btn btn-secondary mobile-nav-btn" onClick={() => navigate('/schedule')}>Timeline</button>
               <button className="btn btn-secondary mobile-nav-btn" onClick={() => navigate('/archive')}>Shipping</button>
               <button className="btn btn-secondary mobile-nav-btn mobile-tv-btn" onClick={() => navigate('/tv')}>TV Mode</button>
+              <button className="btn btn-secondary mobile-nav-btn" onClick={() => navigate('/backlog')}>Backlog</button>
             </div>
             
             {userRole === 'manager' && (
@@ -1749,8 +1768,8 @@ function Dashboard({
   );
 }
 
-function AuthGate({ children }: { children: (role: UserRole) => React.ReactNode }) {
-  const [auth, setAuth] = useState<{ isAuthenticated: boolean; role: UserRole | null }>({ isAuthenticated: false, role: null });
+function AuthGate({ children }: { children: (role: UserRole, user: User | null) => React.ReactNode }) {
+  const [auth, setAuth] = useState<{ isAuthenticated: boolean; role: UserRole | null; user: User | null }>({ isAuthenticated: false, role: null, user: null });
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(true);
@@ -1760,7 +1779,7 @@ function AuthGate({ children }: { children: (role: UserRole) => React.ReactNode 
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
         const role = session.user.email?.toLowerCase() === 'manager@lanetrailers.com' ? 'manager' : 'worker';
-        setAuth({ isAuthenticated: true, role });
+        setAuth({ isAuthenticated: true, role, user: session.user });
       }
       setLoading(false);
     });
@@ -1768,9 +1787,9 @@ function AuthGate({ children }: { children: (role: UserRole) => React.ReactNode 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
         const role = session.user.email?.toLowerCase() === 'manager@lanetrailers.com' ? 'manager' : 'worker';
-        setAuth({ isAuthenticated: true, role });
+        setAuth({ isAuthenticated: true, role, user: session.user });
       } else {
-        setAuth({ isAuthenticated: false, role: null });
+        setAuth({ isAuthenticated: false, role: null, user: null });
       }
       setLoading(false);
     });
@@ -1802,7 +1821,7 @@ function AuthGate({ children }: { children: (role: UserRole) => React.ReactNode 
     );
   }
 
-  if (auth.isAuthenticated && auth.role) return <>{children(auth.role)}</>;
+  if (auth.isAuthenticated && auth.role && auth.user) return <>{children(auth.role, auth.user)}</>;
 
   return (
     <div className="auth-gate-container">
@@ -1850,7 +1869,18 @@ function AuthGate({ children }: { children: (role: UserRole) => React.ReactNode 
 }
 
 
-function App() {
+function AppContent({ userRole, currentUser }: { userRole: UserRole; currentUser: User | null }) {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const messaging = useMessages(currentUser, location.pathname === '/messages');
+
+  const currentUserId = currentUser?.id || 'anonymous_user';
+  const tabletTracker = useTabletTracker({
+    currentUserId,
+    currentRole: userRole,
+    userName: currentUser?.email ? currentUser.email.split('@')[0] : `${userRole.toUpperCase()} Tablet`,
+  });
+
   const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth <= 768 : false);
   useEffect(() => {
     const handleResize = () => {
@@ -2108,7 +2138,7 @@ function App() {
         // Transient network failures should NOT permanently disable purchase_order fields
         const isColumnError = err?.code === '42703' || (typeof err?.message === 'string' && err.message.includes('column') && err.message.includes('does not exist'));
         if (isColumnError) {
-          console.warn('Column not found — falling back to safe query without purchase_order and consignment.', err);
+          // Graceful fallback when columns do not exist in DB schema
           columnsSupported = false;
           trailersRes = await supabase.from('trailers').select('id,name,model,serialNumber,station,dateStarted,currentPhase,history,partsStatus,finishingType,isArchived,archivedAt,isDeleted,invoiceNumber,vinDate,expectedDueDate,promisedShippingDate,notes,isPriority,updated_at,vertical_order,bay_vertical_order,sale_price,trailer_color,trailer_plug,sales_person,dealer_location,dealer_common_address,dealer_id');
         } else {
@@ -3051,10 +3081,17 @@ function getSuggestedBay(): StationId {
   }
 
   return (
-    <AuthGate>
-      {(userRole) => (
-        <div className="app-container">
-          <div className="floating-settings-container">
+    <div className="app-container">
+      <NotificationToast
+        toast={messaging.notifications.activeToast}
+        onDismiss={messaging.notifications.dismissToast}
+      />
+      <LocationPermissionModal
+        isOpen={tabletTracker.showPermissionModal}
+        onApprove={tabletTracker.approveLocationPermission}
+        roleName={userRole}
+      />
+      <div className="floating-settings-container">
             <button 
               className={`settings-fab ${isSettingsOpen ? 'active' : ''}`}
               onClick={() => setIsSettingsOpen(!isSettingsOpen)}
@@ -3151,6 +3188,7 @@ function getSuggestedBay(): StationId {
               localSpecSheetTemplates={localSpecSheetTemplates}
               dealers={dealers}
               onUpdateDealer={handleEditDealer}
+              messaging={messaging}
             />} />
             <Route path="/backlog" element={<BacklogView trailers={trailers} onAddTrailer={addTrailer} onUpdateTrailer={updateTrailer} onDeleteTrailer={deleteTrailer} suggestedBay={suggestedBay} nextSuggestedSerial={nextSuggestedSerial} localModelCategories={localModelCategories} localTargetHours={localTargetHours} localSpecSheetTemplates={localSpecSheetTemplates} dealers={dealers} onUpdateDealer={handleEditDealer} userRole={userRole} isPriceUnlockedGlobally={isPriceUnlockedGlobally} onUnlockPrices={unlockPricesGlobally} />} />
             <Route path="/stations" element={<StationView trailers={trailers} setTrailers={setTrailers} onUpdateTrailer={updateTrailer} bayCapacities={bayCapacities} onUpdateCapacity={updateCapacity} localTargetHours={localTargetHours} userRole={userRole} isPriceUnlockedGlobally={isPriceUnlockedGlobally} onUnlockPrices={unlockPricesGlobally} />} />
@@ -3159,7 +3197,9 @@ function getSuggestedBay(): StationId {
             <Route path="/tv/station2" element={<TVView trailers={trailers} monitorMode="station2" localTargetHours={localTargetHours} userRole={userRole} />} />
             <Route path="/archive" element={<ArchiveView trailers={trailers} onUpdateTrailer={updateTrailer} localTargetHours={localTargetHours} shippedTrailers={shippedTrailers} userRole={userRole} isPriceUnlockedGlobally={isPriceUnlockedGlobally} onUnlockPrices={unlockPricesGlobally} onLockPrices={() => { setIsPriceUnlockedGlobally(false); localStorage.setItem('lanetrailers_price_unlocked', 'false'); }} />} />
             <Route path="/schedule" element={<ScheduleView trailers={trailers} userRole={userRole} />} />
+            <Route path="/messages" element={<MessagesView messaging={messaging} />} />
             <Route path="/catalog" element={userRole === 'manager' ? <CatalogView categories={localModelCategories} hours={localTargetHours} specs={localModelSpecs} templates={localSpecSheetTemplates} onAddModel={handleAddModel} onEditModel={handleEditModel} onDeleteModel={handleDeleteModel} dealers={dealers} onAddDealer={handleAddDealer} onEditDealer={handleEditDealer} onDeleteDealer={handleDeleteDealer} userRole={userRole} trailers={trailers} /> : <Navigate to="/" replace />} />
+            <Route path="/find-my" element={userRole === 'manager' ? <FindMyTabletsView currentRole={userRole} currentUserId={currentUser?.id || ''} onBackToHome={() => navigate('/')} /> : <Navigate to="/" replace />} />
           </Routes>
 
           {/* Quick Model Spec Editor - Only for Managers */}
@@ -3239,9 +3279,13 @@ function getSuggestedBay(): StationId {
             </div>
           </Modal>
         </div>
-      )}
-    </AuthGate>
   );
 }
 
-export default App;
+export default function App() {
+  return (
+    <AuthGate>
+      {(role, user) => <AppContent userRole={role} currentUser={user} />}
+    </AuthGate>
+  );
+}

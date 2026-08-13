@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, MapPin } from 'lucide-react';
+import { Home, MapPin } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import {
   DndContext,
@@ -245,9 +245,8 @@ const StationView: React.FC<Props> = ({ trailers, setTrailers, onUpdateTrailer, 
     <div className="app-container bay-page">
       <header className="header" style={{ paddingTop: '1.25rem', paddingBottom: '1.25rem' }}>
         <div className="header-left" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <Link to="/" className="btn btn-secondary">
-            <ArrowLeft size={16} />
-            Back to Pipeline
+          <Link to="/" className="btn btn-secondary" style={{ borderRadius: '10px', padding: '0.45rem 0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: 700, fontSize: '0.85rem' }} title="Home">
+            <Home size={18} /> Home
           </Link>
           <div style={{ width: '1px', height: '24px', background: 'var(--border-default)' }} />
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>

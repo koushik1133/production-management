@@ -1,9 +1,14 @@
 import fetch from 'node-fetch';
 
-const SUPABASE_URL = 'https://fjwzzdmknvihsxtnrsrb.supabase.co';
-const ANON_KEY = 'sb_publishable_NCxgKBBa4bbf_nphwhJbBg_wskPATLV';
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL || '';
+const ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || '';
 
 async function testOthers() {
+  if (!SUPABASE_URL || !ANON_KEY) {
+    console.error("Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY environment variables.");
+    process.exit(1);
+  }
+
   const dRes = await fetch(`${SUPABASE_URL}/rest/v1/dealers?select=*&limit=1`, {
       headers: { 'apikey': ANON_KEY, 'Authorization': `Bearer ${ANON_KEY}` }
   });

@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Search, Clock, Weight, ChevronRight, LayoutGrid, Plus, Edit, Trash2, Info, MapPin, Download, Upload, X } from 'lucide-react';
+import { Search, Clock, Weight, ChevronRight, Home, Plus, Edit, Trash2, Info, MapPin, Download, Upload, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { PHASES } from './types';
 import type { PhaseId, ModelSpec, UserRole, Dealer, Trailer } from './types';
@@ -222,8 +222,8 @@ export const CatalogView: React.FC<Props> = ({ categories, hours, specs, templat
     <div className="catalog-container" style={{ width: '100%', padding: '2rem', maxWidth: '1400px', margin: '0 auto', minHeight: '100vh', background: 'var(--bg-main)' }}>
       <header style={{ marginBottom: '3rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-          <button className="btn btn-secondary" onClick={() => navigate('/')} style={{ borderRadius: '12px', padding: '0.85rem' }}>
-            <LayoutGrid size={22} />
+          <button className="btn btn-secondary" onClick={() => navigate('/')} style={{ borderRadius: '10px', padding: '0.45rem 0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: 700, fontSize: '0.85rem' }} title="Home">
+            <Home size={18} /> Home
           </button>
           <div>
             <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.03em', marginBottom: '0.15rem' }}>Production Catalog</h1>

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { format, isToday, isBefore, startOfDay } from 'date-fns';
-import { Calendar, ChevronRight, MapPin, Clock, AlertTriangle, CheckCircle2, LayoutDashboard, Archive, Plus } from 'lucide-react';
+import { Calendar, ChevronRight, MapPin, Clock, AlertTriangle, CheckCircle2, Home, Archive, Plus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import type { Trailer } from './types';
 import { PHASES } from './types';
@@ -116,8 +116,8 @@ export const ScheduleView: React.FC<Props> = ({ trailers, userRole }) => {
     <div style={{ minHeight: '100vh', background: 'var(--bg-main)', paddingBottom: '5rem', color: 'var(--text-primary)' }}>
       <header style={{ background: 'var(--bg-header)', backdropFilter: 'var(--glass-blur)', borderBottom: '1px solid var(--border-default)', padding: '1.25rem 2rem', position: 'sticky', top: 0, zIndex: 100, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-          <button className="btn btn-secondary btn-icon" onClick={() => navigate('/')} title="Back to Dashboard">
-            <LayoutDashboard size={20} />
+          <button className="btn btn-secondary" onClick={() => navigate('/')} style={{ borderRadius: '10px', padding: '0.45rem 0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: 700, fontSize: '0.85rem' }} title="Home">
+            <Home size={18} /> Home
           </button>
           <div style={{ width: '1px', height: '24px', background: 'var(--border-default)' }} />
           <div>
@@ -173,8 +173,8 @@ export const ScheduleView: React.FC<Props> = ({ trailers, userRole }) => {
 
       <nav style={{ position: 'fixed', bottom: '2rem', left: '50%', transform: 'translateX(-50%)', background: 'rgba(15, 23, 42, 0.9)', backdropFilter: 'blur(10px)', padding: '0.75rem 1.5rem', borderRadius: '50px', display: 'flex', gap: '1rem', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.2)', zIndex: 1000 }}>
         <button onClick={() => navigate('/')} style={{ background: 'none', border: 'none', color: 'white', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', cursor: 'pointer', opacity: 0.6 }}>
-          <LayoutDashboard size={20} />
-          <span style={{ fontSize: '0.6rem', fontWeight: 700 }}>Board</span>
+          <Home size={20} />
+          <span style={{ fontSize: '0.6rem', fontWeight: 700 }}>Home</span>
         </button>
         <div style={{ width: '1px', background: 'rgba(255,255,255,0.2)', margin: '0 0.5rem' }} />
         <button onClick={() => navigate('/stations')} style={{ background: 'none', border: 'none', color: 'white', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', cursor: 'pointer', opacity: 0.6 }}>

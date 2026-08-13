@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import * as XLSX from 'xlsx';
-import { ArrowLeft, Clock, Truck, Search, ChevronRight, Package, Eye, EyeOff, Image, Hash, User, DollarSign, BarChart3, Download, FileText } from 'lucide-react';
+import { Home, Clock, Truck, Search, ChevronRight, Package, Eye, EyeOff, Image, Hash, User, DollarSign, BarChart3, Download, FileText } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import type { Trailer, PhaseId, ShippedTrailer, UserRole } from './types';
 import { TrailerDetailsModal } from './components/TrailerDetailsModal';
@@ -385,20 +385,8 @@ export const ArchiveView: React.FC<Props> = ({ trailers, onUpdateTrailer, localT
         zIndex: 10 
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-          <Link to="/" style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: '0.6rem', 
-            textDecoration: 'none', 
-            color: 'var(--text-secondary)', 
-            fontSize: '0.85rem', 
-            fontWeight: 700, 
-            padding: '0.5rem 1rem', 
-            borderRadius: '10px', 
-            background: 'rgba(255,255,255,0.05)',
-            border: '1px solid var(--border-default)' 
-          }}>
-            <ArrowLeft size={16} /> Dashboard
+          <Link to="/" className="btn btn-secondary" style={{ borderRadius: '10px', padding: '0.45rem 0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: 700, fontSize: '0.85rem' }} title="Home">
+            <Home size={18} /> Home
           </Link>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'var(--accent-gradient)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 16px -4px rgba(59, 130, 246, 0.4)' }}>
@@ -632,7 +620,7 @@ export const ArchiveView: React.FC<Props> = ({ trailers, onUpdateTrailer, localT
         </div>
       </header>
 
-      <main className="archive-main" style={{ padding: '3rem 2rem', maxWidth: '1400px', margin: '0 auto' }}>
+      <main className="archive-main" style={{ padding: '2.5rem 3rem', maxWidth: '100%', margin: '0 auto' }}>
         
         {/* Statistics Bar */}
         <div className="archive-stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.5rem', marginBottom: '3rem' }}>
@@ -671,7 +659,7 @@ export const ArchiveView: React.FC<Props> = ({ trailers, onUpdateTrailer, localT
         {/* Shipped Content */}
         {tab === 'shipped' && (
           <>
-            <div className="archive-card-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '1.5rem' }}>
+            <div className="archive-card-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '1.5rem' }}>
               {filteredShipped.length > 0 ? filteredShipped.slice(0, visibleCount).map(t => (
               <div
                 key={t.serial_number}
@@ -751,7 +739,7 @@ export const ArchiveView: React.FC<Props> = ({ trailers, onUpdateTrailer, localT
         {/* Removed Content */}
         {tab === 'removed' && (
           <>
-            <div className="archive-card-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '1.5rem' }}>
+            <div className="archive-card-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '1.5rem' }}>
               {removedTrailers.length > 0 ? removedTrailers.slice(0, visibleCount).map(t => (
                 <div 
                   key={t.id} 
@@ -833,6 +821,12 @@ export const ArchiveView: React.FC<Props> = ({ trailers, onUpdateTrailer, localT
         }
         .gallery-img:hover {
           transform: scale(1.05);
+        }
+
+        @media (max-width: 1100px) {
+          .archive-card-grid {
+            grid-template-columns: repeat(2, 1fr) !important;
+          }
         }
 
         /* ── MOBILE ONLY ── */
