@@ -521,12 +521,13 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
           </div>
         </div>
       ) : (
-        <div style={{ display: 'flex', alignItems: 'flex-end', gap: '0.4rem' }}>
+        <div className="composer-input-row" style={{ display: 'flex', alignItems: 'flex-end', gap: '0.4rem', width: '100%' }}>
           {/* Attach Gallery Picture Button */}
           <button
             onClick={() => fileInputRef.current?.click()}
             disabled={isSending || !hasSelectedRecipient}
             title="Attach Gallery Picture"
+            className="composer-action-btn"
             style={{
               height: '42px',
               width: '42px',
@@ -550,6 +551,7 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
             onClick={openCamera}
             disabled={isSending || !hasSelectedRecipient}
             title="Take Photo with Camera"
+            className="composer-action-btn"
             style={{
               height: '42px',
               width: '42px',
@@ -576,8 +578,10 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
             placeholder={placeholderText}
             rows={1}
             disabled={isSending}
+            className="composer-textarea"
             style={{
               flex: 1,
+              minWidth: 0,
               minHeight: '42px',
               maxHeight: '140px',
               padding: '0.65rem 0.85rem',
@@ -598,6 +602,7 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
             onClick={startRecording}
             disabled={isSending || !hasSelectedRecipient}
             title="Record Voice Note"
+            className="composer-action-btn"
             style={{
               height: '42px',
               width: '42px',
@@ -620,16 +625,16 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
           <button
             onClick={handleSend}
             disabled={isTextEmpty || isSending || !hasSelectedRecipient}
-            className="btn btn-primary"
+            className="btn btn-primary composer-action-btn"
             style={{
               height: '42px',
-              padding: '0 1.25rem',
+              padding: '0 1rem',
               borderRadius: '12px',
               fontWeight: 800,
-              fontSize: '0.85rem',
+              fontSize: '0.88rem',
               display: 'flex',
               alignItems: 'center',
-              gap: '0.5rem',
+              gap: '0.4rem',
               opacity: isTextEmpty || isSending || !hasSelectedRecipient ? 0.5 : 1,
               cursor: isTextEmpty || isSending || !hasSelectedRecipient ? 'not-allowed' : 'pointer',
               flexShrink: 0,
