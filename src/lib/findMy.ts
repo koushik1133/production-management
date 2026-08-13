@@ -41,9 +41,9 @@ if (commandBroadcastChannel) {
  */
 export function resolveCanonicalTabletId(userId?: string, role?: string, deviceName?: string): string {
   const str = `${userId || ''} ${role || ''} ${deviceName || ''}`.toLowerCase();
-  if (str.includes('t1') || role === 'worker') return '00000000-0000-4000-a000-000000000001';
-  if (str.includes('t2')) return '00000000-0000-4000-a000-000000000002';
-  if (str.includes('t3')) return '00000000-0000-4000-a000-000000000003';
+  if (str.includes('t2') || str.includes('welding')) return '00000000-0000-4000-a000-000000000002';
+  if (str.includes('t3') || str.includes('finishing') || str.includes('paint')) return '00000000-0000-4000-a000-000000000003';
+  if (str.includes('t1') || str.includes('assembly') || role === 'worker') return '00000000-0000-4000-a000-000000000001';
   if (str.includes('manager')) return '00000000-0000-4000-a000-000000000009';
   return userId || '00000000-0000-4000-a000-000000000001';
 }
@@ -161,25 +161,18 @@ export async function fetchTabletLocations(): Promise<TabletLocation[]> {
     console.warn('Failed to fetch tablet locations from DB:', err);
   }
 
-  const mapList = Array.from(memoryLocationsMap.values());
-  const result: TabletLocation[] = [];
+  // Strictly deduplicate by canonical ID slot (T1, T2, T3, Manager)
+  const resultMap = new Map<string, TabletLocation>();
 
   DEFAULT_TABLETS.forEach((def) => {
-    const found = mapList.find((m) => m.id === def.id || m.user_id === def.user_id);
-    if (found) {
-      result.push(found);
-    } else {
-      result.push(def);
-    }
+    resultMap.set(def.id, def);
   });
 
-  mapList.forEach((m) => {
-    if (!result.some((r) => r.id === m.id)) {
-      result.push(m);
-    }
+  memoryLocationsMap.forEach((loc, key) => {
+    resultMap.set(key, loc);
   });
 
-  return result;
+  return Array.from(resultMap.values());
 }
 
 /**
