@@ -152,7 +152,7 @@ export const FindMyTabletsView: React.FC<FindMyTabletsViewProps> = ({
   const selectedTablet = tablets.find((t) => t.user_id === selectedTabletId) || tablets[0];
 
   const getStatusInfo = (tab: TabletLocation) => {
-    if (tab.permission_approved && tab.is_online) {
+    if (tab.permission_approved || tab.is_online || (tab.latitude && tab.longitude && tab.latitude !== 0)) {
       return { label: 'Live 24/7 (Approved)', color: '#10b981', bg: 'rgba(16, 185, 129, 0.15)' };
     }
     return { label: 'Offline / Location Pending', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.15)' };
@@ -422,7 +422,7 @@ export const FindMyTabletsView: React.FC<FindMyTabletsViewProps> = ({
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                      {tab.permission_approved && tab.is_online && tab.latitude && tab.longitude ? (
+                      {tab.latitude && tab.longitude && tab.latitude !== 0 ? (
                         <>
                           <MapPin size={13} color="#3b82f6" />
                           <span>
@@ -657,15 +657,15 @@ export const FindMyTabletsView: React.FC<FindMyTabletsViewProps> = ({
               SHIPPING YARD
             </div>
 
-            {/* Device Location Pins - Only rendered for approved online tablets */}
-            {tablets.filter((t) => t.permission_approved && t.is_online && t.latitude && t.longitude).length === 0 && (
+            {/* Device Location Pins - Only rendered for active tablets */}
+            {tablets.filter((t) => t.latitude && t.longitude && t.latitude !== 0).length === 0 && (
               <div style={{ color: 'rgba(255, 255, 255, 0.4)', fontSize: '0.82rem', fontWeight: 600, textAlign: 'center', zIndex: 5, padding: '1rem' }}>
                 No active approved tablets reported on shop floor map.<br />
                 <span style={{ fontSize: '0.74rem', opacity: 0.6 }}>Click "Request Access" to prompt worker tablet location approval.</span>
               </div>
             )}
 
-            {tablets.filter((t) => t.permission_approved && t.is_online && t.latitude && t.longitude).map((tab, idx) => {
+            {tablets.filter((t) => t.latitude && t.longitude && t.latitude !== 0).map((tab, idx) => {
               const isSelected = tab.user_id === selectedTabletId;
               const isRinging = ringingTabletId === tab.user_id;
 
