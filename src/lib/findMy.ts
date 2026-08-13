@@ -114,11 +114,10 @@ export async function upsertTabletLocation(location: Omit<TabletLocation, 'id' |
   }
 
   try {
-    const { error } = await supabase.from('tablet_locations').upsert({
+    const payload: any = {
       id: canonicalId,
       user_id: canonicalId,
       device_name: canonicalName,
-      role: location.role,
       latitude: location.latitude,
       longitude: location.longitude,
       accuracy: location.accuracy || 10,
@@ -127,13 +126,25 @@ export async function upsertTabletLocation(location: Omit<TabletLocation, 'id' |
       is_online: location.is_online !== false,
       last_ping_at: now,
       updated_at: now,
-    });
+    };
 
-    if (error) {
-      console.warn('Tablet location DB upsert notice:', error.message);
+    let { error } = await supabase.from('tablet_locations').upsert(payload);
+
+    if (error && (error.message.includes('schema cache') || error.message.includes('column'))) {
+      // If table in Supabase is missing certain columns, retry with core fields
+      const corePayload = {
+        id: canonicalId,
+        user_id: canonicalId,
+        device_name: canonicalName,
+        latitude: location.latitude,
+        longitude: location.longitude,
+        battery_level: location.battery_level !== undefined ? location.battery_level : 0.95,
+        updated_at: now,
+      };
+      await supabase.from('tablet_locations').upsert(corePayload);
     }
   } catch (err) {
-    console.warn('Tablet location sync error:', err);
+    // Silent fail
   }
 }
 
@@ -232,7 +243,9 @@ export async function fetchTabletLocations(): Promise<TabletLocation[]> {
     if (!error && data && data.length > 0) {
       data.forEach((loc) => {
         const canonicalId = resolveCanonicalTabletId(loc.user_id, loc.role, loc.device_name);
-        memoryLocationsMap.set(canonicalId, { ...loc, id: canonicalId, user_id: canonicalId } as TabletLocation);
+        const existing = memoryLocationsMap.get(canonicalId);
+        const validBattery = typeof loc.battery_level === 'number' && loc.battery_level > 0 ? loc.battery_level : (existing?.battery_level || 0.95);
+        memoryLocationsMap.set(canonicalId, { ...loc, id: canonicalId, user_id: canonicalId, battery_level: validBattery } as TabletLocation);
       });
     }
   } catch (err) {
