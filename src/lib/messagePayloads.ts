@@ -118,23 +118,49 @@ export function updatePayloadReactions(body: string, emoji: string, userName: st
   return formatStructuredPayload(structured.text, structured.replyTo, structured.reactions);
 }
 
-export function getSnippetFromMessageBody(body: string | undefined | null): string {
-  if (!body) return 'No messages yet';
+export function formatCleanNotificationMessage(body: string | undefined | null, senderName?: string): string {
+  if (!body) return 'You received a new production message.';
+
   const trimmed = body.trim();
-  if (trimmed.startsWith('[IMAGE_MSG]:') || trimmed.includes('[IMAGE_MSG]:')) {
+
+  // Handle [IMAGE_MSG]:... or base64 image strings
+  if (trimmed.startsWith('[IMAGE_MSG]:') || trimmed.includes('[IMAGE_MSG]:') || trimmed.includes('data:image/')) {
     const imgPayload = parseImagePayload(trimmed);
     if (imgPayload?.caption) {
-      return `📷 Photo: ${imgPayload.caption}`;
+      return `📷 Photo: "${imgPayload.caption}"`;
     }
-    return '📷 Photo';
+    return `📷 Photo received from ${senderName || 'user'}`;
   }
-  if (trimmed.startsWith('[VOICE_NOTE]:')) {
-    return '🎙️ Voice Note';
+
+  // Handle [VOICE_NOTE]:... or base64 audio strings
+  if (trimmed.startsWith('[VOICE_NOTE]:') || trimmed.includes('[VOICE_NOTE]:') || trimmed.includes('data:audio/')) {
+    return `🎤 Voice note received from ${senderName || 'user'}`;
   }
+
+  // Handle [MSG_PAYLOAD]:... structured wrapper
   if (trimmed.startsWith('[MSG_PAYLOAD]:')) {
     const structured = parseStructuredPayload(trimmed);
-    if (structured.text.startsWith('[IMAGE_MSG]:')) return '📷 Photo';
+    if (structured.text.startsWith('[IMAGE_MSG]:') || structured.text.includes('data:image/')) {
+      return `📷 Photo received from ${senderName || 'user'}`;
+    }
+    if (structured.text.startsWith('[VOICE_NOTE]:') || structured.text.includes('data:audio/')) {
+      return `🎤 Voice note received from ${senderName || 'user'}`;
+    }
     return structured.text;
   }
+
+  // Safeguard: If body contains long raw JSON or base64 string
+  if (trimmed.length > 150 && (trimmed.includes('data:image') || trimmed.includes('data:audio') || trimmed.includes('base64,'))) {
+    if (trimmed.includes('image') || trimmed.includes('png') || trimmed.includes('jpeg')) {
+      return `📷 Photo received from ${senderName || 'user'}`;
+    }
+    return `🎤 Voice note received from ${senderName || 'user'}`;
+  }
+
   return trimmed;
+}
+
+export function getSnippetFromMessageBody(body: string | undefined | null): string {
+  if (!body) return 'No messages yet';
+  return formatCleanNotificationMessage(body);
 }

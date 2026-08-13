@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { formatCleanNotificationMessage } from '../lib/messagePayloads';
 
 export interface ToastAlert {
   id: string;
@@ -144,7 +145,8 @@ export function useMessageNotifications(): UseMessageNotificationsReturn {
       playNotificationChime();
 
       // 2. Set In-App Toast Popup
-      const bodyText = options?.body || 'You received a new production message.';
+      const rawBody = options?.body || 'You received a new production message.';
+      const bodyText = formatCleanNotificationMessage(rawBody, options?.senderName);
       const toast: ToastAlert = {
         id: String(Date.now()),
         title,
