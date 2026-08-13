@@ -401,7 +401,7 @@ export const FindMyTabletsView: React.FC<FindMyTabletsViewProps> = ({
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                      {tab.permission_approved && tab.is_online && tab.battery_level !== undefined ? (
+                      {tab.battery_level !== undefined ? (
                         <>
                           {tab.is_charging !== false ? (
                             <BatteryCharging size={14} color="#10b981" />
