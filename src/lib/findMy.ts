@@ -17,11 +17,37 @@ const commandBroadcastChannel =
     ? new BroadcastChannel('tablet_remote_commands_channel')
     : null;
 
+export function saveLocationsToStorage(map: Map<string, TabletLocation>) {
+  try {
+    const obj = Object.fromEntries(map.entries());
+    localStorage.setItem('tablet_locations_cache_v2', JSON.stringify(obj));
+  } catch {
+    // ignore
+  }
+}
+
+export function loadLocationsFromStorage(): Map<string, TabletLocation> {
+  const map = new Map<string, TabletLocation>();
+  try {
+    const raw = localStorage.getItem('tablet_locations_cache_v2');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      Object.entries(parsed).forEach(([k, v]) => {
+        map.set(k, v as TabletLocation);
+      });
+    }
+  } catch {
+    // ignore
+  }
+  return map;
+}
+
 if (locationBroadcastChannel) {
   locationBroadcastChannel.onmessage = (e) => {
     if (e.data?.type === 'LOCATION_UPDATE' && e.data?.payload) {
       const loc = e.data.payload as TabletLocation;
       memoryLocationsMap.set(loc.user_id, loc);
+      saveLocationsToStorage(memoryLocationsMap);
       locationListeners.forEach((listener) => listener(loc));
     }
   };
@@ -80,8 +106,12 @@ export async function upsertTabletLocation(location: Omit<TabletLocation, 'id' |
   };
 
   memoryLocationsMap.set(canonicalId, fullLocation);
+  saveLocationsToStorage(memoryLocationsMap);
   locationListeners.forEach((listener) => listener(fullLocation));
   locationBroadcastChannel?.postMessage({ type: 'LOCATION_UPDATE', payload: fullLocation });
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('tablet_location_updated'));
+  }
 
   try {
     const { error } = await supabase.from('tablet_locations').upsert({
@@ -159,8 +189,34 @@ const DEFAULT_TABLETS: TabletLocation[] = [
  */
 export function subscribeToLocationUpdates(callback: (loc: TabletLocation) => void) {
   locationListeners.add(callback);
+
+  const handleStorageEvent = (e: StorageEvent) => {
+    if (e.key === 'tablet_locations_cache_v2' && e.newValue) {
+      try {
+        const parsed = JSON.parse(e.newValue);
+        Object.values(parsed).forEach((loc: any) => callback(loc as TabletLocation));
+      } catch {
+        // ignore
+      }
+    }
+  };
+
+  const handleWindowEvent = () => {
+    const stored = loadLocationsFromStorage();
+    stored.forEach((loc) => callback(loc));
+  };
+
+  if (typeof window !== 'undefined') {
+    window.addEventListener('storage', handleStorageEvent);
+    window.addEventListener('tablet_location_updated', handleWindowEvent);
+  }
+
   return () => {
     locationListeners.delete(callback);
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('storage', handleStorageEvent);
+      window.removeEventListener('tablet_location_updated', handleWindowEvent);
+    }
   };
 }
 
@@ -184,6 +240,12 @@ export async function fetchTabletLocations(): Promise<TabletLocation[]> {
     console.warn('Failed to fetch tablet locations from DB:', err);
   }
 
+  // Load any local storage fallback locations
+  const storedMap = loadLocationsFromStorage();
+  storedMap.forEach((loc, key) => {
+    memoryLocationsMap.set(key, loc);
+  });
+
   // Strictly deduplicate by canonical ID slot (T1, T2, T3, Manager)
   const resultMap = new Map<string, TabletLocation>();
 
@@ -195,6 +257,7 @@ export async function fetchTabletLocations(): Promise<TabletLocation[]> {
     resultMap.set(key, loc);
   });
 
+  saveLocationsToStorage(resultMap);
   return Array.from(resultMap.values());
 }
 
