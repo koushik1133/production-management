@@ -40,11 +40,17 @@ if (commandBroadcastChannel) {
  * Resolves a tablet ID or user session to its canonical slot (T1, T2, T3, Manager).
  */
 export function resolveCanonicalTabletId(userId?: string, role?: string, deviceName?: string): string {
+  if (userId === '00000000-0000-4000-a000-000000000001') return '00000000-0000-4000-a000-000000000001';
+  if (userId === '00000000-0000-4000-a000-000000000002') return '00000000-0000-4000-a000-000000000002';
+  if (userId === '00000000-0000-4000-a000-000000000003') return '00000000-0000-4000-a000-000000000003';
+  if (userId === '00000000-0000-4000-a000-000000000009') return '00000000-0000-4000-a000-000000000009';
+
   const str = `${userId || ''} ${role || ''} ${deviceName || ''}`.toLowerCase();
   if (str.includes('t2') || str.includes('welding')) return '00000000-0000-4000-a000-000000000002';
   if (str.includes('t3') || str.includes('finishing') || str.includes('paint')) return '00000000-0000-4000-a000-000000000003';
-  if (str.includes('t1') || str.includes('assembly') || role === 'worker') return '00000000-0000-4000-a000-000000000001';
+  if (str.includes('t1') || str.includes('assembly') || str.includes('frame')) return '00000000-0000-4000-a000-000000000001';
   if (str.includes('manager')) return '00000000-0000-4000-a000-000000000009';
+
   return userId || '00000000-0000-4000-a000-000000000001';
 }
 
@@ -54,10 +60,21 @@ export function resolveCanonicalTabletId(userId?: string, role?: string, deviceN
 export async function upsertTabletLocation(location: Omit<TabletLocation, 'id' | 'updated_at'>): Promise<void> {
   const canonicalId = resolveCanonicalTabletId(location.user_id, location.role, location.device_name);
   const now = new Date().toISOString();
+
+  const officialNames: Record<string, string> = {
+    '00000000-0000-4000-a000-000000000001': 'T1 (Frame Assembly)',
+    '00000000-0000-4000-a000-000000000002': 'T2 (Welding Bay 3)',
+    '00000000-0000-4000-a000-000000000003': 'T3 (Finishing & Paint)',
+    '00000000-0000-4000-a000-000000000009': 'manager',
+  };
+  const canonicalName = officialNames[canonicalId] || location.device_name;
+
   const fullLocation: TabletLocation = {
     ...location,
     id: canonicalId,
     user_id: canonicalId,
+    device_name: canonicalName,
+    battery_level: location.battery_level !== undefined ? location.battery_level : 0.95,
     updated_at: now,
     last_ping_at: now,
   };
@@ -98,8 +115,10 @@ const DEFAULT_TABLETS: TabletLocation[] = [
     user_id: '00000000-0000-4000-a000-000000000001',
     device_name: 'T1 (Frame Assembly)',
     role: 'worker',
-    latitude: 0,
-    longitude: 0,
+    latitude: 33.1248,
+    longitude: -96.7977,
+    battery_level: 0.95,
+    is_charging: true,
     is_online: false,
     permission_approved: false,
     last_ping_at: '',
@@ -110,8 +129,10 @@ const DEFAULT_TABLETS: TabletLocation[] = [
     user_id: '00000000-0000-4000-a000-000000000002',
     device_name: 'T2 (Welding Bay 3)',
     role: 'worker',
-    latitude: 0,
-    longitude: 0,
+    latitude: 33.1243,
+    longitude: -96.7975,
+    battery_level: 0.92,
+    is_charging: true,
     is_online: false,
     permission_approved: false,
     last_ping_at: '',
@@ -122,8 +143,10 @@ const DEFAULT_TABLETS: TabletLocation[] = [
     user_id: '00000000-0000-4000-a000-000000000003',
     device_name: 'T3 (Finishing & Paint)',
     role: 'worker',
-    latitude: 0,
-    longitude: 0,
+    latitude: 33.1250,
+    longitude: -96.7984,
+    battery_level: 0.88,
+    is_charging: true,
     is_online: false,
     permission_approved: false,
     last_ping_at: '',
