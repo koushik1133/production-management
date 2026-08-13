@@ -69,13 +69,12 @@ export function resolveCanonicalTabletId(userId?: string, role?: string, deviceN
   if (userId === '00000000-0000-4000-a000-000000000001') return '00000000-0000-4000-a000-000000000001';
   if (userId === '00000000-0000-4000-a000-000000000002') return '00000000-0000-4000-a000-000000000002';
   if (userId === '00000000-0000-4000-a000-000000000003') return '00000000-0000-4000-a000-000000000003';
-  if (userId === '00000000-0000-4000-a000-000000000009') return '00000000-0000-4000-a000-000000000009';
+  if (userId === '00000000-0000-4000-a000-000000000009' || role === 'manager') return '00000000-0000-4000-a000-000000000009';
 
   const str = `${userId || ''} ${role || ''} ${deviceName || ''}`.toLowerCase();
-  if (str.includes('t2') || str.includes('welding')) return '00000000-0000-4000-a000-000000000002';
   if (str.includes('t3') || str.includes('finishing') || str.includes('paint')) return '00000000-0000-4000-a000-000000000003';
+  if (str.includes('t2') || str.includes('welding')) return '00000000-0000-4000-a000-000000000002';
   if (str.includes('t1') || str.includes('assembly') || str.includes('frame')) return '00000000-0000-4000-a000-000000000001';
-  if (str.includes('manager')) return '00000000-0000-4000-a000-000000000009';
 
   return userId || '00000000-0000-4000-a000-000000000001';
 }
@@ -318,24 +317,39 @@ export function subscribeToRemoteCommands(
   callback: (cmd: RemoteCommandPayload) => void
 ) {
   const isTargetMatch = (cmd: RemoteCommandPayload): boolean => {
-    if (cmd.target_user_id && cmd.target_user_id === currentUserId) return true;
+    const currentCanonicalId = resolveCanonicalTabletId(currentUserId, currentRole, userName);
 
-    if (cmd.target_name) {
-      const targetLower = cmd.target_name.toLowerCase();
-      const userLower = (userName || '').toLowerCase();
-      const roleLower = (currentRole || '').toLowerCase();
-
-      if (userLower && userLower.includes(targetLower)) return true;
-      if (roleLower && roleLower.includes(targetLower)) return true;
-
-      // Handle canonical T1, T2, T3 matching
-      if (targetLower.startsWith('t1') && (userLower.includes('t1') || roleLower === 'worker' || userLower.includes('worker'))) return true;
-      if (targetLower.startsWith('t2') && (userLower.includes('t2') || roleLower === 't2')) return true;
-      if (targetLower.startsWith('t3') && (userLower.includes('t3') || roleLower === 't3')) return true;
+    // 1. Match by exact target user ID / canonical UUID
+    if (cmd.target_user_id) {
+      const targetCanonicalId = resolveCanonicalTabletId(cmd.target_user_id, '', cmd.target_name || '');
+      if (
+        currentUserId === cmd.target_user_id ||
+        currentCanonicalId === cmd.target_user_id ||
+        currentCanonicalId === targetCanonicalId
+      ) {
+        return true;
+      }
     }
 
-    if (cmd.target_role && currentRole && currentRole.toLowerCase() === cmd.target_role.toLowerCase()) {
-      return true;
+    // 2. Match by strict target name (T1, T2, T3, Manager)
+    if (cmd.target_name) {
+      const targetLower = cmd.target_name.toLowerCase().trim();
+      const userLower = (userName || '').toLowerCase().trim();
+
+      if (targetLower.includes('t3') || targetLower.includes('finishing') || targetLower.includes('paint')) {
+        return currentCanonicalId === '00000000-0000-4000-a000-000000000003' || userLower.includes('t3');
+      }
+      if (targetLower.includes('t2') || targetLower.includes('welding')) {
+        return currentCanonicalId === '00000000-0000-4000-a000-000000000002' || userLower.includes('t2');
+      }
+      if (targetLower.includes('t1') || targetLower.includes('frame') || targetLower.includes('assembly')) {
+        return currentCanonicalId === '00000000-0000-4000-a000-000000000001' || userLower.includes('t1');
+      }
+      if (targetLower.includes('manager')) {
+        return currentCanonicalId === '00000000-0000-4000-a000-000000000009' || userLower.includes('manager');
+      }
+
+      if (userLower && userLower.includes(targetLower)) return true;
     }
 
     return false;
