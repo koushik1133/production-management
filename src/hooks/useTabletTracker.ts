@@ -6,6 +6,8 @@ import {
   sendRemoteCommand,
   resolveTabletSlot,
   TABLET_SPECS,
+  requestScreenWakeLock,
+  initAudioContext,
 } from '../lib/findMy';
 
 interface UseTabletTrackerProps {
@@ -29,11 +31,26 @@ export function useTabletTracker({ currentUserId, currentRole, userName }: UseTa
   useEffect(() => {
     if (!currentUserId) return;
 
+    // Maintain screen wake lock so tablet display stays on during shift
+    requestScreenWakeLock();
+    initAudioContext();
+
+    const handleWakeState = () => {
+      if (document.visibilityState === 'visible') {
+        requestScreenWakeLock();
+        initAudioContext();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleWakeState);
+    window.addEventListener('focus', handleWakeState);
+    window.addEventListener('pageshow', handleWakeState);
+
     // Subscribe to remote manager commands strictly isolated to THIS tablet slot
     const unsubscribeCommands = subscribeToRemoteCommands(currentUserId, currentRole, userName || '', (cmd) => {
       if (cmd.command === 'PLAY_SOUND') {
         setIsRinging(true);
-        playFindMyAlarmSound(25);
+        playFindMyAlarmSound(30);
       } else if (cmd.command === 'STOP_SOUND') {
         setIsRinging(false);
         stopFindMyAlarmSound();
@@ -41,6 +58,9 @@ export function useTabletTracker({ currentUserId, currentRole, userName }: UseTa
     });
 
     return () => {
+      document.removeEventListener('visibilitychange', handleWakeState);
+      window.removeEventListener('focus', handleWakeState);
+      window.removeEventListener('pageshow', handleWakeState);
       unsubscribeCommands();
       stopFindMyAlarmSound();
     };
