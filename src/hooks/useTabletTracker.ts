@@ -28,25 +28,9 @@ export function useTabletTracker({ currentUserId, currentRole, userName }: UseTa
     return localStorage.getItem(`tablet_247_loc_approved_${currentUserId}`) === 'true';
   });
 
-  const getBatteryStatus = async (): Promise<{ level: number; isCharging: boolean }> => {
-    try {
-      if (typeof navigator !== 'undefined' && 'getBattery' in navigator) {
-        const battery: any = await (navigator as any).getBattery();
-        return {
-          level: typeof battery.level === 'number' ? battery.level : mySpec.defaultBattery,
-          isCharging: typeof battery.charging === 'boolean' ? battery.charging : true,
-        };
-      }
-    } catch {
-      // ignore
-    }
-    return { level: mySpec.defaultBattery, isCharging: true };
-  };
-
   const reportPosition = useCallback(
     async (lat?: number, lng?: number, accuracy = 10) => {
       if (!currentUserId) return;
-      const batteryInfo = await getBatteryStatus();
 
       await upsertTabletLocation({
         user_id: mySpec.canonicalId,
@@ -55,8 +39,6 @@ export function useTabletTracker({ currentUserId, currentRole, userName }: UseTa
         latitude: lat && lat !== 0 ? lat : mySpec.defaultCoordinates.lat,
         longitude: lng && lng !== 0 ? lng : mySpec.defaultCoordinates.lng,
         accuracy: accuracy,
-        battery_level: batteryInfo.level,
-        is_charging: batteryInfo.isCharging,
         is_online: true,
         permission_approved: true,
         last_ping_at: new Date().toISOString(),
