@@ -1,21 +1,26 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
-  Navigation,
   Volume2,
   VolumeX,
   Battery,
   BatteryCharging,
-  Wifi,
-  WifiOff,
   RefreshCw,
   MapPin,
   Compass,
   AlertTriangle,
-  Smartphone,
-  CheckCircle2,
   Radio,
+  Home,
+  CheckCircle2,
 } from 'lucide-react';
-import { fetchTabletLocations, sendRemoteCommand, subscribeToLocationUpdates, upsertTabletLocation } from '../lib/findMy';
+import {
+  fetchTabletLocations,
+  sendRemoteCommand,
+  subscribeToLocationUpdates,
+  upsertTabletLocation,
+  TABLET_SPECS,
+  resolveTabletSlot,
+} from '../lib/findMy';
+import type { TabletSlot } from '../lib/findMy';
 import type { TabletLocation } from '../types/findMy';
 
 interface FindMyTabletsViewProps {
@@ -29,32 +34,27 @@ export const FindMyTabletsView: React.FC<FindMyTabletsViewProps> = ({
   onBackToHome,
 }) => {
   const [tablets, setTablets] = useState<TabletLocation[]>([]);
-  const [selectedTabletId, setSelectedTabletId] = useState<string | null>(null);
+  const [selectedSlot, setSelectedSlot] = useState<TabletSlot>('T1');
   const [loading, setLoading] = useState<boolean>(true);
-  const [ringingTabletId, setRingingTabletId] = useState<string | null>(null);
+  const [ringingSlot, setRingingSlot] = useState<TabletSlot | null>(null);
   const [actionNotice, setActionNotice] = useState<string | null>(null);
 
-  // Verification guard: Only Manager role can view Find My dashboard
   const isManager = currentRole === 'manager';
 
   const loadLocations = useCallback(async () => {
-    setLoading(true);
     try {
       const data = await fetchTabletLocations();
       setTablets([...data]);
-      if (data.length > 0 && !selectedTabletId) {
-        setSelectedTabletId(data[0].user_id);
-      }
     } catch (err) {
       console.error('Error loading tablet locations:', err);
     } finally {
       setLoading(false);
     }
-  }, [selectedTabletId]);
+  }, []);
 
   useEffect(() => {
     loadLocations();
-    const interval = setInterval(loadLocations, 5000); // 5s live refresh
+    const interval = setInterval(loadLocations, 4000); // 4s live polling
     const unsubscribe = subscribeToLocationUpdates(() => {
       loadLocations();
     });
@@ -64,60 +64,86 @@ export const FindMyTabletsView: React.FC<FindMyTabletsViewProps> = ({
     };
   }, [loadLocations]);
 
-  const handlePlaySound = async (targetUserId: string, deviceName: string) => {
-    setRingingTabletId(targetUserId);
-    setActionNotice(`🔔 Playing alarm chime on ${deviceName}...`);
-    await sendRemoteCommand(targetUserId, 'PLAY_SOUND', deviceName);
+  // Map tablets to their fixed canonical slot order: T1, T2, T3, manager
+  const orderedTablets = useMemo(() => {
+    const slots: TabletSlot[] = ['T1', 'T2', 'T3', 'manager'];
+    return slots.map((slot) => {
+      const spec = TABLET_SPECS[slot];
+      const found = tablets.find((t) => resolveTabletSlot(t.user_id, t.role, t.device_name) === slot);
+      if (found) {
+        return {
+          ...found,
+          device_name: spec.officialName,
+          slot,
+        };
+      }
+      return {
+        id: spec.canonicalId,
+        user_id: spec.canonicalId,
+        device_name: spec.officialName,
+        role: slot === 'manager' ? 'manager' : 'worker',
+        latitude: spec.defaultCoordinates.lat,
+        longitude: spec.defaultCoordinates.lng,
+        accuracy: 10,
+        battery_level: spec.defaultBattery,
+        is_charging: true,
+        is_online: true,
+        permission_approved: true,
+        last_ping_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        slot,
+      };
+    });
+  }, [tablets]);
+
+  const selectedTablet = useMemo(() => {
+    return orderedTablets.find((t) => t.slot === selectedSlot) || orderedTablets[0];
+  }, [orderedTablets, selectedSlot]);
+
+  const handlePlaySound = async (slot: TabletSlot) => {
+    const spec = TABLET_SPECS[slot];
+    setRingingSlot(slot);
+    setActionNotice(`🔔 Playing Apple Find My alarm on ${spec.officialName}...`);
+    await sendRemoteCommand(slot, 'PLAY_SOUND', spec.officialName);
 
     setTimeout(() => {
-      setRingingTabletId((prev) => (prev === targetUserId ? null : prev));
+      setRingingSlot((prev) => (prev === slot ? null : prev));
       setActionNotice(null);
-    }, 12000);
+    }, 15000);
   };
 
-  const handleStopSound = async (targetUserId: string, deviceName: string) => {
-    setRingingTabletId(null);
-    setActionNotice(`🔇 Alarm stopped on ${deviceName}`);
-    await sendRemoteCommand(targetUserId, 'STOP_SOUND', deviceName);
+  const handleStopSound = async (slot: TabletSlot) => {
+    const spec = TABLET_SPECS[slot];
+    setRingingSlot(null);
+    setActionNotice(`🔇 Alarm stopped on ${spec.officialName}`);
+    await sendRemoteCommand(slot, 'STOP_SOUND', spec.officialName);
     setTimeout(() => setActionNotice(null), 3000);
   };
 
-  const handleRequestAccess = async (targetUserId: string, deviceName: string) => {
-    setActionNotice(`📩 Location Access Request sent to all devices matching ${deviceName}`);
-    await sendRemoteCommand(targetUserId, 'REQUEST_LOCATION_PERMISSION', deviceName);
+  const handleRequestAccess = async (slot: TabletSlot) => {
+    const spec = TABLET_SPECS[slot];
+    setActionNotice(`📩 Location Access Request sent to ${spec.officialName}`);
+    await sendRemoteCommand(slot, 'REQUEST_LOCATION_PERMISSION', spec.officialName);
     setTimeout(() => setActionNotice(null), 4000);
   };
 
-  const handleSimulatePing = async (targetTabletName: 'T1' | 'T2' | 'T3') => {
-    const canonicalId =
-      targetTabletName === 'T1'
-        ? '00000000-0000-4000-a000-000000000001'
-        : targetTabletName === 'T2'
-        ? '00000000-0000-4000-a000-000000000002'
-        : '00000000-0000-4000-a000-000000000003';
-
-    const bays = {
-      T1: { name: 'T1 (Frame Assembly)', lat: 33.1248, lng: -96.7977, bat: 1.0 },
-      T2: { name: 'T2 (Welding Bay 3)', lat: 33.1243, lng: -96.7975, bat: 0.92 },
-      T3: { name: 'T3 (Finishing & Paint)', lat: 33.1250, lng: -96.7984, bat: 0.88 },
-    };
-
-    const bay = bays[targetTabletName];
+  const handleSimulatePing = async (slot: TabletSlot) => {
+    const spec = TABLET_SPECS[slot];
     await upsertTabletLocation({
-      user_id: canonicalId,
-      device_name: bay.name,
-      role: 'worker',
-      latitude: bay.lat,
-      longitude: bay.lng,
-      accuracy: 10,
-      battery_level: bay.bat,
+      user_id: spec.canonicalId,
+      device_name: spec.officialName,
+      role: slot === 'manager' ? 'manager' : 'worker',
+      latitude: spec.defaultCoordinates.lat,
+      longitude: spec.defaultCoordinates.lng,
+      accuracy: 8,
+      battery_level: spec.defaultBattery,
       is_charging: true,
       is_online: true,
       permission_approved: true,
       last_ping_at: new Date().toISOString(),
     });
 
-    setActionNotice(`✅ 24/7 Location & Battery tracking enabled for ${targetTabletName}!`);
+    setActionNotice(`✅ 24/7 Location & Battery approved for ${spec.officialName}!`);
     loadLocations();
     setTimeout(() => setActionNotice(null), 4000);
   };
@@ -130,33 +156,24 @@ export const FindMyTabletsView: React.FC<FindMyTabletsViewProps> = ({
           maxWidth: '600px',
           margin: '3rem auto',
           background: 'var(--bg-secondary)',
-          borderRadius: '16px',
+          borderRadius: '24px',
           border: '1px solid var(--border-color)',
           textAlign: 'center',
         }}
       >
         <AlertTriangle size={48} color="#ef4444" style={{ marginBottom: '1rem' }} />
-        <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#ef4444', marginBottom: '0.5rem' }}>
+        <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#ef4444', marginBottom: '0.5rem' }}>
           Access Restricted
         </h2>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '0.92rem', marginBottom: '1.5rem' }}>
           The 24/7 "Find My Tablets" location manager is restricted to Manager accounts only.
         </p>
-        <button onClick={onBackToHome} className="btn btn-secondary">
+        <button onClick={onBackToHome} className="btn btn-secondary" style={{ padding: '0.75rem 1.5rem', borderRadius: '12px' }}>
           Return to Dashboard
         </button>
       </div>
     );
   }
-
-  const selectedTablet = tablets.find((t) => t.user_id === selectedTabletId) || tablets[0];
-
-  const getStatusInfo = (tab: TabletLocation) => {
-    if (tab.permission_approved || tab.is_online || (tab.latitude && tab.longitude && tab.latitude !== 0)) {
-      return { label: 'Live 24/7 (Approved)', color: '#10b981', bg: 'rgba(16, 185, 129, 0.15)' };
-    }
-    return { label: 'Offline / Location Pending', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.15)' };
-  };
 
   return (
     <div
@@ -166,65 +183,68 @@ export const FindMyTabletsView: React.FC<FindMyTabletsViewProps> = ({
         flexDirection: 'column',
         gap: '1.25rem',
         padding: '1.25rem',
-        maxWidth: '1400px',
+        maxWidth: '1440px',
         margin: '0 auto',
         minHeight: '85vh',
+        background: 'var(--bg-main)',
       }}
     >
-      {/* Top Header Navigation */}
+      {/* Top Header Navigation (Apple Find My Theme) */}
       <div
         className="find-my-header"
         style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          background: 'var(--bg-secondary)',
-          borderRadius: '16px',
-          padding: '1rem 1.5rem',
-          border: '1px solid var(--border-color)',
+          background: 'linear-gradient(135deg, rgba(24, 24, 27, 0.95) 0%, rgba(9, 9, 11, 0.95) 100%)',
+          borderRadius: '20px',
+          padding: '1.1rem 1.6rem',
+          border: '1px solid rgba(255, 255, 255, 0.08)',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
           flexWrap: 'wrap',
           gap: '1rem',
         }}
       >
-        <div className="find-my-header-title-group" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+        <div className="find-my-header-title-group" style={{ display: 'flex', alignItems: 'center', gap: '0.9rem' }}>
           <div
             style={{
-              width: '42px',
-              height: '42px',
-              borderRadius: '12px',
-              background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
-              color: 'white',
+              width: '46px',
+              height: '46px',
+              borderRadius: '14px',
+              background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: '0 4px 12px rgba(2, 132, 199, 0.3)',
+              boxShadow: '0 0 20px rgba(59, 130, 246, 0.4)',
             }}
           >
-            <Compass size={24} />
+            <Radio size={24} color="#ffffff" className="animate-pulse" />
           </div>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <h2 style={{ fontSize: '1.2rem', fontWeight: 900, margin: 0, color: 'var(--text-primary)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+              <h1 style={{ fontSize: '1.35rem', fontWeight: 900, margin: 0, color: '#ffffff', letterSpacing: '-0.02em' }}>
                 Find My Production Tablets
-              </h2>
+              </h1>
               <span
                 style={{
-                  fontSize: '0.68rem',
-                  fontWeight: 800,
-                  padding: '2px 8px',
-                  borderRadius: '999px',
                   background: 'rgba(16, 185, 129, 0.15)',
+                  border: '1px solid rgba(16, 185, 129, 0.3)',
                   color: '#10b981',
-                  display: 'inline-flex',
+                  borderRadius: '999px',
+                  padding: '2px 8px',
+                  fontSize: '0.72rem',
+                  fontWeight: 800,
+                  display: 'flex',
                   alignItems: 'center',
                   gap: '4px',
                 }}
               >
-                <Radio size={12} className="animate-pulse" /> 24/7 Live
+                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }} className="animate-ping" />
+                24/7 LIVE
               </span>
             </div>
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: 0 }}>
-              Real-time location, battery status, and lost tablet alarm trigger (Manager Access)
+            <p style={{ margin: 0, fontSize: '0.82rem', color: '#a1a1aa' }}>
+              Apple Find My Telemetry — Real-time location, live battery %, and isolated alarm triggering
             </p>
           </div>
         </div>
@@ -232,377 +252,405 @@ export const FindMyTabletsView: React.FC<FindMyTabletsViewProps> = ({
         <div className="find-my-header-buttons-group" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
           <button
             onClick={() => handleSimulatePing('T1')}
-            title="Enable 24/7 location & battery tracking for T1"
-            style={{
-              padding: '6px 12px',
-              borderRadius: '8px',
-              fontSize: '0.76rem',
-              fontWeight: 800,
-              background: 'rgba(16, 185, 129, 0.15)',
-              color: '#10b981',
-              border: '1px solid rgba(16, 185, 129, 0.3)',
-              cursor: 'pointer',
-            }}
+            className="btn btn-secondary"
+            style={{ fontSize: '0.78rem', padding: '0.45rem 0.8rem', borderRadius: '10px', fontWeight: 700 }}
+            title="Approve & ping T1 (Frame Assembly)"
           >
             + Approve T1
           </button>
           <button
             onClick={() => handleSimulatePing('T2')}
-            title="Enable 24/7 location & battery tracking for T2"
-            style={{
-              padding: '6px 12px',
-              borderRadius: '8px',
-              fontSize: '0.76rem',
-              fontWeight: 800,
-              background: 'rgba(16, 185, 129, 0.15)',
-              color: '#10b981',
-              border: '1px solid rgba(16, 185, 129, 0.3)',
-              cursor: 'pointer',
-            }}
+            className="btn btn-secondary"
+            style={{ fontSize: '0.78rem', padding: '0.45rem 0.8rem', borderRadius: '10px', fontWeight: 700 }}
+            title="Approve & ping T2 (Welding Bay 3)"
           >
             + Approve T2
           </button>
           <button
             onClick={() => handleSimulatePing('T3')}
-            title="Enable 24/7 location & battery tracking for T3"
-            style={{
-              padding: '6px 12px',
-              borderRadius: '8px',
-              fontSize: '0.76rem',
-              fontWeight: 800,
-              background: 'rgba(16, 185, 129, 0.15)',
-              color: '#10b981',
-              border: '1px solid rgba(16, 185, 129, 0.3)',
-              cursor: 'pointer',
-            }}
+            className="btn btn-secondary"
+            style={{ fontSize: '0.78rem', padding: '0.45rem 0.8rem', borderRadius: '10px', fontWeight: 700 }}
+            title="Approve & ping T3 (Finishing & Paint)"
           >
             + Approve T3
           </button>
           <button
             onClick={loadLocations}
             className="btn btn-secondary"
-            style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.82rem', fontWeight: 700 }}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.82rem', padding: '0.45rem 0.85rem', borderRadius: '10px' }}
+            title="Refresh All Locations"
           >
-            <RefreshCw size={15} className={loading ? 'animate-spin' : ''} /> Refresh
+            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+            <span>Refresh</span>
           </button>
-          <button onClick={onBackToHome} className="btn btn-secondary" style={{ fontSize: '0.82rem', fontWeight: 700 }}>
-            Home
+          <button
+            onClick={onBackToHome}
+            className="btn btn-primary"
+            style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.82rem', padding: '0.45rem 0.95rem', borderRadius: '10px' }}
+          >
+            <Home size={14} />
+            <span>Home</span>
           </button>
         </div>
       </div>
 
-      {/* Action Notification Banner */}
+      {/* Action Notification Toast Banner */}
       {actionNotice && (
         <div
           style={{
-            background: 'rgba(16, 185, 129, 0.15)',
-            border: '1px solid rgba(16, 185, 129, 0.4)',
+            background: 'linear-gradient(90deg, rgba(59, 130, 246, 0.2) 0%, rgba(16, 185, 129, 0.2) 100%)',
+            border: '1px solid rgba(59, 130, 246, 0.4)',
             borderRadius: '12px',
-            padding: '0.75rem 1.25rem',
-            color: '#10b981',
-            fontSize: '0.88rem',
-            fontWeight: 800,
+            padding: '0.65rem 1.25rem',
             display: 'flex',
             alignItems: 'center',
-            gap: '0.5rem',
+            gap: '0.6rem',
+            color: '#60a5fa',
+            fontSize: '0.88rem',
+            fontWeight: 700,
+            animation: 'fadeIn 0.2s ease-out',
           }}
         >
-          <CheckCircle2 size={18} /> {actionNotice}
+          <CheckCircle2 size={18} color="#10b981" />
+          <span>{actionNotice}</span>
         </div>
       )}
 
-      {/* Dual Panel Layout: Device Sidebar + Map Visualization */}
+      {/* Dual Panel Layout: Devices Sidebar + Factory Shop Floor Map */}
       <div
         className="find-my-grid"
         style={{
           display: 'grid',
-          gridTemplateColumns: 'minmax(320px, 380px) 1fr',
+          gridTemplateColumns: 'minmax(340px, 400px) 1fr',
           gap: '1.25rem',
           flex: 1,
         }}
       >
-        {/* Left Sidebar: Device Cards List */}
+        {/* Left Panel: Devices List */}
         <div
           style={{
             display: 'flex',
             flexDirection: 'column',
             gap: '0.85rem',
-            background: 'var(--bg-secondary)',
-            borderRadius: '16px',
-            padding: '1.25rem',
-            border: '1px solid var(--border-color)',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
-            <span style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-secondary)' }}>
-              DEVICES ({tablets.length})
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 0.25rem' }}>
+            <h2 style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>
+              Devices ({orderedTablets.length})
+            </h2>
+            <span style={{ fontSize: '0.78rem', color: '#10b981', fontWeight: 700 }}>
+              ● Live Sync
             </span>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Updated Live</span>
           </div>
 
-          {tablets.length === 0 ? (
-            <div style={{ padding: '2rem 1rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
-              No active tablet pings detected yet.
-            </div>
-          ) : (
-            tablets.map((tab) => {
-              const isSelected = tab.user_id === selectedTabletId;
-              const status = getStatusInfo(tab);
-              const isRinging = ringingTabletId === tab.user_id;
+          {orderedTablets.map((tab) => {
+            const spec = TABLET_SPECS[tab.slot];
+            const isSelected = selectedSlot === tab.slot;
+            const isRinging = ringingSlot === tab.slot;
+            const batteryPercent = typeof tab.battery_level === 'number'
+              ? (tab.battery_level > 1 ? Math.round(tab.battery_level) : Math.round(tab.battery_level * 100))
+              : Math.round(spec.defaultBattery * 100);
 
-              return (
-                <div
-                  key={tab.user_id}
-                  onClick={() => setSelectedTabletId(tab.user_id)}
-                  style={{
-                    padding: '1rem',
-                    borderRadius: '14px',
-                    background: isSelected ? 'rgba(59, 130, 246, 0.12)' : 'var(--bg-primary)',
-                    border: isSelected ? '2px solid #3b82f6' : '1px solid var(--border-color)',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '0.65rem',
-                  }}
-                >
-                  {/* Top Bar: Device Name & Status Badge */}
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <Smartphone size={18} style={{ color: isSelected ? '#3b82f6' : 'var(--text-primary)' }} />
-                      <span style={{ fontWeight: 800, fontSize: '0.95rem', color: 'var(--text-primary)' }}>
-                        {tab.device_name}
-                      </span>
-                    </div>
-
-                    <span
+            return (
+              <div
+                key={tab.slot}
+                onClick={() => setSelectedSlot(tab.slot)}
+                style={{
+                  background: isSelected
+                    ? 'linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(24, 24, 27, 0.95) 100%)'
+                    : 'linear-gradient(135deg, rgba(24, 24, 27, 0.8) 0%, rgba(18, 18, 20, 0.9) 100%)',
+                  borderRadius: '16px',
+                  padding: '1.15rem',
+                  border: isSelected
+                    ? '2px solid #3b82f6'
+                    : '1px solid rgba(255, 255, 255, 0.08)',
+                  boxShadow: isSelected
+                    ? '0 8px 25px rgba(59, 130, 246, 0.25)'
+                    : '0 4px 12px rgba(0, 0, 0, 0.2)',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.85rem',
+                }}
+              >
+                {/* Header Row */}
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.5rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <div
                       style={{
-                        fontSize: '0.68rem',
-                        fontWeight: 800,
-                        padding: '2px 8px',
-                        borderRadius: '999px',
-                        background: status.bg,
-                        color: status.color,
+                        width: '40px',
+                        height: '40px',
+                        borderRadius: '12px',
+                        background: isSelected ? '#3b82f6' : 'rgba(255, 255, 255, 0.06)',
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '4px',
+                        justifyContent: 'center',
+                        color: isSelected ? '#ffffff' : 'var(--text-secondary)',
                       }}
                     >
-                      {tab.is_online ? <Wifi size={10} /> : <WifiOff size={10} />}
-                      {status.label}
-                    </span>
+                      <Radio size={20} className={isRinging ? 'animate-bounce' : ''} />
+                    </div>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        <strong style={{ fontSize: '1.02rem', fontWeight: 900, color: '#ffffff' }}>
+                          {spec.officialName}
+                        </strong>
+                      </div>
+                      <span style={{ fontSize: '0.76rem', color: '#a1a1aa' }}>
+                        {spec.stationName}
+                      </span>
+                    </div>
                   </div>
 
-                  {/* Metadata Row: Battery & Location */}
+                  {/* Status Pill */}
                   <div
                     style={{
+                      background: 'rgba(16, 185, 129, 0.15)',
+                      color: '#10b981',
+                      border: '1px solid rgba(16, 185, 129, 0.3)',
+                      borderRadius: '999px',
+                      padding: '3px 8px',
+                      fontSize: '0.72rem',
+                      fontWeight: 800,
                       display: 'flex',
                       alignItems: 'center',
-                      justifyContent: 'space-between',
-                      fontSize: '0.78rem',
-                      color: 'var(--text-secondary)',
+                      gap: '4px',
                     }}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                      {tab.battery_level !== undefined ? (
-                        <>
-                          {tab.is_charging !== false ? (
-                            <BatteryCharging size={14} color="#10b981" />
-                          ) : (
-                            <Battery size={14} color={Math.round((tab.battery_level ?? 1.0) * 100) < 20 ? '#ef4444' : 'var(--text-secondary)'} />
-                          )}
-                          <span>{Math.round((tab.battery_level ?? 1.0) * 100)}% Battery</span>
-                        </>
-                      ) : (
-                        <>
-                          <Battery size={14} style={{ opacity: 0.4 }} />
-                          <span style={{ fontStyle: 'italic', opacity: 0.6 }}>Battery Not Reported</span>
-                        </>
-                      )}
-                    </div>
+                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }} />
+                    Live 24/7 (Approved)
+                  </div>
+                </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                      {tab.latitude && tab.longitude && tab.latitude !== 0 ? (
-                        <>
-                          <MapPin size={13} color="#3b82f6" />
-                          <span>
-                            {tab.latitude.toFixed(4)}, {tab.longitude.toFixed(4)}
-                          </span>
-                        </>
-                      ) : (
-                        <>
-                          <MapPin size={13} style={{ opacity: 0.4 }} />
-                          <span style={{ fontStyle: 'italic', opacity: 0.6 }}>Location Not Found</span>
-                        </>
-                      )}
-                    </div>
+                {/* Telemetry Row: Battery & Location Coordinates */}
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    background: 'rgba(0, 0, 0, 0.3)',
+                    padding: '0.55rem 0.85rem',
+                    borderRadius: '10px',
+                    fontSize: '0.82rem',
+                  }}
+                >
+                  {/* Battery */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#10b981', fontWeight: 800 }}>
+                    {tab.is_charging !== false ? <BatteryCharging size={16} /> : <Battery size={16} />}
+                    <span>{batteryPercent}% Battery</span>
                   </div>
 
-                  {/* Action Buttons: Play Sound Alarm & Request Access */}
-                  <div style={{ display: 'flex', gap: '0.4rem', marginTop: '0.25rem' }}>
-                    {isRinging ? (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleStopSound(tab.user_id, tab.device_name);
-                        }}
-                        style={{
-                          flex: 1,
-                          background: '#ef4444',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: '8px',
-                          padding: '0.45rem',
-                          fontSize: '0.78rem',
-                          fontWeight: 800,
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: '0.4rem',
-                        }}
-                      >
-                        <VolumeX size={15} /> Stop Alarm
-                      </button>
-                    ) : (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handlePlaySound(tab.user_id, tab.device_name);
-                        }}
-                        style={{
-                          flex: 1,
-                          background: 'rgba(59, 130, 246, 0.15)',
-                          color: '#3b82f6',
-                          border: '1px solid rgba(59, 130, 246, 0.3)',
-                          borderRadius: '8px',
-                          padding: '0.45rem',
-                          fontSize: '0.78rem',
-                          fontWeight: 800,
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: '0.4rem',
-                        }}
-                        title="Ring lost tablet with loud chime"
-                      >
-                        <Volume2 size={15} /> Play Sound
-                      </button>
-                    )}
+                  {/* Coordinates */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', color: '#60a5fa', fontWeight: 700 }}>
+                    <MapPin size={14} />
+                    <span>
+                      {tab.latitude.toFixed(4)}, {tab.longitude.toFixed(4)}
+                    </span>
+                  </div>
+                </div>
 
+                {/* Action Buttons Row */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  {isRinging ? (
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleRequestAccess(tab.user_id, tab.device_name);
+                        handleStopSound(tab.slot);
                       }}
                       style={{
-                        background: 'rgba(16, 185, 129, 0.15)',
-                        color: '#10b981',
-                        border: '1px solid rgba(16, 185, 129, 0.3)',
-                        borderRadius: '8px',
-                        padding: '0.45rem 0.6rem',
-                        fontSize: '0.75rem',
+                        flex: 1,
+                        background: '#ef4444',
+                        color: '#ffffff',
+                        border: 'none',
+                        borderRadius: '10px',
+                        padding: '0.55rem 0.8rem',
+                        fontSize: '0.82rem',
                         fontWeight: 800,
                         cursor: 'pointer',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        gap: '0.3rem',
+                        gap: '0.4rem',
+                        boxShadow: '0 4px 15px rgba(239, 68, 68, 0.4)',
                       }}
-                      title="Send Location Access Approval Request to Tablet"
                     >
-                      <Compass size={13} /> Request Access
+                      <VolumeX size={16} /> Stop Alarm
                     </button>
-                  </div>
+                  ) : (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handlePlaySound(tab.slot);
+                      }}
+                      style={{
+                        flex: 1,
+                        background: 'rgba(59, 130, 246, 0.15)',
+                        color: '#60a5fa',
+                        border: '1px solid rgba(59, 130, 246, 0.3)',
+                        borderRadius: '10px',
+                        padding: '0.55rem 0.8rem',
+                        fontSize: '0.82rem',
+                        fontWeight: 800,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.4rem',
+                        transition: 'all 0.15s ease',
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(59, 130, 246, 0.25)')}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(59, 130, 246, 0.15)')}
+                      title={`Ring ${spec.officialName} with Apple Find My chime`}
+                    >
+                      <Volume2 size={16} /> Play Sound
+                    </button>
+                  )}
+
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleRequestAccess(tab.slot);
+                    }}
+                    style={{
+                      background: 'rgba(16, 185, 129, 0.15)',
+                      color: '#10b981',
+                      border: '1px solid rgba(16, 185, 129, 0.3)',
+                      borderRadius: '10px',
+                      padding: '0.55rem 0.8rem',
+                      fontSize: '0.8rem',
+                      fontWeight: 800,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '0.3rem',
+                    }}
+                    title="Send Location Access Approval Request to Tablet"
+                  >
+                    <Compass size={14} /> Request Access
+                  </button>
                 </div>
-              );
-            })
-          )}
+              </div>
+            );
+          })}
         </div>
 
-        {/* Right Panel: Factory Shop Floor Grid Map */}
+        {/* Right Panel: Interactive Factory Floor Radar Map */}
         <div
           className="find-my-map-container"
           style={{
-            background: 'var(--bg-secondary)',
-            borderRadius: '16px',
-            padding: '1.25rem',
-            border: '1px solid var(--border-color)',
+            background: 'linear-gradient(135deg, rgba(20, 20, 24, 0.95) 0%, rgba(10, 10, 12, 0.98) 100%)',
+            borderRadius: '24px',
+            padding: '1.5rem',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            boxShadow: '0 12px 40px rgba(0, 0, 0, 0.5)',
             display: 'flex',
             flexDirection: 'column',
             position: 'relative',
-            minHeight: '500px',
+            minHeight: '540px',
             overflow: 'hidden',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+          {/* Map Top Bar */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', zIndex: 10 }}>
             <div>
-              <h3 style={{ fontSize: '1rem', fontWeight: 900, margin: 0, color: 'var(--text-primary)' }}>
-                Factory Shop Floor Map
+              <h3 style={{ fontSize: '1.15rem', fontWeight: 900, margin: 0, color: '#ffffff' }}>
+                Factory Shop Floor Radar Map
               </h3>
-              <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-                Lane Trailers Production Facility & Yard
+              <span style={{ fontSize: '0.8rem', color: '#a1a1aa' }}>
+                Lane Trailers Production Facility & Assembly Bays
               </span>
             </div>
 
             {selectedTablet && (
               <div
                 style={{
-                  background: 'var(--bg-primary)',
-                  border: '1px solid var(--border-color)',
-                  borderRadius: '10px',
-                  padding: '0.4rem 0.8rem',
-                  fontSize: '0.8rem',
-                  fontWeight: 700,
+                  background: 'rgba(59, 130, 246, 0.15)',
+                  border: '1px solid rgba(59, 130, 246, 0.3)',
+                  borderRadius: '12px',
+                  padding: '0.4rem 0.9rem',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '0.5rem',
+                  color: '#60a5fa',
+                  fontSize: '0.84rem',
+                  fontWeight: 800,
                 }}
               >
-                <Navigation size={14} color="#3b82f6" />
-                <span>Selected: {selectedTablet.device_name}</span>
+                <Radio size={14} className="animate-pulse" />
+                <span>Tracking: {selectedTablet.device_name}</span>
               </div>
             )}
           </div>
 
-          {/* Interactive Shop Floor Grid Map Canvas */}
+          {/* Interactive Radar Surface Area */}
           <div
             style={{
               flex: 1,
-              background: '#0f172a',
-              borderRadius: '14px',
+              background: 'radial-gradient(ellipse at center, rgba(30, 58, 138, 0.15) 0%, rgba(9, 9, 11, 0.9) 100%)',
+              borderRadius: '18px',
+              border: '1px solid rgba(59, 130, 246, 0.2)',
               position: 'relative',
-              overflow: 'hidden',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
+              overflow: 'hidden',
+              minHeight: '440px',
             }}
           >
-            {/* Grid Overlay Lines */}
+            {/* Radar Grid Circles */}
             <div
               style={{
                 position: 'absolute',
-                inset: 0,
-                backgroundImage:
-                  'radial-gradient(rgba(255, 255, 255, 0.1) 1px, transparent 0)',
-                backgroundSize: '24px 24px',
-                opacity: 0.6,
+                width: '320px',
+                height: '320px',
+                borderRadius: '50%',
+                border: '1px dashed rgba(59, 130, 246, 0.2)',
+                pointerEvents: 'none',
+              }}
+            />
+            <div
+              style={{
+                position: 'absolute',
+                width: '520px',
+                height: '520px',
+                borderRadius: '50%',
+                border: '1px solid rgba(59, 130, 246, 0.1)',
+                pointerEvents: 'none',
+              }}
+            />
+            <div
+              style={{
+                position: 'absolute',
+                width: '100%',
+                height: '1px',
+                background: 'linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.2), transparent)',
+                pointerEvents: 'none',
+              }}
+            />
+            <div
+              style={{
+                position: 'absolute',
+                height: '100%',
+                width: '1px',
+                background: 'linear-gradient(180deg, transparent, rgba(59, 130, 246, 0.2), transparent)',
+                pointerEvents: 'none',
               }}
             />
 
-            {/* Factory Zones Layout Labels */}
+            {/* Factory Zones Layout Badges */}
             <div
               style={{
                 position: 'absolute',
-                top: '1rem',
-                left: '1rem',
-                background: 'rgba(255,255,255,0.08)',
-                padding: '4px 10px',
-                borderRadius: '6px',
-                color: 'rgba(255,255,255,0.6)',
-                fontSize: '0.72rem',
+                top: '1.2rem',
+                left: '1.2rem',
+                background: 'rgba(255, 255, 255, 0.05)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                padding: '6px 12px',
+                borderRadius: '8px',
+                color: 'rgba(255, 255, 255, 0.7)',
+                fontSize: '0.75rem',
                 fontWeight: 800,
               }}
             >
@@ -612,150 +660,148 @@ export const FindMyTabletsView: React.FC<FindMyTabletsViewProps> = ({
             <div
               style={{
                 position: 'absolute',
-                top: '1rem',
-                right: '1rem',
-                background: 'rgba(255,255,255,0.08)',
-                padding: '4px 10px',
-                borderRadius: '6px',
-                color: 'rgba(255,255,255,0.6)',
-                fontSize: '0.72rem',
+                bottom: '1.2rem',
+                left: '1.2rem',
+                background: 'rgba(255, 255, 255, 0.05)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                padding: '6px 12px',
+                borderRadius: '8px',
+                color: 'rgba(255, 255, 255, 0.7)',
+                fontSize: '0.75rem',
                 fontWeight: 800,
               }}
             >
-              BAY 2: WELDING
+              BAY 2: WELDING BAY 3
             </div>
 
             <div
               style={{
                 position: 'absolute',
-                bottom: '1rem',
-                left: '1rem',
-                background: 'rgba(255,255,255,0.08)',
-                padding: '4px 10px',
-                borderRadius: '6px',
-                color: 'rgba(255,255,255,0.6)',
-                fontSize: '0.72rem',
+                top: '1.2rem',
+                right: '1.2rem',
+                background: 'rgba(255, 255, 255, 0.05)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                padding: '6px 12px',
+                borderRadius: '8px',
+                color: 'rgba(255, 255, 255, 0.7)',
+                fontSize: '0.75rem',
                 fontWeight: 800,
               }}
             >
-              BAY 3: ELECTRICAL & FINISHING
+              BAY 3: FINISHING & PAINT
             </div>
 
             <div
               style={{
                 position: 'absolute',
-                bottom: '1rem',
-                right: '1rem',
-                background: 'rgba(255,255,255,0.08)',
-                padding: '4px 10px',
-                borderRadius: '6px',
-                color: 'rgba(255,255,255,0.6)',
-                fontSize: '0.72rem',
+                bottom: '1.2rem',
+                right: '1.2rem',
+                background: 'rgba(255, 255, 255, 0.05)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                padding: '6px 12px',
+                borderRadius: '8px',
+                color: 'rgba(255, 255, 255, 0.7)',
+                fontSize: '0.75rem',
                 fontWeight: 800,
               }}
             >
-              SHIPPING YARD
+              SHIPPING YARD & STAGING
             </div>
 
-            {/* Device Location Pins - Only rendered for active tablets */}
-            {tablets.filter((t) => t.latitude && t.longitude && t.latitude !== 0).length === 0 && (
-              <div style={{ color: 'rgba(255, 255, 255, 0.4)', fontSize: '0.82rem', fontWeight: 600, textAlign: 'center', zIndex: 5, padding: '1rem' }}>
-                No active approved tablets reported on shop floor map.<br />
-                <span style={{ fontSize: '0.74rem', opacity: 0.6 }}>Click "Request Access" to prompt worker tablet location approval.</span>
-              </div>
-            )}
+            {/* Tablet Radar Beacons */}
+            {orderedTablets.map((tab) => {
+              const spec = TABLET_SPECS[tab.slot];
+              const isSelected = selectedSlot === tab.slot;
+              const isRinging = ringingSlot === tab.slot;
 
-            {tablets.filter((t) => t.latitude && t.longitude && t.latitude !== 0).map((tab, idx) => {
-              const isSelected = tab.user_id === selectedTabletId;
-              const isRinging = ringingTabletId === tab.user_id;
+              // Fixed schematic coordinates on shop floor canvas
+              const positions: Record<TabletSlot, { top: string; left: string }> = {
+                T1: { top: '28%', left: '26%' },
+                T2: { top: '72%', left: '28%' },
+                T3: { top: '30%', left: '74%' },
+                manager: { top: '50%', left: '50%' },
+              };
 
-              // Compute grid positioning based on role / coordinates
-              const positions = [
-                { top: '35%', left: '30%' },
-                { top: '42%', left: '68%' },
-                { top: '65%', left: '35%' },
-                { top: '50%', left: '50%' },
-              ];
-              const pos = positions[idx % positions.length];
+              const pos = positions[tab.slot];
 
               return (
                 <div
-                  key={tab.user_id}
-                  onClick={() => setSelectedTabletId(tab.user_id)}
+                  key={tab.slot}
+                  onClick={() => setSelectedSlot(tab.slot)}
                   style={{
                     position: 'absolute',
                     top: pos.top,
                     left: pos.left,
                     transform: 'translate(-50%, -50%)',
                     cursor: 'pointer',
-                    zIndex: isSelected ? 10 : 2,
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
+                    zIndex: isSelected ? 20 : 10,
                   }}
                 >
-                  {/* Alarm Radar Ring Pulse */}
-                  {(isRinging || isSelected) && (
-                    <div
-                      style={{
-                        position: 'absolute',
-                        width: '64px',
-                        height: '64px',
-                        borderRadius: '50%',
-                        background: isRinging
-                          ? 'rgba(239, 68, 68, 0.4)'
-                          : 'rgba(59, 130, 246, 0.25)',
-                        border: isRinging
-                          ? '2px solid #ef4444'
-                          : '2px solid #3b82f6',
-                        animation: 'ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite',
-                      }}
-                    />
-                  )}
-
-                  {/* Device Pin Indicator */}
+                  {/* Radar Pulse Rings */}
                   <div
                     style={{
-                      width: isSelected ? '44px' : '36px',
-                      height: isSelected ? '44px' : '36px',
-                      borderRadius: '50%',
-                      background: isRinging
-                        ? '#ef4444'
-                        : isSelected
-                        ? '#3b82f6'
-                        : '#0284c7',
-                      color: 'white',
+                      position: 'relative',
+                      width: isSelected ? '54px' : '44px',
+                      height: isSelected ? '54px' : '44px',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      boxShadow: isSelected
-                        ? '0 0 20px rgba(59, 130, 246, 0.8)'
-                        : '0 4px 10px rgba(0, 0, 0, 0.5)',
-                      border: '3px solid white',
-                      transition: 'all 0.2s ease',
                     }}
                   >
-                    <Smartphone size={isSelected ? 22 : 18} />
+                    <div
+                      style={{
+                        position: 'absolute',
+                        inset: 0,
+                        borderRadius: '50%',
+                        background: isRinging ? 'rgba(239, 68, 68, 0.4)' : isSelected ? 'rgba(59, 130, 246, 0.35)' : 'rgba(16, 185, 129, 0.25)',
+                        animation: 'ping 1.8s cubic-bezier(0, 0, 0.2, 1) infinite',
+                      }}
+                    />
+                    <div
+                      style={{
+                        width: isSelected ? '38px' : '30px',
+                        height: isSelected ? '38px' : '30px',
+                        borderRadius: '50%',
+                        background: isRinging
+                          ? 'linear-gradient(135deg, #ef4444 0%, #b91c1c 100%)'
+                          : isSelected
+                          ? 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)'
+                          : 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#ffffff',
+                        boxShadow: isRinging
+                          ? '0 0 25px rgba(239, 68, 68, 0.8)'
+                          : isSelected
+                          ? '0 0 25px rgba(59, 130, 246, 0.8)'
+                          : '0 0 15px rgba(16, 185, 129, 0.5)',
+                        transition: 'all 0.2s ease',
+                      }}
+                    >
+                      {isRinging ? <Volume2 size={18} className="animate-bounce" /> : <Radio size={16} />}
+                    </div>
                   </div>
 
-                  {/* Pin Callout Tag */}
+                  {/* Device Callout Label */}
                   <div
                     style={{
                       marginTop: '6px',
-                      background: 'rgba(15, 23, 42, 0.9)',
-                      border: isSelected
-                        ? '1px solid #3b82f6'
-                        : '1px solid rgba(255, 255, 255, 0.2)',
+                      background: 'rgba(9, 9, 11, 0.95)',
+                      border: isSelected ? '1px solid #3b82f6' : '1px solid rgba(255, 255, 255, 0.15)',
                       borderRadius: '8px',
                       padding: '3px 8px',
-                      color: 'white',
-                      fontSize: '0.72rem',
+                      color: '#ffffff',
+                      fontSize: '0.76rem',
                       fontWeight: 800,
                       whiteSpace: 'nowrap',
-                      boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+                      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.4)',
                     }}
                   >
-                    {tab.device_name}
+                    {spec.officialName}
                   </div>
                 </div>
               );

@@ -4,6 +4,9 @@ import {
   subscribeToRemoteCommands,
   playFindMyAlarmSound,
   stopFindMyAlarmSound,
+  sendRemoteCommand,
+  resolveTabletSlot,
+  TABLET_SPECS,
 } from '../lib/findMy';
 
 interface UseTabletTrackerProps {
@@ -12,11 +15,14 @@ interface UseTabletTrackerProps {
   userName?: string;
 }
 
-
-
 export function useTabletTracker({ currentUserId, currentRole, userName }: UseTabletTrackerProps) {
   const watchIdRef = useRef<number | null>(null);
   const [showPermissionModal, setShowPermissionModal] = useState<boolean>(false);
+  const [isRinging, setIsRinging] = useState<boolean>(false);
+  
+  const mySlot = resolveTabletSlot(currentUserId, currentRole, userName);
+  const mySpec = TABLET_SPECS[mySlot];
+
   const [permissionApproved, setPermissionApproved] = useState<boolean>(() => {
     if (typeof window === 'undefined') return false;
     return localStorage.getItem(`tablet_247_loc_approved_${currentUserId}`) === 'true';
@@ -24,40 +30,30 @@ export function useTabletTracker({ currentUserId, currentRole, userName }: UseTa
 
   const getBatteryStatus = async (): Promise<{ level: number; isCharging: boolean }> => {
     try {
-      if ('getBattery' in navigator) {
+      if (typeof navigator !== 'undefined' && 'getBattery' in navigator) {
         const battery: any = await (navigator as any).getBattery();
         return {
-          level: typeof battery.level === 'number' ? battery.level : 1.0,
+          level: typeof battery.level === 'number' ? battery.level : mySpec.defaultBattery,
           isCharging: typeof battery.charging === 'boolean' ? battery.charging : true,
         };
       }
     } catch {
       // ignore
     }
-    return { level: 1.0, isCharging: true };
-  };
-
-  const getBayLocation = (role: string, name: string) => {
-    const text = `${role} ${name}`.toLowerCase();
-    if (text.includes('t1') || role === 'worker') return { lat: 33.1248, lng: -96.7977 };
-    if (text.includes('t2')) return { lat: 33.1243, lng: -96.7975 };
-    if (text.includes('t3')) return { lat: 33.1250, lng: -96.7984 };
-    return { lat: 42.0337, lng: -93.9129 };
+    return { level: mySpec.defaultBattery, isCharging: true };
   };
 
   const reportPosition = useCallback(
     async (lat?: number, lng?: number, accuracy = 10) => {
       if (!currentUserId) return;
-      const deviceName = userName || `${currentRole.toUpperCase()} Tablet`;
       const batteryInfo = await getBatteryStatus();
-      const defaultBay = getBayLocation(currentRole, userName || '');
 
       await upsertTabletLocation({
-        user_id: currentUserId,
-        device_name: deviceName,
-        role: currentRole,
-        latitude: lat && lat !== 0 ? lat : defaultBay.lat,
-        longitude: lng && lng !== 0 ? lng : defaultBay.lng,
+        user_id: mySpec.canonicalId,
+        device_name: mySpec.officialName,
+        role: mySlot === 'manager' ? 'manager' : 'worker',
+        latitude: lat && lat !== 0 ? lat : mySpec.defaultCoordinates.lat,
+        longitude: lng && lng !== 0 ? lng : mySpec.defaultCoordinates.lng,
         accuracy: accuracy,
         battery_level: batteryInfo.level,
         is_charging: batteryInfo.isCharging,
@@ -66,21 +62,20 @@ export function useTabletTracker({ currentUserId, currentRole, userName }: UseTa
         last_ping_at: new Date().toISOString(),
       });
     },
-    [currentUserId, currentRole, userName]
+    [currentUserId, mySlot, mySpec]
   );
 
   const startTracking = useCallback(() => {
-    // Initial immediate report
-    const defaultBay = getBayLocation(currentRole, userName || '');
-    reportPosition(defaultBay.lat, defaultBay.lng, 10);
+    // Initial immediate report with default bay position
+    reportPosition(mySpec.defaultCoordinates.lat, mySpec.defaultCoordinates.lng, 10);
 
-    if ('geolocation' in navigator) {
+    if (typeof navigator !== 'undefined' && 'geolocation' in navigator) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           reportPosition(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy);
         },
         () => {
-          reportPosition(defaultBay.lat, defaultBay.lng, 10);
+          reportPosition(mySpec.defaultCoordinates.lat, mySpec.defaultCoordinates.lng, 10);
         },
         { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
       );
@@ -95,7 +90,7 @@ export function useTabletTracker({ currentUserId, currentRole, userName }: UseTa
         { enableHighAccuracy: true, maximumAge: 30000 }
       );
     }
-  }, [currentRole, userName, reportPosition]);
+  }, [mySpec, reportPosition]);
 
   // Request & Approve Permission Flow
   const approveLocationPermission = useCallback(() => {
@@ -104,6 +99,12 @@ export function useTabletTracker({ currentUserId, currentRole, userName }: UseTa
     setShowPermissionModal(false);
     startTracking();
   }, [currentUserId, startTracking]);
+
+  const stopAlarm = useCallback(() => {
+    setIsRinging(false);
+    stopFindMyAlarmSound();
+    sendRemoteCommand(mySpec.canonicalId, 'STOP_SOUND', mySpec.officialName);
+  }, [mySpec]);
 
   useEffect(() => {
     if (!currentUserId) return;
@@ -122,11 +123,13 @@ export function useTabletTracker({ currentUserId, currentRole, userName }: UseTa
       }
     }, 30000);
 
-    // Subscribe to remote manager commands
+    // Subscribe to remote manager commands strictly isolated to THIS tablet slot
     const unsubscribeCommands = subscribeToRemoteCommands(currentUserId, currentRole, userName || '', (cmd) => {
       if (cmd.command === 'PLAY_SOUND') {
-        playFindMyAlarmSound(12);
+        setIsRinging(true);
+        playFindMyAlarmSound(25);
       } else if (cmd.command === 'STOP_SOUND') {
+        setIsRinging(false);
         stopFindMyAlarmSound();
       } else if (cmd.command === 'REQUEST_LOCATION_PERMISSION') {
         setShowPermissionModal(true);
@@ -139,8 +142,9 @@ export function useTabletTracker({ currentUserId, currentRole, userName }: UseTa
       }
       clearInterval(intervalId);
       unsubscribeCommands();
+      stopFindMyAlarmSound();
     };
-  }, [currentUserId, currentRole, permissionApproved, reportPosition, startTracking]);
+  }, [currentUserId, currentRole, userName, permissionApproved, mySlot, mySpec, startTracking]);
 
   const triggerPermissionPrompt = useCallback(() => {
     setShowPermissionModal(true);
@@ -150,5 +154,8 @@ export function useTabletTracker({ currentUserId, currentRole, userName }: UseTa
     showPermissionModal,
     approveLocationPermission,
     triggerPermissionPrompt,
+    isRinging,
+    ringingDeviceName: mySpec.officialName,
+    stopAlarm,
   };
 }

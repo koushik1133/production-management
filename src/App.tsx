@@ -41,6 +41,7 @@ import { NotificationToast } from './components/Messaging/NotificationToast';
 import { FindMyTabletsView } from './components/FindMyTabletsView';
 import { useTabletTracker } from './hooks/useTabletTracker';
 import { LocationPermissionModal } from './components/LocationPermissionModal';
+import { FindMyRingingModal } from './components/FindMyRingingModal';
 
 const customCollisionDetection: CollisionDetection = (args) => {
   const rectCollisions = rectIntersection(args);
@@ -3090,6 +3091,11 @@ function getSuggestedBay(): StationId {
         isOpen={tabletTracker.showPermissionModal}
         onApprove={tabletTracker.approveLocationPermission}
         roleName={userRole}
+      />
+      <FindMyRingingModal
+        isOpen={tabletTracker.isRinging}
+        deviceName={tabletTracker.ringingDeviceName}
+        onStopSound={tabletTracker.stopAlarm}
       />
       <div className="floating-settings-container">
             <button 
