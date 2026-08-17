@@ -2,8 +2,6 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Volume2,
   VolumeX,
-  Battery,
-  BatteryCharging,
   RefreshCw,
   MapPin,
   Compass,
@@ -143,7 +141,7 @@ export const FindMyTabletsView: React.FC<FindMyTabletsViewProps> = ({
       last_ping_at: new Date().toISOString(),
     });
 
-    setActionNotice(`✅ 24/7 Location & Battery approved for ${spec.officialName}!`);
+    setActionNotice(`✅ 24/7 Location tracking approved for ${spec.officialName}!`);
     loadLocations();
     setTimeout(() => setActionNotice(null), 4000);
   };
@@ -244,7 +242,7 @@ export const FindMyTabletsView: React.FC<FindMyTabletsViewProps> = ({
               </span>
             </div>
             <p style={{ margin: 0, fontSize: '0.82rem', color: '#a1a1aa' }}>
-              Apple Find My Telemetry — Real-time location, live battery %, and isolated alarm triggering
+              Apple Find My Telemetry — Real-time 24/7 location and isolated alarm triggering
             </p>
           </div>
         </div>
@@ -347,9 +345,6 @@ export const FindMyTabletsView: React.FC<FindMyTabletsViewProps> = ({
             const spec = TABLET_SPECS[tab.slot];
             const isSelected = selectedSlot === tab.slot;
             const isRinging = ringingSlot === tab.slot;
-            const batteryPercent = typeof tab.battery_level === 'number'
-              ? (tab.battery_level > 1 ? Math.round(tab.battery_level) : Math.round(tab.battery_level * 100))
-              : Math.round(spec.defaultBattery * 100);
 
             return (
               <div
@@ -423,7 +418,7 @@ export const FindMyTabletsView: React.FC<FindMyTabletsViewProps> = ({
                   </div>
                 </div>
 
-                {/* Telemetry Row: Battery & Location Coordinates */}
+                {/* Telemetry Row: Station & Location Coordinates */}
                 <div
                   style={{
                     display: 'flex',
@@ -435,10 +430,10 @@ export const FindMyTabletsView: React.FC<FindMyTabletsViewProps> = ({
                     fontSize: '0.82rem',
                   }}
                 >
-                  {/* Battery */}
+                  {/* Station Location */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#10b981', fontWeight: 800 }}>
-                    {tab.is_charging !== false ? <BatteryCharging size={16} /> : <Battery size={16} />}
-                    <span>{batteryPercent}% Battery</span>
+                    <Compass size={15} />
+                    <span>{spec.stationName}</span>
                   </div>
 
                   {/* Coordinates */}
