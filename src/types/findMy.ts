@@ -2,16 +2,12 @@ export interface TabletLocation {
   id: string;
   user_id: string;
   device_name: string;
-  role: string;
-  latitude: number;
-  longitude: number;
-  accuracy?: number;
-  battery_level?: number; // 0.0 - 1.0
-  is_charging?: boolean;
-  is_online: boolean;
-  permission_approved?: boolean;
-  last_ping_at: string;
-  updated_at: string;
+  role?: string;
+  is_alarm_playing?: boolean;
+  alarm_started_at?: string | null;
+  is_online?: boolean;
+  last_ping_at?: string;
+  updated_at?: string;
 }
 
 export interface RemoteCommandPayload {
