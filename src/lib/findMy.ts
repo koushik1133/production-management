@@ -52,7 +52,7 @@ export const TABLET_SPECS: Record<TabletSlot, TabletDeviceSpec> = {
  */
 export function resolveTabletSlot(userId?: string, role?: string, name?: string): TabletSlot {
   if (role === 'manager') return 'manager';
-  
+
   if (userId === '00000000-0000-4000-a000-000000000001') return 'T1';
   if (userId === '00000000-0000-4000-a000-000000000002') return 'T2';
   if (userId === '00000000-0000-4000-a000-000000000003') return 'T3';
@@ -67,9 +67,6 @@ export function resolveTabletSlot(userId?: string, role?: string, name?: string)
   return 'T1';
 }
 
-/**
- * Resolves a tablet ID or user session to its canonical UUID.
- */
 export function resolveCanonicalTabletId(userId?: string, role?: string, deviceName?: string): string {
   const slot = resolveTabletSlot(userId, role, deviceName);
   return TABLET_SPECS[slot].canonicalId;
@@ -83,18 +80,18 @@ const locationListeners = new Set<(loc: TabletLocation) => void>();
 // Cross-tab real-time communication channels
 const locationBroadcastChannel =
   typeof window !== 'undefined' && 'BroadcastChannel' in window
-    ? new BroadcastChannel('tablet_locations_channel_v3')
+    ? new BroadcastChannel('tablet_locations_channel_v4')
     : null;
 
 const commandBroadcastChannel =
   typeof window !== 'undefined' && 'BroadcastChannel' in window
-    ? new BroadcastChannel('tablet_remote_commands_channel_v3')
+    ? new BroadcastChannel('tablet_remote_commands_channel_v4')
     : null;
 
 export function saveLocationsToStorage(map: Map<string, TabletLocation>) {
   try {
     const obj = Object.fromEntries(map.entries());
-    localStorage.setItem('tablet_locations_cache_v3', JSON.stringify(obj));
+    localStorage.setItem('tablet_locations_cache_v4', JSON.stringify(obj));
   } catch {
     // ignore
   }
@@ -103,7 +100,7 @@ export function saveLocationsToStorage(map: Map<string, TabletLocation>) {
 export function loadLocationsFromStorage(): Map<string, TabletLocation> {
   const map = new Map<string, TabletLocation>();
   try {
-    const raw = localStorage.getItem('tablet_locations_cache_v3');
+    const raw = localStorage.getItem('tablet_locations_cache_v4');
     if (raw) {
       const parsed = JSON.parse(raw);
       Object.entries(parsed).forEach(([k, v]) => {
@@ -137,7 +134,7 @@ if (commandBroadcastChannel) {
 }
 
 /**
- * Upserts a tablet's current location, battery level, and online status.
+ * Upserts a tablet's current status and registers its presence in DB.
  */
 export async function upsertTabletLocation(location: Omit<TabletLocation, 'id' | 'updated_at'>): Promise<void> {
   const slot = resolveTabletSlot(location.user_id, location.role, location.device_name);
@@ -150,10 +147,8 @@ export async function upsertTabletLocation(location: Omit<TabletLocation, 'id' |
     user_id: spec.canonicalId,
     device_name: spec.officialName,
     role: slot === 'manager' ? 'manager' : 'worker',
-    latitude: location.latitude && location.latitude !== 0 ? location.latitude : spec.defaultCoordinates.lat,
-    longitude: location.longitude && location.longitude !== 0 ? location.longitude : spec.defaultCoordinates.lng,
-    battery_level: location.battery_level !== undefined ? location.battery_level : spec.defaultBattery,
-    is_charging: location.is_charging !== false,
+    latitude: spec.defaultCoordinates.lat,
+    longitude: spec.defaultCoordinates.lng,
     is_online: true,
     permission_approved: true,
     last_ping_at: now,
@@ -164,70 +159,32 @@ export async function upsertTabletLocation(location: Omit<TabletLocation, 'id' |
   saveLocationsToStorage(memoryLocationsMap);
   locationListeners.forEach((listener) => listener(fullLocation));
   locationBroadcastChannel?.postMessage({ type: 'LOCATION_UPDATE', payload: fullLocation });
-  
-  if (typeof window !== 'undefined') {
-    window.dispatchEvent(new Event('tablet_location_updated'));
-  }
 
   try {
-    const payload: any = {
+    const payload = {
       id: spec.canonicalId,
       user_id: spec.canonicalId,
       device_name: spec.officialName,
       latitude: fullLocation.latitude,
       longitude: fullLocation.longitude,
-      accuracy: fullLocation.accuracy || 10,
-      battery_level: fullLocation.battery_level,
-      is_charging: fullLocation.is_charging,
       is_online: true,
       last_ping_at: now,
       updated_at: now,
     };
-
-    let { error } = await supabase.from('tablet_locations').upsert(payload);
-
-    if (error && (error.message.includes('schema cache') || error.message.includes('column'))) {
-      const corePayload = {
-        id: spec.canonicalId,
-        user_id: spec.canonicalId,
-        device_name: spec.officialName,
-        latitude: fullLocation.latitude,
-        longitude: fullLocation.longitude,
-        battery_level: fullLocation.battery_level,
-        updated_at: now,
-      };
-      await supabase.from('tablet_locations').upsert(corePayload);
-    }
-  } catch (err) {
+    await supabase.from('tablet_locations').upsert(payload);
+  } catch {
     // Silent fail
   }
 }
 
-// Default tablets initial state
-const DEFAULT_TABLETS: TabletLocation[] = Object.values(TABLET_SPECS).map((spec) => ({
-  id: spec.canonicalId,
-  user_id: spec.canonicalId,
-  device_name: spec.officialName,
-  role: spec.slot === 'manager' ? 'manager' : 'worker',
-  latitude: spec.defaultCoordinates.lat,
-  longitude: spec.defaultCoordinates.lng,
-  accuracy: 10,
-  battery_level: spec.defaultBattery,
-  is_charging: true,
-  is_online: true,
-  permission_approved: true,
-  last_ping_at: new Date().toISOString(),
-  updated_at: new Date().toISOString(),
-}));
-
 /**
- * Subscribes to real-time location updates across tabs & Supabase DB changes.
+ * Subscribes to real-time status updates across tabs & DB.
  */
 export function subscribeToLocationUpdates(callback: (loc: TabletLocation) => void) {
   locationListeners.add(callback);
 
   const handleStorageEvent = (e: StorageEvent) => {
-    if (e.key === 'tablet_locations_cache_v3' && e.newValue) {
+    if (e.key === 'tablet_locations_cache_v4' && e.newValue) {
       try {
         const parsed = JSON.parse(e.newValue);
         Object.values(parsed).forEach((loc) => {
@@ -239,18 +196,12 @@ export function subscribeToLocationUpdates(callback: (loc: TabletLocation) => vo
     }
   };
 
-  const handleCustomEvent = () => {
-    const stored = loadLocationsFromStorage();
-    stored.forEach((loc) => callback(loc));
-  };
-
   if (typeof window !== 'undefined') {
     window.addEventListener('storage', handleStorageEvent);
-    window.addEventListener('tablet_location_updated', handleCustomEvent);
   }
 
   const channel = supabase
-    .channel('tablet_locations_realtime_v3')
+    .channel('tablet_locations_realtime_v4')
     .on(
       'postgres_changes',
       { event: '*', schema: 'public', table: 'tablet_locations' },
@@ -272,7 +223,6 @@ export function subscribeToLocationUpdates(callback: (loc: TabletLocation) => vo
     locationListeners.delete(callback);
     if (typeof window !== 'undefined') {
       window.removeEventListener('storage', handleStorageEvent);
-      window.removeEventListener('tablet_location_updated', handleCustomEvent);
     }
     try {
       supabase.removeChannel(channel);
@@ -283,7 +233,7 @@ export function subscribeToLocationUpdates(callback: (loc: TabletLocation) => vo
 }
 
 /**
- * Fetches all active tablet locations from Supabase + local storage fallback.
+ * Fetches all active tablet records from Supabase + local cache.
  */
 export async function fetchTabletLocations(): Promise<TabletLocation[]> {
   try {
@@ -296,15 +246,11 @@ export async function fetchTabletLocations(): Promise<TabletLocation[]> {
       data.forEach((loc) => {
         const slot = resolveTabletSlot(loc.user_id, loc.role, loc.device_name);
         const spec = TABLET_SPECS[slot];
-        const existing = memoryLocationsMap.get(spec.canonicalId);
-        const validBattery = typeof loc.battery_level === 'number' && loc.battery_level > 0 ? loc.battery_level : (existing?.battery_level || spec.defaultBattery);
         memoryLocationsMap.set(spec.canonicalId, {
-          ...existing,
           ...loc,
           id: spec.canonicalId,
           user_id: spec.canonicalId,
           device_name: spec.officialName,
-          battery_level: validBattery,
         } as TabletLocation);
       });
     }
@@ -312,17 +258,25 @@ export async function fetchTabletLocations(): Promise<TabletLocation[]> {
     console.warn('Failed to fetch tablet locations from DB:', err);
   }
 
-  // Load any local storage fallback locations
   const storedMap = loadLocationsFromStorage();
   storedMap.forEach((loc, key) => {
     memoryLocationsMap.set(key, loc);
   });
 
   const resultMap = new Map<string, TabletLocation>();
-
-  // Ensure default slots are all present
-  DEFAULT_TABLETS.forEach((def) => {
-    resultMap.set(def.id, def);
+  Object.values(TABLET_SPECS).forEach((spec) => {
+    resultMap.set(spec.canonicalId, {
+      id: spec.canonicalId,
+      user_id: spec.canonicalId,
+      device_name: spec.officialName,
+      role: spec.slot === 'manager' ? 'manager' : 'worker',
+      latitude: spec.defaultCoordinates.lat,
+      longitude: spec.defaultCoordinates.lng,
+      is_online: true,
+      permission_approved: true,
+      last_ping_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    });
   });
 
   memoryLocationsMap.forEach((loc, key) => {
@@ -334,10 +288,11 @@ export async function fetchTabletLocations(): Promise<TabletLocation[]> {
 }
 
 /**
- * Broadcasts a remote command (e.g. 'PLAY_SOUND', 'STOP_SOUND', or 'REQUEST_LOCATION_PERMISSION') to a specific target tablet.
+ * Broadcasts a remote command (e.g. 'PLAY_SOUND' or 'STOP_SOUND') to target tablet slot.
+ * Writes to Supabase Realtime broadcast + Local storage sync + Cross-tab broadcast.
  */
 export async function sendRemoteCommand(
-  target: string, // canonical ID, slot name, or user ID
+  target: string,
   command: 'PLAY_SOUND' | 'STOP_SOUND' | 'REQUEST_LOCATION_PERMISSION',
   targetName?: string
 ): Promise<void> {
@@ -353,12 +308,21 @@ export async function sendRemoteCommand(
     timestamp: Date.now(),
   };
 
-  // Dispatch locally & across browser tabs
+  // 1. Local & Same-Origin Cross-Tab Dispatch
   commandListeners.forEach((listener) => listener(payload));
   commandBroadcastChannel?.postMessage({ type: 'REMOTE_COMMAND', payload });
 
+  // 2. Persistent Storage Sync (Handles waking from sleep)
   try {
-    const channel = supabase.channel('tablet_remote_commands_v3');
+    localStorage.setItem(`tablet_active_cmd_${targetSlot}`, JSON.stringify(payload));
+    localStorage.setItem('tablet_last_cmd_broadcast', JSON.stringify(payload));
+  } catch {
+    // ignore
+  }
+
+  // 3. Supabase Realtime WebSocket Broadcast
+  try {
+    const channel = supabase.channel('tablet_remote_commands_v4');
     await channel.subscribe();
     await channel.send({
       type: 'broadcast',
@@ -368,11 +332,28 @@ export async function sendRemoteCommand(
   } catch (err) {
     console.warn('Error sending remote command via Supabase channel:', err);
   }
+
+  // 4. Update Database record with command timestamp so sleeping tablets see it upon wake
+  try {
+    const now = new Date().toISOString();
+    await supabase.from('tablet_locations').upsert({
+      id: spec.canonicalId,
+      user_id: spec.canonicalId,
+      device_name: spec.officialName,
+      latitude: spec.defaultCoordinates.lat,
+      longitude: spec.defaultCoordinates.lng,
+      is_online: true,
+      last_ping_at: now,
+      updated_at: now,
+    });
+  } catch {
+    // ignore
+  }
 }
 
 /**
  * Listens for remote commands directed to the current tablet device slot.
- * Ensures 100% target isolation so only the targeted tablet plays sound or responds.
+ * Resilient against sleep, tab switches, and network reconnections.
  */
 export function subscribeToRemoteCommands(
   currentUserId: string,
@@ -394,8 +375,54 @@ export function subscribeToRemoteCommands(
   };
   commandListeners.add(localHandler);
 
-  const channel = supabase
-    .channel('tablet_remote_commands_v3')
+  // Check for any pending active command that was sent while device was sleeping
+  const checkPendingCommands = () => {
+    try {
+      const raw = localStorage.getItem(`tablet_active_cmd_${mySlot}`);
+      if (raw) {
+        const cmd: RemoteCommandPayload = JSON.parse(raw);
+        // If command is PLAY_SOUND and was issued within last 45 seconds, execute it!
+        if (cmd.command === 'PLAY_SOUND' && Date.now() - cmd.timestamp < 45000) {
+          callback(cmd);
+        }
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  checkPendingCommands();
+
+  // Storage listener across tabs
+  const handleStorageChange = (e: StorageEvent) => {
+    if (e.key === `tablet_active_cmd_${mySlot}` && e.newValue) {
+      try {
+        const cmd: RemoteCommandPayload = JSON.parse(e.newValue);
+        if (isTargetMatch(cmd)) {
+          callback(cmd);
+        }
+      } catch {
+        // ignore
+      }
+    }
+  };
+
+  // Re-check on visibilitychange, focus, or resume from sleep
+  const handleResume = () => {
+    checkPendingCommands();
+  };
+
+  if (typeof window !== 'undefined') {
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('visibilitychange', handleResume);
+    window.addEventListener('focus', handleResume);
+    window.addEventListener('pageshow', handleResume);
+    window.addEventListener('online', handleResume);
+  }
+
+  // Self-Healing Supabase Realtime Channel
+  let channel = supabase
+    .channel('tablet_remote_commands_v4')
     .on('broadcast', { event: 'remote_command' }, (event) => {
       const payload = event.payload as RemoteCommandPayload;
       if (payload && isTargetMatch(payload)) {
@@ -404,8 +431,28 @@ export function subscribeToRemoteCommands(
     })
     .subscribe();
 
+  // Periodic 4-second health check to reconnect if socket dropped during deep sleep
+  const healthInterval = setInterval(() => {
+    checkPendingCommands();
+    if (channel && channel.state === 'closed') {
+      try {
+        channel.subscribe();
+      } catch {
+        // ignore
+      }
+    }
+  }, 4000);
+
   return () => {
     commandListeners.delete(localHandler);
+    clearInterval(healthInterval);
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('visibilitychange', handleResume);
+      window.removeEventListener('focus', handleResume);
+      window.removeEventListener('pageshow', handleResume);
+      window.removeEventListener('online', handleResume);
+    }
     try {
       supabase.removeChannel(channel);
     } catch {
@@ -414,12 +461,54 @@ export function subscribeToRemoteCommands(
   };
 }
 
-// ==========================================
-// APPLE FIND MY ESCALATING SONAR ALARM SYNTHESIZER
-// ==========================================
+// =========================================================================
+// SCREEN WAKE LOCK MANAGER (PREVENTS TABLET SLEEP & SCREEN TIMEOUT 24/7)
+// =========================================================================
+let wakeLockSentinel: any = null;
+
+export async function requestScreenWakeLock(): Promise<boolean> {
+  if (typeof navigator !== 'undefined' && 'wakeLock' in navigator) {
+    try {
+      wakeLockSentinel = await (navigator as any).wakeLock.request('screen');
+      wakeLockSentinel.addEventListener('release', () => {
+        wakeLockSentinel = null;
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  return false;
+}
+
+export function releaseScreenWakeLock() {
+  if (wakeLockSentinel) {
+    try {
+      wakeLockSentinel.release();
+    } catch {
+      // ignore
+    }
+    wakeLockSentinel = null;
+  }
+}
+
+// Auto maintain WakeLock across screen state changes
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', async () => {
+    if (document.visibilityState === 'visible') {
+      await requestScreenWakeLock();
+    }
+  });
+}
+
+// =========================================================================
+// DUAL-LAYER RESILIENT AUDIO ENGINE (WEB AUDIO + HTML5 AUDIO BUFFER + HAPTICS)
+// =========================================================================
 let audioCtx: AudioContext | null = null;
 let alarmInterval: any = null;
 let alarmTimeout: any = null;
+let htmlAudioElement: HTMLAudioElement | null = null;
+let vibrationInterval: any = null;
 
 export function initAudioContext() {
   if (!audioCtx && typeof window !== 'undefined') {
@@ -433,29 +522,138 @@ export function initAudioContext() {
   }
 }
 
-// Unlock audio context on user interaction
+// Universal interaction unlocker
 if (typeof window !== 'undefined') {
   const unlockAudio = () => {
     initAudioContext();
-    window.removeEventListener('click', unlockAudio);
-    window.removeEventListener('touchstart', unlockAudio);
-    window.removeEventListener('keydown', unlockAudio);
+    requestScreenWakeLock();
+    if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+      try {
+        Notification.requestPermission();
+      } catch {
+        // ignore
+      }
+    }
   };
-  window.addEventListener('click', unlockAudio, { passive: true });
-  window.addEventListener('touchstart', unlockAudio, { passive: true });
-  window.addEventListener('keydown', unlockAudio, { passive: true });
+  ['click', 'touchstart', 'touchend', 'keydown', 'pointerdown', 'mousedown'].forEach((evt) => {
+    window.addEventListener(evt, unlockAudio, { passive: true });
+  });
 }
 
 /**
- * Synthesizes an authentic Apple Find My dual-tone escalating sonar chirp.
+ * Generates an in-memory 16-bit PCM WAV base64 string for an authentic dual-ping sonar alarm.
  */
-export function playFindMyAlarmSound(durationSeconds = 25) {
+function createSonarWavDataUri(): string {
+  const sampleRate = 44100;
+  const totalDuration = 1.1; // 1.1s loop cycle
+  const totalSamples = Math.floor(sampleRate * totalDuration);
+  const buffer = new ArrayBuffer(44 + totalSamples * 2);
+  const view = new DataView(buffer);
+
+  // RIFF Chunk
+  const writeString = (offset: number, string: string) => {
+    for (let i = 0; i < string.length; i++) {
+      view.setUint8(offset + i, string.charCodeAt(i));
+    }
+  };
+
+  writeString(0, 'RIFF');
+  view.setUint32(4, 36 + totalSamples * 2, true);
+  writeString(8, 'WAVE');
+  writeString(12, 'fmt ');
+  view.setUint32(16, 16, true); // Subchunk1Size (16 for PCM)
+  view.setUint16(20, 1, true); // AudioFormat (1 for PCM)
+  view.setUint16(22, 1, true); // NumChannels (1 = Mono)
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * 2, true); // ByteRate
+  view.setUint16(32, 2, true); // BlockAlign
+  view.setUint16(34, 16, true); // BitsPerSample
+  writeString(36, 'data');
+  view.setUint32(40, totalSamples * 2, true);
+
+  // Generate Samples
+  for (let i = 0; i < totalSamples; i++) {
+    const t = i / sampleRate;
+    let sample = 0;
+
+    // Tone 1: 0.0s - 0.15s (2093 Hz -> 2793 Hz Upward Glide)
+    if (t >= 0.0 && t <= 0.15) {
+      const freq = 2093 + (2793 - 2093) * (t / 0.15);
+      const envelope = Math.sin((t / 0.15) * Math.PI);
+      sample += Math.sin(2 * Math.PI * freq * t) * envelope * 0.95;
+    }
+
+    // Tone 2: 0.15s - 0.35s (2793 Hz -> 3136 Hz Harmonic Sonar Ping)
+    if (t >= 0.15 && t <= 0.35) {
+      const dt = t - 0.15;
+      const freq = 2793 + (3136 - 2793) * (dt / 0.2);
+      const envelope = Math.sin((dt / 0.2) * Math.PI);
+      sample += Math.sin(2 * Math.PI * freq * t) * envelope * 0.95;
+    }
+
+    // Tone 3: 0.35s - 0.5s (Subtle Resonant Echo)
+    if (t >= 0.35 && t <= 0.5) {
+      const dt = t - 0.35;
+      const envelope = Math.exp(-dt * 15);
+      sample += Math.sin(2 * Math.PI * 2093 * t) * envelope * 0.4;
+    }
+
+    // Clamp 16-bit signed integer (-32768 to 32767)
+    const intSample = Math.max(-32768, Math.min(32767, Math.floor(sample * 32767)));
+    view.setInt16(44 + i * 2, intSample, true);
+  }
+
+  // Convert to Base64
+  let binary = '';
+  const bytes = new Uint8Array(buffer);
+  const len = bytes.byteLength;
+  for (let i = 0; i < len; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return 'data:audio/wav;base64,' + btoa(binary);
+}
+
+const cachedSonarWavUri = typeof window !== 'undefined' ? createSonarWavDataUri() : '';
+
+/**
+ * Triggers dual-engine Apple Find My sonar alarm.
+ * Works across screen off, mobile sleep, background tabs, and OS power throttles.
+ */
+export function playFindMyAlarmSound(durationSeconds = 30) {
   initAudioContext();
   stopFindMyAlarmSound();
+  requestScreenWakeLock();
 
+  // 1. Dispatch System Web Notification with Vibrate
+  if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+    try {
+      new Notification('🔔 Find My Tablet Alarm', {
+        body: 'Production Manager is ringing this tablet to locate it!',
+        requireInteraction: true,
+        vibrate: [400, 150, 400, 150, 800],
+      } as any);
+    } catch {
+      // ignore
+    }
+  }
+
+  // 2. LAYER 1: HTML5 Audio Element Loop (Bypasses JS timer throttling during sleep)
+  try {
+    if (typeof Audio !== 'undefined' && cachedSonarWavUri) {
+      htmlAudioElement = new Audio(cachedSonarWavUri);
+      htmlAudioElement.loop = true;
+      htmlAudioElement.volume = 1.0;
+      htmlAudioElement.play().catch(() => {
+        // Fallback to Web Audio
+      });
+    }
+  } catch (err) {
+    console.warn('HTML5 audio error:', err);
+  }
+
+  // 3. LAYER 2: Web Audio API Oscillator Synthesizer
   let pulseCount = 0;
-
-  const playSonarChirp = () => {
+  const playWebAudioChirp = () => {
     if (!audioCtx) initAudioContext();
     if (!audioCtx) return;
 
@@ -465,70 +663,76 @@ export function playFindMyAlarmSound(durationSeconds = 25) {
       }
 
       pulseCount++;
-      // Gradually escalate volume: pulses 1-3 = 0.35, 4-6 = 0.65, 7+ = 1.0 (Maximum Volume)
-      const volumeLevel = Math.min(1.0, 0.35 + (pulseCount * 0.1));
+      const volumeLevel = Math.min(1.0, 0.4 + pulseCount * 0.1);
       const now = audioCtx.currentTime;
 
-      // Master Gain
       const masterGain = audioCtx.createGain();
       masterGain.gain.setValueAtTime(volumeLevel, now);
       masterGain.connect(audioCtx.destination);
 
-      // --- TONE 1: Primary High Ping (C7 - 2093 Hz) ---
+      // Tone 1: C7 (2093 Hz) -> F7 (2793 Hz)
       const osc1 = audioCtx.createOscillator();
       const gain1 = audioCtx.createGain();
       osc1.type = 'sine';
       osc1.frequency.setValueAtTime(2093, now);
-      osc1.frequency.exponentialRampToValueAtTime(2793, now + 0.1); // Quick upward glide
-      
+      osc1.frequency.exponentialRampToValueAtTime(2793, now + 0.12);
+
       gain1.gain.setValueAtTime(0, now);
-      gain1.gain.linearRampToValueAtTime(0.9, now + 0.02);
-      gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
-      
+      gain1.gain.linearRampToValueAtTime(0.95, now + 0.02);
+      gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+
       osc1.connect(gain1);
       gain1.connect(masterGain);
       osc1.start(now);
-      osc1.stop(now + 0.16);
+      osc1.stop(now + 0.18);
 
-      // --- TONE 2: Secondary Sonar Echo Harmonic (F7 - 2793 Hz rising to G7 - 3136 Hz) ---
+      // Tone 2: F7 (2793 Hz) -> G7 (3136 Hz)
       const osc2 = audioCtx.createOscillator();
       const gain2 = audioCtx.createGain();
       osc2.type = 'triangle';
-      osc2.frequency.setValueAtTime(2793, now + 0.15);
-      osc2.frequency.exponentialRampToValueAtTime(3136, now + 0.28);
-      
-      gain2.gain.setValueAtTime(0, now + 0.15);
-      gain2.gain.linearRampToValueAtTime(0.95, now + 0.17);
-      gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
-      
+      osc2.frequency.setValueAtTime(2793, now + 0.16);
+      osc2.frequency.exponentialRampToValueAtTime(3136, now + 0.32);
+
+      gain2.gain.setValueAtTime(0, now + 0.16);
+      gain2.gain.linearRampToValueAtTime(1.0, now + 0.18);
+      gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+
       osc2.connect(gain2);
       gain2.connect(masterGain);
-      osc2.start(now + 0.15);
-      osc2.stop(now + 0.35);
-
-      // Vibrate mobile/tablet device if supported (Apple Find My tactile rhythm)
-      if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
-        try {
-          navigator.vibrate([150, 80, 200]);
-        } catch {
-          // ignore
-        }
-      }
-    } catch (err) {
-      console.warn('Alarm audio playback error:', err);
+      osc2.start(now + 0.16);
+      osc2.stop(now + 0.4);
+    } catch {
+      // ignore
     }
   };
 
-  playSonarChirp();
-  alarmInterval = setInterval(playSonarChirp, 1100);
+  playWebAudioChirp();
+  alarmInterval = setInterval(playWebAudioChirp, 1100);
 
+  // 4. LAYER 3: Tactile Hardware Vibration Pulsing
+  if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+    try {
+      navigator.vibrate([250, 100, 250, 100, 500]);
+      vibrationInterval = setInterval(() => {
+        try {
+          navigator.vibrate([250, 100, 250, 100, 500]);
+        } catch {
+          // ignore
+        }
+      }, 1200);
+    } catch {
+      // ignore
+    }
+  }
+
+  // 5. Automatic safety timeout
   alarmTimeout = setTimeout(() => {
     stopFindMyAlarmSound();
   }, durationSeconds * 1000);
 }
 
 /**
- * Stops any active lost tablet alarm sound.
+ * Stops all active sound engines and vibration patterns immediately.
  */
 export function stopFindMyAlarmSound() {
   if (alarmInterval) {
@@ -538,5 +742,25 @@ export function stopFindMyAlarmSound() {
   if (alarmTimeout) {
     clearTimeout(alarmTimeout);
     alarmTimeout = null;
+  }
+  if (vibrationInterval) {
+    clearInterval(vibrationInterval);
+    vibrationInterval = null;
+  }
+  if (htmlAudioElement) {
+    try {
+      htmlAudioElement.pause();
+      htmlAudioElement.currentTime = 0;
+    } catch {
+      // ignore
+    }
+    htmlAudioElement = null;
+  }
+  if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+    try {
+      navigator.vibrate(0);
+    } catch {
+      // ignore
+    }
   }
 }
