@@ -8,6 +8,7 @@ import {
   TABLET_SPECS,
   requestScreenWakeLock,
   initAudioContext,
+  enableBackgroundAudioKeepAlive,
 } from '../lib/findMy';
 
 interface UseTabletTrackerProps {
@@ -31,14 +32,16 @@ export function useTabletTracker({ currentUserId, currentRole, userName }: UseTa
   useEffect(() => {
     if (!currentUserId) return;
 
-    // Maintain screen wake lock so tablet display stays on during shift
+    // Maintain screen wake lock & background audio keep-alive so tablet display and audio thread stay alive 24/7
     requestScreenWakeLock();
     initAudioContext();
+    enableBackgroundAudioKeepAlive();
 
     const handleWakeState = () => {
       if (document.visibilityState === 'visible') {
         requestScreenWakeLock();
         initAudioContext();
+        enableBackgroundAudioKeepAlive();
       }
     };
 
