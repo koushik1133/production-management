@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Volume2,
   VolumeX,
@@ -10,7 +10,9 @@ import {
 import {
   sendRemoteCommand,
   TABLET_SPECS,
-  subscribeToRemoteCommands,
+  subscribeToLocationUpdates,
+  fetchTabletLocations,
+  resolveTabletSlot,
 } from '../lib/findMy';
 import type { TabletSlot } from '../lib/findMy';
 
@@ -22,7 +24,6 @@ interface FindMyTabletsViewProps {
 
 export const FindMyTabletsView: React.FC<FindMyTabletsViewProps> = ({
   currentRole,
-  currentUserId,
   onBackToHome,
 }) => {
   const [ringingSlots, setRingingSlots] = useState<Set<TabletSlot>>(new Set());
@@ -30,42 +31,54 @@ export const FindMyTabletsView: React.FC<FindMyTabletsViewProps> = ({
 
   const isManager = currentRole === 'manager';
 
-  // Listen to remote commands to sync ringing state if stopped from tablet
-  useEffect(() => {
-    const unsubscribe = subscribeToRemoteCommands(
-      currentUserId,
-      currentRole,
-      'manager',
-      (cmd) => {
-        if (cmd.command === 'STOP_SOUND') {
-          setRingingSlots((prev) => {
-            const next = new Set(prev);
-            if (cmd.target_name?.toLowerCase().includes('t1')) next.delete('T1');
-            if (cmd.target_name?.toLowerCase().includes('t2')) next.delete('T2');
-            if (cmd.target_name?.toLowerCase().includes('t3')) next.delete('T3');
-            if (cmd.target_name?.toLowerCase().includes('manager')) next.delete('manager');
-            return next;
-          });
+  // Sync real-time ringing state from Supabase is_alarm_playing column across ALL manager devices
+  const refreshAlarmState = useCallback(async () => {
+    try {
+      const locations = await fetchTabletLocations();
+      const active = new Set<TabletSlot>();
+      locations.forEach((loc) => {
+        if (loc.is_alarm_playing) {
+          const slot = resolveTabletSlot(loc.user_id, loc.role, loc.device_name);
+          active.add(slot);
         }
-      }
-    );
-    return () => unsubscribe();
-  }, [currentUserId, currentRole]);
+      });
+      setRingingSlots(active);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshAlarmState();
+
+    // 1. Supabase Postgres Realtime Subscription for is_alarm_playing column
+    const unsubscribe = subscribeToLocationUpdates((loc) => {
+      const slot = resolveTabletSlot(loc.user_id, loc.role, loc.device_name);
+      setRingingSlots((prev) => {
+        const next = new Set(prev);
+        if (loc.is_alarm_playing) {
+          next.add(slot);
+        } else {
+          next.delete(slot);
+        }
+        return next;
+      });
+    });
+
+    // 2. Continuous 2.5s DB Polling fallback to guarantee zero sync delay
+    const interval = setInterval(refreshAlarmState, 2500);
+
+    return () => {
+      unsubscribe();
+      clearInterval(interval);
+    };
+  }, [refreshAlarmState]);
 
   const handlePlaySound = async (slot: TabletSlot) => {
     const spec = TABLET_SPECS[slot];
     setRingingSlots((prev) => new Set(prev).add(slot));
     setActionNotice(`🔔 Playing alarm sound on ${spec.officialName}...`);
     await sendRemoteCommand(slot, 'PLAY_SOUND', spec.officialName);
-
-    setTimeout(() => {
-      setRingingSlots((prev) => {
-        const next = new Set(prev);
-        next.delete(slot);
-        return next;
-      });
-      setActionNotice(null);
-    }, 25000);
   };
 
   const handleStopSound = async (slot: TabletSlot) => {
@@ -170,7 +183,7 @@ export const FindMyTabletsView: React.FC<FindMyTabletsViewProps> = ({
               </h1>
             </div>
             <p style={{ margin: '0.2rem 0 0', fontSize: '0.86rem', color: '#a1a1aa' }}>
-              Apple Find My Sonar Alarm — Ring and locate individual shop floor tablets instantly
+              Real-time Database Alarm Sync — Ring and silence shop floor tablets in real-time across all managers
             </p>
           </div>
         </div>
@@ -238,7 +251,7 @@ export const FindMyTabletsView: React.FC<FindMyTabletsViewProps> = ({
         </div>
       )}
 
-      {/* Tablet Cards Grid (2x2 on desktop, 1 col on mobile) */}
+      {/* Tablet Cards Grid */}
       <div
         style={{
           display: 'grid',
