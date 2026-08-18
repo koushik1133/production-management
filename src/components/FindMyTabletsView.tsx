@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Volume2,
   VolumeX,
@@ -10,9 +10,7 @@ import {
 import {
   sendRemoteCommand,
   TABLET_SPECS,
-  subscribeToLocationUpdates,
-  fetchTabletLocations,
-  resolveTabletSlot,
+  subscribeToRemoteCommands,
 } from '../lib/findMy';
 import type { TabletSlot } from '../lib/findMy';
 
@@ -24,6 +22,7 @@ interface FindMyTabletsViewProps {
 
 export const FindMyTabletsView: React.FC<FindMyTabletsViewProps> = ({
   currentRole,
+  currentUserId,
   onBackToHome,
 }) => {
   const [ringingSlots, setRingingSlots] = useState<Set<TabletSlot>>(new Set());
@@ -31,48 +30,39 @@ export const FindMyTabletsView: React.FC<FindMyTabletsViewProps> = ({
 
   const isManager = currentRole === 'manager';
 
-  // Sync real-time ringing state from Supabase is_alarm_playing column across ALL manager devices
-  const refreshAlarmState = useCallback(async () => {
-    try {
-      const locations = await fetchTabletLocations();
-      const active = new Set<TabletSlot>();
-      locations.forEach((loc) => {
-        if (loc.is_alarm_playing) {
-          const slot = resolveTabletSlot(loc.user_id, loc.role, loc.device_name);
-          active.add(slot);
-        }
-      });
-      setRingingSlots(active);
-    } catch {
-      // ignore
-    }
-  }, []);
-
+  // Listen to remote commands to sync ringing state across all managers in real-time
   useEffect(() => {
-    refreshAlarmState();
+    const unsubscribe = subscribeToRemoteCommands(
+      currentUserId,
+      currentRole,
+      'manager',
+      (cmd) => {
+        const slot = cmd.target_name?.toLowerCase().includes('t1')
+          ? 'T1'
+          : cmd.target_name?.toLowerCase().includes('t2')
+          ? 'T2'
+          : cmd.target_name?.toLowerCase().includes('t3')
+          ? 'T3'
+          : cmd.target_name?.toLowerCase().includes('manager')
+          ? 'manager'
+          : null;
 
-    // 1. Supabase Postgres Realtime Subscription for is_alarm_playing column
-    const unsubscribe = subscribeToLocationUpdates((loc) => {
-      const slot = resolveTabletSlot(loc.user_id, loc.role, loc.device_name);
-      setRingingSlots((prev) => {
-        const next = new Set(prev);
-        if (loc.is_alarm_playing) {
-          next.add(slot);
-        } else {
-          next.delete(slot);
+        if (slot) {
+          setRingingSlots((prev) => {
+            const next = new Set(prev);
+            if (cmd.command === 'PLAY_SOUND') {
+              next.add(slot);
+            } else if (cmd.command === 'STOP_SOUND') {
+              next.delete(slot);
+            }
+            return next;
+          });
         }
-        return next;
-      });
-    });
+      }
+    );
 
-    // 2. Continuous 2.5s DB Polling fallback to guarantee zero sync delay
-    const interval = setInterval(refreshAlarmState, 2500);
-
-    return () => {
-      unsubscribe();
-      clearInterval(interval);
-    };
-  }, [refreshAlarmState]);
+    return () => unsubscribe();
+  }, [currentUserId, currentRole]);
 
   const handlePlaySound = async (slot: TabletSlot) => {
     const spec = TABLET_SPECS[slot];
@@ -183,7 +173,7 @@ export const FindMyTabletsView: React.FC<FindMyTabletsViewProps> = ({
               </h1>
             </div>
             <p style={{ margin: '0.2rem 0 0', fontSize: '0.86rem', color: '#a1a1aa' }}>
-              Real-time Database Alarm Sync — Ring and silence shop floor tablets in real-time across all managers
+              Real-time Sound Alarm — Ring and silence shop floor tablets with 100% pinpoint isolation
             </p>
           </div>
         </div>

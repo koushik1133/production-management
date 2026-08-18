@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import type { TabletLocation, RemoteCommandPayload } from '../types/findMy';
+import type { RemoteCommandPayload } from '../types/findMy';
 
 export type TabletSlot = 'T1' | 'T2' | 'T3' | 'manager';
 
@@ -63,56 +63,13 @@ export function resolveCanonicalTabletId(userId?: string, role?: string, deviceN
 }
 
 // In-memory fallback storage for real-time local sync across tabs/components
-const memoryLocationsMap = new Map<string, TabletLocation>();
 const commandListeners = new Set<(cmd: RemoteCommandPayload) => void>();
-const locationListeners = new Set<(loc: TabletLocation) => void>();
 
-// Cross-tab real-time communication channels
-const locationBroadcastChannel =
-  typeof window !== 'undefined' && 'BroadcastChannel' in window
-    ? new BroadcastChannel('tablet_locations_channel_v6')
-    : null;
-
+// Cross-tab real-time communication channel
 const commandBroadcastChannel =
   typeof window !== 'undefined' && 'BroadcastChannel' in window
-    ? new BroadcastChannel('tablet_remote_commands_channel_v6')
+    ? new BroadcastChannel('tablet_alarm_channel_v7')
     : null;
-
-export function saveLocationsToStorage(map: Map<string, TabletLocation>) {
-  try {
-    const obj = Object.fromEntries(map.entries());
-    localStorage.setItem('tablet_locations_cache_v6', JSON.stringify(obj));
-  } catch {
-    // ignore
-  }
-}
-
-export function loadLocationsFromStorage(): Map<string, TabletLocation> {
-  const map = new Map<string, TabletLocation>();
-  try {
-    const raw = localStorage.getItem('tablet_locations_cache_v6');
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      Object.entries(parsed).forEach(([k, v]) => {
-        map.set(k, v as TabletLocation);
-      });
-    }
-  } catch {
-    // ignore
-  }
-  return map;
-}
-
-if (locationBroadcastChannel) {
-  locationBroadcastChannel.onmessage = (e) => {
-    if (e.data?.type === 'LOCATION_UPDATE' && e.data?.payload) {
-      const loc = e.data.payload as TabletLocation;
-      memoryLocationsMap.set(loc.id, loc);
-      saveLocationsToStorage(memoryLocationsMap);
-      locationListeners.forEach((listener) => listener(loc));
-    }
-  };
-}
 
 if (commandBroadcastChannel) {
   commandBroadcastChannel.onmessage = (e) => {
@@ -124,171 +81,8 @@ if (commandBroadcastChannel) {
 }
 
 /**
- * Upserts a tablet's current status and registers its presence in DB.
- */
-export async function upsertTabletLocation(location: Omit<TabletLocation, 'id' | 'updated_at'>): Promise<void> {
-  const slot = resolveTabletSlot(location.user_id, location.role, location.device_name);
-  const spec = TABLET_SPECS[slot];
-  const now = new Date().toISOString();
-
-  const fullLocation: TabletLocation = {
-    ...location,
-    id: spec.canonicalId,
-    user_id: spec.canonicalId,
-    device_name: spec.officialName,
-    role: slot === 'manager' ? 'manager' : 'worker',
-    is_alarm_playing: location.is_alarm_playing ?? false,
-    alarm_started_at: location.alarm_started_at ?? null,
-    is_online: true,
-    last_ping_at: now,
-    updated_at: now,
-  };
-
-  memoryLocationsMap.set(spec.canonicalId, fullLocation);
-  saveLocationsToStorage(memoryLocationsMap);
-  locationListeners.forEach((listener) => listener(fullLocation));
-  locationBroadcastChannel?.postMessage({ type: 'LOCATION_UPDATE', payload: fullLocation });
-
-  try {
-    const payload = {
-      id: spec.canonicalId,
-      user_id: spec.canonicalId,
-      device_name: spec.officialName,
-      is_alarm_playing: fullLocation.is_alarm_playing,
-      alarm_started_at: fullLocation.alarm_started_at,
-      is_online: true,
-      last_ping_at: now,
-      updated_at: now,
-    };
-    await supabase.from('tablet_locations').upsert(payload);
-  } catch {
-    // Fallback if is_alarm_playing column doesn't exist yet
-    try {
-      await supabase.from('tablet_locations').upsert({
-        id: spec.canonicalId,
-        user_id: spec.canonicalId,
-        device_name: spec.officialName,
-        is_online: true,
-        last_ping_at: now,
-        updated_at: now,
-      });
-    } catch {
-      // ignore
-    }
-  }
-}
-
-/**
- * Subscribes to real-time status updates across tabs & DB.
- */
-export function subscribeToLocationUpdates(callback: (loc: TabletLocation) => void) {
-  locationListeners.add(callback);
-
-  const handleStorageEvent = (e: StorageEvent) => {
-    if (e.key === 'tablet_locations_cache_v6' && e.newValue) {
-      try {
-        const parsed = JSON.parse(e.newValue);
-        Object.values(parsed).forEach((loc) => {
-          callback(loc as TabletLocation);
-        });
-      } catch {
-        // ignore
-      }
-    }
-  };
-
-  if (typeof window !== 'undefined') {
-    window.addEventListener('storage', handleStorageEvent);
-  }
-
-  const channel = supabase
-    .channel('tablet_locations_realtime_v6')
-    .on(
-      'postgres_changes',
-      { event: '*', schema: 'public', table: 'tablet_locations' },
-      (payload) => {
-        if (payload.new) {
-          const loc = payload.new as TabletLocation;
-          const slot = resolveTabletSlot(loc.user_id, loc.role, loc.device_name);
-          const spec = TABLET_SPECS[slot];
-          const fullLoc = { ...loc, id: spec.canonicalId, user_id: spec.canonicalId, device_name: spec.officialName };
-          memoryLocationsMap.set(spec.canonicalId, fullLoc);
-          saveLocationsToStorage(memoryLocationsMap);
-          callback(fullLoc);
-        }
-      }
-    )
-    .subscribe();
-
-  return () => {
-    locationListeners.delete(callback);
-    if (typeof window !== 'undefined') {
-      window.removeEventListener('storage', handleStorageEvent);
-    }
-    try {
-      supabase.removeChannel(channel);
-    } catch {
-      // ignore
-    }
-  };
-}
-
-/**
- * Fetches all active tablet records from Supabase + local cache.
- */
-export async function fetchTabletLocations(): Promise<TabletLocation[]> {
-  try {
-    const { data, error } = await supabase
-      .from('tablet_locations')
-      .select('*')
-      .order('updated_at', { ascending: false });
-
-    if (!error && data && data.length > 0) {
-      data.forEach((loc) => {
-        const slot = resolveTabletSlot(loc.user_id, loc.role, loc.device_name);
-        const spec = TABLET_SPECS[slot];
-        memoryLocationsMap.set(spec.canonicalId, {
-          ...loc,
-          id: spec.canonicalId,
-          user_id: spec.canonicalId,
-          device_name: spec.officialName,
-        } as TabletLocation);
-      });
-    }
-  } catch (err) {
-    console.warn('Failed to fetch tablet locations from DB:', err);
-  }
-
-  const storedMap = loadLocationsFromStorage();
-  storedMap.forEach((loc, key) => {
-    memoryLocationsMap.set(key, loc);
-  });
-
-  const resultMap = new Map<string, TabletLocation>();
-  Object.values(TABLET_SPECS).forEach((spec) => {
-    resultMap.set(spec.canonicalId, {
-      id: spec.canonicalId,
-      user_id: spec.canonicalId,
-      device_name: spec.officialName,
-      role: spec.slot === 'manager' ? 'manager' : 'worker',
-      is_alarm_playing: false,
-      is_online: true,
-      last_ping_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    });
-  });
-
-  memoryLocationsMap.forEach((loc, key) => {
-    resultMap.set(key, loc);
-  });
-
-  saveLocationsToStorage(resultMap);
-  return Array.from(resultMap.values());
-}
-
-/**
- * Broadcasts a remote command (e.g. 'PLAY_SOUND' or 'STOP_SOUND') to target tablet slot.
- * Writes to Supabase Database (is_alarm_playing) + Realtime WebSocket + Local Storage + Cross-Tab.
+ * Broadcasts a remote command ('PLAY_SOUND' or 'STOP_SOUND') to the target tablet slot.
+ * Dispatches via Realtime Supabase Broadcast + Local Storage + BroadcastChannel. Zero permissions required.
  */
 export async function sendRemoteCommand(
   target: string,
@@ -297,8 +91,6 @@ export async function sendRemoteCommand(
 ): Promise<void> {
   const targetSlot = resolveTabletSlot(target, '', targetName);
   const spec = TABLET_SPECS[targetSlot];
-  const isPlaying = command === 'PLAY_SOUND';
-  const now = new Date().toISOString();
 
   const payload: RemoteCommandPayload = {
     id: String(Date.now()),
@@ -309,51 +101,20 @@ export async function sendRemoteCommand(
     timestamp: Date.now(),
   };
 
-  // 1. Update In-Memory and Local Storage
-  const existing = memoryLocationsMap.get(spec.canonicalId);
-  const updatedLoc: TabletLocation = {
-    ...existing,
-    id: spec.canonicalId,
-    user_id: spec.canonicalId,
-    device_name: spec.officialName,
-    is_alarm_playing: isPlaying,
-    alarm_started_at: isPlaying ? now : null,
-    updated_at: now,
-  };
-  memoryLocationsMap.set(spec.canonicalId, updatedLoc);
-  saveLocationsToStorage(memoryLocationsMap);
-  locationListeners.forEach((l) => l(updatedLoc));
-
-  // 2. Local & Cross-Tab Dispatch
+  // 1. In-memory listeners & cross-tab dispatch
   commandListeners.forEach((listener) => listener(payload));
   commandBroadcastChannel?.postMessage({ type: 'REMOTE_COMMAND', payload });
-  locationBroadcastChannel?.postMessage({ type: 'LOCATION_UPDATE', payload: updatedLoc });
 
   try {
     localStorage.setItem(`tablet_active_cmd_${targetSlot}`, JSON.stringify(payload));
+    localStorage.setItem('tablet_last_cmd_broadcast', JSON.stringify(payload));
   } catch {
     // ignore
   }
 
-  // 3. Supabase Database Update (Realtime DB Column Sync)
+  // 2. Supabase Realtime WebSocket Broadcast
   try {
-    await supabase.from('tablet_locations').upsert({
-      id: spec.canonicalId,
-      user_id: spec.canonicalId,
-      device_name: spec.officialName,
-      is_alarm_playing: isPlaying,
-      alarm_started_at: isPlaying ? now : null,
-      is_online: true,
-      last_ping_at: now,
-      updated_at: now,
-    });
-  } catch (err) {
-    console.warn('Error updating tablet alarm state in Supabase DB:', err);
-  }
-
-  // 4. Supabase Realtime Channel Broadcast
-  try {
-    const channel = supabase.channel('tablet_remote_commands_v6');
+    const channel = supabase.channel('tablet_alarm_broadcast_v7');
     await channel.subscribe();
     await channel.send({
       type: 'broadcast',
@@ -361,13 +122,13 @@ export async function sendRemoteCommand(
       payload,
     });
   } catch (err) {
-    console.warn('Error sending remote command via Supabase channel:', err);
+    console.warn('Error broadcasting remote alarm command:', err);
   }
 }
 
 /**
- * Listens for remote commands directed to the current tablet device slot.
- * Subscribes to Postgres DB changes (is_alarm_playing column) + WebSocket broadcast + periodic polling.
+ * Listens for remote sound commands directed to the current tablet device slot.
+ * Zero permissions, zero database schema dependencies.
  */
 export function subscribeToRemoteCommands(
   currentUserId: string,
@@ -376,7 +137,6 @@ export function subscribeToRemoteCommands(
   callback: (cmd: RemoteCommandPayload) => void
 ) {
   const mySlot = resolveTabletSlot(currentUserId, currentRole, userName);
-  const mySpec = TABLET_SPECS[mySlot];
 
   const isTargetMatch = (cmd: RemoteCommandPayload): boolean => {
     const targetSlot = resolveTabletSlot(cmd.target_user_id, cmd.target_role, cmd.target_name);
@@ -390,37 +150,13 @@ export function subscribeToRemoteCommands(
   };
   commandListeners.add(localHandler);
 
-  // Poll DB directly to check if is_alarm_playing is TRUE
-  const checkDatabaseAlarmState = async () => {
-    try {
-      const { data } = await supabase
-        .from('tablet_locations')
-        .select('is_alarm_playing, alarm_started_at')
-        .eq('id', mySpec.canonicalId)
-        .single();
-
-      if (data) {
-        if (data.is_alarm_playing) {
-          callback({
-            id: String(Date.now()),
-            target_user_id: mySpec.canonicalId,
-            target_name: mySpec.officialName,
-            target_role: mySlot === 'manager' ? 'manager' : 'worker',
-            command: 'PLAY_SOUND',
-            timestamp: Date.now(),
-          });
-        }
-      }
-    } catch {
-      // ignore
-    }
-
-    // Local Storage Check
+  // Check local storage for recent command within last 45s
+  const checkPendingCommands = () => {
     try {
       const raw = localStorage.getItem(`tablet_active_cmd_${mySlot}`);
       if (raw) {
         const cmd: RemoteCommandPayload = JSON.parse(raw);
-        if (cmd.command === 'PLAY_SOUND' && Date.now() - cmd.timestamp < 60000) {
+        if (cmd.command === 'PLAY_SOUND' && Date.now() - cmd.timestamp < 45000) {
           callback(cmd);
         }
       }
@@ -429,9 +165,8 @@ export function subscribeToRemoteCommands(
     }
   };
 
-  checkDatabaseAlarmState();
+  checkPendingCommands();
 
-  // Storage listener across tabs
   const handleStorageChange = (e: StorageEvent) => {
     if (e.key === `tablet_active_cmd_${mySlot}` && e.newValue) {
       try {
@@ -446,7 +181,7 @@ export function subscribeToRemoteCommands(
   };
 
   const handleResume = () => {
-    checkDatabaseAlarmState();
+    checkPendingCommands();
     enableBackgroundAudioKeepAlive();
     requestScreenWakeLock();
   };
@@ -459,42 +194,9 @@ export function subscribeToRemoteCommands(
     window.addEventListener('online', handleResume);
   }
 
-  // 1. Supabase Postgres Changes Listener on tablet_locations (Direct DB Column Sync)
-  const dbChannel = supabase
-    .channel('tablet_db_alarm_sync_v6')
-    .on(
-      'postgres_changes',
-      { event: '*', schema: 'public', table: 'tablet_locations', filter: `id=eq.${mySpec.canonicalId}` },
-      (payload) => {
-        if (payload.new) {
-          const row = payload.new as any;
-          if (row.is_alarm_playing) {
-            callback({
-              id: String(Date.now()),
-              target_user_id: mySpec.canonicalId,
-              target_name: mySpec.officialName,
-              target_role: mySlot === 'manager' ? 'manager' : 'worker',
-              command: 'PLAY_SOUND',
-              timestamp: Date.now(),
-            });
-          } else {
-            callback({
-              id: String(Date.now()),
-              target_user_id: mySpec.canonicalId,
-              target_name: mySpec.officialName,
-              target_role: mySlot === 'manager' ? 'manager' : 'worker',
-              command: 'STOP_SOUND',
-              timestamp: Date.now(),
-            });
-          }
-        }
-      }
-    )
-    .subscribe();
-
-  // 2. Supabase Realtime Broadcast Channel
-  const broadcastChannel = supabase
-    .channel('tablet_remote_commands_v6')
+  // Supabase Realtime Channel
+  const channel = supabase
+    .channel('tablet_alarm_broadcast_v7')
     .on('broadcast', { event: 'remote_command' }, (event) => {
       const payload = event.payload as RemoteCommandPayload;
       if (payload && isTargetMatch(payload)) {
@@ -503,14 +205,8 @@ export function subscribeToRemoteCommands(
     })
     .subscribe();
 
-  // 3. Periodic 2.5-second background sync poll
-  const pollInterval = setInterval(() => {
-    checkDatabaseAlarmState();
-  }, 2500);
-
   return () => {
     commandListeners.delete(localHandler);
-    clearInterval(pollInterval);
     if (typeof window !== 'undefined') {
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('visibilitychange', handleResume);
@@ -519,8 +215,7 @@ export function subscribeToRemoteCommands(
       window.removeEventListener('online', handleResume);
     }
     try {
-      supabase.removeChannel(dbChannel);
-      supabase.removeChannel(broadcastChannel);
+      supabase.removeChannel(channel);
     } catch {
       // ignore
     }
@@ -528,7 +223,7 @@ export function subscribeToRemoteCommands(
 }
 
 // =========================================================================
-// SCREEN WAKE LOCK MANAGER
+// SCREEN WAKE LOCK (PREVENTS TABLET SLEEP 24/7)
 // =========================================================================
 let wakeLockSentinel: any = null;
 
@@ -691,19 +386,12 @@ export function initAudioContext() {
   enableBackgroundAudioKeepAlive();
 }
 
-// Auto-unlock interaction listeners
+// Auto-unlock interaction listeners (NO notification permission prompts)
 if (typeof window !== 'undefined') {
   const unlockAudio = () => {
     initAudioContext();
     enableBackgroundAudioKeepAlive();
     requestScreenWakeLock();
-    if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
-      try {
-        Notification.requestPermission();
-      } catch {
-        // ignore
-      }
-    }
   };
   ['click', 'touchstart', 'touchend', 'keydown', 'pointerdown', 'mousedown'].forEach((evt) => {
     window.addEventListener(evt, unlockAudio, { passive: true });
@@ -718,20 +406,7 @@ export function playFindMyAlarmSound(durationSeconds = 30) {
   stopFindMyAlarmSound();
   requestScreenWakeLock();
 
-  // 1. Dispatch System Web Notification with Vibrate
-  if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-    try {
-      new Notification('🔔 Find My Tablet Alarm', {
-        body: 'Production Manager is ringing this tablet to locate it!',
-        requireInteraction: true,
-        vibrate: [400, 150, 400, 150, 800],
-      } as any);
-    } catch {
-      // ignore
-    }
-  }
-
-  // 2. LAYER 1: Full Volume HTML5 Sonar Alarm Loop
+  // 1. LAYER 1: Full Volume HTML5 Sonar Alarm Loop
   try {
     if (typeof Audio !== 'undefined' && cachedSonarWavUri) {
       if (!htmlAlarmAudio) {
@@ -756,7 +431,7 @@ export function playFindMyAlarmSound(durationSeconds = 30) {
     console.warn('HTML5 alarm audio error:', err);
   }
 
-  // 3. LAYER 2: Web Audio API Oscillator Synthesizer
+  // 2. LAYER 2: Web Audio API Oscillator Synthesizer
   let pulseCount = 0;
   const playWebAudioChirp = () => {
     if (!audioCtx) initAudioContext();
@@ -814,7 +489,7 @@ export function playFindMyAlarmSound(durationSeconds = 30) {
   playWebAudioChirp();
   alarmInterval = setInterval(playWebAudioChirp, 1100);
 
-  // 4. LAYER 3: Tactile Hardware Vibration Pulsing
+  // 3. LAYER 3: Tactile Hardware Vibration Pulsing
   if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
     try {
       navigator.vibrate([250, 100, 250, 100, 500]);
@@ -830,7 +505,7 @@ export function playFindMyAlarmSound(durationSeconds = 30) {
     }
   }
 
-  // 5. Automatic safety timeout
+  // 4. Automatic safety timeout
   alarmTimeout = setTimeout(() => {
     stopFindMyAlarmSound();
   }, durationSeconds * 1000);
