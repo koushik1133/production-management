@@ -70,9 +70,6 @@ export function useTabletTracker({ currentUserId, currentRole, userName }: UseTa
   }, [currentUserId, currentRole, userName, mySlot, mySpec]);
 
   return {
-    showPermissionModal: false,
-    approveLocationPermission: () => {},
-    triggerPermissionPrompt: () => {},
     isRinging,
     ringingDeviceName: mySpec.officialName,
     stopAlarm,
