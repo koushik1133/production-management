@@ -292,7 +292,7 @@ export async function fetchTabletLocations(): Promise<TabletLocation[]> {
  */
 export async function sendRemoteCommand(
   target: string,
-  command: 'PLAY_SOUND' | 'STOP_SOUND' | 'REQUEST_LOCATION_PERMISSION',
+  command: 'PLAY_SOUND' | 'STOP_SOUND',
   targetName?: string
 ): Promise<void> {
   const targetSlot = resolveTabletSlot(target, '', targetName);
