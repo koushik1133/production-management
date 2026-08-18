@@ -43,18 +43,31 @@ export const TABLET_SPECS: Record<TabletSlot, TabletDeviceSpec> = {
 export function resolveTabletSlot(userId?: string, role?: string, name?: string): TabletSlot {
   if (role === 'manager') return 'manager';
 
+  if (typeof window !== 'undefined') {
+    const saved = localStorage.getItem('assigned_tablet_slot') as TabletSlot;
+    if (saved && (saved === 'T1' || saved === 'T2' || saved === 'T3' || saved === 'manager')) {
+      return saved;
+    }
+  }
+
   if (userId === '00000000-0000-4000-a000-000000000001') return 'T1';
   if (userId === '00000000-0000-4000-a000-000000000002') return 'T2';
   if (userId === '00000000-0000-4000-a000-000000000003') return 'T3';
   if (userId === '00000000-0000-4000-a000-000000000009') return 'manager';
 
   const text = `${userId || ''} ${role || ''} ${name || ''}`.toLowerCase().trim();
-  if (text.includes('t3') || text.includes('finishing') || text.includes('paint')) return 'T3';
-  if (text.includes('t2') || text.includes('welding')) return 'T2';
-  if (text.includes('t1') || text.includes('assembly') || text.includes('frame')) return 'T1';
+  if (text.includes('t3') || text.includes('finishing') || text.includes('paint') || text.includes('bay 3') || text.includes('bay3')) return 'T3';
+  if (text.includes('t2') || text.includes('welding') || text.includes('bay 2') || text.includes('bay2')) return 'T2';
+  if (text.includes('t1') || text.includes('assembly') || text.includes('frame') || text.includes('bay 1') || text.includes('bay1')) return 'T1';
   if (text.includes('manager')) return 'manager';
 
   return 'T1';
+}
+
+export function setAssignedTabletSlot(slot: TabletSlot) {
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('assigned_tablet_slot', slot);
+  }
 }
 
 export function resolveCanonicalTabletId(userId?: string, role?: string, deviceName?: string): string {
@@ -68,7 +81,7 @@ const commandListeners = new Set<(cmd: RemoteCommandPayload) => void>();
 // Cross-tab real-time communication channel
 const commandBroadcastChannel =
   typeof window !== 'undefined' && 'BroadcastChannel' in window
-    ? new BroadcastChannel('tablet_alarm_channel_v7')
+    ? new BroadcastChannel('tablet_alarm_channel_v8')
     : null;
 
 if (commandBroadcastChannel) {
@@ -80,9 +93,38 @@ if (commandBroadcastChannel) {
   };
 }
 
+// =========================================================================
+// PERMANENT SINGLE-CHANNEL SUPABASE REALTIME BROADCAST
+// =========================================================================
+let permanentRealtimeChannel: ReturnType<typeof supabase.channel> | null = null;
+
+function getOrCreatePermanentChannel() {
+  if (!permanentRealtimeChannel) {
+    permanentRealtimeChannel = supabase.channel('tablet_alarm_global_v8', {
+      config: {
+        broadcast: { self: true, ack: true },
+      },
+    });
+
+    permanentRealtimeChannel
+      .on('broadcast', { event: 'remote_command' }, (event) => {
+        const payload = event.payload as RemoteCommandPayload;
+        if (payload) {
+          commandListeners.forEach((listener) => listener(payload));
+        }
+      })
+      .subscribe();
+  }
+  return permanentRealtimeChannel;
+}
+
+// Initialize on script load
+if (typeof window !== 'undefined') {
+  getOrCreatePermanentChannel();
+}
+
 /**
  * Broadcasts a remote command ('PLAY_SOUND' or 'STOP_SOUND') to the target tablet slot.
- * Dispatches via Realtime Supabase Broadcast + Local Storage + BroadcastChannel. Zero permissions required.
  */
 export async function sendRemoteCommand(
   target: string,
@@ -114,21 +156,19 @@ export async function sendRemoteCommand(
 
   // 2. Supabase Realtime WebSocket Broadcast
   try {
-    const channel = supabase.channel('tablet_alarm_broadcast_v7');
-    await channel.subscribe();
-    await channel.send({
+    const ch = getOrCreatePermanentChannel();
+    await ch.send({
       type: 'broadcast',
       event: 'remote_command',
       payload,
     });
   } catch (err) {
-    console.warn('Error broadcasting remote alarm command:', err);
+    console.warn('Realtime alarm broadcast error:', err);
   }
 }
 
 /**
  * Listens for remote sound commands directed to the current tablet device slot.
- * Zero permissions, zero database schema dependencies.
  */
 export function subscribeToRemoteCommands(
   currentUserId: string,
@@ -139,6 +179,7 @@ export function subscribeToRemoteCommands(
   const mySlot = resolveTabletSlot(currentUserId, currentRole, userName);
 
   const isTargetMatch = (cmd: RemoteCommandPayload): boolean => {
+    if (currentRole === 'manager') return true;
     const targetSlot = resolveTabletSlot(cmd.target_user_id, cmd.target_role, cmd.target_name);
     return targetSlot === mySlot;
   };
@@ -194,16 +235,8 @@ export function subscribeToRemoteCommands(
     window.addEventListener('online', handleResume);
   }
 
-  // Supabase Realtime Channel
-  const channel = supabase
-    .channel('tablet_alarm_broadcast_v7')
-    .on('broadcast', { event: 'remote_command' }, (event) => {
-      const payload = event.payload as RemoteCommandPayload;
-      if (payload && isTargetMatch(payload)) {
-        callback(payload);
-      }
-    })
-    .subscribe();
+  // Ensure permanent channel is connected
+  getOrCreatePermanentChannel();
 
   return () => {
     commandListeners.delete(localHandler);
@@ -213,11 +246,6 @@ export function subscribeToRemoteCommands(
       window.removeEventListener('focus', handleResume);
       window.removeEventListener('pageshow', handleResume);
       window.removeEventListener('online', handleResume);
-    }
-    try {
-      supabase.removeChannel(channel);
-    } catch {
-      // ignore
     }
   };
 }
@@ -305,25 +333,25 @@ function createWavDataUri(sampleRate: number, duration: number, sampleFn: (t: nu
   return 'data:audio/wav;base64,' + btoa(binary);
 }
 
-// 1. Loud Apple Sonar Alarm WAV Loop
+// 1. Loud Apple Sonar Alarm WAV Loop (44.1kHz High Amplitude Ping)
 const cachedSonarWavUri = typeof window !== 'undefined'
-  ? createWavDataUri(44100, 1.1, (t) => {
+  ? createWavDataUri(44100, 1.0, (t) => {
       let sample = 0;
       if (t >= 0.0 && t <= 0.15) {
         const freq = 2093 + (2793 - 2093) * (t / 0.15);
         const envelope = Math.sin((t / 0.15) * Math.PI);
-        sample += Math.sin(2 * Math.PI * freq * t) * envelope * 0.95;
+        sample += Math.sin(2 * Math.PI * freq * t) * envelope * 0.98;
       }
       if (t >= 0.15 && t <= 0.35) {
         const dt = t - 0.15;
         const freq = 2793 + (3136 - 2793) * (dt / 0.2);
         const envelope = Math.sin((dt / 0.2) * Math.PI);
-        sample += Math.sin(2 * Math.PI * freq * t) * envelope * 0.95;
+        sample += Math.sin(2 * Math.PI * freq * t) * envelope * 0.98;
       }
       if (t >= 0.35 && t <= 0.5) {
         const dt = t - 0.35;
-        const envelope = Math.exp(-dt * 15);
-        sample += Math.sin(2 * Math.PI * 2093 * t) * envelope * 0.4;
+        const envelope = Math.exp(-dt * 12);
+        sample += Math.sin(2 * Math.PI * 2093 * t) * envelope * 0.5;
       }
       return sample;
     })
@@ -386,7 +414,7 @@ export function initAudioContext() {
   enableBackgroundAudioKeepAlive();
 }
 
-// Auto-unlock interaction listeners (NO notification permission prompts)
+// Auto-unlock interaction listeners
 if (typeof window !== 'undefined') {
   const unlockAudio = () => {
     initAudioContext();
@@ -443,7 +471,7 @@ export function playFindMyAlarmSound(durationSeconds = 30) {
       }
 
       pulseCount++;
-      const volumeLevel = Math.min(1.0, 0.4 + pulseCount * 0.1);
+      const volumeLevel = Math.min(1.0, 0.5 + pulseCount * 0.1);
       const now = audioCtx.currentTime;
 
       const masterGain = audioCtx.createGain();
@@ -487,15 +515,15 @@ export function playFindMyAlarmSound(durationSeconds = 30) {
   };
 
   playWebAudioChirp();
-  alarmInterval = setInterval(playWebAudioChirp, 1100);
+  alarmInterval = setInterval(playWebAudioChirp, 1000);
 
   // 3. LAYER 3: Tactile Hardware Vibration Pulsing
   if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
     try {
-      navigator.vibrate([250, 100, 250, 100, 500]);
+      navigator.vibrate([300, 100, 300, 100, 600]);
       vibrationInterval = setInterval(() => {
         try {
-          navigator.vibrate([250, 100, 250, 100, 500]);
+          navigator.vibrate([300, 100, 300, 100, 600]);
         } catch {
           // ignore
         }
