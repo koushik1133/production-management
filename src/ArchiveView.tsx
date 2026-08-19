@@ -851,6 +851,10 @@ export const ArchiveView: React.FC<Props> = ({
           userRole={userRole}
           isPriceUnlockedGlobally={isPriceUnlockedGlobally}
           onUnlockPrices={onUnlockPrices}
+          onConvertFrame={(t) => {
+            setSelectedTrailerId(null);
+            setConvertingTrailer(t);
+          }}
         />
       )}
 
