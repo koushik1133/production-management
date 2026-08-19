@@ -38,6 +38,7 @@ import { CatalogView } from './CatalogView';
 import { MessagesView } from './components/Messaging/MessagesView';
 import { useMessages, type UseMessagesReturn } from './hooks/useMessages';
 import { NotificationToast } from './components/Messaging/NotificationToast';
+import { ConvertFrameModal } from './components/ConvertFrameModal';
 
 const customCollisionDetection: CollisionDetection = (args) => {
   const rectCollisions = rectIntersection(args);
@@ -138,7 +139,8 @@ function Dashboard({
   localSpecSheetTemplates,
   dealers,
   onUpdateDealer,
-  messaging
+  messaging,
+  onConvertFrame
 }: {
   trailers: Trailer[], 
   updateTrailer: (id: string, updates: Partial<Trailer>) => Promise<boolean>,
@@ -174,7 +176,8 @@ function Dashboard({
   localSpecSheetTemplates?: Record<string, string>,
   dealers: { id: string; name: string; addresses?: string[]; common_address?: string; }[],
   onUpdateDealer?: (id: string, dealer: { name: string, addresses: string[], common_address: string }) => Promise<void>,
-  messaging: UseMessagesReturn
+  messaging: UseMessagesReturn,
+  onConvertFrame?: (trailerId: string, targetModel: string, targetPhase: PhaseId, targetStation?: StationId) => Promise<boolean>
 }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const highlightedTrailerId = searchParams.get('highlight');
@@ -198,6 +201,7 @@ function Dashboard({
   const [isStatsModalOpen, setIsStatsModalOpen] = useState(false);
   const [selectedTrailerId, setSelectedTrailerId] = useState<string | null>(null);
   const [selectedTrailerMode, setSelectedTrailerMode] = useState<'view' | 'edit'>('view');
+  const [convertingTrailer, setConvertingTrailer] = useState<Trailer | null>(null);
   const [pendingShippingTrailer, setPendingShippingTrailer] = useState<Trailer | null>(null);
   const [shippingForm, setShippingForm] = useState({ 
     invoice_number: '', 
@@ -922,7 +926,8 @@ function Dashboard({
               title={phase.title} 
               trailers={filteredTrailers.filter(t => t.currentPhase === phase.id)} 
               onUpdateTrailer={updateTrailer} 
-               onShipRequest={async (t) => {
+              onConvertRequest={(t) => setConvertingTrailer(t)}
+              onShipRequest={async (t) => {
                 if (t.vinDate && t.invoiceNumber) {
                   updateTrailer(t.id, { isArchived: true, archivedAt: Date.now() });
                 } else {
@@ -1378,6 +1383,28 @@ function Dashboard({
           onUnlockPrices={onUnlockPrices}
           dealers={dealers}
           onUpdateDealer={onUpdateDealer}
+          onConvertFrame={(t) => {
+            setSelectedTrailerId(null);
+            setConvertingTrailer(t);
+          }}
+        />
+      )}
+
+      {convertingTrailer && (
+        <ConvertFrameModal
+          isOpen={true}
+          onClose={() => setConvertingTrailer(null)}
+          trailer={convertingTrailer}
+          localModelCategories={localModelCategories}
+          localSpecSheetTemplates={localSpecSheetTemplates}
+          onConvert={async (id, model, phase, station) => {
+            if (onConvertFrame) {
+              const res = await onConvertFrame(id, model, phase, station);
+              if (res) setConvertingTrailer(null);
+              return res;
+            }
+            return false;
+          }}
         />
       )}
       
@@ -2479,6 +2506,129 @@ function AppContent({ userRole, currentUser }: { userRole: UserRole; currentUser
     if (error) console.error('Error deleting trailer:', error);
   };
 
+  const handleConvertFrame = async (
+    trailerId: string,
+    targetModel: string,
+    targetPhase: PhaseId,
+    targetStation: StationId = 'None'
+  ): Promise<boolean> => {
+    try {
+      let target = trailers.find(t => t.id === trailerId || t.serialNumber === trailerId);
+      if (!target) {
+        const { data, error } = await supabase.from('trailers').select('*').or(`id.eq.${trailerId},serial_number.eq.${trailerId}`).maybeSingle();
+        if (error) throw error;
+        if (data) {
+          target = {
+            id: data.id,
+            name: data.name,
+            serialNumber: data.serial_number,
+            model: data.model,
+            currentPhase: data.current_phase,
+            station: data.station,
+            dateStarted: data.date_started,
+            sale_price: data.sale_price,
+            trailer_color: data.trailer_color,
+            trailer_plug: data.trailer_plug,
+            salesPerson: data.sales_person,
+            dealerLocation: data.dealer_location,
+            dealerCommonAddress: data.dealer_common_address,
+            purchaseOrder: data.purchase_order,
+            consignment: data.consignment,
+            spec_sheet_file: data.spec_sheet_file,
+            inspection_sheet_file: data.inspection_sheet_file,
+            photo_1_url: data.photo_1_url,
+            photo_2_url: data.photo_2_url,
+            photo_3_url: data.photo_3_url,
+            history: data.history || [],
+            partsStatus: data.parts_status,
+            notes: data.notes
+          };
+        }
+      }
+
+      if (!target) {
+        throw new Error('Trailer not found for conversion.');
+      }
+
+      const serialNum = (target.serialNumber || '').trim();
+
+      // Fetch template for target model
+      let templateBase64: string | undefined = localSpecSheetTemplates ? localSpecSheetTemplates[targetModel] : undefined;
+      if (templateBase64 === 'EXISTS') {
+        try {
+          const { data, error } = await supabase.from('production_models').select('spec_sheet_template').eq('name', targetModel).single();
+          if (error) throw error;
+          if (data?.spec_sheet_template) {
+            templateBase64 = await fetchTemplateAsBase64(data.spec_sheet_template);
+          }
+        } catch (err) {
+          console.error('Failed to fetch template for target model:', err);
+          templateBase64 = undefined;
+        }
+      }
+
+      let newSpecSheetPath: string | null = target.spec_sheet_file || null;
+      const selectedDealer = dealers.find(d => d.name === target!.name);
+
+      if (templateBase64) {
+        try {
+          const formattedDate = target.dateStarted ? new Date(target.dateStarted).toLocaleDateString('en-US', {
+            month: '2-digit', day: '2-digit', year: 'numeric'
+          }) : undefined;
+
+          const base64Data = await injectTrailerDataIntoSpec(
+            templateBase64,
+            serialNum,
+            target.name || undefined,
+            target.trailer_color || undefined,
+            target.trailer_plug || undefined,
+            target.sale_price ? target.sale_price : undefined,
+            target.salesPerson || undefined,
+            target.dealerLocation || undefined,
+            target.dealerCommonAddress || selectedDealer?.common_address || undefined,
+            false,
+            formattedDate,
+            target.purchaseOrder || undefined,
+            target.consignment || undefined
+          );
+
+          const fileObj = dataURLtoFile(base64Data, `${serialNum}_SpecSheet.xlsx`);
+          newSpecSheetPath = await uploadFileToSupabase(fileObj, 'spec_sheet', serialNum);
+        } catch (err) {
+          console.warn('Failed to inject new spec sheet for converted trailer:', err);
+        }
+      }
+
+      const updates: Partial<Trailer> = {
+        model: targetModel,
+        currentPhase: targetPhase,
+        station: targetStation,
+        isArchived: false,
+        archivedAt: undefined,
+        isDeleted: false,
+        spec_sheet_file: newSpecSheetPath,
+      };
+
+      const updateSuccess = await updateTrailer(target.id, updates);
+      if (!updateSuccess) {
+        throw new Error('Database update failed.');
+      }
+
+      try {
+        await supabase.from('shipped_trailers').delete().eq('serial_number', serialNum);
+        setShippedTrailers(prev => prev.filter(st => st.serial_number !== serialNum));
+      } catch {
+        // ignore
+      }
+
+      return true;
+    } catch (err: any) {
+      console.error('handleConvertFrame error:', err);
+      alert('Failed to convert frame: ' + (err?.message || String(err)));
+      return false;
+    }
+  };
+
   const handleAddModel = async (data: { name: string, category: string, hours: Record<PhaseId, number>, spec: ModelSpec, spec_sheet_template?: string }) => {
     try {
       let templatePath = data.spec_sheet_template;
@@ -3167,13 +3317,14 @@ function getSuggestedBay(): StationId {
               dealers={dealers}
               onUpdateDealer={handleEditDealer}
               messaging={messaging}
+              onConvertFrame={handleConvertFrame}
             />} />
             <Route path="/backlog" element={<BacklogView trailers={trailers} onAddTrailer={addTrailer} onUpdateTrailer={updateTrailer} onDeleteTrailer={deleteTrailer} suggestedBay={suggestedBay} nextSuggestedSerial={nextSuggestedSerial} localModelCategories={localModelCategories} localTargetHours={localTargetHours} localSpecSheetTemplates={localSpecSheetTemplates} dealers={dealers} onUpdateDealer={handleEditDealer} userRole={userRole} isPriceUnlockedGlobally={isPriceUnlockedGlobally} onUnlockPrices={unlockPricesGlobally} />} />
             <Route path="/stations" element={<StationView trailers={trailers} setTrailers={setTrailers} onUpdateTrailer={updateTrailer} bayCapacities={bayCapacities} onUpdateCapacity={updateCapacity} localTargetHours={localTargetHours} userRole={userRole} isPriceUnlockedGlobally={isPriceUnlockedGlobally} onUnlockPrices={unlockPricesGlobally} />} />
             <Route path="/tv" element={<TVView trailers={trailers} localTargetHours={localTargetHours} userRole={userRole} />} />
             <Route path="/tv/station1" element={<TVView trailers={trailers} monitorMode="station1" localTargetHours={localTargetHours} userRole={userRole} />} />
             <Route path="/tv/station2" element={<TVView trailers={trailers} monitorMode="station2" localTargetHours={localTargetHours} userRole={userRole} />} />
-            <Route path="/archive" element={<ArchiveView trailers={trailers} onUpdateTrailer={updateTrailer} localTargetHours={localTargetHours} shippedTrailers={shippedTrailers} userRole={userRole} isPriceUnlockedGlobally={isPriceUnlockedGlobally} onUnlockPrices={unlockPricesGlobally} onLockPrices={() => { setIsPriceUnlockedGlobally(false); localStorage.setItem('lanetrailers_price_unlocked', 'false'); }} />} />
+            <Route path="/archive" element={<ArchiveView trailers={trailers} onUpdateTrailer={updateTrailer} localTargetHours={localTargetHours} shippedTrailers={shippedTrailers} userRole={userRole} isPriceUnlockedGlobally={isPriceUnlockedGlobally} onUnlockPrices={unlockPricesGlobally} onLockPrices={() => { setIsPriceUnlockedGlobally(false); localStorage.setItem('lanetrailers_price_unlocked', 'false'); }} localModelCategories={localModelCategories} localSpecSheetTemplates={localSpecSheetTemplates} onConvertTrailer={handleConvertFrame} />} />
             <Route path="/schedule" element={<ScheduleView trailers={trailers} userRole={userRole} />} />
             <Route path="/messages" element={<MessagesView messaging={messaging} />} />
             <Route path="/catalog" element={userRole === 'manager' ? <CatalogView categories={localModelCategories} hours={localTargetHours} specs={localModelSpecs} templates={localSpecSheetTemplates} onAddModel={handleAddModel} onEditModel={handleEditModel} onDeleteModel={handleDeleteModel} dealers={dealers} onAddDealer={handleAddDealer} onEditDealer={handleEditDealer} onDeleteDealer={handleDeleteDealer} userRole={userRole} trailers={trailers} /> : <Navigate to="/" replace />} />

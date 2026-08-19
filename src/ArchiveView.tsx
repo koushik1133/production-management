@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import * as XLSX from 'xlsx';
-import { Home, Clock, Truck, Search, ChevronRight, Package, Eye, EyeOff, Image, Hash, User, DollarSign, BarChart3, Download, FileText } from 'lucide-react';
+import { Home, Clock, Truck, Search, ChevronRight, Package, Eye, EyeOff, Image, Hash, User, DollarSign, BarChart3, Download, FileText, RefreshCw } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
-import type { Trailer, PhaseId, ShippedTrailer, UserRole } from './types';
+import type { Trailer, PhaseId, ShippedTrailer, UserRole, StationId } from './types';
 import { TrailerDetailsModal } from './components/TrailerDetailsModal';
 import { Modal } from './components/Modal';
+import { ConvertFrameModal, isLrgFrame } from './components/ConvertFrameModal';
 import { supabase } from './lib/supabase';
 import JSZip from 'jszip';
 import { useResolvedUrl, triggerFileDownload, fetchFileBlob, isRelativePath } from './utils/storage';
@@ -19,6 +20,9 @@ interface Props {
   isPriceUnlockedGlobally?: boolean;
   onUnlockPrices?: () => boolean;
   onLockPrices?: () => void;
+  localModelCategories?: { name: string; models: string[] }[];
+  localSpecSheetTemplates?: Record<string, string>;
+  onConvertTrailer?: (trailerId: string, targetModel: string, targetPhase: PhaseId, targetStation?: StationId) => Promise<boolean>;
 }
 
 const PHASE_LABELS = [
@@ -41,7 +45,16 @@ const safeFormat = (dateStr: string | null | undefined, fmt: string, suffix = ''
   }
 };
 
-const ShippedRecord: React.FC<{ record: ShippedTrailer; notes?: string; onClose: () => void; userRole: UserRole; isPriceUnlockedGlobally?: boolean; onUnlockPrices?: () => boolean; onLockPrices?: () => void }> = ({ record, notes, onClose, userRole, isPriceUnlockedGlobally, onUnlockPrices, onLockPrices }) => {
+const ShippedRecord: React.FC<{
+  record: ShippedTrailer;
+  notes?: string;
+  onClose: () => void;
+  userRole: UserRole;
+  isPriceUnlockedGlobally?: boolean;
+  onUnlockPrices?: () => boolean;
+  onLockPrices?: () => void;
+  onConvertFrame?: () => void;
+}> = ({ record, notes, onClose, userRole, isPriceUnlockedGlobally, onUnlockPrices, onLockPrices, onConvertFrame }) => {
   const [heavyData, setHeavyData] = useState<Partial<ShippedTrailer>>({});
   const [loading, setLoading] = useState(false);
 
@@ -277,6 +290,35 @@ const ShippedRecord: React.FC<{ record: ShippedTrailer; notes?: string; onClose:
           </div>
         )}
 
+        {/* LRG - FRAME Conversion Button */}
+        {isLrgFrame(record.trailer_name) && onConvertFrame && (
+          <div style={{ marginTop: '0.5rem' }}>
+            <button
+              onClick={onConvertFrame}
+              className="btn btn-primary"
+              style={{
+                width: '100%',
+                padding: '0.9rem',
+                borderRadius: '14px',
+                background: 'linear-gradient(135deg, #3b82f6 0%, #6366f1 100%)',
+                color: '#ffffff',
+                fontWeight: 900,
+                fontSize: '0.95rem',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '0.6rem',
+                boxShadow: '0 6px 18px rgba(59, 130, 246, 0.35)',
+                border: 'none',
+                cursor: 'pointer'
+              }}
+            >
+              <RefreshCw size={18} />
+              Convert Frame to Production Model
+            </button>
+          </div>
+        )}
+
         {/* Pricing Segment */}
         {userRole === 'manager' && (
           <div style={{ 
@@ -332,11 +374,24 @@ const ShippedRecord: React.FC<{ record: ShippedTrailer; notes?: string; onClose:
   );
 };
 
-export const ArchiveView: React.FC<Props> = ({ trailers, onUpdateTrailer, localTargetHours, shippedTrailers = [], userRole, isPriceUnlockedGlobally, onUnlockPrices, onLockPrices }) => {
+export const ArchiveView: React.FC<Props> = ({
+  trailers,
+  onUpdateTrailer,
+  localTargetHours,
+  shippedTrailers = [],
+  userRole,
+  isPriceUnlockedGlobally,
+  onUnlockPrices,
+  onLockPrices,
+  localModelCategories = [],
+  localSpecSheetTemplates = {},
+  onConvertTrailer
+}) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'shipped' | 'serial'>('shipped');
   const [selectedTrailerId, setSelectedTrailerId] = useState<string | null>(null);
   const [selectedSerial, setSelectedSerial] = useState<string | null>(null);
+  const [convertingTrailer, setConvertingTrailer] = useState<Trailer | null>(null);
   const [tab, setTab] = useState<'shipped' | 'removed'>('shipped');
   const [visibleCount, setVisibleCount] = useState(10);
   const [exportStatus, setExportStatus] = useState<string | null>(null);
@@ -808,6 +863,51 @@ export const ArchiveView: React.FC<Props> = ({ trailers, onUpdateTrailer, localT
           isPriceUnlockedGlobally={isPriceUnlockedGlobally}
           onUnlockPrices={onUnlockPrices}
           onLockPrices={onLockPrices}
+          onConvertFrame={() => {
+            const existing = trailers.find(t => t.serialNumber === selectedShipped.serial_number);
+            if (existing) {
+              setConvertingTrailer(existing);
+            } else {
+              const synthetic: Trailer = {
+                id: selectedShipped.serial_number,
+                name: selectedShipped.customer_name || 'Generic Stock',
+                serialNumber: selectedShipped.serial_number,
+                model: selectedShipped.trailer_name,
+                currentPhase: 'shipping',
+                station: 'None',
+                dateStarted: Date.now(),
+                sale_price: selectedShipped.sale_price,
+                spec_sheet_file: selectedShipped.spec_sheet_file,
+                inspection_sheet_file: selectedShipped.inspection_sheet_file,
+                photo_1_url: selectedShipped.photo_1_url,
+                photo_2_url: selectedShipped.photo_2_url,
+                photo_3_url: selectedShipped.photo_3_url,
+                history: []
+              };
+              setConvertingTrailer(synthetic);
+            }
+          }}
+        />
+      )}
+
+      {convertingTrailer && (
+        <ConvertFrameModal
+          isOpen={true}
+          onClose={() => setConvertingTrailer(null)}
+          trailer={convertingTrailer}
+          localModelCategories={localModelCategories}
+          localSpecSheetTemplates={localSpecSheetTemplates}
+          onConvert={async (id, model, phase, station) => {
+            if (onConvertTrailer) {
+              const res = await onConvertTrailer(id, model, phase, station);
+              if (res) {
+                setSelectedSerial(null);
+                setConvertingTrailer(null);
+              }
+              return res;
+            }
+            return false;
+          }}
         />
       )}
 

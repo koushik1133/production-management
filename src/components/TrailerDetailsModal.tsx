@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { formatDistanceToNow, format } from 'date-fns';
-import { History, FileText, Send, Crown, Trash2, Image as ImageIcon, DollarSign, Download, CheckCircle } from 'lucide-react';
+import { History, FileText, Send, Crown, Trash2, Image as ImageIcon, DollarSign, Download, CheckCircle, RefreshCw } from 'lucide-react';
 import type { Trailer, PhaseId, ShippedTrailer, UserRole } from '../types';
 import { BAY_WEEKLY_HOURS, calculateTrailerRemainingHours, PHASES } from '../types';
 import { Modal } from './Modal';
 import { injectTrailerDataIntoSpec } from '../lib/injectSpecSheet';
+import { isLrgFrame } from './ConvertFrameModal';
 import { supabase } from '../lib/supabase';
 import { useResolvedUrl, uploadFileToSupabase, deleteFileFromSupabase, fetchTemplateAsBase64, triggerFileDownload, dataURLtoFile, isRelativePath, fetchFileBlob } from '../utils/storage';
 
@@ -24,9 +25,10 @@ interface Props {
   initialMode?: 'view' | 'edit';
   dealers?: { id: string; name: string; addresses?: string[]; common_address?: string; }[];
   onUpdateDealer?: (id: string, dealer: { name: string, addresses: string[], common_address: string }) => Promise<void>;
+  onConvertFrame?: (trailer: Trailer) => void;
 }
 
-export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose, onUpdate, allTrailers = [], localTargetHours, localSpecSheetTemplates = {}, onDeleteTrailer, shippedTrailers = [], userRole, isPriceUnlockedGlobally, onUnlockPrices, initialMode = 'view', dealers = [], onUpdateDealer }) => {
+export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose, onUpdate, allTrailers = [], localTargetHours, localSpecSheetTemplates = {}, onDeleteTrailer, shippedTrailers = [], userRole, isPriceUnlockedGlobally, onUnlockPrices, initialMode = 'view', dealers = [], onUpdateDealer, onConvertFrame }) => {
   const [isEditing, setIsEditing] = React.useState(initialMode === 'edit');
   const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -697,6 +699,24 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                         style={{ background: '#2563eb', padding: '4px 12px', fontSize: '0.7rem', opacity: isDuplicateSerial ? 0.6 : 1 }}
                       >
                         Save
+                      </button>
+                    )}
+                    {isLrgFrame(trailer.model) && onConvertFrame && (
+                      <button
+                        className="btn btn-sm btn-primary"
+                        onClick={() => onConvertFrame(trailer)}
+                        style={{
+                          background: 'linear-gradient(135deg, #3b82f6 0%, #6366f1 100%)',
+                          padding: '4px 12px',
+                          fontSize: '0.7rem',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          border: 'none',
+                          boxShadow: '0 2px 8px rgba(59, 130, 246, 0.3)'
+                        }}
+                      >
+                        <RefreshCw size={12} /> Convert Frame
                       </button>
                     )}
                     {userRole === 'manager' && (
