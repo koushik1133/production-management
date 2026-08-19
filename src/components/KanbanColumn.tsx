@@ -11,6 +11,7 @@ interface Props {
   onCardClick?: (trailer: Trailer, mode?: 'view' | 'edit') => void;
   onUpdateTrailer?: (id: string, updates: Partial<Trailer>) => void;
   onShipRequest?: (trailer: Trailer) => void;
+  onConvertRequest?: (trailer: Trailer) => void;
   workload?: { stage: number; pipeline: number };
   highlightedId?: string | null;
   suggestedBay?: StationId;
@@ -20,7 +21,7 @@ interface Props {
   onUnlockPrices?: () => boolean;
 }
 
-export const KanbanColumn: React.FC<Props> = React.memo(({ id, title, trailers, onCardClick, onUpdateTrailer, onShipRequest, workload, highlightedId, suggestedBay, localTargetHours, userRole, isPriceUnlockedGlobally, onUnlockPrices }) => {
+export const KanbanColumn: React.FC<Props> = React.memo(({ id, title, trailers, onCardClick, onUpdateTrailer, onShipRequest, onConvertRequest, workload, highlightedId, suggestedBay, localTargetHours, userRole, isPriceUnlockedGlobally, onUnlockPrices }) => {
   const { setNodeRef, isOver } = useDroppable({ id });
 
   // Column receives trailers in the active sort order selected in the header
@@ -55,6 +56,7 @@ export const KanbanColumn: React.FC<Props> = React.memo(({ id, title, trailers, 
                 trailer={trailer} 
                 onUpdateTrailer={onUpdateTrailer}
                 onShipRequest={onShipRequest}
+                onConvertRequest={onConvertRequest}
                 onCardClick={(mode) => onCardClick?.(trailer, mode)}
                 isHighlighted={trailer.id === highlightedId}
                 suggestedBay={suggestedBay}

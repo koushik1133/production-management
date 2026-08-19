@@ -1,16 +1,18 @@
 import React, { useEffect, useRef } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Clock, Hash, Calendar, Crown, StickyNote, Truck, Layers, GripVertical } from 'lucide-react';
+import { Clock, Hash, Calendar, Crown, StickyNote, Truck, Layers, GripVertical, RefreshCw } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import type { Trailer, StationId, PhaseId, UserRole } from '../types';
 import { STATIONS, PHASE_METADATA, calculateTrailerRemainingHours } from '../types';
+import { isLrgFrame } from './ConvertFrameModal';
 
 interface Props {
   trailer: Trailer;
   onUpdateTrailer?: (id: string, updates: Partial<Trailer>) => void;
   onCardClick?: (mode?: 'view' | 'edit') => void;
   onShipRequest?: (trailer: Trailer) => void;
+  onConvertRequest?: (trailer: Trailer) => void;
   hideCustomerName?: boolean;
   hideShipButton?: boolean;
   isHighlighted?: boolean;
@@ -30,6 +32,7 @@ export const TrailerCard: React.FC<Props> = React.memo(({
   onUpdateTrailer, 
   onCardClick,
   onShipRequest,
+  onConvertRequest,
   hideCustomerName,
   hideShipButton,
   isHighlighted,
@@ -374,7 +377,19 @@ export const TrailerCard: React.FC<Props> = React.memo(({
       )}
 
       {trailer.currentPhase === 'shipping' && !hideShipButton && (
-        <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--border-default)' }}>
+        <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--border-default)', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+          {isLrgFrame(trailer.model) && (
+            <button 
+              className="btn btn-primary" 
+              style={{ width: '100%', gap: '0.6rem', background: 'linear-gradient(135deg, #3b82f6 0%, #6366f1 100%)', boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)' }} 
+              onClick={(e) => {
+                e.stopPropagation();
+                if (onConvertRequest) onConvertRequest(trailer);
+              }}
+            >
+              <RefreshCw size={15} /> Convert Frame
+            </button>
+          )}
           <button 
             className="btn btn-primary" 
             style={{ width: '100%', gap: '0.75rem', background: '#10b981' }} 
