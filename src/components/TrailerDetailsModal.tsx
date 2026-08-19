@@ -1033,6 +1033,56 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
           </div>
         )}
 
+        {/* LRG - FRAME Base Conversion Banner */}
+        {isLrgFrame(trailer.model) && onConvertFrame && !trailer.isArchived && (
+          <div 
+            style={{ 
+              background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(99, 102, 241, 0.08) 100%)',
+              border: '1.5px solid rgba(99, 102, 241, 0.3)',
+              borderRadius: '16px',
+              padding: '1.25rem',
+              marginBottom: '2rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '1rem',
+              boxShadow: '0 4px 16px rgba(59, 130, 246, 0.08)'
+            }}
+          >
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+                <RefreshCw size={16} color="#3b82f6" />
+                <span style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-primary)' }}>LRG - FRAME Base Unit</span>
+              </div>
+              <p style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', margin: 0 }}>
+                Convert this base frame into a finished trailer model and route it to any production phase.
+              </p>
+            </div>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => onConvertFrame(trailer)}
+              style={{
+                background: 'linear-gradient(135deg, #3b82f6 0%, #6366f1 100%)',
+                color: '#ffffff',
+                fontWeight: 800,
+                fontSize: '0.85rem',
+                padding: '0.65rem 1.25rem',
+                borderRadius: '10px',
+                border: 'none',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)',
+                whiteSpace: 'nowrap',
+                cursor: 'pointer'
+              }}
+            >
+              <RefreshCw size={16} /> Convert Frame
+            </button>
+          </div>
+        )}
+
         <div className="section-title"><FileText size={16} /><span>Production Notes</span></div>
         <div className="notes-editor">
           <textarea 

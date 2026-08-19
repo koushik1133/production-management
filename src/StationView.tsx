@@ -21,6 +21,7 @@ import { STATIONS, PHASE_METADATA, calculateTrailerRemainingHours } from './type
 import { TrailerCard } from './components/TrailerCard';
 import { StationColumn } from './components/StationColumn';
 import { TrailerDetailsModal } from './components/TrailerDetailsModal';
+import { ConvertFrameModal } from './components/ConvertFrameModal';
 
 interface Props {
   trailers: Trailer[];
@@ -32,11 +33,15 @@ interface Props {
   userRole: UserRole;
   isPriceUnlockedGlobally?: boolean;
   onUnlockPrices?: () => boolean;
+  localModelCategories?: { name: string; models: string[] }[];
+  localSpecSheetTemplates?: Record<string, string>;
+  onConvertTrailer?: (trailerId: string, targetModel: string, targetPhase: PhaseId, targetStation?: StationId) => Promise<boolean>;
 }
 
-const StationView: React.FC<Props> = ({ trailers, setTrailers, onUpdateTrailer, bayCapacities, onUpdateCapacity, localTargetHours, userRole, isPriceUnlockedGlobally, onUnlockPrices }) => {
+const StationView: React.FC<Props> = ({ trailers, setTrailers, onUpdateTrailer, bayCapacities, onUpdateCapacity, localTargetHours, userRole, isPriceUnlockedGlobally, onUnlockPrices, localModelCategories = [], localSpecSheetTemplates = {}, onConvertTrailer }) => {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [selectedTrailerId, setSelectedTrailerId] = useState<string | null>(null);
+  const [convertingTrailer, setConvertingTrailer] = useState<Trailer | null>(null);
 
   // Stable references to prevent sync jumps
   const trailersRef = useRef(trailers);
@@ -308,6 +313,28 @@ const StationView: React.FC<Props> = ({ trailers, setTrailers, onUpdateTrailer, 
           userRole={userRole}
           isPriceUnlockedGlobally={isPriceUnlockedGlobally}
           onUnlockPrices={onUnlockPrices}
+          onConvertFrame={(t) => {
+            setSelectedTrailerId(null);
+            setConvertingTrailer(t);
+          }}
+        />
+      )}
+
+      {convertingTrailer && (
+        <ConvertFrameModal
+          isOpen={true}
+          onClose={() => setConvertingTrailer(null)}
+          trailer={convertingTrailer}
+          localModelCategories={localModelCategories}
+          localSpecSheetTemplates={localSpecSheetTemplates}
+          onConvert={async (id, model, phase, station) => {
+            if (onConvertTrailer) {
+              const res = await onConvertTrailer(id, model, phase, station);
+              if (res) setConvertingTrailer(null);
+              return res;
+            }
+            return false;
+          }}
         />
       )}
 
