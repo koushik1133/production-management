@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import type { RemoteCommandPayload } from '../types/findMy';
+import { triggerPushAlarm } from './pushManager';
 
 export type TabletSlot = 'T1' | 'T2' | 'T3' | 'manager';
 
@@ -93,6 +94,27 @@ if (commandBroadcastChannel) {
   };
 }
 
+// Service Worker push notification message listener (handles wake-up from background push)
+if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('message', (event) => {
+    if (event.data?.type === 'FIND_MY_PUSH_COMMAND') {
+      const targetSlot = event.data.target_slot as TabletSlot;
+      const command = event.data.command as 'PLAY_SOUND' | 'STOP_SOUND';
+      const spec = TABLET_SPECS[targetSlot] || TABLET_SPECS.T1;
+      const cmd: RemoteCommandPayload = {
+        id: String(Date.now()),
+        target_slot: targetSlot,
+        target_user_id: spec.canonicalId,
+        target_name: spec.officialName,
+        target_role: targetSlot === 'manager' ? 'manager' : 'worker',
+        command,
+        timestamp: Date.now(),
+      };
+      commandListeners.forEach((listener) => listener(cmd));
+    }
+  });
+}
+
 // =========================================================================
 // PERMANENT SINGLE-CHANNEL SUPABASE REALTIME BROADCAST
 // =========================================================================
@@ -125,6 +147,7 @@ if (typeof window !== 'undefined') {
 
 /**
  * Broadcasts a remote command ('PLAY_SOUND' or 'STOP_SOUND') to a specific target tablet slot.
+ * Triggers both Realtime WebSocket (instant) and Web Push (wakes up screen-off tablets).
  * 
  * @param targetSlot - Must be an explicit 'T1' | 'T2' | 'T3' | 'manager' slot string.
  * @param command    - The command to send.
@@ -156,7 +179,7 @@ export async function sendRemoteCommand(
     // ignore
   }
 
-  // 2. Supabase Realtime WebSocket Broadcast
+  // 2. Supabase Realtime WebSocket Broadcast (instant delivery if screen/app is awake)
   try {
     const ch = getOrCreatePermanentChannel();
     await ch.send({
@@ -167,6 +190,11 @@ export async function sendRemoteCommand(
   } catch (err) {
     console.warn('Realtime alarm broadcast error:', err);
   }
+
+  // 3. Web Push Notification via Edge Function (wakes device even when screen is locked/off)
+  triggerPushAlarm(targetSlot, command, payload).catch((err) => {
+    console.warn('Web push alarm dispatch error:', err);
+  });
 }
 
 /**

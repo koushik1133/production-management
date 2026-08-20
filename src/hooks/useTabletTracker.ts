@@ -11,6 +11,11 @@ import {
   enableBackgroundAudioKeepAlive,
   type TabletSlot,
 } from '../lib/findMy';
+import {
+  registerTabletForPushNotifications,
+  getNotificationPermissionState,
+  isPushNotificationSupported,
+} from '../lib/pushManager';
 
 interface UseTabletTrackerProps {
   currentUserId: string;
@@ -20,6 +25,9 @@ interface UseTabletTrackerProps {
 
 export function useTabletTracker({ currentUserId, currentRole, userName }: UseTabletTrackerProps) {
   const [isRinging, setIsRinging] = useState<boolean>(false);
+  const [pushPermission, setPushPermission] = useState<NotificationPermission | 'unsupported'>(
+    getNotificationPermissionState()
+  );
   
   const mySlot: TabletSlot = resolveTabletSlot(currentUserId, currentRole, userName);
   const mySpec = TABLET_SPECS[mySlot];
@@ -34,8 +42,20 @@ export function useTabletTracker({ currentUserId, currentRole, userName }: UseTa
     }
   }, [mySlot, isManager]);
 
+  const enablePushNotifications = useCallback(async () => {
+    if (!isPushNotificationSupported()) return false;
+    const res = await registerTabletForPushNotifications(mySlot, currentUserId);
+    setPushPermission(res.permission);
+    return res.success;
+  }, [mySlot, currentUserId]);
+
   useEffect(() => {
     if (!currentUserId) return;
+
+    // Auto-register push subscription if permission was already granted in the past
+    if (getNotificationPermissionState() === 'granted') {
+      registerTabletForPushNotifications(mySlot, currentUserId).catch(() => {});
+    }
 
     // Maintain screen wake lock & background audio keep-alive so tablet display and audio thread stay alive 24/7
     requestScreenWakeLock();
@@ -81,7 +101,11 @@ export function useTabletTracker({ currentUserId, currentRole, userName }: UseTa
   return {
     isRinging,
     ringingDeviceName: mySpec.officialName,
+    mySlot,
+    pushPermission,
+    enablePushNotifications,
     stopAlarm,
   };
 }
+
 

@@ -6,6 +6,8 @@ import {
   Home,
   AlertTriangle,
   CheckCircle2,
+  Bell,
+  Smartphone,
 } from 'lucide-react';
 import {
   sendRemoteCommand,
@@ -13,6 +15,12 @@ import {
   subscribeToRemoteCommands,
 } from '../lib/findMy';
 import type { TabletSlot } from '../lib/findMy';
+import { supabase } from '../lib/supabase';
+import {
+  registerTabletForPushNotifications,
+  getNotificationPermissionState,
+  isPushNotificationSupported,
+} from '../lib/pushManager';
 
 interface FindMyTabletsViewProps {
   currentRole: string;
@@ -27,8 +35,46 @@ export const FindMyTabletsView: React.FC<FindMyTabletsViewProps> = ({
 }) => {
   const [ringingSlots, setRingingSlots] = useState<Set<TabletSlot>>(new Set());
   const [actionNotice, setActionNotice] = useState<string | null>(null);
+  const [pushEnabledSlots, setPushEnabledSlots] = useState<Set<string>>(new Set());
+  const [myPushPermission, setMyPushPermission] = useState<NotificationPermission | 'unsupported'>(
+    getNotificationPermissionState()
+  );
 
   const isManager = currentRole === 'manager';
+
+  // Load push subscription status for all tablets from Supabase
+  const loadPushSubscriptions = async () => {
+    try {
+      const { data } = await supabase
+        .from('tablet_push_subscriptions')
+        .select('tablet_slot');
+      if (data) {
+        setPushEnabledSlots(new Set(data.map((r: any) => r.tablet_slot)));
+      }
+    } catch {
+      // Table might not exist yet or offline
+    }
+  };
+
+  useEffect(() => {
+    loadPushSubscriptions();
+
+    // Real-time listener for subscription updates
+    const channel = supabase
+      .channel('push_subs_changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'tablet_push_subscriptions' },
+        () => {
+          loadPushSubscriptions();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   // Listen to remote commands to sync ringing state across all managers in real-time.
   // Uses isManager=true so it receives all commands (for UI sync only — no audio plays here).
@@ -84,6 +130,16 @@ export const FindMyTabletsView: React.FC<FindMyTabletsViewProps> = ({
     setTimeout(() => setActionNotice(null), 3000);
   };
 
+  const handleEnableMyPush = async () => {
+    if (!isPushNotificationSupported()) return;
+    const res = await registerTabletForPushNotifications('manager', currentUserId);
+    setMyPushPermission(res.permission);
+    if (res.success) {
+      setActionNotice('✅ Screen-off alarm notifications enabled for this device!');
+      loadPushSubscriptions();
+      setTimeout(() => setActionNotice(null), 3500);
+    }
+  };
 
   if (!isManager) {
     return (
@@ -163,12 +219,34 @@ export const FindMyTabletsView: React.FC<FindMyTabletsViewProps> = ({
               </h1>
             </div>
             <p style={{ margin: '0.2rem 0 0', fontSize: '0.86rem', color: '#a1a1aa' }}>
-              Real-time Sound Alarm — Ring and silence shop floor tablets with 100% pinpoint isolation
+              Real-time Sound Alarm with Screen-Off Web Push Wakes — Pinpoint shop floor tablets 24/7
             </p>
           </div>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+          {myPushPermission !== 'granted' && isPushNotificationSupported() && (
+            <button
+              onClick={handleEnableMyPush}
+              className="btn btn-secondary"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+                fontSize: '0.82rem',
+                padding: '0.55rem 0.95rem',
+                borderRadius: '12px',
+                background: 'rgba(59, 130, 246, 0.2)',
+                color: '#60a5fa',
+                border: '1px solid rgba(59, 130, 246, 0.4)',
+                fontWeight: 800,
+              }}
+            >
+              <Bell size={15} />
+              <span>Enable Push on this Device</span>
+            </button>
+          )}
+
           {ringingSlots.size > 0 && (
             <button
               onClick={handleStopAll}
@@ -190,6 +268,7 @@ export const FindMyTabletsView: React.FC<FindMyTabletsViewProps> = ({
               <span>Stop All Sounds</span>
             </button>
           )}
+
           <button
             onClick={onBackToHome}
             className="btn btn-primary"
@@ -242,6 +321,7 @@ export const FindMyTabletsView: React.FC<FindMyTabletsViewProps> = ({
         {tabletSlots.map((slot) => {
           const spec = TABLET_SPECS[slot];
           const isRinging = ringingSlots.has(slot);
+          const hasPushEnabled = pushEnabledSlots.has(slot);
 
           return (
             <div
@@ -302,31 +382,58 @@ export const FindMyTabletsView: React.FC<FindMyTabletsViewProps> = ({
                 </div>
 
                 {/* Status Indicator */}
-                <div
-                  style={{
-                    background: isRinging ? 'rgba(239, 68, 68, 0.2)' : 'rgba(59, 130, 246, 0.15)',
-                    border: isRinging ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid rgba(59, 130, 246, 0.3)',
-                    color: isRinging ? '#ef4444' : '#60a5fa',
-                    borderRadius: '999px',
-                    padding: '4px 10px',
-                    fontSize: '0.76rem',
-                    fontWeight: 800,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '5px',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  <span
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                  <div
                     style={{
-                      width: '6px',
-                      height: '6px',
-                      borderRadius: '50%',
-                      background: isRinging ? '#ef4444' : '#3b82f6',
+                      background: isRinging ? 'rgba(239, 68, 68, 0.2)' : 'rgba(59, 130, 246, 0.15)',
+                      border: isRinging ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid rgba(59, 130, 246, 0.3)',
+                      color: isRinging ? '#ef4444' : '#60a5fa',
+                      borderRadius: '999px',
+                      padding: '4px 10px',
+                      fontSize: '0.76rem',
+                      fontWeight: 800,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      whiteSpace: 'nowrap',
                     }}
-                    className={isRinging ? 'animate-ping' : ''}
-                  />
-                  <span>{isRinging ? 'Ringing...' : 'Ready to Ring'}</span>
+                  >
+                    <span
+                      style={{
+                        width: '6px',
+                        height: '6px',
+                        borderRadius: '50%',
+                        background: isRinging ? '#ef4444' : '#3b82f6',
+                      }}
+                      className={isRinging ? 'animate-ping' : ''}
+                    />
+                    <span>{isRinging ? 'Ringing...' : 'Ready'}</span>
+                  </div>
+
+                  {hasPushEnabled ? (
+                    <span
+                      style={{
+                        fontSize: '0.72rem',
+                        color: '#10b981',
+                        fontWeight: 700,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '3px',
+                      }}
+                    >
+                      <Smartphone size={11} /> Screen-Off Push Active
+                    </span>
+                  ) : (
+                    <span
+                      style={{
+                        fontSize: '0.72rem',
+                        color: '#71717a',
+                        fontWeight: 600,
+                      }}
+                    >
+                      Realtime WebSocket
+                    </span>
+                  )}
                 </div>
               </div>
 
