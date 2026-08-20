@@ -39,6 +39,9 @@ import { MessagesView } from './components/Messaging/MessagesView';
 import { useMessages, type UseMessagesReturn } from './hooks/useMessages';
 import { NotificationToast } from './components/Messaging/NotificationToast';
 import { ConvertFrameModal } from './components/ConvertFrameModal';
+import { FindMyTabletsView } from './components/FindMyTabletsView';
+import { useTabletTracker } from './hooks/useTabletTracker';
+import { FindMyRingingModal } from './components/FindMyRingingModal';
 
 const customCollisionDetection: CollisionDetection = (args) => {
   const rectCollisions = rectIntersection(args);
@@ -60,6 +63,7 @@ import {
   ArrowUpDown,
   Plus, 
   MapPin,
+  Compass,
   Tv,
   Clock,
   Archive,
@@ -747,6 +751,11 @@ function Dashboard({
             <button className="btn btn-secondary" onClick={() => navigate('/stations')} style={{ height: '30px', padding: '0 0.6rem', fontSize: '0.8rem', borderRadius: '6px' }}>
               <MapPin size={12} /> <span className="btn-text">Bays</span>
             </button>
+            {userRole === 'manager' && (
+              <button className="btn btn-secondary" onClick={() => navigate('/find-my')} style={{ height: '30px', padding: '0 0.6rem', fontSize: '0.8rem', borderRadius: '6px' }}>
+                <Compass size={12} /> <span className="btn-text">Find My</span>
+              </button>
+            )}
           </div>
 
           <div className="util-group hide-on-mobile" style={{ display: 'flex', gap: '0.2rem', alignItems: 'center' }}>
@@ -1889,7 +1898,15 @@ function AuthGate({ children }: { children: (role: UserRole, user: User | null) 
 
 function AppContent({ userRole, currentUser }: { userRole: UserRole; currentUser: User | null }) {
   const location = useLocation();
+  const navigate = useNavigate();
   const messaging = useMessages(currentUser, location.pathname === '/messages');
+
+  const currentUserId = currentUser?.id || 'anonymous_user';
+  const tabletTracker = useTabletTracker({
+    currentUserId,
+    currentRole: userRole,
+    userName: currentUser?.email ? currentUser.email.split('@')[0] : `${userRole.toUpperCase()} Tablet`,
+  });
 
   const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth <= 768 : false);
   useEffect(() => {
@@ -3219,6 +3236,11 @@ function getSuggestedBay(): StationId {
         toast={messaging.notifications.activeToast}
         onDismiss={messaging.notifications.dismissToast}
       />
+      <FindMyRingingModal
+        isOpen={tabletTracker.isRinging}
+        deviceName={tabletTracker.ringingDeviceName}
+        onStopSound={tabletTracker.stopAlarm}
+      />
       <div className="floating-settings-container">
             <button 
               className={`settings-fab ${isSettingsOpen ? 'active' : ''}`}
@@ -3328,6 +3350,7 @@ function getSuggestedBay(): StationId {
             <Route path="/schedule" element={<ScheduleView trailers={trailers} userRole={userRole} />} />
             <Route path="/messages" element={<MessagesView messaging={messaging} />} />
             <Route path="/catalog" element={userRole === 'manager' ? <CatalogView categories={localModelCategories} hours={localTargetHours} specs={localModelSpecs} templates={localSpecSheetTemplates} onAddModel={handleAddModel} onEditModel={handleEditModel} onDeleteModel={handleDeleteModel} dealers={dealers} onAddDealer={handleAddDealer} onEditDealer={handleEditDealer} onDeleteDealer={handleDeleteDealer} userRole={userRole} trailers={trailers} /> : <Navigate to="/" replace />} />
+            <Route path="/find-my" element={userRole === 'manager' ? <FindMyTabletsView currentRole={userRole} currentUserId={currentUser?.id || ''} onBackToHome={() => navigate('/')} /> : <Navigate to="/" replace />} />
           </Routes>
 
           {/* Quick Model Spec Editor - Only for Managers */}
