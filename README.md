@@ -1,74 +1,97 @@
-# LT - Production & Sales Management System
- 
-A high-performance, real-time web application built for **** to manage manufacturing pipelines, bay allocations, backlog registrations, dealer networks, quote generation, and shipping archives.
+# 🏭 LT - Production & Labor Management System
+
+[![Live Demo](https://img.shields.io/badge/Live_Demo-Online-brightgreen?style=for-the-badge&logo=vercel)](https://production-management-murex.vercel.app)
+[![TypeScript](https://img.shields.io/badge/TypeScript-91.8%25-blue?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org/)
+[![React 19](https://img.shields.io/badge/React_19-Vite-61dafb?style=for-the-badge&logo=react)](https://react.dev/)
+[![Supabase](https://img.shields.io/badge/Supabase-Realtime_PostgreSQL-3ecf8e?style=for-the-badge&logo=supabase)](https://supabase.com/)
+
+> An enterprise Manufacturing Execution System (MES) and labor pipeline manager designed for heavy-equipment assembly floors. Features real-time multi-user drag-and-drop Kanban tracking, shop floor station matrix routing, automated Excel spec sheet injection, Web Push tablet alarms, and live TV broadcast displays.
+
+---
+
+> [!IMPORTANT]
+> ### ⚠️ Public Demo & Sandbox Notice
+> * **Demonstration Environment**: This public repository and its live deployment represent a **portfolio demo / sandbox preview**.
+> * **Mock / Synthetic Data**: All serial numbers, dealer names, pricing figures, and customer entries shown in this sandbox environment are **fictitious sample data** used exclusively for demonstration.
+> * **Feature Limitations & Security Safeguards**:
+>   * Corporate single sign-on (Azure AD / Entra ID enterprise tenant) is replaced with standard sandbox authentication.
+>   * Live production database clusters are disconnected; the demo runs on an isolated staging Supabase sandbox.
+>   * Administrative write operations (destructive catalog deletions, master PIN resets, and company-wide broadcast commands) are sandboxed or restricted under Row-Level Security (RLS) policies.
+>   * Shop-floor physical tablet alarms operate in simulated preview mode.
+
+---
+
+## 🔗 Live Sandbox Test Link
+
+👉 **Explore the Live Demo:** [**production-management-murex.vercel.app**](https://production-management-murex.vercel.app)
 
 ---
 
 ## 🛠️ Tech Stack
 
-### **Frontend & Framework**
-* **Framework**: [React 19](https://react.dev/) + [TypeScript](https://www.typescriptlang.org/)
+### **Frontend & Architecture**
+* **Framework**: [React 19](https://react.dev/) with [TypeScript](https://www.typescriptlang.org/)
 * **Build Tool**: [Vite](https://vitejs.dev/)
 * **Routing**: [React Router v6](https://reactrouter.com/) (`react-router-dom`)
-* **Icons**: [Lucide React](https://lucide.dev/) (`lucide-react`)
+* **Icons**: [Lucide React](https://lucide.dev/)
 * **Date Utilities**: [date-fns](https://date-fns.org/)
 
-### **Styling & Aesthetics**
-* **CSS Architecture**: Modern Vanilla CSS with CSS Custom Properties (Variables)
-* **Design System**: Sleek Dark Mode with Glassmorphism, dynamic gradients, responsive grids, micro-interactions, and high-visibility status indicators.
+### **Styling & UI Experience**
+* **Design System**: High-contrast Dark Mode with Glassmorphism, dynamic gradients, responsive grid reflows, micro-animations, and shop-floor high-visibility badges.
+* **Layout Engine**: Pure modern CSS custom properties with responsive mobile & tablet breakpoints.
 
 ### **Backend, Database & Real-Time Sync**
-* **Database**: [Supabase PostgreSQL](https://supabase.com/)
-* **Real-time Engine**: Supabase Realtime Channels (WebSockets for multi-user live board syncing)
-* **File Storage**: Supabase Storage Buckets (`trailers-files`) for document uploads (Spec Sheets, Inspection Sheets, Trailer Photos)
+* **Database**: [Supabase PostgreSQL](https://supabase.com/) with Row-Level Security (RLS)
+* **Realtime Engine**: Supabase Realtime Channels (WebSockets for sub-50ms multi-screen sync across factory floor monitors)
+* **Storage**: Supabase Storage Buckets for document handling (Excel Spec Sheets, Inspection Checklists, Unit Photos)
 
-### **Drag-and-Drop (DND)**
-* **DND Engine**: [@dnd-kit/core](https://dndkit.com/) & [@dnd-kit/sortable]
-* **Collision Strategy**: Custom hybrid collision detection (`rectIntersection` + `pointerWithin` + `closestCorners`) with zero-loop index guards for responsive touch and desktop card reordering.
+### **Drag-and-Drop (DnD) Engine**
+* **Library**: [@dnd-kit/core](https://dndkit.com/) & [@dnd-kit/sortable]
+* **Collision Detection**: Custom hybrid collision strategy (`rectIntersection` + `pointerWithin` + `closestCorners`) with zero-loop index guards for glitch-free touch and desktop card reordering.
 
-### **Excel Processing & Document Generation**
-* **Excel Engine**: [ExcelJS](https://github.com/exceljs/exceljs) + [JSZip](https://stuk.github.io/jszip/)
-* **Dynamic Injection**: Automated parsing of `.xlsx` model templates with dynamic cell label replacement (Customer Name, Serial Number, Salesperson, Specs) for instant Quote and Spec Sheet generation.
+### **Document Automation & Excel Engine**
+* **Spreadsheet Engine**: [ExcelJS](https://github.com/exceljs/exceljs) + [JSZip](https://stuk.github.io/jszip/)
+* **Dynamic Injection**: Client-side parsing and dynamic cell substitution on raw `.xlsx` templates for instant Quote and Spec Sheet compilation.
 
 ---
 
-## 🗺️ Application Navigation & Views
+## 🗺️ Application Views & Modules
 
-| Route | View Name | Description |
+| Route | Module | Purpose |
 | :--- | :--- | :--- |
-| **`/`** | **Dashboard (Kanban Pipeline)** | Main interactive production board divided into manufacturing phases (`PREFAB`, `BUILD`, `PAINT`, `OUTSOURCE`, `TRIM`). Features real-time drag-and-drop ordering, remaining workload hours, priority flags, and trailer details. |
-| **`/stations`** | **Bays (Station Allocations)** | Production bay matrix view mapping trailers to physical factory bays (`B1`, `B2`, `B3`, `B4`). Includes customizable bay capacities and live floor tracking. |
-| **`/backlog`** | **Backlog & Registration** | Queue management and unit registration. Allows registering new trailer orders, auto-assigning serial numbers, selecting dealer locations, and generating custom Excel quotes. |
-| **`/schedule`** | **Timeline & Scheduling** | Time-horizon scheduling view displaying estimated completion dates, promised shipping deadlines, and runway capacity analysis across weeks. |
-| **`/catalog`** | **Model & Dealer Catalog** | Centralized management hub for trailer models, target production hours per phase, spec configurations, Excel templates, and dealer branch locations *(Manager Access Only)*. |
-| **`/archive`** | **Shipping Archive** | Complete historical record of all shipped trailers with search filters, financial summaries, and automated ZIP exports for spec sheets and photos. |
-| **`/tv`** | **TV Floor Display Mode** | High-contrast, auto-scrolling full-screen monitor view optimized for workshop floor displays and Google Cast TVs (`/tv/station1`, `/tv/station2`). |
+| **`/`** | **Dashboard (Kanban Pipeline)** | Interactive production pipeline divided into phases (`PREFAB`, `BUILD`, `PAINT`, `OUTSOURCE`, `TRIM`). Features real-time drag-and-drop ordering, remaining labor hours calculation, priority markers, and trailer inspection modals. |
+| **`/stations`** | **Bays (Station Allocations)** | Physical factory bay matrix (`Bay 1`, `Bay 2`, `Bay 3`, `Bay 4`) with live capacity monitoring, bottleneck indicators, and station reassignment. |
+| **`/backlog`** | **Backlog & Registration** | Order queue and unit registration with auto-incremented serial allocation, dealer selection, and instant Excel quote generation. |
+| **`/schedule`** | **Timeline & Scheduling** | Workload scheduling horizon with target completion forecasts, promised ship dates, and runway capacity analysis. |
+| **`/catalog`** | **Model & Dealer Catalog** | Central catalog for trailer models, target labor hours per phase, spec options, and dealer branch locations *(Manager Access)*. |
+| **`/archive`** | **Shipping Archive** | Permanent searchable log of all completed and shipped units with ZIP export for spec sheets and inspection photos. |
+| **`/find-my`** | **Find My Tablets** | 24/7 tablet locator system utilizing Web Push notifications, screen wake locks, and dual-engine sonar alarms. |
+| **`/messages`** | **Internal Floor Chat** | Real-time messaging suite with audio voice notes and attachment sharing for factory floor communications. |
+| **`/tv`** | **TV Floor Display Mode** | High-contrast, auto-scrolling monitor view optimized for wall-mounted TVs and Google Cast displays. |
 
 ---
 
-## ⚡ Key Features
+## ⚡ Key Highlights
 
-1. **Real-time Multi-User Collaboration**: Live updates across all connected browsers and floor monitors using Supabase Realtime WebSockets.
-2. **Manager Price Lock & PIN Protection**: Financial values (sale prices, cost breakdowns, dealer pricing) are protected behind global manager PIN authorization (`isPriceUnlockedGlobally`).
-3. **Role-Based View Controls**: Tailored user experiences for Managers and Factory Workers.
-4. **Automated Excel Quote & Spec Sheet Generation**: Fills spreadsheet templates on-the-fly directly in the browser and triggers downloads.
-5. **Mandatory Spec Sheet & Shipping Verification**: Safeguards in the shipping workflow to ensure compliance before completing shipments.
-6. **Ultra-Fast Payload Performance**: Optimized database queries utilizing Supabase Storage for documents to ensure sub-second page loads.
+1. **Sub-50ms Real-Time Collaboration**: Updates made by one station instantly reflect on all other tablets, office managers, and floor TVs without manual page refreshing.
+2. **Dynamic Spreadsheet Compilation**: Fills complex proprietary Excel templates entirely in the browser and triggers instant downloads.
+3. **Manager PIN Protection**: Financial values (sales margins, base costs, dealer invoices) are protected behind global manager PIN authorization.
+4. **Resilient Offline & Screen-Off Alarms**: Dual-engine audio synthesizer + Web Push notification service worker triggers tablets even when locked.
 
 ---
 
-## 🚀 Getting Started
+## 🚀 Local Development Setup
 
 ### **Prerequisites**
-* Node.js v18+ 
-* npm / pnpm / yarn
+* [Node.js](https://nodejs.org/) (v18 or higher)
+* `npm` or `pnpm`
 
 ### **Installation**
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/****
-   cd *****
+   git clone https://github.com/koushik1133/production-management.git
+   cd production-management
    ```
 
 2. **Install dependencies:**
@@ -77,24 +100,25 @@ A high-performance, real-time web application built for **** to manage manufactu
    ```
 
 3. **Configure Environment Variables:**
-   Create a `.env.local` file in the root directory:
+   Create a `.env.local` file in the project root:
    ```env
-   VITE_SUPABASE_URL=https://your-supabase-project.supabase.co
-   VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
+   VITE_SUPABASE_URL=https://your-project.supabase.co
+   VITE_SUPABASE_ANON_KEY=your-anon-key
    ```
 
-4. **Run Development Server:**
+4. **Start the local development server:**
    ```bash
    npm run dev
    ```
 
-5. **Build for Production:**
+5. **Build for production:**
    ```bash
    npm run build
    ```
 
 ---
 
-## 📄 License
+## 📄 License & Attribution
 
-Internal Proprietary Software for **Koushik1133**. All Rights Reserved.
+Designed and engineered by **[koushik1133](https://github.com/koushik1133)**.  
+*This demo build is published for portfolio presentation and demonstration purposes.*
