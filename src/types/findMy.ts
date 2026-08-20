@@ -12,9 +12,11 @@ export interface TabletLocation {
 
 export interface RemoteCommandPayload {
   id: string;
+  target_slot: 'T1' | 'T2' | 'T3' | 'manager'; // Explicit slot — single source of truth for targeting
   target_user_id?: string;
   target_role?: string;
-  target_name?: string; // e.g. 'T1', 'T2', 'T3', 'Manager'
+  target_name?: string;
   command: 'PLAY_SOUND' | 'STOP_SOUND';
   timestamp: number;
 }
+

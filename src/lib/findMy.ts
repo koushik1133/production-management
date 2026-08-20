@@ -124,18 +124,20 @@ if (typeof window !== 'undefined') {
 }
 
 /**
- * Broadcasts a remote command ('PLAY_SOUND' or 'STOP_SOUND') to the target tablet slot.
+ * Broadcasts a remote command ('PLAY_SOUND' or 'STOP_SOUND') to a specific target tablet slot.
+ * 
+ * @param targetSlot - Must be an explicit 'T1' | 'T2' | 'T3' | 'manager' slot string.
+ * @param command    - The command to send.
  */
 export async function sendRemoteCommand(
-  target: string,
-  command: 'PLAY_SOUND' | 'STOP_SOUND',
-  targetName?: string
+  targetSlot: TabletSlot,
+  command: 'PLAY_SOUND' | 'STOP_SOUND'
 ): Promise<void> {
-  const targetSlot = resolveTabletSlot(target, '', targetName);
   const spec = TABLET_SPECS[targetSlot];
 
   const payload: RemoteCommandPayload = {
     id: String(Date.now()),
+    target_slot: targetSlot,          // ← Explicit slot — no re-resolution needed
     target_user_id: spec.canonicalId,
     target_name: spec.officialName,
     target_role: targetSlot === 'manager' ? 'manager' : 'worker',
@@ -168,51 +170,43 @@ export async function sendRemoteCommand(
 }
 
 /**
- * Listens for remote sound commands directed to the current tablet device slot.
+ * Listens for remote sound commands directed STRICTLY to this specific tablet slot.
+ * Workers only receive commands addressed to their exact slot.
+ * Managers receive ALL commands (for UI sync only — they do NOT auto-play alarm sounds).
  */
 export function subscribeToRemoteCommands(
-  currentUserId: string,
-  currentRole: string,
-  userName: string,
+  mySlot: TabletSlot,
+  isManager: boolean,
   callback: (cmd: RemoteCommandPayload) => void
 ) {
-  const mySlot = resolveTabletSlot(currentUserId, currentRole, userName);
-
-  const isTargetMatch = (cmd: RemoteCommandPayload): boolean => {
-    if (currentRole === 'manager') return true;
-    const targetSlot = resolveTabletSlot(cmd.target_user_id, cmd.target_role, cmd.target_name);
-    return targetSlot === mySlot;
-  };
-
   const localHandler = (cmd: RemoteCommandPayload) => {
-    if (isTargetMatch(cmd)) {
+    // STRICT slot matching — only process commands addressed exactly to this device
+    if (cmd.target_slot === mySlot || isManager) {
       callback(cmd);
     }
   };
   commandListeners.add(localHandler);
 
-  // Check local storage for recent command within last 45s
-  const checkPendingCommands = () => {
+  // Check local storage for recent PLAY_SOUND command within last 45s (for page reload recovery)
+  if (!isManager) {
     try {
       const raw = localStorage.getItem(`tablet_active_cmd_${mySlot}`);
       if (raw) {
         const cmd: RemoteCommandPayload = JSON.parse(raw);
-        if (cmd.command === 'PLAY_SOUND' && Date.now() - cmd.timestamp < 45000) {
+        if (cmd.command === 'PLAY_SOUND' && Date.now() - cmd.timestamp < 45000 && cmd.target_slot === mySlot) {
           callback(cmd);
         }
       }
     } catch {
       // ignore
     }
-  };
-
-  checkPendingCommands();
+  }
 
   const handleStorageChange = (e: StorageEvent) => {
     if (e.key === `tablet_active_cmd_${mySlot}` && e.newValue) {
       try {
         const cmd: RemoteCommandPayload = JSON.parse(e.newValue);
-        if (isTargetMatch(cmd)) {
+        if (cmd.target_slot === mySlot || isManager) {
           callback(cmd);
         }
       } catch {
@@ -222,7 +216,6 @@ export function subscribeToRemoteCommands(
   };
 
   const handleResume = () => {
-    checkPendingCommands();
     enableBackgroundAudioKeepAlive();
     requestScreenWakeLock();
   };
@@ -249,6 +242,7 @@ export function subscribeToRemoteCommands(
     }
   };
 }
+
 
 // =========================================================================
 // SCREEN WAKE LOCK (PREVENTS TABLET SLEEP 24/7)

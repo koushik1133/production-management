@@ -30,34 +30,23 @@ export const FindMyTabletsView: React.FC<FindMyTabletsViewProps> = ({
 
   const isManager = currentRole === 'manager';
 
-  // Listen to remote commands to sync ringing state across all managers in real-time
+  // Listen to remote commands to sync ringing state across all managers in real-time.
+  // Uses isManager=true so it receives all commands (for UI sync only — no audio plays here).
   useEffect(() => {
     const unsubscribe = subscribeToRemoteCommands(
-      currentUserId,
-      currentRole,
       'manager',
+      true, // isManager — receive all commands for UI sync, no alarm sound
       (cmd) => {
-        const slot = cmd.target_name?.toLowerCase().includes('t1')
-          ? 'T1'
-          : cmd.target_name?.toLowerCase().includes('t2')
-          ? 'T2'
-          : cmd.target_name?.toLowerCase().includes('t3')
-          ? 'T3'
-          : cmd.target_name?.toLowerCase().includes('manager')
-          ? 'manager'
-          : null;
-
-        if (slot) {
-          setRingingSlots((prev) => {
-            const next = new Set(prev);
-            if (cmd.command === 'PLAY_SOUND') {
-              next.add(slot);
-            } else if (cmd.command === 'STOP_SOUND') {
-              next.delete(slot);
-            }
-            return next;
-          });
-        }
+        const slot = cmd.target_slot; // Use explicit slot — no guessing from name
+        setRingingSlots((prev) => {
+          const next = new Set(prev);
+          if (cmd.command === 'PLAY_SOUND') {
+            next.add(slot);
+          } else if (cmd.command === 'STOP_SOUND') {
+            next.delete(slot);
+          }
+          return next;
+        });
       }
     );
 
@@ -68,7 +57,7 @@ export const FindMyTabletsView: React.FC<FindMyTabletsViewProps> = ({
     const spec = TABLET_SPECS[slot];
     setRingingSlots((prev) => new Set(prev).add(slot));
     setActionNotice(`🔔 Playing alarm sound on ${spec.officialName}...`);
-    await sendRemoteCommand(slot, 'PLAY_SOUND', spec.officialName);
+    await sendRemoteCommand(slot, 'PLAY_SOUND');
   };
 
   const handleStopSound = async (slot: TabletSlot) => {
@@ -79,7 +68,7 @@ export const FindMyTabletsView: React.FC<FindMyTabletsViewProps> = ({
       return next;
     });
     setActionNotice(`🔇 Alarm stopped on ${spec.officialName}`);
-    await sendRemoteCommand(slot, 'STOP_SOUND', spec.officialName);
+    await sendRemoteCommand(slot, 'STOP_SOUND');
     setTimeout(() => setActionNotice(null), 3000);
   };
 
@@ -87,13 +76,14 @@ export const FindMyTabletsView: React.FC<FindMyTabletsViewProps> = ({
     setRingingSlots(new Set());
     setActionNotice('🔇 Stopped alarms on all tablets');
     await Promise.all([
-      sendRemoteCommand('T1', 'STOP_SOUND', 'T1'),
-      sendRemoteCommand('T2', 'STOP_SOUND', 'T2'),
-      sendRemoteCommand('T3', 'STOP_SOUND', 'T3'),
-      sendRemoteCommand('manager', 'STOP_SOUND', 'manager'),
+      sendRemoteCommand('T1', 'STOP_SOUND'),
+      sendRemoteCommand('T2', 'STOP_SOUND'),
+      sendRemoteCommand('T3', 'STOP_SOUND'),
+      sendRemoteCommand('manager', 'STOP_SOUND'),
     ]);
     setTimeout(() => setActionNotice(null), 3000);
   };
+
 
   if (!isManager) {
     return (

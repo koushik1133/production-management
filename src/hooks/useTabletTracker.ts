@@ -9,6 +9,7 @@ import {
   requestScreenWakeLock,
   initAudioContext,
   enableBackgroundAudioKeepAlive,
+  type TabletSlot,
 } from '../lib/findMy';
 
 interface UseTabletTrackerProps {
@@ -20,14 +21,18 @@ interface UseTabletTrackerProps {
 export function useTabletTracker({ currentUserId, currentRole, userName }: UseTabletTrackerProps) {
   const [isRinging, setIsRinging] = useState<boolean>(false);
   
-  const mySlot = resolveTabletSlot(currentUserId, currentRole, userName);
+  const mySlot: TabletSlot = resolveTabletSlot(currentUserId, currentRole, userName);
   const mySpec = TABLET_SPECS[mySlot];
+  const isManager = currentRole === 'manager';
 
   const stopAlarm = useCallback(() => {
     setIsRinging(false);
     stopFindMyAlarmSound();
-    sendRemoteCommand(mySpec.canonicalId, 'STOP_SOUND', mySpec.officialName);
-  }, [mySpec]);
+    // Only send STOP_SOUND back if we are a worker tablet (manager stops via FindMyTabletsView)
+    if (!isManager) {
+      sendRemoteCommand(mySlot, 'STOP_SOUND');
+    }
+  }, [mySlot, isManager]);
 
   useEffect(() => {
     if (!currentUserId) return;
@@ -49,8 +54,12 @@ export function useTabletTracker({ currentUserId, currentRole, userName }: UseTa
     window.addEventListener('focus', handleWakeState);
     window.addEventListener('pageshow', handleWakeState);
 
-    // Subscribe to remote manager commands strictly isolated to THIS tablet slot
-    const unsubscribeCommands = subscribeToRemoteCommands(currentUserId, currentRole, userName || '', (cmd) => {
+    // Subscribe to remote commands strictly isolated to THIS tablet slot.
+    // Managers get all commands for UI sync ONLY — they NEVER auto-play the alarm on their own device.
+    const unsubscribeCommands = subscribeToRemoteCommands(mySlot, isManager, (cmd) => {
+      // Managers use FindMyTabletsView for UI — this hook must NOT ring the manager's device
+      if (isManager) return;
+
       if (cmd.command === 'PLAY_SOUND') {
         setIsRinging(true);
         playFindMyAlarmSound(30);
@@ -67,7 +76,7 @@ export function useTabletTracker({ currentUserId, currentRole, userName }: UseTa
       unsubscribeCommands();
       stopFindMyAlarmSound();
     };
-  }, [currentUserId, currentRole, userName, mySlot, mySpec]);
+  }, [currentUserId, currentRole, userName, mySlot, isManager]);
 
   return {
     isRinging,
@@ -75,3 +84,4 @@ export function useTabletTracker({ currentUserId, currentRole, userName }: UseTa
     stopAlarm,
   };
 }
+
