@@ -5,6 +5,7 @@ import {
   stopFindMyAlarmSound,
   sendRemoteCommand,
   resolveTabletSlot,
+  setAssignedTabletSlot,
   TABLET_SPECS,
   requestScreenWakeLock,
   initAudioContext,
@@ -25,13 +26,49 @@ interface UseTabletTrackerProps {
 
 export function useTabletTracker({ currentUserId, currentRole, userName }: UseTabletTrackerProps) {
   const [isRinging, setIsRinging] = useState<boolean>(false);
+  const [mySlot, setMySlotState] = useState<TabletSlot>(() =>
+    resolveTabletSlot(currentUserId, currentRole, userName)
+  );
   const [pushPermission, setPushPermission] = useState<NotificationPermission | 'unsupported'>(
     getNotificationPermissionState()
   );
-  
-  const mySlot: TabletSlot = resolveTabletSlot(currentUserId, currentRole, userName);
-  const mySpec = TABLET_SPECS[mySlot];
-  const isManager = currentRole === 'manager';
+
+  const isManager = currentRole === 'manager' && mySlot === 'manager';
+  const mySpec = TABLET_SPECS[mySlot] || TABLET_SPECS.T1;
+
+  // React to slot changes from localStorage / settings modal
+  useEffect(() => {
+    const handleSlotChange = () => {
+      const updated = resolveTabletSlot(currentUserId, currentRole, userName);
+      setMySlotState(updated);
+    };
+
+    window.addEventListener('tablet_slot_changed', handleSlotChange);
+    window.addEventListener('storage', handleSlotChange);
+    return () => {
+      window.removeEventListener('tablet_slot_changed', handleSlotChange);
+      window.removeEventListener('storage', handleSlotChange);
+    };
+  }, [currentUserId, currentRole, userName]);
+
+  const changeSlot = useCallback(
+    async (newSlot: TabletSlot) => {
+      setAssignedTabletSlot(newSlot);
+      setMySlotState(newSlot);
+      if (getNotificationPermissionState() === 'granted') {
+        await registerTabletForPushNotifications(newSlot, currentUserId);
+      }
+    },
+    [currentUserId]
+  );
+
+  const testAlarm = useCallback(() => {
+    setIsRinging(true);
+    playFindMyAlarmSound(6);
+    setTimeout(() => {
+      setIsRinging(false);
+    }, 6000);
+  }, []);
 
   const stopAlarm = useCallback(() => {
     setIsRinging(false);
@@ -103,6 +140,8 @@ export function useTabletTracker({ currentUserId, currentRole, userName }: UseTa
     ringingDeviceName: mySpec.officialName,
     mySlot,
     pushPermission,
+    changeSlot,
+    testAlarm,
     enablePushNotifications,
     stopAlarm,
   };

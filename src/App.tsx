@@ -88,7 +88,9 @@ import {
   Eye,
   EyeOff,
   FileText,
-  CheckCircle
+  CheckCircle,
+  Volume2,
+  Bell
 } from 'lucide-react';
 
 import { 
@@ -3275,10 +3277,79 @@ function getSuggestedBay(): StationId {
                   <div className="settings-group">
                     <span className="settings-group-title">Display Settings</span>
                     <div className="settings-row">
-                      <span style={{ fontSize: '0.875rem', fontWeight: 600 }}>Theme Mode</span>
+                       <span style={{ fontSize: '0.875rem', fontWeight: 600 }}>Theme Mode</span>
                       <button className="btn btn-secondary" onClick={() => setTheme(prev => prev === 'light' ? 'dark' : 'light')} style={{ padding: '0.4rem 0.8rem' }}>
                         {theme === 'light' ? <><Moon size={14} /> Dark</> : <><Sun size={14} /> Light</>}
                       </button>
+                    </div>
+                  </div>
+
+                  <div className="settings-group">
+                    <span className="settings-group-title">Tablet Identity & Alarm</span>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.3rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+                        <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Device Slot:</span>
+                        <select
+                          value={tabletTracker.mySlot}
+                          onChange={(e) => tabletTracker.changeSlot(e.target.value as any)}
+                          style={{
+                            padding: '0.35rem 0.6rem',
+                            borderRadius: '8px',
+                            fontSize: '0.8rem',
+                            fontWeight: 700,
+                            background: 'var(--bg-primary)',
+                            color: 'var(--text-primary)',
+                            border: '1px solid var(--border-color)',
+                          }}
+                        >
+                          <option value="T1">T1 (Bay 1 - Assembly)</option>
+                          <option value="T2">T2 (Bay 2 - Welding)</option>
+                          <option value="T3">T3 (Bay 3 - Finishing)</option>
+                          <option value="manager">Manager / Office</option>
+                        </select>
+                      </div>
+
+                      <button
+                        className="btn btn-secondary"
+                        onClick={() => tabletTracker.testAlarm()}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '0.4rem',
+                          padding: '0.45rem 0.6rem',
+                          fontSize: '0.8rem',
+                          fontWeight: 700,
+                          borderRadius: '8px',
+                          background: 'rgba(59, 130, 246, 0.15)',
+                          color: '#3b82f6',
+                          borderColor: 'rgba(59, 130, 246, 0.3)',
+                        }}
+                      >
+                        <Volume2 size={14} /> Test Alarm Sound (6s)
+                      </button>
+
+                      {tabletTracker.pushPermission !== 'granted' && (
+                        <button
+                          className="btn btn-secondary"
+                          onClick={() => tabletTracker.enablePushNotifications()}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '0.4rem',
+                            padding: '0.45rem 0.6rem',
+                            fontSize: '0.78rem',
+                            fontWeight: 700,
+                            borderRadius: '8px',
+                            background: 'rgba(16, 185, 129, 0.15)',
+                            color: '#10b981',
+                            borderColor: 'rgba(16, 185, 129, 0.3)',
+                          }}
+                        >
+                          <Bell size={14} /> Enable Screen-Off Push
+                        </button>
+                      )}
                     </div>
                   </div>
 

@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="24dp"
+    android:background="#09090b"
+    android:gravity="center_horizontal">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Lane Trailers — Find My Tablet"
+        android:textColor="#ffffff"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        android:layout_marginTop="20dp"
+        android:layout_marginBottom="8dp" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="24/7 Background Standby Receiver"
+        android:textColor="#a1a1aa"
+        android:textSize="14sp"
+        android:layout_marginBottom="32dp" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Select Tablet Slot for this Device:"
+        android:textColor="#e4e4e7"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="8dp" />
+
+    <Spinner
+        android:id="@+id/spinnerSlot"
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
+        android:background="#18181b"
+        android:layout_marginBottom="16dp" />
+
+    <Button
+        android:id="@+id/btnSaveSlot"
+        android:layout_width="match_parent"
+        android:layout_height="52dp"
+        android:text="Save Device Slot"
+        android:backgroundTint="#3b82f6"
+        android:textColor="#ffffff"
+        android:textStyle="bold"
+        android:layout_marginBottom="16dp" />
+
+    <Button
+        android:id="@+id/btnTestAlarm"
+        android:layout_width="match_parent"
+        android:layout_height="52dp"
+        android:text="🔊 Test Alarm Sound Now"
+        android:backgroundTint="#27272a"
+        android:textColor="#ffffff"
+        android:layout_marginBottom="16dp" />
+
+    <Button
+        android:id="@+id/btnIgnoreBattery"
+        android:layout_width="match_parent"
+        android:layout_height="52dp"
+        android:text="🔋 Disable Battery Optimization"
+        android:backgroundTint="#16a34a"
+        android:textColor="#ffffff"
+        android:layout_marginBottom="24dp" />
+
+    <TextView
+        android:id="@+id/txtStatus"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="🟢 Active 24/7 Background Standby"
+        android:textColor="#4ade80"
+        android:textSize="13sp"
+        android:gravity="center"
+        android:background="#14532d"
+        android:padding="12dp" />
+
+</LinearLayout>

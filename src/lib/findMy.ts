@@ -42,14 +42,14 @@ export const TABLET_SPECS: Record<TabletSlot, TabletDeviceSpec> = {
  * Deterministically maps any user session, email, role, or ID to its canonical slot ('T1', 'T2', 'T3', 'manager').
  */
 export function resolveTabletSlot(userId?: string, role?: string, name?: string): TabletSlot {
-  if (role === 'manager') return 'manager';
-
   if (typeof window !== 'undefined') {
     const saved = localStorage.getItem('assigned_tablet_slot') as TabletSlot;
     if (saved && (saved === 'T1' || saved === 'T2' || saved === 'T3' || saved === 'manager')) {
       return saved;
     }
   }
+
+  if (role === 'manager') return 'manager';
 
   if (userId === '00000000-0000-4000-a000-000000000001') return 'T1';
   if (userId === '00000000-0000-4000-a000-000000000002') return 'T2';
@@ -68,6 +68,8 @@ export function resolveTabletSlot(userId?: string, role?: string, name?: string)
 export function setAssignedTabletSlot(slot: TabletSlot) {
   if (typeof window !== 'undefined') {
     localStorage.setItem('assigned_tablet_slot', slot);
+    // Dispatch storage event locally so components update immediately
+    window.dispatchEvent(new Event('tablet_slot_changed'));
   }
 }
 
@@ -542,20 +544,34 @@ export function playFindMyAlarmSound(durationSeconds = 30) {
   // 3. LAYER 3: Tactile Hardware Vibration Pulsing
   if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
     try {
-      navigator.vibrate([300, 100, 300, 100, 600]);
+      navigator.vibrate([400, 100, 400, 100, 800, 200, 400, 100, 400]);
       vibrationInterval = setInterval(() => {
         try {
-          navigator.vibrate([300, 100, 300, 100, 600]);
+          navigator.vibrate([400, 100, 400, 100, 800, 200, 400, 100, 400]);
         } catch {
           // ignore
         }
-      }, 1200);
+      }, 1500);
     } catch {
       // ignore
     }
   }
 
-  // 4. Automatic safety timeout
+  // 4. LAYER 4: Spoken Voice Alert Fallback (bypasses silent media restrictions on some mobile tablets)
+  if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+    try {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance('Attention! Find My Tablet Alert active! Attention!');
+      utterance.volume = 1.0;
+      utterance.rate = 1.1;
+      utterance.pitch = 1.2;
+      window.speechSynthesis.speak(utterance);
+    } catch {
+      // ignore
+    }
+  }
+
+  // 5. Automatic safety timeout
   alarmTimeout = setTimeout(() => {
     stopFindMyAlarmSound();
   }, durationSeconds * 1000);
@@ -576,6 +592,13 @@ export function stopFindMyAlarmSound() {
   if (vibrationInterval) {
     clearInterval(vibrationInterval);
     vibrationInterval = null;
+  }
+  if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+    try {
+      window.speechSynthesis.cancel();
+    } catch {
+      // ignore
+    }
   }
   if (htmlAlarmAudio) {
     try {

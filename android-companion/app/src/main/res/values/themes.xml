@@ -1,0 +1,10 @@
+<resources>
+    <style name="Theme.LaneFindMy" parent="android:Theme.Material.NoActionBar">
+        <item name="android:statusBarColor">#09090b</item>
+        <item name="android:navigationBarColor">#09090b</item>
+    </style>
+    <style name="Theme.LaneFindMy.AlarmOverlay" parent="android:Theme.Material.NoActionBar.Fullscreen">
+        <item name="android:statusBarColor">#dc2626</item>
+        <item name="android:navigationBarColor">#dc2626</item>
+    </style>
+</resources>
