@@ -72,10 +72,6 @@ export function useMessageNotifications(): UseMessageNotificationsReturn {
 
   // Register background Service Worker for reliable OS notifications when tab is minimized/backgrounded
   useEffect(() => {
-    if (isSupported) {
-      setPermission(Notification.permission);
-    }
-
     if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
       navigator.serviceWorker.getRegistration().then((reg) => {
         if (!reg) {
@@ -85,7 +81,7 @@ export function useMessageNotifications(): UseMessageNotificationsReturn {
         }
       });
     }
-  }, [isSupported]);
+  }, []);
 
   // Request browser notification permission
   const requestPermission = useCallback(async (): Promise<NotificationPermission> => {

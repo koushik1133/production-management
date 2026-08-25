@@ -5,6 +5,12 @@ export type StationId = 'B1' | 'B2' | 'B3' | 'B4' | 'None';
 
 export type FinishingType = 'Paint' | 'Outsource';
 
+export const isLrgFrame = (model?: string): boolean => {
+  if (!model) return false;
+  const normalized = model.trim().toUpperCase().replace(/\s+/g, ' ');
+  return normalized === 'LRG - FRAME' || normalized === 'LRG-FRAME' || normalized.includes('LRG - FRAME') || normalized.includes('LRG-FRAME');
+};
+
 export interface TimeLog {
   phase: PhaseId;
   enteredAt: number;

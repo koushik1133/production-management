@@ -57,7 +57,21 @@ export const FindMyTabletsView: React.FC<FindMyTabletsViewProps> = ({
   };
 
   useEffect(() => {
-    loadPushSubscriptions();
+    let isMounted = true;
+    const fetchSubs = async () => {
+      try {
+        const { data } = await supabase
+          .from('tablet_push_subscriptions')
+          .select('tablet_slot');
+        if (data && isMounted) {
+          setPushEnabledSlots(new Set(data.map((r: any) => r.tablet_slot)));
+        }
+      } catch {
+        // Table might not exist yet or offline
+      }
+    };
+
+    fetchSubs();
 
     // Real-time listener for subscription updates
     const channel = supabase
@@ -66,12 +80,13 @@ export const FindMyTabletsView: React.FC<FindMyTabletsViewProps> = ({
         'postgres_changes',
         { event: '*', schema: 'public', table: 'tablet_push_subscriptions' },
         () => {
-          loadPushSubscriptions();
+          fetchSubs();
         }
       )
       .subscribe();
 
     return () => {
+      isMounted = false;
       supabase.removeChannel(channel);
     };
   }, []);

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Modal } from './Modal';
-import { PHASES, type PhaseId, type StationId, STATIONS, type Trailer } from '../types';
+import { PHASES, type PhaseId, type StationId, STATIONS, type Trailer, isLrgFrame } from '../types';
 import { RefreshCw, AlertCircle, CheckCircle2, ShieldCheck } from 'lucide-react';
 
 interface Props {
@@ -11,12 +11,6 @@ interface Props {
   localSpecSheetTemplates?: Record<string, string>;
   onConvert: (trailerId: string, targetModel: string, targetPhase: PhaseId, targetStation?: StationId) => Promise<boolean>;
 }
-
-export const isLrgFrame = (model?: string): boolean => {
-  if (!model) return false;
-  const normalized = model.trim().toUpperCase().replace(/\s+/g, ' ');
-  return normalized === 'LRG - FRAME' || normalized === 'LRG-FRAME' || normalized.includes('LRG - FRAME') || normalized.includes('LRG-FRAME');
-};
 
 export const ConvertFrameModal: React.FC<Props> = ({
   isOpen,

@@ -2,10 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { formatDistanceToNow, format } from 'date-fns';
 import { History, FileText, Send, Crown, Trash2, Image as ImageIcon, DollarSign, Download, CheckCircle, RefreshCw } from 'lucide-react';
 import type { Trailer, PhaseId, ShippedTrailer, UserRole } from '../types';
-import { BAY_WEEKLY_HOURS, calculateTrailerRemainingHours, PHASES } from '../types';
+import { BAY_WEEKLY_HOURS, calculateTrailerRemainingHours, PHASES, isLrgFrame } from '../types';
 import { Modal } from './Modal';
 import { injectTrailerDataIntoSpec } from '../lib/injectSpecSheet';
-import { isLrgFrame } from './ConvertFrameModal';
 import { supabase } from '../lib/supabase';
 import { useResolvedUrl, uploadFileToSupabase, deleteFileFromSupabase, fetchTemplateAsBase64, triggerFileDownload, dataURLtoFile, isRelativePath, fetchFileBlob } from '../utils/storage';
 

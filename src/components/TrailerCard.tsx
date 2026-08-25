@@ -3,9 +3,7 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Clock, Hash, Calendar, Crown, StickyNote, Truck, Layers, GripVertical, RefreshCw } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
-import type { Trailer, StationId, PhaseId, UserRole } from '../types';
-import { STATIONS, PHASE_METADATA, calculateTrailerRemainingHours } from '../types';
-import { isLrgFrame } from './ConvertFrameModal';
+import { STATIONS, PHASE_METADATA, type Trailer, isLrgFrame, type StationId, type PhaseId, type UserRole, calculateTrailerRemainingHours } from '../types';
 
 interface Props {
   trailer: Trailer;
