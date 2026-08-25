@@ -75,13 +75,12 @@ export async function deleteFileFromSupabase(pathOrUrl: string): Promise<void> {
 }
 
 export function dataURLtoFile(dataurl: string, filename: string): File {
-  const arr = dataurl.split(',');
-  const mime = arr[0].match(/:(.*?);/)?.[1] || 'application/octet-stream';
-  const bstr = atob(arr[1]);
-  let n = bstr.length;
-  const u8arr = new Uint8Array(n);
-  while (n--) {
-    u8arr[n] = bstr.charCodeAt(n);
+  const [header, base64] = dataurl.split(',');
+  const mime = header.match(/:(.*?);/)?.[1] || 'application/octet-stream';
+  const binary = atob(base64);
+  const u8arr = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    u8arr[i] = binary.charCodeAt(i);
   }
   return new File([u8arr], filename, { type: mime });
 }
@@ -90,65 +89,28 @@ export async function triggerFileDownload(path: string, defaultName: string): Pr
   if (!path) return;
   
   if (path.startsWith('data:')) {
-    try {
-      const file = dataURLtoFile(path, defaultName);
-      const objectUrl = URL.createObjectURL(file);
-      const a = document.createElement('a');
-      a.href = objectUrl;
-      a.download = defaultName;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(objectUrl);
-      return;
-    } catch (err) {
-      console.error("Failed to download dataURL via blob:", err);
-      const a = document.createElement('a');
-      a.href = path;
-      a.download = defaultName;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      return;
-    }
+    const a = document.createElement('a');
+    a.href = path;
+    a.download = defaultName;
+    a.click();
+    return;
   }
   
-  let downloadUrl = path;
-  if (isRelativePath(path)) {
-    const normalized = path.replace(/\\/g, '/');
-    const { data } = supabase.storage.from(BUCKET_NAME).getPublicUrl(normalized);
-    downloadUrl = data.publicUrl;
-  }
+  const downloadUrl = isRelativePath(path)
+    ? supabase.storage.from(BUCKET_NAME).getPublicUrl(path.replace(/\\/g, '/')).data.publicUrl
+    : path;
 
   try {
-    const response = await fetch(downloadUrl);
-    const blob = await response.blob();
+    const res = await fetch(downloadUrl);
+    const blob = await res.blob();
     const objectUrl = URL.createObjectURL(blob);
-    
-    let finalName = defaultName;
-    if (!finalName.includes('.')) {
-      const ext = path.split('.').pop()?.split('?')[0] || '';
-      if (ext && ext.length <= 4) {
-        finalName = `${finalName}.${ext}`;
-      }
-    }
-
     const a = document.createElement('a');
     a.href = objectUrl;
-    a.download = finalName;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(objectUrl);
-  } catch (err) {
-    console.error("Failed to download file via blob:", err);
-    const a = document.createElement('a');
-    a.href = downloadUrl;
     a.download = defaultName;
-    a.target = '_blank';
-    document.body.appendChild(a);
     a.click();
-    document.body.removeChild(a);
+    URL.revokeObjectURL(objectUrl);
+  } catch {
+    window.open(downloadUrl, '_blank');
   }
 }
 
@@ -156,23 +118,14 @@ export async function fetchTemplateAsBase64(templateValue: string): Promise<stri
   if (!templateValue) return '';
   if (templateValue.startsWith('data:')) return templateValue;
 
-  try {
-    let blob: Blob;
-    if (templateValue.startsWith('http:') || templateValue.startsWith('https:')) {
-      const res = await fetch(templateValue);
-      blob = await res.blob();
-    } else {
-      blob = await fetchFileBlob(templateValue);
-    }
+  const blob = (templateValue.startsWith('http:') || templateValue.startsWith('https:'))
+    ? await (await fetch(templateValue)).blob()
+    : await fetchFileBlob(templateValue);
 
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
-  } catch (error) {
-    console.error('Failed to fetch template as base64:', error);
-    throw error;
-  }
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
 }

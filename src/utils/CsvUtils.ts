@@ -14,17 +14,13 @@ export const exportToCsv = (trailers: Trailer[]) => {
     (t.notes || '').replace(/,/g, ';')
   ]);
 
-  const csvContent = "data:text/csv;charset=utf-8," 
-    + headers.join(",") + "\n"
-    + rows.map(e => e.join(",")).join("\n");
-
-  const encodedUri = encodeURI(csvContent);
-  const link = document.createElement("a");
-  link.setAttribute("href", encodedUri);
-  link.setAttribute("download", `production_report_${new Date().toLocaleDateString()}.csv`);
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
+  const blob = new Blob([[headers.join(','), ...rows.map(r => r.join(','))].join('\n')], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `production_report_${new Date().toISOString().split('T')[0]}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
 };
 
 export const parseCsv = (csvText: string): Partial<Trailer>[] => {
