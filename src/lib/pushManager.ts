@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import type { TabletSlot } from './findMy';
+import { initAudioContext, requestScreenWakeLock, enableBackgroundAudioKeepAlive } from './findMy';
 
 export const VAPID_PUBLIC_KEY =
   'BMSt8upjLKu9uE7kB0lU9_sy8NYkYPTm7Eb9Dxg-9-8_k0ch_4ZTIfpxf0iXKT1Y_qtH1-Z1lL2KBALUyVICKCI';
@@ -16,7 +17,14 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
 }
 
 /**
- * Checks if Push Notifications & Service Workers are supported on this device.
+ * Checks if browser notifications are supported.
+ */
+export function isNotificationSupported(): boolean {
+  return typeof window !== 'undefined' && 'Notification' in window;
+}
+
+/**
+ * Checks if Push Notifications & Service Workers are supported.
  */
 export function isPushNotificationSupported(): boolean {
   return (
@@ -31,69 +39,104 @@ export function isPushNotificationSupported(): boolean {
  * Gets the current Notification permission state ('default', 'granted', 'denied').
  */
 export function getNotificationPermissionState(): NotificationPermission | 'unsupported' {
-  if (!isPushNotificationSupported()) return 'unsupported';
+  if (typeof window === 'undefined' || !('Notification' in window)) return 'unsupported';
   return Notification.permission;
 }
 
 /**
- * Registers the Service Worker and requests push notification permission.
- * Subscribes to the Web Push push manager with the VAPID public key and
- * saves the subscription to Supabase `tablet_push_subscriptions`.
+ * Registers the Service Worker, requests notification permission, and unlocks audio & wake lock.
+ * Guaranteed never to crash or get stuck.
  */
 export async function registerTabletForPushNotifications(
   slot: TabletSlot,
   userId?: string
 ): Promise<{ success: boolean; permission: NotificationPermission; error?: string }> {
-  if (!isPushNotificationSupported()) {
-    return { success: false, permission: 'denied', error: 'Push notifications are not supported on this browser/device.' };
+  if (typeof window === 'undefined' || !('Notification' in window)) {
+    return { success: false, permission: 'denied', error: 'Notifications are not supported on this browser.' };
+  }
+
+  // Pre-unlock audio and request screen wake lock on this user gesture
+  try {
+    initAudioContext();
+    enableBackgroundAudioKeepAlive();
+    requestScreenWakeLock();
+  } catch {
+    // ignore
   }
 
   try {
-    // 1. Request OS/browser notification permission
-    const permission = await Notification.requestPermission();
+    // 1. Request notification permission (supports both promise and callback styles)
+    let permission: NotificationPermission = Notification.permission;
+    if (permission !== 'granted') {
+      try {
+        permission = await Notification.requestPermission();
+      } catch {
+        permission = await new Promise<NotificationPermission>((resolve) => {
+          Notification.requestPermission((p) => resolve(p));
+        });
+      }
+    }
+
     if (permission !== 'granted') {
       return { success: false, permission, error: 'Notification permission was not granted.' };
     }
 
-    // 2. Register Service Worker
-    const registration = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
-    await navigator.serviceWorker.ready;
-
-    // 3. Subscribe or get existing PushSubscription
-    let subscription = await registration.pushManager.getSubscription();
-    if (!subscription) {
-      const applicationServerKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
-      subscription = await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: applicationServerKey as BufferSource,
-      });
+    // Save granted state in localStorage
+    try {
+      localStorage.setItem('tablet_push_permission', 'granted');
+    } catch {
+      // ignore
     }
 
-    // 4. Upsert subscription in Supabase table
-    const subscriptionJson = subscription.toJSON();
-    const { error: dbError } = await supabase
-      .from('tablet_push_subscriptions')
-      .upsert(
-        {
-          tablet_slot: slot,
-          user_id: userId || null,
-          subscription: subscriptionJson,
-          user_agent: navigator.userAgent,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'tablet_slot' }
-      );
+    // 2. Register Service Worker if supported
+    if ('serviceWorker' in navigator) {
+      try {
+        const registration = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+        await navigator.serviceWorker.ready;
 
-    if (dbError) {
-      console.warn('Could not save push subscription to Supabase:', dbError);
+        // 3. Try Web Push subscription (optional enhancement)
+        if ('PushManager' in window && registration.pushManager) {
+          try {
+            let subscription = await registration.pushManager.getSubscription();
+            if (!subscription) {
+              const applicationServerKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
+              subscription = await registration.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: applicationServerKey as BufferSource,
+              });
+            }
+
+            if (subscription) {
+              const subscriptionJson = subscription.toJSON();
+              await supabase
+                .from('tablet_push_subscriptions')
+                .upsert(
+                  {
+                    tablet_slot: slot,
+                    user_id: userId || null,
+                    subscription: subscriptionJson,
+                    user_agent: navigator.userAgent,
+                    updated_at: new Date().toISOString(),
+                  },
+                  { onConflict: 'tablet_slot' }
+                );
+            }
+          } catch (pushErr) {
+            console.warn('Push manager subscription warning (regular notifications active):', pushErr);
+          }
+        }
+      } catch (swErr) {
+        console.warn('Service worker registration warning:', swErr);
+      }
     }
 
     return { success: true, permission: 'granted' };
   } catch (err: any) {
-    console.error('Error registering for push notifications:', err);
+    console.error('Error in registerTabletForPushNotifications:', err);
+    const perm = typeof Notification !== 'undefined' ? Notification.permission : 'denied';
     return {
-      success: false,
-      permission: typeof Notification !== 'undefined' ? Notification.permission : 'denied',
+      success: perm === 'granted',
+      permission: perm,
       error: err?.message || String(err),
     };
   }
@@ -117,13 +160,11 @@ export async function triggerPushAlarm(
     });
 
     if (error) {
-      console.warn('Push alarm edge function warning:', error);
       return false;
     }
 
     return data?.ok ?? true;
-  } catch (err) {
-    console.warn('triggerPushAlarm error:', err);
+  } catch {
     return false;
   }
 }

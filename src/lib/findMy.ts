@@ -122,7 +122,7 @@ if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
 // =========================================================================
 let permanentRealtimeChannel: ReturnType<typeof supabase.channel> | null = null;
 
-function getOrCreatePermanentChannel() {
+export function getOrCreatePermanentChannel() {
   if (!permanentRealtimeChannel) {
     permanentRealtimeChannel = supabase.channel('tablet_alarm_global_v8', {
       config: {
@@ -137,9 +137,32 @@ function getOrCreatePermanentChannel() {
           commandListeners.forEach((listener) => listener(payload));
         }
       })
-      .subscribe();
+      .subscribe((status) => {
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+          // Auto-reconnect after 2 seconds
+          setTimeout(() => {
+            if (permanentRealtimeChannel) {
+              supabase.removeChannel(permanentRealtimeChannel);
+              permanentRealtimeChannel = null;
+              getOrCreatePermanentChannel();
+            }
+          }, 2000);
+        }
+      });
   }
   return permanentRealtimeChannel;
+}
+
+export function reconnectRealtimeChannel() {
+  if (permanentRealtimeChannel) {
+    try {
+      supabase.removeChannel(permanentRealtimeChannel);
+    } catch {
+      // ignore
+    }
+    permanentRealtimeChannel = null;
+  }
+  return getOrCreatePermanentChannel();
 }
 
 // Initialize on script load
@@ -248,6 +271,7 @@ export function subscribeToRemoteCommands(
   const handleResume = () => {
     enableBackgroundAudioKeepAlive();
     requestScreenWakeLock();
+    reconnectRealtimeChannel();
   };
 
   if (typeof window !== 'undefined') {
