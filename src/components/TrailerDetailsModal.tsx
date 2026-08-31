@@ -823,9 +823,18 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                       if (updatedHistory[i].phase === phase.id) { targetIdx = i; break; }
                     }
                     if (targetIdx !== -1) {
+                      // Update existing history entry
                       updatedHistory[targetIdx] = { ...updatedHistory[targetIdx], phaseManualHours: decimalVal, bayManualHours: decimalVal };
-                      onUpdate(trailer.id, { history: updatedHistory });
+                    } else {
+                      // No history entry for this phase yet — create one so manual hours can always be entered
+                      updatedHistory.push({
+                        phase: phase.id,
+                        enteredAt: Date.now(),
+                        phaseManualHours: decimalVal,
+                        bayManualHours: decimalVal,
+                      });
                     }
+                    onUpdate(trailer.id, { history: updatedHistory });
                   };
 
                   return (
