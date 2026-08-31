@@ -359,12 +359,23 @@ const ShippedRecord: React.FC<{
             </button>
           </div>
           {isPriceUnlockedGlobally && (
-            <div style={{ marginTop: '1.25rem' }}>
-              <div style={{ fontSize: '0.65rem', fontWeight: 800, color: '#eab308', textTransform: 'uppercase', marginBottom: '4px' }}>Final Sale Price</div>
-              <div style={{ fontSize: '2rem', fontWeight: 900, color: '#eab308', letterSpacing: '-0.03em' }}>
-                <span style={{ fontSize: '1rem', verticalAlign: 'top', marginTop: '4px', display: 'inline-block' }}>$</span>
-                {(record.sale_price || 0).toLocaleString()}
+            <div style={{ marginTop: '1.25rem', display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
+              <div>
+                <div style={{ fontSize: '0.65rem', fontWeight: 800, color: '#eab308', textTransform: 'uppercase', marginBottom: '4px' }}>Final Sale Price</div>
+                <div style={{ fontSize: '2rem', fontWeight: 900, color: '#eab308', letterSpacing: '-0.03em' }}>
+                  <span style={{ fontSize: '1rem', verticalAlign: 'top', marginTop: '4px', display: 'inline-block' }}>$</span>
+                  {(record.sale_price || 0).toLocaleString()}
+                </div>
               </div>
+              {record.shipping_cost != null && record.shipping_cost > 0 && (
+                <div>
+                  <div style={{ fontSize: '0.65rem', fontWeight: 800, color: '#d97706', textTransform: 'uppercase', marginBottom: '4px' }}>Shipping Cost</div>
+                  <div style={{ fontSize: '2rem', fontWeight: 900, color: '#d97706', letterSpacing: '-0.03em' }}>
+                    <span style={{ fontSize: '1rem', verticalAlign: 'top', marginTop: '4px', display: 'inline-block' }}>$</span>
+                    {(record.shipping_cost || 0).toLocaleString()}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -577,6 +588,7 @@ export const ArchiveView: React.FC<Props> = ({
                         "VIN Date": t.vin_date || '',
                         "Shipped Date": t.shipped_at ? format(new Date(t.shipped_at), 'yyyy-MM-dd') : '',
                         "Sale Price": t.sale_price || 0,
+                        "Shipping Cost": t.shipping_cost || 0,
                         "Total Hours": t.total_hours,
                         "Prefab (h)": t.prefab_hours || 0,
                         "Build (h)": t.build_hours || 0,

@@ -33,6 +33,7 @@ import { BacklogView } from './BacklogView';
 import TVView from './TVView';
 import StationView from './StationView';
 import { ArchiveView } from './ArchiveView';
+import { QuotesView } from './QuotesView';
 import { ScheduleView } from './ScheduleView';
 import { CatalogView } from './CatalogView';
 import { MessagesView } from './components/Messaging/MessagesView';
@@ -83,7 +84,8 @@ import {
   Eye,
   EyeOff,
   FileText,
-  CheckCircle
+  CheckCircle,
+  BarChart3
 } from 'lucide-react';
 
 import { 
@@ -208,6 +210,7 @@ function Dashboard({
     vin_date: '',
     customer_name: '',
     sale_price: '',
+    shipping_cost: '',
     dealer_price: '',
     cost_price: '',
     shipped_date: new Date().toISOString().split('T')[0]
@@ -226,6 +229,7 @@ function Dashboard({
       vin_date: '', 
       customer_name: '', 
       sale_price: '', 
+      shipping_cost: '',
       dealer_price: '', 
       cost_price: '', 
       shipped_date: new Date().toISOString().split('T')[0] 
@@ -419,6 +423,7 @@ function Dashboard({
         photo_2_url: finalP2Path,
         photo_3_url: finalP3Path,
         sale_price: parseFloat(shippingForm.sale_price) || 0,
+        shipping_cost: parseFloat(shippingForm.shipping_cost) || 0,
         spec_sheet_file: finalSpecPath,
         inspection_sheet_file: finalInspectPath
       };
@@ -746,6 +751,9 @@ function Dashboard({
             </button>
             <button className="btn btn-secondary archive-btn shimmer" onClick={() => navigate('/archive')} style={{ height: '28px', padding: '0 0.5rem', fontSize: '0.75rem', borderRadius: '6px', border: 'none', background: 'var(--accent-gradient)', color: 'white' }}>
               <Archive size={12} /> <span className="btn-text">Shipping</span>
+            </button>
+            <button className="btn btn-secondary" onClick={() => navigate('/quotes')} style={{ height: '28px', padding: '0 0.5rem', fontSize: '0.75rem', borderRadius: '6px', border: '1px solid rgba(99,102,241,0.4)', background: 'rgba(99,102,241,0.12)', color: '#818cf8' }}>
+              <BarChart3 size={12} /> <span className="btn-text">Quotes</span>
             </button>
           </div>
 
@@ -1680,8 +1688,16 @@ function Dashboard({
                 />
               </div>
               <div className="form-group" style={{ margin: 0 }}>
-                <label className="form-label" style={{ color: '#d97706', fontSize: '0.65rem', opacity: 0.6 }}>Dealer Ref</label>
-                <input type="number" disabled className="form-input" style={{ opacity: 0.3 }} placeholder="---" />
+                <label className="form-label" style={{ color: '#d97706', fontSize: '0.65rem' }}>Shipping Cost ($)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  className="form-input"
+                  style={{ borderColor: 'rgba(217, 119, 6, 0.3)', background: 'var(--bg-secondary)', fontWeight: 700 }}
+                  placeholder="0.00"
+                  value={shippingForm.shipping_cost}
+                  onChange={e => setShippingForm(prev => ({ ...prev, shipping_cost: e.target.value }))}
+                />
               </div>
               <div className="form-group" style={{ margin: 0 }}>
                 <label className="form-label" style={{ color: '#d97706', fontSize: '0.65rem', opacity: 0.6 }}>Base Cost</label>
@@ -3331,6 +3347,7 @@ function getSuggestedBay(): StationId {
             <Route path="/tv/station1" element={<TVView trailers={trailers} monitorMode="station1" localTargetHours={localTargetHours} userRole={userRole} />} />
             <Route path="/tv/station2" element={<TVView trailers={trailers} monitorMode="station2" localTargetHours={localTargetHours} userRole={userRole} />} />
             <Route path="/archive" element={<ArchiveView trailers={trailers} onUpdateTrailer={updateTrailer} localTargetHours={localTargetHours} shippedTrailers={shippedTrailers} userRole={userRole} isPriceUnlockedGlobally={isPriceUnlockedGlobally} onUnlockPrices={unlockPricesGlobally} onLockPrices={() => { setIsPriceUnlockedGlobally(false); localStorage.setItem('lanetrailers_price_unlocked', 'false'); }} localModelCategories={localModelCategories} localSpecSheetTemplates={localSpecSheetTemplates} onConvertTrailer={handleConvertFrame} />} />
+            <Route path="/quotes" element={<QuotesView trailers={trailers} onUpdateTrailer={updateTrailer} userRole={userRole} />} />
             <Route path="/schedule" element={<ScheduleView trailers={trailers} userRole={userRole} />} />
             <Route path="/messages" element={<MessagesView messaging={messaging} />} />
             <Route path="/catalog" element={userRole === 'manager' ? <CatalogView categories={localModelCategories} hours={localTargetHours} specs={localModelSpecs} templates={localSpecSheetTemplates} onAddModel={handleAddModel} onEditModel={handleEditModel} onDeleteModel={handleDeleteModel} dealers={dealers} onAddDealer={handleAddDealer} onEditDealer={handleEditDealer} onDeleteDealer={handleDeleteDealer} userRole={userRole} trailers={trailers} /> : <Navigate to="/" replace />} />

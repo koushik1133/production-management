@@ -82,6 +82,7 @@ export interface ShippedTrailer {
   photo_2_url?: string;
   photo_3_url?: string;
   sale_price: number;
+  shipping_cost?: number;
   spec_sheet_file?: string;
   inspection_sheet_file?: string;
 }

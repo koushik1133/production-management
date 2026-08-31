@@ -218,3 +218,31 @@ WITH CHECK (bucket_id = 'trailers-files');
 
 -- 10. schema refresh
 NOTIFY pgrst, 'reload schema';
+
+-- ==========================================
+-- PATCH: 2026-08-31 — Shipping Cost + Quotes
+-- ==========================================
+
+-- 1. Add shipping_cost to shipped_trailers
+ALTER TABLE public.shipped_trailers ADD COLUMN IF NOT EXISTS shipping_cost numeric DEFAULT 0;
+
+-- 2. Create quotes_denied table for tracking denied quotes
+CREATE TABLE IF NOT EXISTS public.quotes_denied (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  serial_number text,
+  trailer_name text,
+  customer_name text,
+  model text,
+  notes text,
+  sale_price numeric,
+  denied_at timestamptz DEFAULT now()
+);
+
+-- Enable RLS
+ALTER TABLE public.quotes_denied ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Enable all access for all users" ON public.quotes_denied;
+CREATE POLICY "Enable all access for all users" ON public.quotes_denied FOR ALL USING (true) WITH CHECK (true);
+GRANT ALL ON TABLE public.quotes_denied TO anon, authenticated;
+
+-- Refresh schema
+NOTIFY pgrst, 'reload schema';

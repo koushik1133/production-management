@@ -164,6 +164,33 @@ export const TrailerCard: React.FC<Props> = React.memo(({
         </div>
         
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.4rem', marginLeft: '0.75rem' }}>
+          {/* Trailer Color Swatch */}
+          {trailer.trailer_color && (() => {
+            const colorLower = trailer.trailer_color.toLowerCase().trim();
+            // Detect visually-light colors that need a border to be visible on white bg
+            const lightColors = ['white', 'ivory', 'cream', 'snow', 'ghost white', 'beige', 'linen', 'seashell', 'old lace', 'floral white', 'mint', 'lavender', 'yellow', 'lightyellow', 'light yellow', 'silver', 'light gray', 'light grey', 'lightgray', 'lightgrey', 'gainsboro', 'whitesmoke', 'floralwhite', 'cornsilk', 'honeydew', 'azure', 'aliceblue', 'ghost'];
+            const isLightColor = lightColors.some(lc => colorLower.includes(lc)) || colorLower.startsWith('#f') || colorLower.startsWith('#e');
+            const isWhiteOrNear = colorLower === 'white' || colorLower === '#fff' || colorLower === '#ffffff' || colorLower === 'ivory' || colorLower === 'cream';
+            return (
+              <div
+                title={trailer.trailer_color}
+                style={{
+                  width: '22px',
+                  height: '22px',
+                  borderRadius: '6px',
+                  background: trailer.trailer_color,
+                  border: isWhiteOrNear
+                    ? '2px solid #94a3b8'
+                    : isLightColor
+                    ? '1.5px solid rgba(0,0,0,0.2)'
+                    : '1.5px solid rgba(255,255,255,0.15)',
+                  boxShadow: '0 1px 4px rgba(0,0,0,0.18)',
+                  flexShrink: 0,
+                  cursor: 'default'
+                }}
+              />
+            );
+          })()}
           {/* Time to Shipping Indicator */}
           {trailer.currentPhase !== 'shipping' && (
             <div style={{ 
@@ -213,6 +240,7 @@ export const TrailerCard: React.FC<Props> = React.memo(({
             );
           })()}
         </div>
+
       </div>
       
       <div className="card-meta">

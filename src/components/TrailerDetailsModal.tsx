@@ -277,40 +277,74 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
     }
   };
 
+  // ── Local hours state ──────────────────────────────────────────────────
+  // We keep a local string map per phase so typing "855" feels instant.
+  // The DB is only written when the user clicks "Save Hours".
+  const getPhaseManualHoursFromHistory = React.useCallback((phaseId: string): number => {
+    const entries = (trailer.history ?? []).filter(h => h.phase === phaseId);
+    return entries.reduce((s, h) => s + (h.phaseManualHours ?? h.bayManualHours ?? 0), 0);
+  }, [trailer.history]);
+
+  const buildLocalHoursMap = React.useCallback((): Record<string, string> => {
+    const map: Record<string, string> = {};
+    PHASES.filter(p => !['backlog', 'shipping'].includes(p.id)).forEach(p => {
+      const v = getPhaseManualHoursFromHistory(p.id);
+      map[p.id] = v > 0 ? String(v) : '';
+    });
+    return map;
+  }, [getPhaseManualHoursFromHistory]);
+
+  const [localHours, setLocalHours] = React.useState<Record<string, string>>(() => buildLocalHoursMap());
+  const [hoursDirty, setHoursDirty] = React.useState(false);
+
+  // Reset local hours whenever the trailer or modal reopens
+  React.useEffect(() => {
+    setLocalHours(buildLocalHoursMap());
+    setHoursDirty(false);
+  }, [trailer.id, trailer.history, buildLocalHoursMap]);
+
+  // Derive display totals from localHours so the UI reflects what the user typed instantly
   const phaseTimes = React.useMemo(() => {
     const result: Record<string, { h: number, m: number }> = {};
     PHASES.forEach(p => {
-      const entries = (trailer.history ?? []).filter(h => h.phase === p.id);
-      let totalMs = 0;
-      
-      entries.forEach(log => {
-        if (log.phaseManualHours !== undefined || log.bayManualHours !== undefined) {
-          const manualHrs = log.phaseManualHours !== undefined ? log.phaseManualHours : (log.bayManualHours || 0);
-          totalMs += manualHrs * 60 * 60 * 1000;
-        } else {
-          totalMs += (log.duration || (log.exitedAt ? log.exitedAt - log.enteredAt : Date.now() - log.enteredAt));
-        }
-      });
-      
-      const totalMins = Math.floor(Math.max(0, totalMs) / (1000 * 60));
-      result[p.id] = { 
-        h: Math.floor(totalMins / 60), 
-        m: totalMins % 60 
-      };
+      if (['backlog', 'shipping'].includes(p.id)) {
+        result[p.id] = { h: 0, m: 0 };
+        return;
+      }
+      const val = parseFloat(localHours[p.id] || '0') || 0;
+      result[p.id] = { h: Math.floor(val), m: Math.round((val % 1) * 60) };
     });
     return result;
-  }, [trailer.history]);
+  }, [localHours]);
 
   const totalTimeDisplay = React.useMemo(() => {
     const activePhases = PHASES.filter(p => !['backlog', 'shipping'].includes(p.id));
-    const totalMinutes = activePhases.reduce((sum, p) => {
-      const time = phaseTimes[p.id] || { h: 0, m: 0 };
-      return sum + (time.h * 60) + time.m;
+    const totalH = activePhases.reduce((sum, p) => {
+      return sum + (parseFloat(localHours[p.id] || '0') || 0);
     }, 0);
-    const h = Math.floor(totalMinutes / 60);
-    const m = totalMinutes % 60;
+    const h = Math.floor(totalH);
+    const m = Math.round((totalH % 1) * 60);
     return `${h}h ${m}m`;
-  }, [phaseTimes]);
+  }, [localHours]);
+
+  const handleSaveHours = React.useCallback(() => {
+    const updatedHistory = [...(trailer.history ?? [])];
+    PHASES.filter(p => !['backlog', 'shipping'].includes(p.id)).forEach(phase => {
+      const val = parseFloat(localHours[phase.id] || '0') || 0;
+      let targetIdx = -1;
+      for (let i = updatedHistory.length - 1; i >= 0; i--) {
+        if (updatedHistory[i].phase === phase.id) { targetIdx = i; break; }
+      }
+      if (targetIdx !== -1) {
+        updatedHistory[targetIdx] = { ...updatedHistory[targetIdx], phaseManualHours: val, bayManualHours: val };
+      } else if (val > 0) {
+        updatedHistory.push({ phase: phase.id, enteredAt: Date.now(), phaseManualHours: val, bayManualHours: val });
+      }
+    });
+    onUpdate(trailer.id, { history: updatedHistory });
+    setHoursDirty(false);
+    triggerToast('Production Hours Saved!');
+  }, [trailer.id, trailer.history, localHours, onUpdate]);
 
   const formatLogDuration = (ms: number) => {
     const totalMinutes = Math.floor(ms / (1000 * 60));
@@ -808,50 +842,49 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                   <History size={16} color="#0d9488" />
                   <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#0d9488', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Production Hours</span>
                 </div>
-                <div style={{ fontSize: '0.8rem', fontWeight: 800, color: '#0d9488', background: 'var(--bg-card)', padding: '2px 10px', borderRadius: '99px', border: '1px solid rgba(16, 185, 129, 0.1)' }}>
-                  Total: {totalTimeDisplay}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <div style={{ fontSize: '0.8rem', fontWeight: 800, color: '#0d9488', background: 'var(--bg-card)', padding: '2px 10px', borderRadius: '99px', border: '1px solid rgba(16, 185, 129, 0.1)' }}>
+                    Total: {totalTimeDisplay}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleSaveHours}
+                    style={{
+                      padding: '3px 14px',
+                      borderRadius: '99px',
+                      background: hoursDirty ? '#0d9488' : 'rgba(13,148,136,0.12)',
+                      color: hoursDirty ? '#fff' : '#0d9488',
+                      border: '1px solid rgba(13,148,136,0.3)',
+                      fontSize: '0.7rem',
+                      fontWeight: 800,
+                      cursor: 'pointer',
+                      transition: 'all 0.2s',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    Save Hours
+                  </button>
                 </div>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '0.75rem' }}>
                 {PHASES.filter(p => !['backlog', 'shipping'].includes(p.id)).map(phase => {
-                  const time = phaseTimes[phase.id] || { h: 0, m: 0 };
-                  const updateManualTime = (newH: number) => {
-                    const decimalVal = newH;
-                    const updatedHistory = [...(trailer.history ?? [])];
-                    let targetIdx = -1;
-                    for (let i = updatedHistory.length - 1; i >= 0; i--) {
-                      if (updatedHistory[i].phase === phase.id) { targetIdx = i; break; }
-                    }
-                    if (targetIdx !== -1) {
-                      // Update existing history entry
-                      updatedHistory[targetIdx] = { ...updatedHistory[targetIdx], phaseManualHours: decimalVal, bayManualHours: decimalVal };
-                    } else {
-                      // No history entry for this phase yet — create one so manual hours can always be entered
-                      updatedHistory.push({
-                        phase: phase.id,
-                        enteredAt: Date.now(),
-                        phaseManualHours: decimalVal,
-                        bayManualHours: decimalVal,
-                      });
-                    }
-                    onUpdate(trailer.id, { history: updatedHistory });
-                  };
+                  const rawVal = localHours[phase.id] ?? '';
 
                   return (
-                    <div key={phase.id} style={{ background: 'var(--bg-card)', padding: '0.6rem', borderRadius: '12px', border: '1px solid var(--border-default)', boxShadow: 'var(--shadow-sm)' }}>
+                    <div key={phase.id} style={{ background: 'var(--bg-card)', padding: '0.6rem', borderRadius: '12px', border: `1.5px solid ${hoursDirty ? 'rgba(13,148,136,0.3)' : 'var(--border-default)'}`, boxShadow: 'var(--shadow-sm)' }}>
                       <div style={{ fontSize: '0.6rem', fontWeight: 800, color: 'var(--text-primary)', textTransform: 'uppercase', marginBottom: '6px', letterSpacing: '0.025em' }}>{phase.title}</div>
                       <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-secondary)', borderRadius: '6px', padding: '4px 8px', border: '1.5px solid var(--border-default)' }}>
-                        <input 
+                        <input
                           type="text"
-                          inputMode="numeric"
+                          inputMode="decimal"
                           style={{ width: '100%', border: 'none', background: 'transparent', fontSize: '1rem', fontWeight: 900, color: 'var(--text-primary)', textAlign: 'left', outline: 'none' }}
-                          value={time.h || ''}
+                          value={rawVal}
                           placeholder="0"
                           onChange={(e) => {
-                            const raw = e.target.value.replace(/\D/g, '');
-                            if (raw === '') { updateManualTime(0); return; }
-                            const v = Math.max(0, parseInt(raw, 10));
-                            updateManualTime(v);
+                            // Allow digits and a single decimal point
+                            const raw = e.target.value.replace(/[^0-9.]/g, '').replace(/(\..*?)\..*/g, '$1');
+                            setLocalHours(prev => ({ ...prev, [phase.id]: raw }));
+                            setHoursDirty(true);
                           }}
                         />
                         <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', marginLeft: '4px' }}>h</span>
@@ -861,6 +894,7 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                 })}
               </div>
             </div>
+
 
             {!trailer.isArchived && trailer.station !== 'None' && (() => {
               const getHours = (t: Trailer) => calculateTrailerRemainingHours(t, localTargetHours);
