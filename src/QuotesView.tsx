@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import * as XLSX from 'xlsx';
+import JSZip from 'jszip';
 import { Home, Search, BarChart3, Download, CheckCircle, XCircle, FileText, User, Hash, Calendar, Clock } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import type { Trailer, PhaseId, UserRole } from './types';
@@ -57,8 +58,9 @@ export const QuotesView: React.FC<Props> = ({ trailers, onUpdateTrailer, userRol
     setConfirmAction(null);
   };
 
-  const handleExport = () => {
+  const handleExport = async () => {
     const now = new Date();
+    const year = format(now, 'yyyy');
     const toExport = filtered.filter(t => {
       const d = safeDate(t.dateStarted);
       if (!d) return exportFilter === 'all';
@@ -74,29 +76,68 @@ export const QuotesView: React.FC<Props> = ({ trailers, onUpdateTrailer, userRol
       return;
     }
 
-    const rows = toExport.map(t => ({
-      'Quote Label': `${t.name} - ${t.model} ${t.serialNumber}${t.notes ? ` (${t.notes})` : ''}`,
-      'Serial Number': t.serialNumber,
-      'Model': t.model,
-      'Dealer / Customer': t.name,
-      'Notes': t.notes || '',
-      'Sale Price': t.sale_price ?? '',
-      'Date Added': safeDate(t.dateStarted) ? format(safeDate(t.dateStarted)!, 'yyyy-MM-dd') : '',
-    }));
+    try {
+      setExportStatus('Building ZIP package...');
+      const zip = new JSZip();
+      const folderName = `quotes_${year}`;
+      const folder = zip.folder(folderName);
 
-    const ws = XLSX.utils.json_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Quotes');
-    const buf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-    const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `quotes_export_${format(now, 'yyyy_MM_dd')}.xlsx`;
-    a.click();
-    URL.revokeObjectURL(url);
-    setExportStatus(`Exported ${rows.length} quote(s).`);
-    setTimeout(() => setExportStatus(null), 3000);
+      // 1. Master Excel file
+      const rows = toExport.map(t => ({
+        'Quote Label': `${t.name} - ${t.model} ${t.serialNumber}${t.notes ? ` (${t.notes})` : ''}`,
+        'Serial Number': t.serialNumber,
+        'Model': t.model,
+        'Dealer / Customer': t.name,
+        'Notes': t.notes || '',
+        'Sale Price': t.sale_price ?? '',
+        'Date Added': safeDate(t.dateStarted) ? format(safeDate(t.dateStarted)!, 'yyyy-MM-dd') : '',
+      }));
+
+      const ws = XLSX.utils.json_to_sheet(rows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, `Quotes ${year}`);
+      const excelBuf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+      folder?.file(`quotes_${year}_master.xlsx`, excelBuf);
+
+      // 2. Individual quote files inside the folder
+      toExport.forEach(t => {
+        const dStr = safeDate(t.dateStarted) ? format(safeDate(t.dateStarted)!, 'yyyy-MM-dd') : 'N/A';
+        const rawLabel = `${t.name} - ${t.model} - ${t.serialNumber}`;
+        const safeFilename = rawLabel.replace(/[/\\?%*:|"<>]/g, '_').trim();
+
+        const fileContent = [
+          `LANE TRAILERS — QUOTE SPECIFICATION`,
+          `====================================`,
+          `Quote Label:      ${t.name} - ${t.model} ${t.serialNumber}${t.notes ? ` (${t.notes})` : ''}`,
+          `Serial Number:    ${t.serialNumber}`,
+          `Model:            ${t.model}`,
+          `Customer/Dealer:  ${t.name}`,
+          `Date Added:       ${dStr}`,
+          `Sale Price:       ${t.sale_price != null ? `$${t.sale_price.toLocaleString()}` : 'Not Set'}`,
+          `Status:           Quote (Pending Approval)`,
+          `Notes / Options:  ${t.notes || 'None'}`,
+          `------------------------------------`,
+          `Generated:        ${format(now, 'yyyy-MM-dd HH:mm:ss')}`
+        ].join('\n');
+
+        folder?.file(`${safeFilename}.txt`, fileContent);
+      });
+
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      const url = URL.createObjectURL(zipBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `quotes_${year}.zip`;
+      a.click();
+      URL.revokeObjectURL(url);
+
+      setExportStatus(`Exported ${toExport.length} quote(s).`);
+      setTimeout(() => setExportStatus(null), 3000);
+    } catch (err: any) {
+      console.error('Failed to export quotes zip:', err);
+      setExportStatus('Export failed');
+      setTimeout(() => setExportStatus(null), 3000);
+    }
   };
 
   return (

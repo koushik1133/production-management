@@ -34,11 +34,11 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
 
   const activeFloorTrailers = trailers.filter(t => !t.isArchived && t.currentPhase !== 'backlog');
   const factoryWorkloadHours = activeFloorTrailers.reduce((sum, t) => {
-    // Use only manually-entered hours — no catalog target hours
     const manualHours = (t.history ?? [])
       .filter(h => h.phase === t.currentPhase)
       .reduce((s, h) => s + (h.phaseManualHours ?? h.bayManualHours ?? 0), 0);
-    return sum + Math.max(0, manualHours);
+    const templateHours = (localTargetHours[t.model] || {})[t.currentPhase] || PHASE_METADATA[t.currentPhase]?.defaultTargetHours || 0;
+    return sum + (manualHours > 0 ? manualHours : templateHours);
   }, 0);
 
   const BAYS_COUNT = 4;

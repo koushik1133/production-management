@@ -609,11 +609,17 @@ function Dashboard({
   const getPhaseWorkload = (phaseId: PhaseId) => {
     if (phaseId === 'shipping') return { stage: 0, pipeline: 0 };
     return trailers.filter(t => t.currentPhase === phaseId && !t.isArchived).reduce((acc, t) => {
-      // Use only manually-entered hours — no catalog target hours
       const stageManual = (t.history ?? [])
         .filter(h => h.phase === phaseId)
         .reduce((s, h) => s + (h.phaseManualHours ?? h.bayManualHours ?? 0), 0);
-      const stageRem = Math.max(0, stageManual);
+      const stageTemplate = localTargetHours[t.model]?.[phaseId] ?? PHASE_METADATA[phaseId]?.defaultTargetHours ?? 0;
+      const stageTarget = stageManual > 0 ? stageManual : stageTemplate;
+      
+      const curLog = (t.history ?? []).find(h => h.phase === t.currentPhase && !h.exitedAt);
+      const stageRem = stageManual > 0
+        ? stageManual
+        : Math.max(0, stageTarget - ((curLog?.bayManualHours || curLog?.phaseManualHours) || 0));
+
       let pipeRem = stageRem;
       const pIdx = PHASES.findIndex(p => p.id === phaseId);
       if (pIdx !== -1) {
@@ -624,7 +630,8 @@ function Dashboard({
             const futureManual = (t.history ?? [])
               .filter(h => h.phase === fp.id)
               .reduce((s, h) => s + (h.phaseManualHours ?? h.bayManualHours ?? 0), 0);
-            pipeRem += Math.max(0, futureManual);
+            const futureTemplate = localTargetHours[t.model]?.[fp.id] ?? PHASE_METADATA[fp.id]?.defaultTargetHours ?? 0;
+            pipeRem += (futureManual > 0 ? futureManual : futureTemplate);
           }
         });
       }

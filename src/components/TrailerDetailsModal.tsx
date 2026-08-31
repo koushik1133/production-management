@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { formatDistanceToNow, format } from 'date-fns';
 import { History, FileText, Send, Crown, Trash2, Image as ImageIcon, DollarSign, Download, CheckCircle, RefreshCw } from 'lucide-react';
 import type { Trailer, PhaseId, ShippedTrailer, UserRole } from '../types';
-import { BAY_WEEKLY_HOURS, calculateTrailerRemainingHours, PHASES } from '../types';
+import { BAY_WEEKLY_HOURS, calculateTrailerRemainingHours, PHASES, PHASE_METADATA } from '../types';
 import { Modal } from './Modal';
 import { injectTrailerDataIntoSpec } from '../lib/injectSpecSheet';
 import { isLrgFrame } from './ConvertFrameModal';
@@ -289,10 +289,15 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
     const map: Record<string, string> = {};
     PHASES.filter(p => !['backlog', 'shipping'].includes(p.id)).forEach(p => {
       const v = getPhaseManualHoursFromHistory(p.id);
-      map[p.id] = v > 0 ? String(v) : '';
+      if (v > 0) {
+        map[p.id] = String(v);
+      } else {
+        const defaultH = localTargetHours?.[trailer.model]?.[p.id] ?? PHASE_METADATA[p.id]?.defaultTargetHours ?? 0;
+        map[p.id] = defaultH > 0 ? String(defaultH) : '';
+      }
     });
     return map;
-  }, [getPhaseManualHoursFromHistory]);
+  }, [getPhaseManualHoursFromHistory, localTargetHours, trailer.model]);
 
   const [localHours, setLocalHours] = React.useState<Record<string, string>>(() => buildLocalHoursMap());
   const [hoursDirty, setHoursDirty] = React.useState(false);

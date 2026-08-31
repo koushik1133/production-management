@@ -147,11 +147,10 @@ export interface CatalogModel {
 
 /**
  * Calculates the total remaining build hours for a trailer from its current phase to shipping.
- * Uses ONLY manually-entered hours from the trailer's history (phaseManualHours / bayManualHours).
- * Predefined catalog target hours are intentionally ignored — all timings are driven by
- * the hours manually set on each trailer.
+ * Uses per-trailer manual hours if entered (phaseManualHours / bayManualHours),
+ * and automatically falls back to catalog template target hours for any phase not manually set.
  */
-export function calculateTrailerRemainingHours(trailer: Trailer, _hoursConfig?: Record<string, Record<PhaseId, number>>): number {
+export function calculateTrailerRemainingHours(trailer: Trailer, hoursConfig?: Record<string, Record<PhaseId, number>>): number {
   const phaseOrder: PhaseId[] = ['backlog', 'prefab', 'build', 'paint', 'outsource', 'trim', 'shipping'];
   const currentIndex = phaseOrder.indexOf(trailer.currentPhase);
   if (currentIndex === -1) return 0;
@@ -166,17 +165,27 @@ export function calculateTrailerRemainingHours(trailer: Trailer, _hoursConfig?: 
     if (trailer.finishingType === 'Outsource' && pId === 'paint') return;
     if (trailer.finishingType === 'Paint' && pId === 'outsource') return;
 
-    // Sum manual hours entered for this phase across all history entries
+    // 1. Check if trailer has custom manual hours for this phase
     const manualHours = (trailer.history ?? [])
       .filter(h => h.phase === pId)
       .reduce((sum, h) => sum + (h.phaseManualHours ?? h.bayManualHours ?? 0), 0);
 
+    // 2. Otherwise fall back to catalog model template target hours
+    const templateHours = hoursConfig?.[trailer.model]?.[pId] ?? MODEL_TARGET_HOURS[trailer.model]?.[pId] ?? PHASE_METADATA[pId]?.defaultTargetHours ?? 0;
+
+    const effectiveTargetHours = manualHours > 0 ? manualHours : templateHours;
+
     if (pId === trailer.currentPhase) {
-      // For the current phase, remaining = what was entered (already "in progress" hours)
-      total += Math.max(0, manualHours);
+      // Current phase progress: check if time spent or manual progress
+      const curLog = (trailer.history ?? []).slice().reverse().find(h => h.phase === pId && !h.exitedAt);
+      if (curLog && !manualHours) {
+        const elapsedHours = (Date.now() - curLog.enteredAt) / (1000 * 60 * 60);
+        total += Math.max(0, effectiveTargetHours - elapsedHours);
+      } else {
+        total += Math.max(0, effectiveTargetHours);
+      }
     } else {
-      // For future phases, add whatever hours have been manually planned
-      total += Math.max(0, manualHours);
+      total += Math.max(0, effectiveTargetHours);
     }
   });
 
