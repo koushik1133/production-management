@@ -279,22 +279,11 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
   const phaseTimes = React.useMemo(() => {
     const result: Record<string, { h: number, m: number }> = {};
     PHASES.forEach(p => {
-      const entries = (trailer.history ?? []).filter(h => h.phase === p.id);
-      let totalMs = 0;
-      
-      entries.forEach(log => {
-        if (log.phaseManualHours !== undefined || log.bayManualHours !== undefined) {
-          const manualHrs = log.phaseManualHours !== undefined ? log.phaseManualHours : (log.bayManualHours || 0);
-          totalMs += manualHrs * 60 * 60 * 1000;
-        } else {
-          totalMs += (log.duration || (log.exitedAt ? log.exitedAt - log.enteredAt : Date.now() - log.enteredAt));
-        }
-      });
-      
-      const totalMins = Math.floor(Math.max(0, totalMs) / (1000 * 60));
+      const log = (trailer.history ?? []).slice().reverse().find(h => h.phase === p.id);
+      const manualHrs = log ? (log.phaseManualHours ?? log.bayManualHours ?? 0) : 0;
       result[p.id] = { 
-        h: Math.floor(totalMins / 60), 
-        m: totalMins % 60 
+        h: Math.round(manualHrs), 
+        m: 0 
       };
     });
     return result;
@@ -302,13 +291,11 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
 
   const totalTimeDisplay = React.useMemo(() => {
     const activePhases = PHASES.filter(p => !['backlog', 'shipping'].includes(p.id));
-    const totalMinutes = activePhases.reduce((sum, p) => {
+    const totalHours = activePhases.reduce((sum, p) => {
       const time = phaseTimes[p.id] || { h: 0, m: 0 };
-      return sum + (time.h * 60) + time.m;
+      return sum + time.h;
     }, 0);
-    const h = Math.floor(totalMinutes / 60);
-    const m = totalMinutes % 60;
-    return `${h}h ${m}m`;
+    return `${totalHours}h`;
   }, [phaseTimes]);
 
   const formatLogDuration = (ms: number) => {
@@ -823,8 +810,15 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                     }
                     if (targetIdx !== -1) {
                       updatedHistory[targetIdx] = { ...updatedHistory[targetIdx], phaseManualHours: decimalVal, bayManualHours: decimalVal };
-                      onUpdate(trailer.id, { history: updatedHistory });
+                    } else {
+                      updatedHistory.push({
+                        phase: phase.id,
+                        enteredAt: Date.now(),
+                        phaseManualHours: decimalVal,
+                        bayManualHours: decimalVal,
+                      });
                     }
+                    onUpdate(trailer.id, { history: updatedHistory });
                   };
 
                   return (

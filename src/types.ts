@@ -151,10 +151,10 @@ export interface CatalogModel {
 }
 
 /**
- * Calculates the total remaining build hours for a trailer from its current phase to shipping.
- * Accounts for finished types (Paint vs. Outsource) and current phase progress.
+ * Calculates the total remaining build hours for a trailer from its current phase to shipping,
+ * based strictly on the manual hours entered for each phase on that trailer.
  */
-export function calculateTrailerRemainingHours(trailer: Trailer, hoursConfig?: Record<string, Record<PhaseId, number>>): number {
+export function calculateTrailerRemainingHours(trailer: Trailer, _hoursConfig?: Record<string, Record<PhaseId, number>>): number {
   const phaseOrder: PhaseId[] = ['backlog', 'prefab', 'build', 'paint', 'outsource', 'trim', 'shipping'];
   const currentIndex = phaseOrder.indexOf(trailer.currentPhase);
   if (currentIndex === -1) return 0;
@@ -163,23 +163,16 @@ export function calculateTrailerRemainingHours(trailer: Trailer, hoursConfig?: R
   let total = 0;
 
   relevantPhases.forEach(pId => {
-    if (pId === 'shipping' && trailer.currentPhase !== 'shipping') return;
+    if (pId === 'backlog' || pId === 'shipping') return;
 
     // Skip irrelevant finishing phase ONLY if an explicit override is set
     if (trailer.finishingType === 'Outsource' && pId === 'paint') return;
     if (trailer.finishingType === 'Paint' && pId === 'outsource') return;
 
-    const config = hoursConfig || MODEL_TARGET_HOURS;
-    const target = config[trailer.model]?.[pId] || PHASE_METADATA[pId]?.defaultTargetHours || 0;
-    
-    // Check for manual hours in history
+    // Retrieve manual hours entered for this phase on this trailer
     const log = (trailer.history ?? []).slice().reverse().find(h => h.phase === pId);
-    if (pId === trailer.currentPhase && log) {
-      const loggedHours = log.phaseManualHours || log.bayManualHours || 0;
-      total += Math.max(0, target - loggedHours);
-    } else {
-      total += target;
-    }
+    const manualHours = log ? (log.phaseManualHours ?? log.bayManualHours ?? 0) : 0;
+    total += manualHours;
   });
 
   return total;

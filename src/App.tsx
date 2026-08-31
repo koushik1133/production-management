@@ -611,9 +611,8 @@ function Dashboard({
   const getPhaseWorkload = (phaseId: PhaseId) => {
     if (phaseId === 'shipping') return { stage: 0, pipeline: 0 };
     return trailers.filter(t => t.currentPhase === phaseId && !t.isArchived).reduce((acc, t) => {
-      const target = (localTargetHours[t.model]?.[phaseId] || PHASE_METADATA[phaseId]?.defaultTargetHours || 0);
-      const curLog = (t.history ?? []).find(h => h.phase === t.currentPhase && !h.exitedAt);
-      const stageRem = Math.max(0, target - (curLog?.bayManualHours || curLog?.phaseManualHours || 0));
+      const curLog = (t.history ?? []).slice().reverse().find(h => h.phase === phaseId);
+      const stageRem = curLog ? (curLog.phaseManualHours ?? curLog.bayManualHours ?? 0) : 0;
       let pipeRem = stageRem;
       const pIdx = PHASES.findIndex(p => p.id === phaseId);
       if (pIdx !== -1) {
@@ -621,7 +620,8 @@ function Dashboard({
           if (fp.id !== 'shipping' && fp.id !== 'backlog') {
             if (t.finishingType === 'Outsource' && fp.id === 'paint') return;
             if (t.finishingType === 'Paint' && fp.id === 'outsource') return;
-            pipeRem += (localTargetHours[t.model]?.[fp.id] || PHASE_METADATA[fp.id]?.defaultTargetHours || 0);
+            const fpLog = (t.history ?? []).slice().reverse().find(h => h.phase === fp.id);
+            pipeRem += fpLog ? (fpLog.phaseManualHours ?? fpLog.bayManualHours ?? 0) : 0;
           }
         });
       }
@@ -2882,8 +2882,8 @@ function AppContent({ userRole, currentUser }: { userRole: UserRole; currentUser
   const totalWorkRemaining = useMemo(() => {
     return trailers
       .filter(t => !t.isArchived && t.currentPhase !== 'shipping')
-      .reduce((acc, t) => acc + calculateTrailerRemainingHours(t, localTargetHours), 0);
-  }, [trailers, localTargetHours]);
+      .reduce((acc, t) => acc + calculateTrailerRemainingHours(t), 0);
+  }, [trailers]);
 
   const totalShopCapacity = useMemo(() => {
     return Object.values(bayCapacities).reduce((sum, h) => sum + (h || 0), 0);
@@ -3206,7 +3206,7 @@ function getSuggestedBay(): StationId {
     
     activeUnits.forEach(t => {
       if (t.station !== 'None') {
-        const remaining = calculateTrailerRemainingHours(t, localTargetHours);
+        const remaining = calculateTrailerRemainingHours(t);
         bayLoads[t.station] += remaining;
       }
     });
@@ -3223,7 +3223,7 @@ function getSuggestedBay(): StationId {
     return scores.sort((a, b) => a.utilization - b.utilization)[0]?.id || 'B1';
   }
 
-  const suggestedBay = useMemo(getSuggestedBay, [trailers, bayCapacities, localTargetHours]);
+  const suggestedBay = useMemo(getSuggestedBay, [trailers, bayCapacities]);
 
   if (loading) {
     return (

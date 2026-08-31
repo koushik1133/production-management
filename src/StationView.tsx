@@ -17,7 +17,7 @@ import {
 import type { DragStartEvent, DragOverEvent, CollisionDetection } from '@dnd-kit/core';
 import { sortableKeyboardCoordinates, arrayMove } from '@dnd-kit/sortable';
 import type { Trailer, StationId, PhaseId, UserRole } from './types';
-import { STATIONS, PHASE_METADATA, calculateTrailerRemainingHours } from './types';
+import { STATIONS, calculateTrailerRemainingHours } from './types';
 import { TrailerCard } from './components/TrailerCard';
 import { StationColumn } from './components/StationColumn';
 import { TrailerDetailsModal } from './components/TrailerDetailsModal';
@@ -219,11 +219,9 @@ const StationView: React.FC<Props> = ({ trailers, setTrailers, onUpdateTrailer, 
   const getStationWorkloadData = (stationId: StationId) => {
     const stationTrailers = trailers.filter(t => t.station === stationId && !t.isArchived);
     const totals = stationTrailers.reduce((acc, t) => {
-      const remainingHours = calculateTrailerRemainingHours(t, localTargetHours);
-      
-      // stage-only hours for some logic possibly, 
-      // but for pipeline it's straightforward now.
-      const currentPhaseTarget = localTargetHours[t.model]?.[t.currentPhase] || PHASE_METADATA[t.currentPhase]?.defaultTargetHours || 0;
+      const remainingHours = calculateTrailerRemainingHours(t);
+      const phaseLog = (t.history ?? []).slice().reverse().find(h => h.phase === t.currentPhase);
+      const currentPhaseTarget = phaseLog ? (phaseLog.phaseManualHours ?? phaseLog.bayManualHours ?? 0) : 0;
       return {
         stage: acc.stage + currentPhaseTarget,
         pipeline: acc.pipeline + remainingHours

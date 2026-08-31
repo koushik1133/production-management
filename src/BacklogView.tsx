@@ -1,8 +1,7 @@
- 
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Home, ArrowRight, Clock, Trash2, Calendar, AlertCircle, CheckCircle } from 'lucide-react';
-import { PHASES, PHASE_METADATA } from './types';
+import { calculateTrailerRemainingHours } from './types';
 import type { Trailer, StationId, PhaseId, UserRole } from './types';
 import { addHours, format } from 'date-fns';
 import { injectTrailerDataIntoSpec } from './lib/injectSpecSheet';
@@ -23,7 +22,7 @@ interface Props {
   isPriceUnlockedGlobally?: boolean;
   onUnlockPrices?: () => boolean;
   dealers?: { id: string; name: string; addresses?: string[]; common_address?: string; }[];
-  onUpdateDealer?: (id: string, dealer: { name: string, addresses: string[], common_address: string }) => Promise<void>;
+  onUpdateDealer?: (id: string, dealer: { name: string; addresses: string[]; common_address: string; }) => Promise<void> | void;
 }
 
 export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, onDeleteTrailer, trailers, suggestedBay, nextSuggestedSerial, localModelCategories, localTargetHours, localSpecSheetTemplates, userRole, isPriceUnlockedGlobally, onUnlockPrices, dealers = [], onUpdateDealer }) => {
@@ -34,8 +33,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
 
   const activeFloorTrailers = trailers.filter(t => !t.isArchived && t.currentPhase !== 'backlog');
   const factoryWorkloadHours = activeFloorTrailers.reduce((sum, t) => {
-    const hours = localTargetHours[t.model] || {};
-    return sum + (hours[t.currentPhase] || PHASE_METADATA[t.currentPhase]?.defaultTargetHours || 0);
+    return sum + calculateTrailerRemainingHours(t);
   }, 0);
 
   const BAYS_COUNT = 4;
@@ -777,11 +775,8 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
                   return (
                     <>
                       {displayedBacklog.map(t => {
-                        const modelHours = localTargetHours[t.model] || {};
-                        // Correct build hours calculation (excluding backlog/shipping)
-                        const actualBuildHours = PHASES.filter(p => p.id !== 'backlog' && p.id !== 'shipping').reduce((sum, p) => {
-                          return sum + (modelHours[p.id] || PHASE_METADATA[p.id]?.defaultTargetHours || 0);
-                        }, 0);
+                        // Calculate build hours from manual hours entered for this trailer
+                        const actualBuildHours = calculateTrailerRemainingHours(t);
                         
                         // Estimate = (Active Floor Delay) + (Hours of units ahead in backlog / 4 bays)
                         const estimateHours = activeFloorDelayHours + (cumulativeBacklogHours / BAYS_COUNT);
