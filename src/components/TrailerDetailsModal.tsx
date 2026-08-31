@@ -27,7 +27,7 @@ interface Props {
   onConvertFrame?: (trailer: Trailer) => void;
 }
 
-export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose, onUpdate, allTrailers = [], localTargetHours, localSpecSheetTemplates = {}, onDeleteTrailer, shippedTrailers = [], userRole, isPriceUnlockedGlobally, onUnlockPrices, initialMode = 'view', dealers = [], onUpdateDealer, onConvertFrame }) => {
+export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose, onUpdate, allTrailers = [], localTargetHours: _localTargetHours, localSpecSheetTemplates = {}, onDeleteTrailer, shippedTrailers = [], userRole, isPriceUnlockedGlobally, onUnlockPrices, initialMode = 'view', dealers = [], onUpdateDealer, onConvertFrame }) => {
   const [isEditing, setIsEditing] = React.useState(initialMode === 'edit');
   const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -125,6 +125,19 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
   const [localNotes, setLocalNotes] = React.useState(trailer.notes || '');
   const [isCustomAddress, setIsCustomAddress] = useState(false);
   const [customAddressText, setCustomAddressText] = useState('');
+  const [localPhaseHours, setLocalPhaseHours] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (isOpen && trailer.id) {
+      const hMap: Record<string, string> = {};
+      PHASES.forEach(p => {
+        const log = (trailer.history ?? []).slice().reverse().find(h => h.phase === p.id);
+        const val = log ? (log.phaseManualHours ?? log.bayManualHours) : undefined;
+        hMap[p.id] = val !== undefined && val !== null ? String(val) : '';
+      });
+      setLocalPhaseHours(hMap);
+    }
+  }, [isOpen, trailer.id, trailer.history]);
 
   useEffect(() => {
     if (isOpen && trailer.id) {
@@ -800,16 +813,26 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '0.75rem' }}>
                 {PHASES.filter(p => !['backlog', 'shipping'].includes(p.id)).map(phase => {
-                  const time = phaseTimes[phase.id] || { h: 0, m: 0 };
-                  const updateManualTime = (newH: number) => {
-                    const decimalVal = newH;
+                  const currentVal = localPhaseHours[phase.id] !== undefined 
+                    ? localPhaseHours[phase.id] 
+                    : (phaseTimes[phase.id]?.h ? String(phaseTimes[phase.id].h) : '');
+
+                  const handleHourChange = (newText: string) => {
+                    const cleaned = newText.replace(/[^\d.]/g, '');
+                    setLocalPhaseHours(prev => ({ ...prev, [phase.id]: cleaned }));
+
+                    const decimalVal = cleaned === '' ? 0 : parseFloat(cleaned) || 0;
                     const updatedHistory = [...(trailer.history ?? [])];
                     let targetIdx = -1;
                     for (let i = updatedHistory.length - 1; i >= 0; i--) {
                       if (updatedHistory[i].phase === phase.id) { targetIdx = i; break; }
                     }
                     if (targetIdx !== -1) {
-                      updatedHistory[targetIdx] = { ...updatedHistory[targetIdx], phaseManualHours: decimalVal, bayManualHours: decimalVal };
+                      updatedHistory[targetIdx] = { 
+                        ...updatedHistory[targetIdx], 
+                        phaseManualHours: decimalVal, 
+                        bayManualHours: decimalVal 
+                      };
                     } else {
                       updatedHistory.push({
                         phase: phase.id,
@@ -827,16 +850,11 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                       <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-secondary)', borderRadius: '6px', padding: '4px 8px', border: '1.5px solid var(--border-default)' }}>
                         <input 
                           type="text"
-                          inputMode="numeric"
+                          inputMode="decimal"
                           style={{ width: '100%', border: 'none', background: 'transparent', fontSize: '1rem', fontWeight: 900, color: 'var(--text-primary)', textAlign: 'left', outline: 'none' }}
-                          value={time.h || ''}
+                          value={currentVal}
                           placeholder="0"
-                          onChange={(e) => {
-                            const raw = e.target.value.replace(/\D/g, '');
-                            if (raw === '') { updateManualTime(0); return; }
-                            const v = Math.max(0, parseInt(raw, 10));
-                            updateManualTime(v);
-                          }}
+                          onChange={(e) => handleHourChange(e.target.value)}
                         />
                         <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', marginLeft: '4px' }}>h</span>
                       </div>
@@ -847,7 +865,7 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
             </div>
 
             {!trailer.isArchived && trailer.station !== 'None' && (() => {
-              const getHours = (t: Trailer) => calculateTrailerRemainingHours(t, localTargetHours);
+              const getHours = (t: Trailer) => calculateTrailerRemainingHours(t);
               const myHours = getHours(trailer);
               if (myHours === 0) return null;
               const bayQueue = allTrailers.filter(t => t.station === trailer.station && !t.isArchived && t.currentPhase !== 'shipping').sort((a, b) => a.dateStarted - b.dateStarted);
