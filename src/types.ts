@@ -165,10 +165,18 @@ export function calculateTrailerRemainingHours(trailer: Trailer, hoursConfig?: R
     if (trailer.finishingType === 'Outsource' && pId === 'paint') return;
     if (trailer.finishingType === 'Paint' && pId === 'outsource') return;
 
-    // 1. Check if trailer has custom manual hours for this phase
+    // 1. Check if trailer has custom manual hours or logged time for this phase
     const manualHours = (trailer.history ?? [])
       .filter(h => h.phase === pId)
-      .reduce((sum, h) => sum + (h.phaseManualHours ?? h.bayManualHours ?? 0), 0);
+      .reduce((sum, h) => {
+        if (h.phaseManualHours !== undefined || h.bayManualHours !== undefined) {
+          return sum + (h.phaseManualHours ?? h.bayManualHours ?? 0);
+        }
+        if (h.duration) {
+          return sum + Math.round(h.duration / (1000 * 60 * 60));
+        }
+        return sum;
+      }, 0);
 
     // 2. Otherwise fall back to catalog model template target hours
     const templateHours = hoursConfig?.[trailer.model]?.[pId] ?? MODEL_TARGET_HOURS[trailer.model]?.[pId] ?? PHASE_METADATA[pId]?.defaultTargetHours ?? 0;

@@ -282,7 +282,17 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
   // The DB is only written when the user clicks "Save Hours".
   const getPhaseManualHoursFromHistory = React.useCallback((phaseId: string): number => {
     const entries = (trailer.history ?? []).filter(h => h.phase === phaseId);
-    return entries.reduce((s, h) => s + (h.phaseManualHours ?? h.bayManualHours ?? 0), 0);
+    let total = 0;
+    entries.forEach(log => {
+      if (log.phaseManualHours !== undefined || log.bayManualHours !== undefined) {
+        total += (log.phaseManualHours ?? log.bayManualHours ?? 0);
+      } else if (log.duration) {
+        total += Math.round(log.duration / (1000 * 60 * 60));
+      } else if (log.exitedAt && log.enteredAt && (log.exitedAt > log.enteredAt)) {
+        total += Math.round((log.exitedAt - log.enteredAt) / (1000 * 60 * 60));
+      }
+    });
+    return total;
   }, [trailer.history]);
 
   const buildLocalHoursMap = React.useCallback((): Record<string, string> => {
