@@ -967,6 +967,7 @@ function Dashboard({
                     vin_date: t.vinDate || '',
                     customer_name: t.name || '',
                     sale_price: t.sale_price?.toString() || '',
+                    shipping_cost: '',
                     dealer_price: '',
                     cost_price: '',
                     shipped_date: new Date().toISOString().split('T')[0]

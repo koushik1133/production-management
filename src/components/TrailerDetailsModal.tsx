@@ -303,19 +303,6 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
     setHoursDirty(false);
   }, [trailer.id, trailer.history, buildLocalHoursMap]);
 
-  // Derive display totals from localHours so the UI reflects what the user typed instantly
-  const phaseTimes = React.useMemo(() => {
-    const result: Record<string, { h: number, m: number }> = {};
-    PHASES.forEach(p => {
-      if (['backlog', 'shipping'].includes(p.id)) {
-        result[p.id] = { h: 0, m: 0 };
-        return;
-      }
-      const val = parseFloat(localHours[p.id] || '0') || 0;
-      result[p.id] = { h: Math.floor(val), m: Math.round((val % 1) * 60) };
-    });
-    return result;
-  }, [localHours]);
 
   const totalTimeDisplay = React.useMemo(() => {
     const activePhases = PHASES.filter(p => !['backlog', 'shipping'].includes(p.id));
