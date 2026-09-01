@@ -1,12 +1,15 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import type { User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
-import type { Message, UserProfile, RecipientOption } from '../types/messaging';
+import type { Message, UserProfile, RecipientOption, ChatGroup } from '../types/messaging';
 import {
   getOrSyncProfile,
   fetchAllProfiles,
   getRecipientOptions,
   fetchMessages,
+  fetchChatGroups,
+  createChatGroup,
+  deleteChatGroup,
   sendMessage as apiSendMessage,
   markMessagesAsRead,
 } from '../lib/messaging';
@@ -17,6 +20,7 @@ import type { ConversationItem } from '../components/Messaging/ConversationSideb
 export interface UseMessagesReturn {
   currentProfile: UserProfile | null;
   allProfiles: UserProfile[];
+  chatGroups: ChatGroup[];
   recipientOptions: RecipientOption[];
   selectedRecipients: RecipientOption[];
   setSelectedRecipients: (recipients: RecipientOption[]) => void;
@@ -30,6 +34,8 @@ export interface UseMessagesReturn {
   hasMore: boolean;
   loadOlderMessages: () => Promise<void>;
   sendMessage: (body: string) => Promise<boolean>;
+  createGroup: (params: { name: string; description?: string; adminIds: string[]; memberIds: string[] }) => Promise<ChatGroup>;
+  deleteGroup: (groupId: string) => Promise<boolean>;
   isSending: boolean;
   sendError: string | null;
   clearSendError: () => void;
@@ -44,6 +50,7 @@ export interface UseMessagesReturn {
 export function useMessages(currentUser: User | null, isViewingMessagesPage: boolean = false): UseMessagesReturn {
   const [currentProfile, setCurrentProfile] = useState<UserProfile | null>(null);
   const [allProfiles, setAllProfiles] = useState<UserProfile[]>([]);
+  const [chatGroups, setChatGroups] = useState<ChatGroup[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string>('everyone');
   const [selectedRecipients, setSelectedRecipients] = useState<RecipientOption[]>([]);
   const [allMessages, setAllMessages] = useState<Message[]>([]);
@@ -71,6 +78,9 @@ export function useMessages(currentUser: User | null, isViewingMessagesPage: boo
       const hasSelf = fetchedProfiles.some((p) => p.id === currentUserId);
       const combined = hasSelf ? fetchedProfiles : [...fetchedProfiles, selfProfile];
       setAllProfiles(combined);
+
+      const groups = await fetchChatGroups();
+      setChatGroups(groups);
     } catch (err) {
       console.error('Failed to load user profiles:', err);
     }
@@ -85,8 +95,8 @@ export function useMessages(currentUser: User | null, isViewingMessagesPage: boo
   // 2. Derive Recipient Options
   const recipientOptions = useMemo(() => {
     if (!currentUserId) return [];
-    return getRecipientOptions(currentUserId, allProfiles, currentProfile);
-  }, [currentUserId, allProfiles, currentProfile]);
+    return getRecipientOptions(currentUserId, allProfiles, currentProfile, chatGroups);
+  }, [currentUserId, allProfiles, currentProfile, chatGroups]);
 
   useEffect(() => {
     if (recipientOptions.length > 0 && selectedRecipients.length === 0) {
@@ -182,7 +192,7 @@ export function useMessages(currentUser: User | null, isViewingMessagesPage: boo
     [currentUserId, currentProfile]
   );
 
-  // 5. Generate Conversations List for Sidebar (Ordered by most recent message first)
+  // 5. Generate Conversations List for Sidebar
   const conversations = useMemo<ConversationItem[]>(() => {
     const list: ConversationItem[] = [];
 
@@ -197,6 +207,22 @@ export function useMessages(currentUser: User | null, isViewingMessagesPage: boo
       type: 'everyone',
       lastMessage: everyoneLast,
       unreadCount: everyoneUnread,
+    });
+
+    // Group Channels
+    chatGroups.forEach((g) => {
+      const groupMsgs = allMessages.filter((m) => m.recipient_type === 'group' && m.recipient_id === g.id);
+      const groupUnread = groupMsgs.filter((m) => m.sender_id !== currentUserId && !m.is_read_by_me).length;
+      const groupLast = groupMsgs[groupMsgs.length - 1];
+
+      list.push({
+        id: g.id,
+        name: g.name,
+        type: 'group',
+        group: g,
+        lastMessage: groupLast,
+        unreadCount: groupUnread,
+      });
     });
 
     // Individual User DM Threads
@@ -224,23 +250,8 @@ export function useMessages(currentUser: User | null, isViewingMessagesPage: boo
       });
     });
 
-    // Sort conversations: Most recent message first
-    list.sort((a, b) => {
-      const timeA = a.lastMessage ? new Date(a.lastMessage.created_at).getTime() : 0;
-      const timeB = b.lastMessage ? new Date(b.lastMessage.created_at).getTime() : 0;
-
-      if (timeA !== timeB) {
-        return timeB - timeA; // Descending: newest message at top
-      }
-
-      // Secondary fallback sort: Everyone channel first, then alphabetical
-      if (a.type === 'everyone') return -1;
-      if (b.type === 'everyone') return 1;
-      return a.name.localeCompare(b.name);
-    });
-
     return list;
-  }, [allMessages, allProfiles, currentUserId, currentProfile, onlineUserIds, isMessageInUserThread]);
+  }, [allMessages, allProfiles, chatGroups, currentUserId, currentProfile, onlineUserIds, isMessageInUserThread]);
 
   // 6. Filter Messages for Active Conversation Thread
   const filteredMessages = useMemo(() => {
@@ -249,8 +260,13 @@ export function useMessages(currentUser: User | null, isViewingMessagesPage: boo
     }
 
     const activeConv = conversations.find((c) => c.id === activeConversationId);
-    if (!activeConv || !activeConv.profile) return [];
+    if (!activeConv) return [];
 
+    if (activeConv.type === 'group') {
+      return allMessages.filter((m) => m.recipient_type === 'group' && m.recipient_id === activeConv.id);
+    }
+
+    if (!activeConv.profile) return [];
     return allMessages.filter((m) => isMessageInUserThread(m, activeConv.profile!));
   }, [allMessages, activeConversationId, conversations, isMessageInUserThread]);
 
@@ -313,7 +329,8 @@ export function useMessages(currentUser: User | null, isViewingMessagesPage: boo
           const isRelevant =
             newMsg.sender_id === currentUserId ||
             (newMsg.recipient_type === 'user' && (newMsg.recipient_id === currentUserId || !newMsg.recipient_id)) ||
-            newMsg.recipient_type === 'everyone';
+            newMsg.recipient_type === 'everyone' ||
+            newMsg.recipient_type === 'group';
 
           if (!isRelevant) return;
 
@@ -333,10 +350,12 @@ export function useMessages(currentUser: User | null, isViewingMessagesPage: boo
             recipientProf = allProfiles.find((p) => p.id === newMsg.recipient_id);
           }
 
-          const isSelf = newMsg.sender_id === currentUserId;
-          const isViewing = isViewingRef.current;
+          let msgGroup: ChatGroup | undefined = undefined;
+          if (newMsg.recipient_type === 'group' && newMsg.recipient_id) {
+            msgGroup = chatGroups.find((g) => g.id === newMsg.recipient_id);
+          }
 
-          const formattedMessage: Message = {
+          const formattedNewMsg: Message = {
             id: newMsg.id,
             sender_id: newMsg.sender_id,
             recipient_type: newMsg.recipient_type,
@@ -346,25 +365,23 @@ export function useMessages(currentUser: User | null, isViewingMessagesPage: boo
             read_at: newMsg.read_at,
             sender_profile: senderProf,
             recipient_profile: recipientProf,
-            is_read_by_me: isSelf || isViewing,
+            group: msgGroup,
+            is_read_by_me: newMsg.sender_id === currentUserId,
           };
 
           setAllMessages((prev) => {
-            if (prev.some((m) => m.id === newMsg.id)) return prev;
-            return [...prev, formattedMessage];
+            if (prev.some((m) => m.id === formattedNewMsg.id)) return prev;
+            return [...prev, formattedNewMsg];
           });
 
-          if (!isSelf) {
-            const senderTitle = senderProf?.name || 'User';
+          // Play notification sound / trigger toast if from someone else
+          if (newMsg.sender_id !== currentUserId) {
+            const senderTitle = senderProf?.name || 'Someone';
             const cleanBodyText = formatCleanNotificationMessage(newMsg.body, senderTitle);
             notifications.sendNotification(`Message from ${senderTitle}`, {
               body: cleanBodyText,
               senderName: senderTitle,
             });
-
-            if (isViewing) {
-              markMessagesAsRead(currentUserId, [formattedMessage]);
-            }
           }
         }
       )
@@ -396,7 +413,9 @@ export function useMessages(currentUser: User | null, isViewingMessagesPage: boo
         if (status === 'SUBSCRIBED') {
           setConnectionStatus('connected');
         } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
-          if (typeof navigator !== 'undefined' && !navigator.onLine) {
+          if (navigator.onLine) {
+            setConnectionStatus('reconnecting');
+          } else {
             setConnectionStatus('disconnected');
           }
         }
@@ -405,7 +424,7 @@ export function useMessages(currentUser: User | null, isViewingMessagesPage: boo
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [currentUserId, currentProfile, allProfiles, notifications]);
+  }, [currentUserId, currentProfile, allProfiles, chatGroups, notifications]);
 
   // 10. Presence Tracking
   useEffect(() => {
@@ -484,6 +503,7 @@ export function useMessages(currentUser: User | null, isViewingMessagesPage: boo
 
       try {
         const isEveryone = selectedRecipients.some((r) => r.type === 'everyone');
+        const isGroup = selectedRecipients.some((r) => r.type === 'group');
 
         if (isEveryone) {
           const newMsg = await apiSendMessage({
@@ -494,6 +514,22 @@ export function useMessages(currentUser: User | null, isViewingMessagesPage: boo
           });
 
           newMsg.sender_profile = currentProfile || undefined;
+
+          setAllMessages((prev) => {
+            if (prev.some((m) => m.id === newMsg.id)) return prev;
+            return [...prev, newMsg];
+          });
+        } else if (isGroup) {
+          const groupRec = selectedRecipients.find((r) => r.type === 'group')!;
+          const newMsg = await apiSendMessage({
+            senderId: currentUserId,
+            recipientType: 'group',
+            recipientId: groupRec.id,
+            body: bodyText,
+          });
+
+          newMsg.sender_profile = currentProfile || undefined;
+          newMsg.group = groupRec.group;
 
           setAllMessages((prev) => {
             if (prev.some((m) => m.id === newMsg.id)) return prev;
@@ -544,6 +580,33 @@ export function useMessages(currentUser: User | null, isViewingMessagesPage: boo
     setSendError(null);
   }, []);
 
+  const createGroup = useCallback(
+    async (params: { name: string; description?: string; adminIds: string[]; memberIds: string[] }): Promise<ChatGroup> => {
+      const newGroup = await createChatGroup({
+        ...params,
+        createdBy: currentUserId!,
+      });
+      setChatGroups((prev) => [newGroup, ...prev.filter((g) => g.id !== newGroup.id)]);
+      handleSelectConversation(newGroup.id);
+      return newGroup;
+    },
+    [currentUserId, handleSelectConversation]
+  );
+
+  const deleteGroup = useCallback(
+    async (groupId: string): Promise<boolean> => {
+      const ok = await deleteChatGroup(groupId);
+      if (ok) {
+        setChatGroups((prev) => prev.filter((g) => g.id !== groupId));
+        if (activeConversationId === groupId) {
+          handleSelectConversation('everyone');
+        }
+      }
+      return ok;
+    },
+    [activeConversationId, handleSelectConversation]
+  );
+
   const toggleReaction = useCallback(
     async (messageId: string, emoji: string) => {
       const msg = allMessages.find((m) => m.id === messageId);
@@ -568,6 +631,7 @@ export function useMessages(currentUser: User | null, isViewingMessagesPage: boo
   return {
     currentProfile,
     allProfiles,
+    chatGroups,
     recipientOptions,
     selectedRecipients,
     setSelectedRecipients,
@@ -581,6 +645,8 @@ export function useMessages(currentUser: User | null, isViewingMessagesPage: boo
     hasMore,
     loadOlderMessages,
     sendMessage: handleSendMessage,
+    createGroup,
+    deleteGroup,
     isSending,
     sendError,
     clearSendError,

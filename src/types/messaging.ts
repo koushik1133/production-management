@@ -1,11 +1,21 @@
-export type RecipientType = 'user' | 'everyone';
+export type RecipientType = 'user' | 'everyone' | 'group';
 
 export interface UserProfile {
   id: string; // Supabase Auth user UUID
-  name: string; // e.g. 'T1', 'T2', 'T3', 'Manager'
+  name: string; // e.g. 'Logan', 'Trim', 'Bay 1'
   role: 'worker' | 'manager';
   email?: string;
   online?: boolean;
+}
+
+export interface ChatGroup {
+  id: string;
+  name: string;
+  description?: string;
+  created_by?: string;
+  admin_ids: string[];
+  member_ids: string[];
+  created_at?: string;
 }
 
 export interface Message {
@@ -20,11 +30,13 @@ export interface Message {
   sender_profile?: UserProfile;
   recipient_profile?: UserProfile;
   is_read_by_me?: boolean;
+  group?: ChatGroup;
 }
 
 export interface RecipientOption {
-  id: string; // User UUID or 'everyone'
-  name: string; // 'Everyone', 'T1', 'T2', 'T3', 'Manager'
+  id: string; // User UUID, 'everyone', or Group UUID
+  name: string;
   type: RecipientType;
   role?: 'worker' | 'manager';
+  group?: ChatGroup;
 }

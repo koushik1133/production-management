@@ -1,5 +1,22 @@
 import { supabase } from './supabase';
-import type { Message, UserProfile, RecipientOption, RecipientType } from '../types/messaging';
+import type { Message, UserProfile, RecipientOption, RecipientType, ChatGroup } from '../types/messaging';
+
+export const DEFAULT_GROUPS: ChatGroup[] = [
+  {
+    id: '00000000-0000-4000-b000-000000000001',
+    name: 'Engineering',
+    description: 'Engineering queries, CAD, and trailer structural specs',
+    admin_ids: ['00000000-0000-4000-a000-000000000002', '00000000-0000-4000-a000-000000000005'], // Eric & Lucas
+    member_ids: [],
+  },
+  {
+    id: '00000000-0000-4000-b000-000000000002',
+    name: 'Quality Control',
+    description: 'Final inspection, paint finish, and trim verification',
+    admin_ids: ['00000000-0000-4000-a000-000000000001', '00000000-0000-4000-a000-000000000003'], // Logan & Darin
+    member_ids: [],
+  }
+];
 
 export const DEFAULT_PROFILES: UserProfile[] = [
   { id: '00000000-0000-4000-a000-000000000001', name: 'Logan', role: 'manager', email: 'logan@lanetrailers.com' },
@@ -156,12 +173,126 @@ export async function fetchAllProfiles(): Promise<UserProfile[]> {
 }
 
 /**
+ * Fetches all chat groups from Supabase chat_groups table, with fallback to DEFAULT_GROUPS.
+ */
+export async function fetchChatGroups(): Promise<ChatGroup[]> {
+  try {
+    const { data, error } = await supabase
+      .from('chat_groups')
+      .select('*')
+      .order('name');
+
+    if (error) {
+      console.warn('Could not fetch chat_groups from db (table may not exist yet), using defaults:', error.message);
+      return DEFAULT_GROUPS;
+    }
+
+    const dbGroups: ChatGroup[] = (data || []).map((g) => ({
+      id: g.id,
+      name: g.name,
+      description: g.description,
+      created_by: g.created_by,
+      admin_ids: g.admin_ids || [],
+      member_ids: g.member_ids || [],
+      created_at: g.created_at,
+    }));
+
+    // Merge defaults if not present
+    const result = [...dbGroups];
+    DEFAULT_GROUPS.forEach((def) => {
+      const exists = result.some((g) => g.name.toLowerCase() === def.name.toLowerCase());
+      if (!exists) {
+        result.push(def);
+      }
+    });
+
+    return result;
+  } catch (err) {
+    console.error('Error fetching chat groups:', err);
+    return DEFAULT_GROUPS;
+  }
+}
+
+/**
+ * Creates a new chat group in Supabase.
+ */
+export async function createChatGroup({
+  name,
+  description,
+  createdBy,
+  adminIds,
+  memberIds,
+}: {
+  name: string;
+  description?: string;
+  createdBy?: string;
+  adminIds: string[];
+  memberIds: string[];
+}): Promise<ChatGroup> {
+  const payload = {
+    name: name.trim(),
+    description: description?.trim() || null,
+    created_by: createdBy || null,
+    admin_ids: adminIds,
+    member_ids: memberIds,
+  };
+
+  const { data, error } = await supabase
+    .from('chat_groups')
+    .insert(payload)
+    .select('*')
+    .single();
+
+  if (error || !data) {
+    // If table doesn't exist in Supabase yet, generate a client-side UUID
+    console.warn('Failed to insert group into DB, generating local group:', error?.message);
+    const localId = `00000000-0000-4000-b000-${Date.now().toString(16).padStart(12, '0')}`;
+    return {
+      id: localId,
+      name: name.trim(),
+      description: description?.trim(),
+      created_by: createdBy,
+      admin_ids: adminIds,
+      member_ids: memberIds,
+      created_at: new Date().toISOString(),
+    };
+  }
+
+  return {
+    id: data.id,
+    name: data.name,
+    description: data.description,
+    created_by: data.created_by,
+    admin_ids: data.admin_ids || [],
+    member_ids: data.member_ids || [],
+    created_at: data.created_at,
+  };
+}
+
+/**
+ * Deletes a chat group from Supabase.
+ */
+export async function deleteChatGroup(groupId: string): Promise<boolean> {
+  try {
+    const { error } = await supabase
+      .from('chat_groups')
+      .delete()
+      .eq('id', groupId);
+    return !error;
+  } catch (err) {
+    console.error('Error deleting chat group:', err);
+    return false;
+  }
+}
+
+/**
  * Builds the list of available recipient options for the current user.
  */
 export function getRecipientOptions(
   currentUserId: string,
   allProfiles: UserProfile[],
-  currentUserProfile?: UserProfile | null
+  currentUserProfile?: UserProfile | null,
+  groups: ChatGroup[] = []
 ): RecipientOption[] {
   const options: RecipientOption[] = [];
 
@@ -169,6 +300,16 @@ export function getRecipientOptions(
     id: 'everyone',
     name: 'Everyone',
     type: 'everyone',
+  });
+
+  // Groups
+  groups.forEach((g) => {
+    options.push({
+      id: g.id,
+      name: g.name,
+      type: 'group',
+      group: g,
+    });
   });
 
   const currentName = currentUserProfile?.name?.toLowerCase();
@@ -252,7 +393,7 @@ export async function fetchMessages({
         isRead = true;
       } else if (m.recipient_type === 'user') {
         isRead = Boolean(m.read_at);
-      } else if (m.recipient_type === 'everyone') {
+      } else if (m.recipient_type === 'everyone' || m.recipient_type === 'group') {
         isRead = readMessageIds.has(m.id);
       }
 
@@ -292,7 +433,12 @@ export async function sendMessage({
   recipientId: string | null;
   body: string;
 }): Promise<Message> {
-  const validRecipientId = recipientType === 'user' ? ensureValidUuid(recipientId) : null;
+  let validRecipientId: string | null = null;
+  if (recipientType === 'user') {
+    validRecipientId = ensureValidUuid(recipientId);
+  } else if (recipientType === 'group') {
+    validRecipientId = recipientId;
+  }
 
   const payload: any = {
     sender_id: senderId,

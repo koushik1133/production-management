@@ -3480,7 +3480,7 @@ function getSuggestedBay(): StationId {
             <Route path="/archive" element={<ArchiveView trailers={trailers} onUpdateTrailer={updateTrailer} localTargetHours={localTargetHours} shippedTrailers={shippedTrailers} userRole={userRole} isPriceUnlockedGlobally={isPriceUnlockedGlobally} onUnlockPrices={unlockPricesGlobally} onLockPrices={() => { setIsPriceUnlockedGlobally(false); localStorage.setItem('lanetrailers_price_unlocked', 'false'); }} localModelCategories={localModelCategories} localSpecSheetTemplates={localSpecSheetTemplates} onConvertTrailer={handleConvertFrame} />} />
             <Route path="/quotes" element={<QuotesView trailers={trailers} onUpdateTrailer={updateTrailer} userRole={userRole} />} />
             <Route path="/schedule" element={<ScheduleView trailers={trailers} userRole={userRole} />} />
-            <Route path="/messages" element={<MessagesView messaging={messaging} />} />
+            <Route path="/messages" element={<MessagesView messaging={messaging} userRole={userRole} />} />
             <Route path="/catalog" element={userRole === 'manager' ? <CatalogView categories={localModelCategories} hours={localTargetHours} specs={localModelSpecs} templates={localSpecSheetTemplates} onAddModel={handleAddModel} onEditModel={handleEditModel} onDeleteModel={handleDeleteModel} dealers={dealers} onAddDealer={handleAddDealer} onEditDealer={handleEditDealer} onDeleteDealer={handleDeleteDealer} userRole={userRole} trailers={trailers} /> : <Navigate to="/" replace />} />
           </Routes>
 
