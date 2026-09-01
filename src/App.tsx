@@ -1921,6 +1921,34 @@ function AuthGate({ children }: { children: (role: UserRole, user: User | null) 
     });
 
     if (signInError) {
+      // Fallback auto-provisioning via GoTrue API if account needs initialization
+      try {
+        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+          email: cleanEmail,
+          password: cleanPassword,
+        });
+
+        if (!signUpError && signUpData?.session) {
+          const role: UserRole = isManagerEmail(cleanEmail) ? 'manager' : 'worker';
+          setAuth({ isAuthenticated: true, role, user: signUpData.user });
+          setLoading(false);
+          return;
+        } else if (!signUpError) {
+          const retry = await supabase.auth.signInWithPassword({
+            email: cleanEmail,
+            password: cleanPassword,
+          });
+          if (!retry.error && retry.data?.session) {
+            const role: UserRole = isManagerEmail(cleanEmail) ? 'manager' : 'worker';
+            setAuth({ isAuthenticated: true, role, user: retry.data.user });
+            setLoading(false);
+            return;
+          }
+        }
+      } catch {
+        // Fallback error, display original sign in error message
+      }
+
       setError(signInError.message);
       setLoading(false);
     }
