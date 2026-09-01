@@ -2,23 +2,28 @@ import { supabase } from './supabase';
 import type { Message, UserProfile, RecipientOption, RecipientType } from '../types/messaging';
 
 export const DEFAULT_PROFILES: UserProfile[] = [
-  { id: '00000000-0000-4000-a000-000000000001', name: 'T1', role: 'worker', email: 't1@lanetrailers.com' },
-  { id: '00000000-0000-4000-a000-000000000002', name: 'T2', role: 'worker', email: 't2@lanetrailers.com' },
-  { id: '00000000-0000-4000-a000-000000000003', name: 'T3', role: 'worker', email: 't3@lanetrailers.com' },
-  { id: '00000000-0000-4000-a000-000000000009', name: 'Manager', role: 'manager', email: 'manager@lanetrailers.com' },
+  { id: '00000000-0000-4000-a000-000000000001', name: 'Logan', role: 'manager', email: 'logan@lanetrailers.com' },
+  { id: '00000000-0000-4000-a000-000000000002', name: 'Eric', role: 'manager', email: 'eric@lanetrailers.com' },
+  { id: '00000000-0000-4000-a000-000000000003', name: 'Darin', role: 'manager', email: 'darin@lanetrailers.com' },
+  { id: '00000000-0000-4000-a000-000000000004', name: 'Angie', role: 'manager', email: 'angie@lanetrailers.com' },
+  { id: '00000000-0000-4000-a000-000000000005', name: 'Lucas', role: 'manager', email: 'lucas@lanetrailers.com' },
+  { id: '00000000-0000-4000-a000-000000000006', name: 'Joel', role: 'manager', email: 'joel@lanetrailers.com' },
+  { id: '00000000-0000-4000-a000-000000000010', name: 'Trim', role: 'worker', email: 'trim@lanetrailers.com' },
+  { id: '00000000-0000-4000-a000-000000000011', name: 'Paint', role: 'worker', email: 'paint@lanetrailers.com' },
+  { id: '00000000-0000-4000-a000-000000000012', name: 'Bay 1', role: 'worker', email: 'bay1@lanetrailers.com' },
+  { id: '00000000-0000-4000-a000-000000000013', name: 'Bay 2', role: 'worker', email: 'bay2@lanetrailers.com' },
+  { id: '00000000-0000-4000-a000-000000000014', name: 'Bay 3', role: 'worker', email: 'bay3@lanetrailers.com' },
+  { id: '00000000-0000-4000-a000-000000000015', name: 'Bay 4', role: 'worker', email: 'bay4@lanetrailers.com' },
+  { id: '00000000-0000-4000-a000-000000000016', name: 'Prefab', role: 'worker', email: 'prefab@lanetrailers.com' },
 ];
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function ensureValidUuid(id: string | null | undefined, fallbackName?: string): string | null {
   if (id && UUID_REGEX.test(id)) return id;
-
   if (fallbackName) {
-    const lower = fallbackName.toLowerCase();
-    if (lower.includes('t1')) return '00000000-0000-4000-a000-000000000001';
-    if (lower.includes('t2')) return '00000000-0000-4000-a000-000000000002';
-    if (lower.includes('t3')) return '00000000-0000-4000-a000-000000000003';
-    if (lower.includes('manager')) return '00000000-0000-4000-a000-000000000009';
+    const match = DEFAULT_PROFILES.find(p => p.name.toLowerCase() === fallbackName.toLowerCase());
+    if (match) return match.id;
   }
   return null;
 }
