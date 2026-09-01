@@ -181,20 +181,29 @@ export const TrailerCard: React.FC<Props> = React.memo(({
             const lightColors = ['white', 'ivory', 'cream', 'snow', 'ghost white', 'beige', 'linen', 'seashell', 'old lace', 'floral white', 'mint', 'lavender', 'yellow', 'lightyellow', 'light yellow', 'silver', 'light gray', 'light grey', 'lightgray', 'lightgrey', 'gainsboro', 'whitesmoke', 'floralwhite', 'cornsilk', 'honeydew', 'azure', 'aliceblue', 'ghost'];
             const isLightColor = lightColors.some(lc => colorLower.includes(lc)) || colorLower.startsWith('#f') || colorLower.startsWith('#e');
             const isWhiteOrNear = colorLower === 'white' || colorLower === '#fff' || colorLower === '#ffffff' || colorLower === 'ivory' || colorLower === 'cream';
+
+            // Detect black / dark colors that need a prominent white border on dark cards
+            const blackColors = ['black', 'jet black', 'matte black', 'gloss black', 'onyx', 'charcoal', '#000', '#000000', '#111', '#111111', '#1a1a1a', '#18181b', '#09090b', '#222', '#222222'];
+            const isBlackOrDark = blackColors.some(bc => colorLower.includes(bc)) || colorLower === '#000' || colorLower === '#000000' || colorLower === 'black';
+
             return (
               <div
-                title={trailer.trailer_color}
+                title={`Color: ${trailer.trailer_color}`}
                 style={{
                   width: '22px',
                   height: '22px',
                   borderRadius: '6px',
                   background: trailer.trailer_color,
-                  border: isWhiteOrNear
+                  border: isBlackOrDark
+                    ? '2px solid rgba(255, 255, 255, 0.85)'
+                    : isWhiteOrNear
                     ? '2px solid #94a3b8'
                     : isLightColor
-                    ? '1.5px solid rgba(0,0,0,0.2)'
-                    : '1.5px solid rgba(255,255,255,0.15)',
-                  boxShadow: '0 1px 4px rgba(0,0,0,0.18)',
+                    ? '1.5px solid rgba(0,0,0,0.3)'
+                    : '1.5px solid rgba(255,255,255,0.3)',
+                  boxShadow: isBlackOrDark 
+                    ? '0 0 0 1px rgba(255,255,255,0.2), 0 2px 5px rgba(0,0,0,0.4)' 
+                    : '0 1px 4px rgba(0,0,0,0.18)',
                   flexShrink: 0,
                   cursor: 'default'
                 }}

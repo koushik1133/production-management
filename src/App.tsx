@@ -785,26 +785,24 @@ function Dashboard({
           <div className="util-group hide-on-mobile" style={{ display: 'flex', gap: '0.3rem', alignItems: 'center' }}>
             {userRole === 'manager' && (
               <button 
-                className="btn btn-secondary"
+                className="btn btn-secondary btn-icon"
                 onClick={onToggleBoardLock}
                 title={isBoardLocked ? "Drag & drop is locked. Click to unlock." : "Drag & drop is unlocked. Click to lock."}
                 style={{
                   height: '30px',
-                  padding: '0 0.65rem',
-                  fontSize: '0.75rem',
+                  width: '30px',
+                  padding: 0,
                   borderRadius: '6px',
                   border: isBoardLocked ? '1px solid rgba(245, 158, 11, 0.4)' : '1px solid rgba(16, 185, 129, 0.4)',
                   background: isBoardLocked ? 'rgba(245, 158, 11, 0.12)' : 'rgba(16, 185, 129, 0.15)',
                   color: isBoardLocked ? '#f59e0b' : '#10b981',
-                  fontWeight: 800,
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '0.35rem',
+                  justifyContent: 'center',
                   cursor: 'pointer'
                 }}
               >
-                {isBoardLocked ? <Lock size={13} /> : <Unlock size={13} />}
-                <span className="btn-text">{isBoardLocked ? 'Locked' : 'Unlocked'}</span>
+                {isBoardLocked ? <Lock size={14} /> : <Unlock size={14} />}
               </button>
             )}
             {userRole === 'manager' && (
@@ -918,25 +916,23 @@ function Dashboard({
             {userRole === 'manager' && (
               <div className="mobile-undo-redo" style={{ display: 'flex', gap: '0.25rem', flexShrink: 0 }}>
                 <button 
-                  className="btn btn-secondary" 
+                  className="btn btn-secondary btn-icon" 
                   onClick={onToggleBoardLock}
                   title={isBoardLocked ? "Cards locked. Click to unlock" : "Cards unlocked. Click to lock"}
                   style={{
                     height: '34px',
-                    padding: '0 0.55rem',
+                    width: '34px',
+                    padding: 0,
                     borderRadius: '8px',
-                    fontSize: '0.75rem',
-                    fontWeight: 800,
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '4px',
+                    justifyContent: 'center',
                     border: isBoardLocked ? '1px solid rgba(245, 158, 11, 0.4)' : '1px solid rgba(16, 185, 129, 0.4)',
                     background: isBoardLocked ? 'rgba(245, 158, 11, 0.12)' : 'rgba(16, 185, 129, 0.15)',
                     color: isBoardLocked ? '#f59e0b' : '#10b981'
                   }}
                 >
-                  {isBoardLocked ? <Lock size={13} /> : <Unlock size={13} />}
-                  <span>{isBoardLocked ? 'Lock' : 'Unlock'}</span>
+                  {isBoardLocked ? <Lock size={14} /> : <Unlock size={14} />}
                 </button>
                 <button 
                   className="btn btn-secondary btn-icon tablet-only-price-toggle" 
@@ -1886,16 +1882,28 @@ function AuthGate({ children }: { children: (role: UserRole, user: User | null) 
   const [error, setError] = useState('');
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        const role: UserRole = isManagerEmail(session.user.email) ? 'manager' : 'worker';
-        setAuth({ isAuthenticated: true, role, user: session.user });
-      }
-      setLoading(false);
-    });
+    supabase.auth.getSession()
+      .then(({ data: { session }, error: sessionError }) => {
+        if (sessionError) {
+          if (sessionError.message?.toLowerCase().includes('refresh token')) {
+            supabase.auth.signOut({ scope: 'local' }).catch(() => {});
+          }
+        }
+        if (session?.user) {
+          const role: UserRole = isManagerEmail(session.user.email) ? 'manager' : 'worker';
+          setAuth({ isAuthenticated: true, role, user: session.user });
+        }
+        setLoading(false);
+      })
+      .catch((err) => {
+        if (String(err)?.toLowerCase().includes('refresh token')) {
+          supabase.auth.signOut({ scope: 'local' }).catch(() => {});
+        }
+        setLoading(false);
+      });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session?.user && event !== 'SIGNED_OUT') {
         const role: UserRole = isManagerEmail(session.user.email) ? 'manager' : 'worker';
         setAuth({ isAuthenticated: true, role, user: session.user });
       } else {
@@ -1977,9 +1985,12 @@ function AuthGate({ children }: { children: (role: UserRole, user: User | null) 
           {error && <div className="auth-error">{error}</div>}
           
           <div className="form-group">
-            <label className="form-label">Email Address</label>
+            <label className="form-label" htmlFor="login-email">Email Address</label>
             <input 
+              id="login-email"
+              name="email"
               type="email" 
+              autoComplete="email"
               className="form-input" 
               value={email}
               onChange={e => setEmail(e.target.value)}
@@ -1989,9 +2000,12 @@ function AuthGate({ children }: { children: (role: UserRole, user: User | null) 
           </div>
           
           <div className="form-group" style={{ marginTop: '1.25rem' }}>
-            <label className="form-label">Password</label>
+            <label className="form-label" htmlFor="login-password">Password</label>
             <input 
+              id="login-password"
+              name="password"
               type="password" 
+              autoComplete="current-password"
               className="form-input" 
               value={password}
               onChange={e => setPassword(e.target.value)}
