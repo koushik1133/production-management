@@ -1912,9 +1912,12 @@ function AuthGate({ children }: { children: (role: UserRole, user: User | null) 
     setError('');
     setLoading(true);
     
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPassword = password;
+
     const { error: signInError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
+      email: cleanEmail,
+      password: cleanPassword,
     });
 
     if (signInError) {
