@@ -85,7 +85,9 @@ import {
   EyeOff,
   FileText,
   CheckCircle,
-  BarChart3
+  BarChart3,
+  Lock,
+  Unlock
 } from 'lucide-react';
 
 import { 
@@ -105,6 +107,7 @@ import logo from './assets/lane-logo-v4.png';
 import './App.css';
 
 import { supabase } from './lib/supabase';
+import { isManagerEmail } from './lib/messaging';
 
 function Dashboard({ 
   sensors,
@@ -142,7 +145,10 @@ function Dashboard({
   dealers,
   onUpdateDealer,
   messaging,
-  onConvertFrame
+  onConvertFrame,
+  isBoardLocked,
+  onToggleBoardLock,
+  isDarin
 }: {
   trailers: Trailer[], 
   updateTrailer: (id: string, updates: Partial<Trailer>) => Promise<boolean>,
@@ -179,7 +185,10 @@ function Dashboard({
   dealers: { id: string; name: string; addresses?: string[]; common_address?: string; }[],
   onUpdateDealer?: (id: string, dealer: { name: string, addresses: string[], common_address: string }) => Promise<void>,
   messaging: UseMessagesReturn,
-  onConvertFrame?: (trailerId: string, targetModel: string, targetPhase: PhaseId, targetStation?: StationId) => Promise<boolean>
+  onConvertFrame?: (trailerId: string, targetModel: string, targetPhase: PhaseId, targetStation?: StationId) => Promise<boolean>,
+  isBoardLocked?: boolean,
+  onToggleBoardLock?: () => void,
+  isDarin?: boolean
 }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const highlightedTrailerId = searchParams.get('highlight');
@@ -759,9 +768,11 @@ function Dashboard({
             <button className="btn btn-secondary archive-btn shimmer" onClick={() => navigate('/archive')} style={{ height: '28px', padding: '0 0.5rem', fontSize: '0.75rem', borderRadius: '6px', border: 'none', background: 'var(--accent-gradient)', color: 'white' }}>
               <Archive size={12} /> <span className="btn-text">Shipping</span>
             </button>
-            <button className="btn btn-secondary" onClick={() => navigate('/quotes')} style={{ height: '28px', padding: '0 0.5rem', fontSize: '0.75rem', borderRadius: '6px', border: '1px solid rgba(99,102,241,0.4)', background: 'rgba(99,102,241,0.12)', color: '#818cf8' }}>
-              <BarChart3 size={12} /> <span className="btn-text">Quotes</span>
-            </button>
+            {userRole === 'manager' && (
+              <button className="btn btn-secondary" onClick={() => navigate('/quotes')} style={{ height: '28px', padding: '0 0.5rem', fontSize: '0.75rem', borderRadius: '6px', border: '1px solid rgba(99,102,241,0.4)', background: 'rgba(99,102,241,0.12)', color: '#818cf8' }}>
+                <BarChart3 size={12} /> <span className="btn-text">Quotes</span>
+              </button>
+            )}
           </div>
 
           <div className="secondary-nav hide-on-mobile" style={{ display: 'flex', gap: '0.3rem', alignItems: 'center' }}>
@@ -770,7 +781,31 @@ function Dashboard({
             </button>
           </div>
 
-          <div className="util-group hide-on-mobile" style={{ display: 'flex', gap: '0.2rem', alignItems: 'center' }}>
+          <div className="util-group hide-on-mobile" style={{ display: 'flex', gap: '0.3rem', alignItems: 'center' }}>
+            {userRole === 'manager' && (
+              <button 
+                className="btn btn-secondary"
+                onClick={onToggleBoardLock}
+                title={isBoardLocked ? "Drag & drop is locked. Click to unlock." : "Drag & drop is unlocked. Click to lock."}
+                style={{
+                  height: '30px',
+                  padding: '0 0.65rem',
+                  fontSize: '0.75rem',
+                  borderRadius: '6px',
+                  border: isBoardLocked ? '1px solid rgba(245, 158, 11, 0.4)' : '1px solid rgba(16, 185, 129, 0.4)',
+                  background: isBoardLocked ? 'rgba(245, 158, 11, 0.12)' : 'rgba(16, 185, 129, 0.15)',
+                  color: isBoardLocked ? '#f59e0b' : '#10b981',
+                  fontWeight: 800,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.35rem',
+                  cursor: 'pointer'
+                }}
+              >
+                {isBoardLocked ? <Lock size={13} /> : <Unlock size={13} />}
+                <span className="btn-text">{isBoardLocked ? 'Locked' : 'Unlocked'}</span>
+              </button>
+            )}
             {userRole === 'manager' && (
               <button 
                 className="btn btn-secondary btn-icon" 
@@ -874,10 +909,34 @@ function Dashboard({
               <button className="btn btn-secondary mobile-nav-btn" onClick={() => navigate('/archive')}>Shipping</button>
               <button className="btn btn-secondary mobile-nav-btn mobile-tv-btn" onClick={() => navigate('/tv')}>TV Mode</button>
               <button className="btn btn-secondary mobile-nav-btn" onClick={() => navigate('/backlog')}>Backlog</button>
+              {userRole === 'manager' && (
+                <button className="btn btn-secondary mobile-nav-btn" onClick={() => navigate('/quotes')}>Quotes</button>
+              )}
             </div>
             
             {userRole === 'manager' && (
               <div className="mobile-undo-redo" style={{ display: 'flex', gap: '0.25rem', flexShrink: 0 }}>
+                <button 
+                  className="btn btn-secondary" 
+                  onClick={onToggleBoardLock}
+                  title={isBoardLocked ? "Cards locked. Click to unlock" : "Cards unlocked. Click to lock"}
+                  style={{
+                    height: '34px',
+                    padding: '0 0.55rem',
+                    borderRadius: '8px',
+                    fontSize: '0.75rem',
+                    fontWeight: 800,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    border: isBoardLocked ? '1px solid rgba(245, 158, 11, 0.4)' : '1px solid rgba(16, 185, 129, 0.4)',
+                    background: isBoardLocked ? 'rgba(245, 158, 11, 0.12)' : 'rgba(16, 185, 129, 0.15)',
+                    color: isBoardLocked ? '#f59e0b' : '#10b981'
+                  }}
+                >
+                  {isBoardLocked ? <Lock size={13} /> : <Unlock size={13} />}
+                  <span>{isBoardLocked ? 'Lock' : 'Unlock'}</span>
+                </button>
                 <button 
                   className="btn btn-secondary btn-icon tablet-only-price-toggle" 
                   onClick={() => {
@@ -1020,10 +1079,12 @@ function Dashboard({
               userRole={userRole}
               isPriceUnlockedGlobally={isPriceUnlockedGlobally}
               onUnlockPrices={onUnlockPrices}
+              isBoardLocked={isBoardLocked}
+              isDarin={isDarin}
             />
           ))}
           <DragOverlay>
-            {activeTrailer ? <TrailerCard trailer={activeTrailer} localTargetHours={localTargetHours} isOverlay userRole={userRole} isPriceUnlockedGlobally={isPriceUnlockedGlobally} onUnlockPrices={onUnlockPrices} /> : null}
+            {activeTrailer ? <TrailerCard trailer={activeTrailer} localTargetHours={localTargetHours} isOverlay userRole={userRole} isPriceUnlockedGlobally={isPriceUnlockedGlobally} onUnlockPrices={onUnlockPrices} isBoardLocked={isBoardLocked} isDarin={isDarin} /> : null}
           </DragOverlay>
         </DndContext>
       </main>
@@ -1826,7 +1887,7 @@ function AuthGate({ children }: { children: (role: UserRole, user: User | null) 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
-        const role = session.user.email?.toLowerCase() === 'manager@lanetrailers.com' ? 'manager' : 'worker';
+        const role: UserRole = isManagerEmail(session.user.email) ? 'manager' : 'worker';
         setAuth({ isAuthenticated: true, role, user: session.user });
       }
       setLoading(false);
@@ -1834,7 +1895,7 @@ function AuthGate({ children }: { children: (role: UserRole, user: User | null) 
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
-        const role = session.user.email?.toLowerCase() === 'manager@lanetrailers.com' ? 'manager' : 'worker';
+        const role: UserRole = isManagerEmail(session.user.email) ? 'manager' : 'worker';
         setAuth({ isAuthenticated: true, role, user: session.user });
       } else {
         setAuth({ isAuthenticated: false, role: null, user: null });
@@ -1920,6 +1981,10 @@ function AuthGate({ children }: { children: (role: UserRole, user: User | null) 
 function AppContent({ userRole, currentUser }: { userRole: UserRole; currentUser: User | null }) {
   const location = useLocation();
   const messaging = useMessages(currentUser, location.pathname === '/messages');
+
+  const isDarin = currentUser?.email?.toLowerCase().trim() === 'darin@lanetrailers.com';
+  const [isBoardLocked, setIsBoardLocked] = useState(true);
+  const toggleBoardLock = () => setIsBoardLocked(prev => !prev);
 
   const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth <= 768 : false);
   useEffect(() => {
@@ -3348,9 +3413,12 @@ function getSuggestedBay(): StationId {
               onUpdateDealer={handleEditDealer}
               messaging={messaging}
               onConvertFrame={handleConvertFrame}
+              isBoardLocked={isBoardLocked}
+              onToggleBoardLock={toggleBoardLock}
+              isDarin={isDarin}
             />} />
             <Route path="/backlog" element={<BacklogView trailers={trailers} onAddTrailer={addTrailer} onUpdateTrailer={updateTrailer} onDeleteTrailer={deleteTrailer} suggestedBay={suggestedBay} nextSuggestedSerial={nextSuggestedSerial} localModelCategories={localModelCategories} localTargetHours={localTargetHours} localSpecSheetTemplates={localSpecSheetTemplates} dealers={dealers} onUpdateDealer={handleEditDealer} userRole={userRole} isPriceUnlockedGlobally={isPriceUnlockedGlobally} onUnlockPrices={unlockPricesGlobally} />} />
-            <Route path="/stations" element={<StationView trailers={trailers} setTrailers={setTrailers} onUpdateTrailer={updateTrailer} bayCapacities={bayCapacities} onUpdateCapacity={updateCapacity} localTargetHours={localTargetHours} userRole={userRole} isPriceUnlockedGlobally={isPriceUnlockedGlobally} onUnlockPrices={unlockPricesGlobally} localModelCategories={localModelCategories} localSpecSheetTemplates={localSpecSheetTemplates} onConvertTrailer={handleConvertFrame} />} />
+            <Route path="/stations" element={<StationView trailers={trailers} setTrailers={setTrailers} onUpdateTrailer={updateTrailer} bayCapacities={bayCapacities} onUpdateCapacity={updateCapacity} localTargetHours={localTargetHours} userRole={userRole} isPriceUnlockedGlobally={isPriceUnlockedGlobally} onUnlockPrices={unlockPricesGlobally} localModelCategories={localModelCategories} localSpecSheetTemplates={localSpecSheetTemplates} onConvertTrailer={handleConvertFrame} isBoardLocked={isBoardLocked} isDarin={isDarin} />} />
             <Route path="/tv" element={<TVView trailers={trailers} localTargetHours={localTargetHours} userRole={userRole} />} />
             <Route path="/tv/station1" element={<TVView trailers={trailers} monitorMode="station1" localTargetHours={localTargetHours} userRole={userRole} />} />
             <Route path="/tv/station2" element={<TVView trailers={trailers} monitorMode="station2" localTargetHours={localTargetHours} userRole={userRole} />} />

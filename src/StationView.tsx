@@ -36,9 +36,11 @@ interface Props {
   localModelCategories?: { name: string; models: string[] }[];
   localSpecSheetTemplates?: Record<string, string>;
   onConvertTrailer?: (trailerId: string, targetModel: string, targetPhase: PhaseId, targetStation?: StationId) => Promise<boolean>;
+  isBoardLocked?: boolean;
+  isDarin?: boolean;
 }
 
-const StationView: React.FC<Props> = ({ trailers, setTrailers, onUpdateTrailer, bayCapacities, onUpdateCapacity, localTargetHours, userRole, isPriceUnlockedGlobally, onUnlockPrices, localModelCategories = [], localSpecSheetTemplates = {}, onConvertTrailer }) => {
+const StationView: React.FC<Props> = ({ trailers, setTrailers, onUpdateTrailer, bayCapacities, onUpdateCapacity, localTargetHours, userRole, isPriceUnlockedGlobally, onUnlockPrices, localModelCategories = [], localSpecSheetTemplates = {}, onConvertTrailer, isBoardLocked, isDarin }) => {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [selectedTrailerId, setSelectedTrailerId] = useState<string | null>(null);
   const [convertingTrailer, setConvertingTrailer] = useState<Trailer | null>(null);
@@ -294,11 +296,13 @@ const StationView: React.FC<Props> = ({ trailers, setTrailers, onUpdateTrailer, 
                 userRole={userRole}
                 isPriceUnlockedGlobally={isPriceUnlockedGlobally}
                 onUnlockPrices={onUnlockPrices}
+                isBoardLocked={isBoardLocked}
+                isDarin={isDarin}
               />
             );
           })}
           <DragOverlay>
-            {activeTrailer ? <TrailerCard trailer={activeTrailer} localTargetHours={localTargetHours} userRole={userRole} isPriceUnlockedGlobally={isPriceUnlockedGlobally} onUnlockPrices={onUnlockPrices} hidePrice={true} /> : null}
+            {activeTrailer ? <TrailerCard trailer={activeTrailer} localTargetHours={localTargetHours} userRole={userRole} isPriceUnlockedGlobally={isPriceUnlockedGlobally} onUnlockPrices={onUnlockPrices} hidePrice={true} isBoardLocked={isBoardLocked} isDarin={isDarin} /> : null}
           </DragOverlay>
         </DndContext>
       </main>

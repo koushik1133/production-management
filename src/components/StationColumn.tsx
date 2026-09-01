@@ -16,9 +16,11 @@ interface Props {
   userRole: UserRole;
   isPriceUnlockedGlobally?: boolean;
   onUnlockPrices?: () => boolean;
+  isBoardLocked?: boolean;
+  isDarin?: boolean;
 }
 
-export const StationColumn: React.FC<Props> = ({ id, trailers, onUpdateTrailer, onCardClick, workload, capacity, onUpdateCapacity, localTargetHours, userRole, isPriceUnlockedGlobally, onUnlockPrices }) => {
+export const StationColumn: React.FC<Props> = ({ id, trailers, onUpdateTrailer, onCardClick, workload, capacity, onUpdateCapacity, localTargetHours, userRole, isPriceUnlockedGlobally, onUnlockPrices, isBoardLocked, isDarin }) => {
   const { setNodeRef, isOver } = useDroppable({
     id,
   });
@@ -122,6 +124,8 @@ export const StationColumn: React.FC<Props> = ({ id, trailers, onUpdateTrailer, 
                 isPriceUnlockedGlobally={isPriceUnlockedGlobally}
                 onUnlockPrices={onUnlockPrices}
                 hidePrice={true}
+                isBoardLocked={isBoardLocked}
+                isDarin={isDarin}
               />
           ))}
         </SortableContext>

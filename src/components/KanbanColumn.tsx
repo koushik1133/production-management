@@ -19,9 +19,11 @@ interface Props {
   userRole: UserRole;
   isPriceUnlockedGlobally?: boolean;
   onUnlockPrices?: () => boolean;
+  isBoardLocked?: boolean;
+  isDarin?: boolean;
 }
 
-export const KanbanColumn: React.FC<Props> = React.memo(({ id, title, trailers, onCardClick, onUpdateTrailer, onShipRequest, onConvertRequest, workload, highlightedId, suggestedBay, localTargetHours, userRole, isPriceUnlockedGlobally, onUnlockPrices }) => {
+export const KanbanColumn: React.FC<Props> = React.memo(({ id, title, trailers, onCardClick, onUpdateTrailer, onShipRequest, onConvertRequest, workload, highlightedId, suggestedBay, localTargetHours, userRole, isPriceUnlockedGlobally, onUnlockPrices, isBoardLocked, isDarin }) => {
   const { setNodeRef, isOver } = useDroppable({ id });
 
   // Column receives trailers in the active sort order selected in the header
@@ -64,6 +66,8 @@ export const KanbanColumn: React.FC<Props> = React.memo(({ id, title, trailers, 
                 userRole={userRole}
                 isPriceUnlockedGlobally={isPriceUnlockedGlobally}
                 onUnlockPrices={onUnlockPrices}
+                isBoardLocked={isBoardLocked}
+                isDarin={isDarin}
               />
           ))}
         </SortableContext>

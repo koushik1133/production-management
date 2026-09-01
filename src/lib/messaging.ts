@@ -23,20 +23,58 @@ export function ensureValidUuid(id: string | null | undefined, fallbackName?: st
   return null;
 }
 
+export const MANAGER_EMAILS = [
+  'logan@lanetrailers.com',
+  'eric@lanetrailers.com',
+  'darin@lanetrailers.com',
+  'angie@lanetrailers.com',
+  'lucas@lanetrailers.com',
+  'joel@lanetrailers.com',
+  'manager@lanetrailers.com'
+];
+
+export const isManagerEmail = (email?: string | null): boolean => {
+  if (!email) return false;
+  const lower = email.toLowerCase().trim();
+  return MANAGER_EMAILS.includes(lower);
+};
+
+const EMAIL_NAME_MAP: Record<string, string> = {
+  'logan@lanetrailers.com': 'Logan',
+  'eric@lanetrailers.com': 'Eric',
+  'darin@lanetrailers.com': 'Darin',
+  'angie@lanetrailers.com': 'Angie',
+  'lucas@lanetrailers.com': 'Lucas',
+  'joel@lanetrailers.com': 'Joel',
+  'manager@lanetrailers.com': 'Manager',
+  'trim@lanetrailers.com': 'Trim',
+  'paint@lanetrailers.com': 'Paint',
+  'bay1@lanetrailers.com': 'Bay 1',
+  'bay2@lanetrailers.com': 'Bay 2',
+  'bay3@lantrailers.com': 'Bay 3',
+  'bay3@lanetrailers.com': 'Bay 3',
+  'bay4@lanetrailers.com': 'Bay 4',
+  'prefab@lanetrailers.com': 'Prefab',
+};
+
 /**
- * Maps email to canonical profile name and role for V1 target users.
+ * Maps email to canonical profile name and role for target users.
  */
 export function deriveProfileFromEmail(email?: string): { name: string; role: 'worker' | 'manager' } {
   if (!email) return { name: 'Worker', role: 'worker' };
-  const lower = email.toLowerCase();
-  if (lower.includes('manager')) return { name: 'Manager', role: 'manager' };
-  if (lower.includes('t1')) return { name: 'T1', role: 'worker' };
-  if (lower.includes('t2')) return { name: 'T2', role: 'worker' };
-  if (lower.includes('t3')) return { name: 'T3', role: 'worker' };
+  const lower = email.toLowerCase().trim();
+  const role: 'worker' | 'manager' = isManagerEmail(lower) ? 'manager' : 'worker';
 
-  const parts = email.split('@')[0];
+  if (EMAIL_NAME_MAP[lower]) {
+    return { name: EMAIL_NAME_MAP[lower], role };
+  }
+
+  const parts = lower.split('@')[0];
+  if (parts.startsWith('bay')) {
+    return { name: `Bay ${parts.replace('bay', '')}`, role };
+  }
   const capitalized = parts.charAt(0).toUpperCase() + parts.slice(1);
-  return { name: capitalized, role: 'worker' };
+  return { name: capitalized, role };
 }
 
 /**

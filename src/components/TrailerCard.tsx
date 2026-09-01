@@ -25,6 +25,8 @@ interface Props {
   isPriceUnlockedGlobally?: boolean;
   onUnlockPrices?: () => boolean;
   hidePrice?: boolean;
+  isBoardLocked?: boolean;
+  isDarin?: boolean;
 }
 
 export const TrailerCard: React.FC<Props> = React.memo(({ 
@@ -44,9 +46,12 @@ export const TrailerCard: React.FC<Props> = React.memo(({
   userRole,
   isPriceUnlockedGlobally,
   onUnlockPrices,
-  hidePrice
+  hidePrice,
+  isBoardLocked,
+  isDarin
 }) => {
   const cardRef = useRef<HTMLDivElement>(null);
+  const isDragDisabled = userRole !== 'manager' || (Boolean(isBoardLocked) && !isDarin);
   const {
     attributes,
     listeners,
@@ -55,7 +60,7 @@ export const TrailerCard: React.FC<Props> = React.memo(({
     isDragging
   } = useSortable({
     id: trailer.id,
-    disabled: userRole !== 'manager',
+    disabled: isDragDisabled,
     data: {
       type: 'Trailer',
       trailer
@@ -82,7 +87,7 @@ export const TrailerCard: React.FC<Props> = React.memo(({
     } : null),
     opacity: isDragging ? (isOverlay ? 1 : 0.15) : 1,
     zIndex: isDragging ? (isOverlay ? 1000 : 10) : 1,
-    cursor: userRole !== 'manager' ? 'default' : (isDragging ? 'grabbing' : 'grab'),
+    cursor: isDragDisabled ? 'default' : (isDragging ? 'grabbing' : 'grab'),
     boxShadow: isOverlay ? '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)' : (isDragging ? 'none' : undefined),
     rotate: isOverlay ? '2deg' : undefined,
     willChange: 'transform',
@@ -425,9 +430,13 @@ export const TrailerCard: React.FC<Props> = React.memo(({
           )}
           <button 
             className="btn btn-primary" 
-            style={{ width: '100%', gap: '0.75rem', background: '#10b981' }} 
+            style={{ width: '100%', gap: '0.75rem', background: '#10b981', opacity: userRole === 'manager' ? 1 : 0.85, cursor: userRole === 'manager' ? 'pointer' : 'default' }} 
             onClick={(e) => {
               e.stopPropagation();
+              if (userRole !== 'manager') {
+                // Dummy button for employees - does nothing
+                return;
+              }
               if (onShipRequest) onShipRequest(trailer);
               else onUpdateTrailer?.(trailer.id, { isArchived: true, archivedAt: Date.now() });
             }}
