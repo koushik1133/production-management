@@ -1,4 +1,4 @@
-# LT - Production & Sales Management System
+# LT - Production & Sales Management System 
  
 A high-performance, real-time web application built for **** to manage manufacturing pipelines, bay allocations, backlog registrations, dealer networks, quote generation, and shipping archives.
 
