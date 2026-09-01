@@ -99,17 +99,19 @@ export const TrailerCard: React.FC<Props> = React.memo(({
   };
 
   const currentLog = (trailer.history ?? []).find(h => h.phase === trailer.currentPhase && !h.exitedAt);
-  const timeInPhase = currentLog ? formatDistanceToNow(currentLog.enteredAt) : '0m';
+  const safeEnteredAt = (currentLog && Number.isFinite(currentLog.enteredAt)) ? currentLog.enteredAt : null;
+  const timeInPhase = safeEnteredAt ? formatDistanceToNow(safeEnteredAt) : '0m';
 
   // eslint-disable-next-line react-hooks/purity
-  const hoursRemaining = currentLog ? (Date.now() - currentLog.enteredAt) / (1000 * 60 * 60) : 0;
+  const hoursRemaining = safeEnteredAt ? (Date.now() - safeEnteredAt) / (1000 * 60 * 60) : 0;
   const currentManual = (trailer.history ?? [])
     .filter(h => h.phase === trailer.currentPhase)
     .reduce((sum, h) => sum + (h.phaseManualHours ?? h.bayManualHours ?? 0), 0);
   const targetHours = currentManual > 0
     ? currentManual
-    : (localTargetHours[trailer.model]?.[trailer.currentPhase] 
-      || PHASE_METADATA[trailer.currentPhase]?.defaultTargetHours || 40);
+    : (localTargetHours[trailer.model]?.[trailer.currentPhase]
+      ?? PHASE_METADATA[trailer.currentPhase]?.defaultTargetHours
+      ?? 40);
   const isBottleneck = trailer.currentPhase !== 'backlog' && hoursRemaining > targetHours;
 
   const timeToShipping = calculateTrailerRemainingHours(trailer, localTargetHours);
@@ -235,7 +237,7 @@ export const TrailerCard: React.FC<Props> = React.memo(({
               border: '1px solid var(--border-default)',
               whiteSpace: 'nowrap'
             }}>
-              <span style={{ fontSize: isTVMode ? '0.55rem' : '0.6rem' }}>{Math.round(timeToShipping)}H TO SHIP</span>
+              <span style={{ fontSize: isTVMode ? '0.55rem' : '0.6rem' }}>{Number.isFinite(timeToShipping) ? Math.round(timeToShipping) : 0}H TO SHIP</span>
             </div>
           )}
 
@@ -374,7 +376,11 @@ export const TrailerCard: React.FC<Props> = React.memo(({
         {!isTVMode && (
           <div className="card-meta-item">
             <Calendar className="card-meta-icon" />
-            <span>Started {format(trailer.dateStarted, 'MMM d')}</span>
+            <span>
+              Started {trailer.dateStarted && Number.isFinite(trailer.dateStarted) && !isNaN(new Date(trailer.dateStarted).getTime())
+                ? format(trailer.dateStarted, 'MMM d')
+                : '—'}
+            </span>
           </div>
         )}
       </div>
@@ -413,11 +419,15 @@ export const TrailerCard: React.FC<Props> = React.memo(({
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem' }}>
                 <div className="card-meta-item">
                   <Clock className="card-meta-icon" style={{ color: 'var(--accent)', width: '12px', height: '12px' }} />
-                  <span className="card-time" style={{ fontSize: '0.65rem' }}>{timeInPhase} (Stage: {Math.round(targetHours)}h)</span>
+                  <span className="card-time" style={{ fontSize: '0.65rem' }}>
+                    {timeInPhase} (Stage: {Number.isFinite(targetHours) ? Math.round(targetHours) : 0}h)
+                  </span>
                 </div>
                 <div className="card-meta-item">
                   <Hash className="card-meta-icon" style={{ color: '#0ea5e9', width: '12px', height: '12px' }} />
-                  <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>Pipeline: {Math.round(calculateTrailerRemainingHours(trailer, localTargetHours))}h</span>
+                  <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>
+                    Pipeline: {Number.isFinite(calculateTrailerRemainingHours(trailer, localTargetHours)) ? Math.round(calculateTrailerRemainingHours(trailer, localTargetHours)) : 0}h
+                  </span>
                 </div>
               </div>
             </div>

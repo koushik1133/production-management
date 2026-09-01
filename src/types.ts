@@ -187,7 +187,8 @@ export function calculateTrailerRemainingHours(trailer: Trailer, hoursConfig?: R
       // Current phase progress: check if time spent or manual progress
       const curLog = (trailer.history ?? []).slice().reverse().find(h => h.phase === pId && !h.exitedAt);
       if (curLog && !manualHours) {
-        const elapsedHours = (Date.now() - curLog.enteredAt) / (1000 * 60 * 60);
+        const safeEnteredAt = (curLog.enteredAt && Number.isFinite(curLog.enteredAt)) ? curLog.enteredAt : Date.now();
+        const elapsedHours = (Date.now() - safeEnteredAt) / (1000 * 60 * 60);
         total += Math.max(0, effectiveTargetHours - elapsedHours);
       } else {
         total += Math.max(0, effectiveTargetHours);
@@ -197,5 +198,5 @@ export function calculateTrailerRemainingHours(trailer: Trailer, hoursConfig?: R
     }
   });
 
-  return total;
+  return Number.isFinite(total) ? Math.max(0, total) : 0;
 }

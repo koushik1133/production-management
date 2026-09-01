@@ -27,7 +27,7 @@ export const KanbanColumn: React.FC<Props> = React.memo(({ id, title, trailers, 
   const { setNodeRef, isOver } = useDroppable({ id });
 
   // Column receives trailers in the active sort order selected in the header
-  const sortedTrailers = trailers;
+  const sortedTrailers = trailers ?? [];
 
   return (
     <div 
@@ -84,11 +84,11 @@ export const KanbanColumn: React.FC<Props> = React.memo(({ id, title, trailers, 
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Current Stage</span>
-            <span style={{ fontSize: '1rem', fontWeight: 900, color: 'var(--accent)' }}>{Math.round(workload.stage)}h</span>
+            <span style={{ fontSize: '1rem', fontWeight: 900, color: 'var(--accent)' }}>{Number.isFinite(workload.stage) ? Math.round(workload.stage) : 0}h</span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Pipeline Total</span>
-            <span style={{ fontSize: '1rem', fontWeight: 900, color: '#0ea5e9' }}>{Math.round(workload.pipeline)}h</span>
+            <span style={{ fontSize: '1rem', fontWeight: 900, color: '#0ea5e9' }}>{Number.isFinite(workload.pipeline) ? Math.round(workload.pipeline) : 0}h</span>
           </div>
         </div>
       )}

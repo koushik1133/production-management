@@ -2314,8 +2314,12 @@ function AppContent({ userRole, currentUser }: { userRole: UserRole; currentUser
     return '';
   }, [trailers]);
 
-  const fetchInitialData = useCallback(async () => {
-    setLoading(true);
+  const lastSyncTimeRef = useRef<number>(0);
+
+  const fetchInitialData = useCallback(async (isSilent = false) => {
+    if (!isSilent) {
+      setLoading(true);
+    }
     try {
       let trailersRes;
       let columnsSupported = true;
@@ -2424,15 +2428,25 @@ function AppContent({ userRole, currentUser }: { userRole: UserRole; currentUser
     } catch (err) {
       console.error('Error fetching data:', err);
     } finally {
-      setLoading(false);
+      if (!isSilent) {
+        setLoading(false);
+      }
     }
   }, [setLoading, setTrailers, setCatalogModels, setShippedTrailers, setBayCapacities, setHasPurchaseOrderCols]);
 
   useEffect(() => {
-    fetchInitialData();
+    fetchInitialData(false);
 
     // Track active channels in refs to avoid stale closures
     const activeChannels: Record<string, ReturnType<typeof supabase.channel>> = {};
+
+    const triggerSilentSync = () => {
+      const now = Date.now();
+      if (now - lastSyncTimeRef.current > 15000) {
+        lastSyncTimeRef.current = now;
+        fetchInitialData(true);
+      }
+    };
 
     // --- Trailer Channel ---
     const setupTrailerChannel = () => {
@@ -2493,8 +2507,7 @@ function AppContent({ userRole, currentUser }: { userRole: UserRole; currentUser
         )
         .subscribe((status: string) => {
           if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-            console.warn('Trailer channel error, syncing data...');
-            fetchInitialData();
+            triggerSilentSync();
           }
         });
       activeChannels['trailers'] = ch;
@@ -2515,7 +2528,7 @@ function AppContent({ userRole, currentUser }: { userRole: UserRole; currentUser
         )
         .subscribe((status: string) => {
           if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-            console.warn('Bay settings channel error.');
+            triggerSilentSync();
           }
         });
       activeChannels['bay'] = ch;
@@ -2545,7 +2558,7 @@ function AppContent({ userRole, currentUser }: { userRole: UserRole; currentUser
         )
         .subscribe((status: string) => {
           if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-            console.warn('Models channel error.');
+            triggerSilentSync();
           }
         });
       activeChannels['models'] = ch;
@@ -2570,7 +2583,7 @@ function AppContent({ userRole, currentUser }: { userRole: UserRole; currentUser
         )
         .subscribe((status: string) => {
           if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-            console.warn('Dealers channel error.');
+            triggerSilentSync();
           }
         });
       activeChannels['dealers'] = ch;
@@ -2595,7 +2608,7 @@ function AppContent({ userRole, currentUser }: { userRole: UserRole; currentUser
         )
         .subscribe((status: string) => {
           if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-            console.warn('Shipped channel error.');
+            triggerSilentSync();
           }
         });
       activeChannels['shipped'] = ch;
@@ -2700,26 +2713,26 @@ function AppContent({ userRole, currentUser }: { userRole: UserRole; currentUser
           target = {
             id: data.id,
             name: data.name,
-            serialNumber: data.serial_number,
+            serialNumber: data.serial_number || data.serialNumber || '',
             model: data.model,
-            currentPhase: data.current_phase,
-            station: data.station,
-            dateStarted: data.date_started,
+            currentPhase: data.current_phase || data.currentPhase || 'backlog',
+            station: data.station || 'None',
+            dateStarted: data.date_started || data.dateStarted || Date.now(),
             sale_price: data.sale_price,
             trailer_color: data.trailer_color,
             trailer_plug: data.trailer_plug,
-            salesPerson: data.sales_person,
-            dealerLocation: data.dealer_location,
-            dealerCommonAddress: data.dealer_common_address,
-            purchaseOrder: data.purchase_order,
+            salesPerson: data.sales_person || data.salesPerson,
+            dealerLocation: data.dealer_location || data.dealerLocation,
+            dealerCommonAddress: data.dealer_common_address || data.dealerCommonAddress,
+            purchaseOrder: data.purchase_order || data.purchaseOrder,
             consignment: data.consignment,
             spec_sheet_file: data.spec_sheet_file,
             inspection_sheet_file: data.inspection_sheet_file,
             photo_1_url: data.photo_1_url,
             photo_2_url: data.photo_2_url,
             photo_3_url: data.photo_3_url,
-            history: data.history || [],
-            partsStatus: data.parts_status,
+            history: Array.isArray(data.history) ? data.history : [],
+            partsStatus: data.parts_status || data.partsStatus,
             notes: data.notes
           };
         }

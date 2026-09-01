@@ -25,10 +25,12 @@ export const StationColumn: React.FC<Props> = ({ id, trailers, onUpdateTrailer, 
     id,
   });
 
-  const [localCapacity, setLocalCapacity] = useState<string>(capacity?.toString() || '');
+  const safeTrailers = trailers ?? [];
+  const toSafeCapStr = (v?: number) => (v != null && Number.isFinite(v)) ? v.toString() : '';
+  const [localCapacity, setLocalCapacity] = useState<string>(toSafeCapStr(capacity));
 
   React.useEffect(() => {
-    setLocalCapacity(capacity?.toString() || '');
+    setLocalCapacity(toSafeCapStr(capacity));
   }, [capacity]);
 
   const handleCapacitySubmit = () => {
@@ -94,7 +96,7 @@ export const StationColumn: React.FC<Props> = ({ id, trailers, onUpdateTrailer, 
               onClick={(e) => e.stopPropagation()}
               readOnly={userRole !== 'manager'}
             />
-            <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#94a3b8' }}>{trailers.length}</span>
+            <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#94a3b8' }}>{safeTrailers.length}</span>
           </div>
         </div>
       </div>
@@ -109,10 +111,10 @@ export const StationColumn: React.FC<Props> = ({ id, trailers, onUpdateTrailer, 
 
       <div className="cards-container">
         <SortableContext
-          items={trailers.map((t) => t.id)}
+          items={safeTrailers.map((t) => t.id)}
           strategy={verticalListSortingStrategy}
         >
-          {trailers.map((trailer) => (
+          {safeTrailers.map((trailer) => (
               <TrailerCard 
                 key={trailer.id} 
                 trailer={trailer} 
@@ -142,11 +144,13 @@ export const StationColumn: React.FC<Props> = ({ id, trailers, onUpdateTrailer, 
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--accent)', letterSpacing: '0.05em' }}>PIPELINE LOAD:</span>
-            <span style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--accent)' }}>{Math.round(workload.pipeline)}h</span>
+            <span style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--accent)' }}>{Number.isFinite(workload.pipeline) ? Math.round(workload.pipeline) : 0}h</span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.25rem', paddingTop: '0.5rem', borderTop: '1px dashed rgba(56, 189, 248, 0.2)' }}>
             <span style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '0.05em' }}>EST. LEAD TIME:</span>
-            <span style={{ fontSize: '0.9rem', fontWeight: 900, color: 'var(--text-primary)' }}>{workload.leadTimeDisplay || `${workload.leadTime.toFixed(1)} Weeks`}</span>
+            <span style={{ fontSize: '0.9rem', fontWeight: 900, color: 'var(--text-primary)' }}>
+              {workload.leadTimeDisplay || (workload.leadTime != null && Number.isFinite(workload.leadTime) ? `${workload.leadTime.toFixed(1)} Weeks` : '—')}
+            </span>
           </div>
         </div>
       )}

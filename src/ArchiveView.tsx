@@ -822,7 +822,9 @@ export const ArchiveView: React.FC<Props> = ({
                     <div style={{ background: '#ef444415', color: '#ef4444', padding: '4px 10px', borderRadius: '8px', fontSize: '0.65rem', fontWeight: 900, textTransform: 'uppercase' }}>DELETED</div>
                   </div>
                   <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '1rem' }}>
-                    Was active for {formatDistanceToNow(t.dateStarted)}
+                    {t.dateStarted && Number.isFinite(t.dateStarted) && !isNaN(new Date(t.dateStarted).getTime())
+                      ? `Was active for ${formatDistanceToNow(t.dateStarted)}`
+                      : 'Removed unit'}
                   </div>
                   <div style={{ borderTop: '1px solid var(--border-default)', paddingTop: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>VIEW DETAILS</span>

@@ -787,8 +787,10 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
                         }, 0);
                         
                         // Estimate = (Active Floor Delay) + (Hours of units ahead in backlog / 4 bays)
-                        const estimateHours = activeFloorDelayHours + (cumulativeBacklogHours / BAYS_COUNT);
-                        const estimatedDate = addHours(new Date(), estimateHours);
+                        const safeFloorDelay = Number.isFinite(activeFloorDelayHours) ? activeFloorDelayHours : 0;
+                        const safeCumulative = Number.isFinite(cumulativeBacklogHours) ? cumulativeBacklogHours : 0;
+                        const estimateHours = safeFloorDelay + (safeCumulative / (BAYS_COUNT || 4));
+                        const estimatedDate = Number.isFinite(estimateHours) ? addHours(new Date(), estimateHours) : null;
                         
                         // Add current unit's hours for the NEXT unit's calculation
                         cumulativeBacklogHours += actualBuildHours;
@@ -882,7 +884,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
                                     <span style={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Est. Start Date</span>
                                   </div>
                                   <div style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-                                    {format(estimatedDate, 'MMM d, h:mm a')}
+                                    {estimatedDate && !isNaN(estimatedDate.getTime()) ? format(estimatedDate, 'MMM d, h:mm a') : '—'}
                                   </div>
                                 </div>
 

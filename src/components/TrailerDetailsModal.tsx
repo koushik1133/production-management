@@ -829,12 +829,18 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
               <div style={{ background: 'rgba(255,255,255,0.03)', padding: '0.75rem 1.25rem', borderRadius: '16px', border: '1px solid var(--border-default)', textAlign: 'right' }}>
                 <div style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>Promised Date</div>
                 <div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-                  {trailer.promisedShippingDate ? format(new Date(trailer.promisedShippingDate), 'MMM d, yyyy') : 'NOT SET'}
+                  {trailer.promisedShippingDate && !isNaN(new Date(trailer.promisedShippingDate).getTime())
+                    ? format(new Date(trailer.promisedShippingDate), 'MMM d, yyyy')
+                    : 'NOT SET'}
                 </div>
               </div>
               <div style={{ background: 'rgba(255,255,255,0.03)', padding: '0.75rem 1.25rem', borderRadius: '16px', border: '1px solid var(--border-default)', textAlign: 'right' }}>
                 <div style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>Time in Shop</div>
-                <div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--accent)' }}>{formatDistanceToNow(trailer.dateStarted)}</div>
+                <div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--accent)' }}>
+                  {trailer.dateStarted && Number.isFinite(trailer.dateStarted) && !isNaN(new Date(trailer.dateStarted).getTime())
+                    ? formatDistanceToNow(trailer.dateStarted)
+                    : '—'}
+                </div>
               </div>
             </div>
 
@@ -1428,11 +1434,17 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
               <div className="audit-dot" />
               <div className="audit-content">
                 <div className="audit-header">
-                  <span className="audit-phase" style={{ color: 'var(--accent)', fontWeight: 800 }}>{log.phase.toUpperCase()}</span>
-                  <span className="audit-time">{formatDistanceToNow(log.enteredAt)} ago</span>
+                  <span className="audit-phase" style={{ color: 'var(--accent)', fontWeight: 800 }}>{(log.phase || 'UNKNOWN').toUpperCase()}</span>
+                  <span className="audit-time">
+                    {log.enteredAt && Number.isFinite(log.enteredAt) && !isNaN(new Date(log.enteredAt).getTime())
+                      ? `${formatDistanceToNow(log.enteredAt)} ago`
+                      : '—'}
+                  </span>
                 </div>
                 <div className="audit-meta" style={{ marginTop: '0.25rem', fontSize: '0.8rem', color: '#64748b' }}>
-                  <span>Entered at:</span> {format(log.enteredAt, 'MMM d, h:mm a')}
+                  <span>Entered at:</span> {log.enteredAt && Number.isFinite(log.enteredAt) && !isNaN(new Date(log.enteredAt).getTime())
+                    ? format(log.enteredAt, 'MMM d, h:mm a')
+                    : '—'}
                   {log.exitedAt && (
                     <><span style={{ margin: '0 0.5rem', opacity: 0.3 }}>•</span><span style={{ color: '#2563eb', fontWeight: 700 }}>{formatLogDuration(log.duration || 0)}</span></>
                   )}
