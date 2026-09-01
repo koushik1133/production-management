@@ -793,9 +793,9 @@ function Dashboard({
                   width: '30px',
                   padding: 0,
                   borderRadius: '6px',
-                  border: isBoardLocked ? '1px solid rgba(245, 158, 11, 0.4)' : '1px solid rgba(16, 185, 129, 0.4)',
-                  background: isBoardLocked ? 'rgba(245, 158, 11, 0.12)' : 'rgba(16, 185, 129, 0.15)',
-                  color: isBoardLocked ? '#f59e0b' : '#10b981',
+                  border: isBoardLocked ? '1px solid rgba(234, 88, 12, 0.5)' : '1px solid rgba(16, 185, 129, 0.4)',
+                  background: isBoardLocked ? 'rgba(234, 88, 12, 0.16)' : 'rgba(16, 185, 129, 0.15)',
+                  color: isBoardLocked ? '#ea580c' : '#10b981',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -927,9 +927,9 @@ function Dashboard({
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    border: isBoardLocked ? '1px solid rgba(245, 158, 11, 0.4)' : '1px solid rgba(16, 185, 129, 0.4)',
-                    background: isBoardLocked ? 'rgba(245, 158, 11, 0.12)' : 'rgba(16, 185, 129, 0.15)',
-                    color: isBoardLocked ? '#f59e0b' : '#10b981'
+                    border: isBoardLocked ? '1px solid rgba(234, 88, 12, 0.5)' : '1px solid rgba(16, 185, 129, 0.4)',
+                    background: isBoardLocked ? 'rgba(234, 88, 12, 0.16)' : 'rgba(16, 185, 129, 0.15)',
+                    color: isBoardLocked ? '#ea580c' : '#10b981'
                   }}
                 >
                   {isBoardLocked ? <Lock size={14} /> : <Unlock size={14} />}

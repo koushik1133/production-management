@@ -186,6 +186,16 @@ export const TrailerCard: React.FC<Props> = React.memo(({
             const blackColors = ['black', 'jet black', 'matte black', 'gloss black', 'onyx', 'charcoal', '#000', '#000000', '#111', '#111111', '#1a1a1a', '#18181b', '#09090b', '#222', '#222222'];
             const isBlackOrDark = blackColors.some(bc => colorLower.includes(bc)) || colorLower === '#000' || colorLower === '#000000' || colorLower === 'black';
 
+            // Darken bright/standard HTML orange to rich industrial orange
+            let displayColor = trailer.trailer_color;
+            if (colorLower === 'orange' || colorLower === 'standard orange' || colorLower === 'bright orange' || colorLower === '#ffa500') {
+              displayColor = '#d97706'; // Darker industrial orange
+            } else if (colorLower === 'safety orange') {
+              displayColor = '#ea580c'; // Rich dark safety orange
+            } else if (colorLower === 'dark orange' || colorLower === 'darkorange') {
+              displayColor = '#c2410c';
+            }
+
             return (
               <div
                 title={`Color: ${trailer.trailer_color}`}
@@ -193,7 +203,7 @@ export const TrailerCard: React.FC<Props> = React.memo(({
                   width: '22px',
                   height: '22px',
                   borderRadius: '6px',
-                  background: trailer.trailer_color,
+                  background: displayColor,
                   border: isBlackOrDark
                     ? '2px solid rgba(255, 255, 255, 0.85)'
                     : isWhiteOrNear
