@@ -87,7 +87,8 @@ import {
   CheckCircle,
   BarChart3,
   Lock,
-  Unlock
+  Unlock,
+  Key
 } from 'lucide-react';
 
 import { 
@@ -1986,6 +1987,44 @@ function AppContent({ userRole, currentUser }: { userRole: UserRole; currentUser
   const [isBoardLocked, setIsBoardLocked] = useState(true);
   const toggleBoardLock = () => setIsBoardLocked(prev => !prev);
 
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordStatus, setPasswordStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
+
+  const handleUpdatePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordStatus(null);
+    if (!newPassword || newPassword.length < 6) {
+      setPasswordStatus({ type: 'error', message: 'Password must be at least 6 characters.' });
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordStatus({ type: 'error', message: 'Passwords do not match.' });
+      return;
+    }
+    try {
+      setIsUpdatingPassword(true);
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) {
+        setPasswordStatus({ type: 'error', message: error.message });
+      } else {
+        setPasswordStatus({ type: 'success', message: 'Password updated successfully in Supabase!' });
+        setNewPassword('');
+        setConfirmPassword('');
+        setTimeout(() => {
+          setIsChangingPassword(false);
+          setPasswordStatus(null);
+        }, 2000);
+      }
+    } catch (err: any) {
+      setPasswordStatus({ type: 'error', message: err.message || 'Failed to update password.' });
+    } finally {
+      setIsUpdatingPassword(false);
+    }
+  };
+
   const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth <= 768 : false);
   useEffect(() => {
     const handleResize = () => {
@@ -3349,6 +3388,22 @@ function getSuggestedBay(): StationId {
                     </div>
                   </div>
 
+                  {userRole === 'manager' && (
+                    <div className="settings-group">
+                      <span className="settings-group-title">Account Security</span>
+                      <button 
+                        className="btn btn-secondary settings-action-btn" 
+                        onClick={() => {
+                          setIsChangingPassword(true);
+                          setIsSettingsOpen(false);
+                        }} 
+                        style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', width: '100%', justifyContent: 'flex-start' }}
+                      >
+                        <Key size={14} /> Change Manager Password
+                      </button>
+                    </div>
+                  )}
+
                   <div className="settings-group">
                     <span className="settings-group-title">System</span>
                     {!isMobile && (
@@ -3505,6 +3560,72 @@ function getSuggestedBay(): StationId {
               </div>
             </div>
           </Modal>
+
+          {/* Change Manager Password Modal */}
+          {userRole === 'manager' && (
+            <Modal isOpen={isChangingPassword} onClose={() => { setIsChangingPassword(false); setPasswordStatus(null); setNewPassword(''); setConfirmPassword(''); }} title="Change Password">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', padding: '1.25rem' }}>
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0 }}>
+                  Update your account password securely in Supabase Auth.
+                </p>
+                {passwordStatus && (
+                  <div style={{
+                    padding: '0.75rem 1rem',
+                    borderRadius: '8px',
+                    fontSize: '0.85rem',
+                    fontWeight: 600,
+                    background: passwordStatus.type === 'success' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                    color: passwordStatus.type === 'success' ? '#10b981' : '#ef4444',
+                    border: `1px solid ${passwordStatus.type === 'success' ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`
+                  }}>
+                    {passwordStatus.message}
+                  </div>
+                )}
+                <form onSubmit={handleUpdatePassword} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  <div className="form-group">
+                    <label className="form-label">New Password</label>
+                    <input
+                      type="password"
+                      className="form-input"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      placeholder="Minimum 6 characters"
+                      required
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Confirm New Password</label>
+                    <input
+                      type="password"
+                      className="form-input"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="Re-type new password"
+                      required
+                    />
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      onClick={() => { setIsChangingPassword(false); setPasswordStatus(null); setNewPassword(''); setConfirmPassword(''); }}
+                      disabled={isUpdatingPassword}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="btn btn-primary"
+                      disabled={isUpdatingPassword}
+                      style={{ background: 'var(--accent-gradient)', color: 'white' }}
+                    >
+                      {isUpdatingPassword ? 'Updating...' : 'Update Password'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </Modal>
+          )}
         </div>
   );
 }
