@@ -1,22 +1,7 @@
 import { supabase } from './supabase';
 import type { Message, UserProfile, RecipientOption, RecipientType, ChatGroup } from '../types/messaging';
 
-export const DEFAULT_GROUPS: ChatGroup[] = [
-  {
-    id: '00000000-0000-4000-b000-000000000001',
-    name: 'Engineering',
-    description: 'Engineering queries, CAD, and trailer structural specs',
-    admin_ids: ['00000000-0000-4000-a000-000000000002', '00000000-0000-4000-a000-000000000005'], // Eric & Lucas
-    member_ids: [],
-  },
-  {
-    id: '00000000-0000-4000-b000-000000000002',
-    name: 'Quality Control',
-    description: 'Final inspection, paint finish, and trim verification',
-    admin_ids: ['00000000-0000-4000-a000-000000000001', '00000000-0000-4000-a000-000000000003'], // Logan & Darin
-    member_ids: [],
-  }
-];
+export const DEFAULT_GROUPS: ChatGroup[] = [];
 
 export const DEFAULT_PROFILES: UserProfile[] = [
   { id: '00000000-0000-4000-a000-000000000001', name: 'Logan', role: 'manager', email: 'logan@lanetrailers.com' },
@@ -173,7 +158,7 @@ export async function fetchAllProfiles(): Promise<UserProfile[]> {
 }
 
 /**
- * Fetches all chat groups from Supabase chat_groups table, with fallback to DEFAULT_GROUPS.
+ * Fetches all chat groups from Supabase chat_groups table.
  */
 export async function fetchChatGroups(): Promise<ChatGroup[]> {
   try {
@@ -183,8 +168,8 @@ export async function fetchChatGroups(): Promise<ChatGroup[]> {
       .order('name');
 
     if (error) {
-      console.warn('Could not fetch chat_groups from db (table may not exist yet), using defaults:', error.message);
-      return DEFAULT_GROUPS;
+      console.warn('Could not fetch chat_groups from db (table may not exist yet):', error.message);
+      return [];
     }
 
     const dbGroups: ChatGroup[] = (data || []).map((g) => ({
@@ -197,19 +182,10 @@ export async function fetchChatGroups(): Promise<ChatGroup[]> {
       created_at: g.created_at,
     }));
 
-    // Merge defaults if not present
-    const result = [...dbGroups];
-    DEFAULT_GROUPS.forEach((def) => {
-      const exists = result.some((g) => g.name.toLowerCase() === def.name.toLowerCase());
-      if (!exists) {
-        result.push(def);
-      }
-    });
-
-    return result;
+    return dbGroups;
   } catch (err) {
     console.error('Error fetching chat groups:', err);
-    return DEFAULT_GROUPS;
+    return [];
   }
 }
 
