@@ -2351,11 +2351,35 @@ function AppContent({ userRole, currentUser }: { userRole: UserRole; currentUser
       }
       setHasPurchaseOrderCols(columnsSupported);
 
-      const [bayRes, modelsRes, shippedRes, dealersRes] = await Promise.all([
-        supabase.from('bay_settings').select('*'),
-        supabase.from('production_models').select('id, name, category, target_hours, specs, spec_sheet_template'),
-        supabase.from('shipped_trailers').select('serial_number, trailer_name, customer_name, vin_date, invoice_number, shipped_at, total_hours, prefab_hours, build_hours, paint_hours, outsource_hours, trim_hours, sale_price').order('shipped_at', { ascending: false }).limit(100),
-        supabase.from('dealers').select('*').order('name')
+      // Run queries with individual error handling to prevent a single table failure from crashing the app
+      let bayData: any[] = [];
+      let modelsData: any[] = [];
+      let shippedData: any[] = [];
+      let dealersData: any[] = [];
+
+      await Promise.all([
+        supabase.from('bay_settings').select('*').then(res => { if (res.data) bayData = res.data; }),
+        (async () => {
+          try {
+            // First attempt: lightweight selection
+            const res = await supabase.from('production_models').select('id, name, category, target_hours, specs, spec_sheet_template');
+            if (res.data) {
+              modelsData = res.data;
+            } else if (res.error) {
+              throw res.error;
+            }
+          } catch (err) {
+            console.warn('Full production_models query failed, trying lightweight query...', err);
+            try {
+              const res2 = await supabase.from('production_models').select('id, name, category, target_hours, specs');
+              if (res2.data) modelsData = res2.data;
+            } catch (err2) {
+              console.error('Error fetching production_models fallback:', err2);
+            }
+          }
+        })(),
+        supabase.from('shipped_trailers').select('serial_number, trailer_name, customer_name, vin_date, invoice_number, shipped_at, total_hours, prefab_hours, build_hours, paint_hours, outsource_hours, trim_hours, sale_price').order('shipped_at', { ascending: false }).limit(100).then(res => { if (res.data) shippedData = res.data; }),
+        supabase.from('dealers').select('*').order('name').then(res => { if (res.data) dealersData = res.data; })
       ]);
       
       if (trailersRes.data) {
@@ -2408,17 +2432,17 @@ function AppContent({ userRole, currentUser }: { userRole: UserRole; currentUser
         setTrailers(sorted as Trailer[]);
       }
       
-      if (modelsRes.data) {
-        const finalModels = modelsRes.data.map(m => ({
+      if (modelsData && modelsData.length > 0) {
+        const finalModels = modelsData.map(m => ({
           ...m,
           spec_sheet_template: m.spec_sheet_template ? 'EXISTS' : undefined
         }));
         setCatalogModels(finalModels);
       }
       
-      if (shippedRes.data) setShippedTrailers(shippedRes.data);
-      if (dealersRes.data) setDealers(dealersRes.data);
-      if (bayRes.data) {
+      if (shippedData && shippedData.length > 0) setShippedTrailers(shippedData);
+      if (dealersData && dealersData.length > 0) setDealers(dealersData);
+      if (bayData && bayData.length > 0) {
         // Start with a clean slate — only 'None' gets a fixed 0
         const caps: Record<StationId, number> = {
           'B1': 40,
@@ -2428,7 +2452,7 @@ function AppContent({ userRole, currentUser }: { userRole: UserRole; currentUser
           'None': 0
         };
         // Override with actual DB values
-        bayRes.data.forEach((b: any) => {
+        bayData.forEach((b: any) => {
           caps[b.id as StationId] = b.capacity;
         });
         setBayCapacities(caps);
@@ -3293,7 +3317,14 @@ function AppContent({ userRole, currentUser }: { userRole: UserRole; currentUser
           }));
 
         if (changedSiblings.length > 0) {
-          await supabase.from('trailers').upsert(changedSiblings, { onConflict: 'id' });
+          await Promise.all(
+            changedSiblings.map(t =>
+              supabase.from('trailers').update({
+                vertical_order: t.vertical_order,
+                bay_vertical_order: t.bay_vertical_order,
+              }).eq('id', t.id)
+            )
+          );
         }
 
       } catch (err) {

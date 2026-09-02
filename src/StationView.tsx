@@ -208,13 +208,13 @@ const StationView: React.FC<Props> = ({ trailers, setTrailers, onUpdateTrailer, 
         });
 
         if (changedTrailers.length > 0) {
-          await supabase.from('trailers').upsert(
-            changedTrailers.map(t => ({
-              id: t.id,
-              station: t.station,
-              bay_vertical_order: t.bay_vertical_order,
-            })),
-            { onConflict: 'id' }
+          await Promise.all(
+            changedTrailers.map(t =>
+              supabase.from('trailers').update({
+                station: t.station,
+                bay_vertical_order: t.bay_vertical_order,
+              }).eq('id', t.id)
+            )
           );
         }
 
