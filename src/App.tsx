@@ -2361,21 +2361,11 @@ function AppContent({ userRole, currentUser }: { userRole: UserRole; currentUser
         supabase.from('bay_settings').select('*').then(res => { if (res.data) bayData = res.data; }),
         (async () => {
           try {
-            // First attempt: lightweight selection
-            const res = await supabase.from('production_models').select('id, name, category, target_hours, specs, spec_sheet_template');
-            if (res.data) {
-              modelsData = res.data;
-            } else if (res.error) {
-              throw res.error;
-            }
+            // Select lightweight columns only — excludes multi-megabyte base64 spec_sheet_template blobs to prevent 57014 statement timeouts
+            const res = await supabase.from('production_models').select('id, name, category, target_hours, specs');
+            if (res.data) modelsData = res.data;
           } catch (err) {
-            console.warn('Full production_models query failed, trying lightweight query...', err);
-            try {
-              const res2 = await supabase.from('production_models').select('id, name, category, target_hours, specs');
-              if (res2.data) modelsData = res2.data;
-            } catch (err2) {
-              console.error('Error fetching production_models fallback:', err2);
-            }
+            console.error('Error fetching production_models:', err);
           }
         })(),
         supabase.from('shipped_trailers').select('serial_number, trailer_name, customer_name, vin_date, invoice_number, shipped_at, total_hours, prefab_hours, build_hours, paint_hours, outsource_hours, trim_hours, sale_price').order('shipped_at', { ascending: false }).limit(100).then(res => { if (res.data) shippedData = res.data; }),
