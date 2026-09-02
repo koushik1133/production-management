@@ -548,7 +548,7 @@ CREATE INDEX IF NOT EXISTS idx_messages_user_filter ON public.messages (recipien
 CREATE INDEX IF NOT EXISTS idx_message_reads_user_message ON public.message_reads (user_id, message_id);
 
 CREATE INDEX IF NOT EXISTS idx_profiles_name ON public.profiles (name);
-CREATE INDEX IF NOT EXISTS idx_profiles_email ON public.profiles (email);
+CREATE INDEX IF NOT EXISTS idx_profiles_role ON public.profiles (role);
 
 CREATE INDEX IF NOT EXISTS idx_chat_groups_name ON public.chat_groups (name);
 
