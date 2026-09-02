@@ -64,14 +64,22 @@ export function useMessages(currentUser: User | null, isViewingMessagesPage: boo
 
   const notifications = useMessageNotifications();
   const currentUserId = currentUser?.id;
+  // Capture email once via ref to prevent re-renders from causing loadProfiles to cascade
+  const currentUserEmailRef = useRef(currentUser?.email);
+  if (currentUser?.email && !currentUserEmailRef.current) {
+    currentUserEmailRef.current = currentUser.email;
+  }
   const isViewingRef = useRef(isViewingMessagesPage);
   isViewingRef.current = isViewingMessagesPage;
+
+  // Throttle ref for visibility/online sync — never more than once per 30 s
+  const lastMsgSyncRef = useRef<number>(0);
 
   // 1. Initialize User Profile and All Profiles
   const loadProfiles = useCallback(async () => {
     if (!currentUserId) return;
     try {
-      const selfProfile = await getOrSyncProfile(currentUserId, currentUser?.email);
+      const selfProfile = await getOrSyncProfile(currentUserId, currentUserEmailRef.current);
       setCurrentProfile(selfProfile);
 
       const fetchedProfiles = await fetchAllProfiles();
@@ -84,7 +92,8 @@ export function useMessages(currentUser: User | null, isViewingMessagesPage: boo
     } catch (err) {
       console.error('Failed to load user profiles:', err);
     }
-  }, [currentUserId, currentUser?.email]);
+  // Only depend on currentUserId — email is captured via ref to prevent cascades
+  }, [currentUserId]);
 
   useEffect(() => {
     if (currentUserId) {
@@ -129,12 +138,18 @@ export function useMessages(currentUser: User | null, isViewingMessagesPage: boo
     }
   }, [currentUserId, loadInitialMessages]);
 
+  // Stable ref for allMessages — lets loadOlderMessages/markAsRead read latest messages
+  // without adding allMessages to their useCallback dep arrays (which would recreate on every msg)
+  const allMessagesRef = useRef(allMessages);
+  allMessagesRef.current = allMessages;
+
   // 4. Load Older Messages
   const loadOlderMessages = useCallback(async () => {
     if (!currentUserId || loadingOlder || !hasMore || allMessages.length === 0) return;
     setLoadingOlder(true);
     try {
-      const oldestTimestamp = allMessages[0].created_at;
+      const oldestTimestamp = allMessagesRef.current[0]?.created_at;
+      if (!oldestTimestamp) { setLoadingOlder(false); return; }
 
       const { messages: olderMessages, hasMore: more } = await fetchMessages({
         currentUserId,
@@ -154,7 +169,7 @@ export function useMessages(currentUser: User | null, isViewingMessagesPage: boo
     } finally {
       setLoadingOlder(false);
     }
-  }, [currentUserId, loadingOlder, hasMore, allMessages]);
+  }, [currentUserId, loadingOlder, hasMore]); // allMessages removed — read via ref
 
   // Helper matcher to test if a message belongs to a target conversation thread
   const isMessageInUserThread = useCallback(
@@ -275,11 +290,18 @@ export function useMessages(currentUser: User | null, isViewingMessagesPage: boo
     return conversations.reduce((acc, c) => acc + c.unreadCount, 0);
   }, [conversations]);
 
-  // 8. Mark Active Conversation Messages as Read
-  const markAsRead = useCallback(async () => {
-    if (!currentUserId || filteredMessages.length === 0) return;
+  // Stable ref so markAsRead doesn't recreate on every message arrival
+  const filteredMessagesRef = useRef(filteredMessages);
+  filteredMessagesRef.current = filteredMessages;
 
-    const unreadList = filteredMessages.filter((m) => m.sender_id !== currentUserId && !m.is_read_by_me);
+  // 8. Mark Active Conversation Messages as Read
+  // Stable callback: reads filteredMessages via ref so it never changes reference
+  const markAsRead = useCallback(async () => {
+    if (!currentUserId || filteredMessagesRef.current.length === 0) return;
+
+    const unreadList = filteredMessagesRef.current.filter(
+      (m) => m.sender_id !== currentUserId && !m.is_read_by_me
+    );
     if (unreadList.length === 0) return;
 
     const unreadIds = new Set(unreadList.map((m) => m.id));
@@ -288,13 +310,19 @@ export function useMessages(currentUser: User | null, isViewingMessagesPage: boo
     );
 
     await markMessagesAsRead(currentUserId, unreadList);
-  }, [currentUserId, filteredMessages]);
+  }, [currentUserId]);  // stable — no filteredMessages dep
 
+  // Stable ref so the auto-read effect doesn't re-fire on every message arrival
+  const markAsReadRef = useRef(markAsRead);
+  markAsReadRef.current = markAsRead;
+
+  // Auto-read: only fires when the user switches page or conversation, NOT on every new message
   useEffect(() => {
-    if (isViewingMessagesPage && unreadCount > 0) {
-      markAsRead();
+    if (isViewingMessagesPage) {
+      markAsReadRef.current();
     }
-  }, [isViewingMessagesPage, activeConversationId, unreadCount, markAsRead]);
+  }, [isViewingMessagesPage, activeConversationId]); // removed unreadCount — was triggering on every msg
+
 
   // Handle switching active conversation tab
   const handleSelectConversation = useCallback(
@@ -353,8 +381,20 @@ export function useMessages(currentUser: User | null, isViewingMessagesPage: boo
           } else {
             senderProf = allProfilesRef.current.find((p) => p.id === newMsg.sender_id);
             if (!senderProf) {
-              const profiles = await fetchAllProfiles();
-              senderProf = profiles.find((p) => p.id === newMsg.sender_id);
+              // Fetch ONLY this single profile — never do a full table scan in a realtime handler
+              const { data: pData } = await supabase
+                .from('profiles')
+                .select('id, name, role')
+                .eq('id', newMsg.sender_id)
+                .single();
+              if (pData) {
+                senderProf = { id: pData.id, name: pData.name, role: pData.role as 'worker' | 'manager' };
+                // Merge into allProfiles state so future messages from this sender don't re-query
+                setAllProfiles((prev) => {
+                  if (prev.some((p) => p.id === pData.id)) return prev;
+                  return [...prev, senderProf!];
+                });
+              }
             }
           }
 
@@ -478,18 +518,26 @@ export function useMessages(currentUser: User | null, isViewingMessagesPage: boo
 
   // 11. Offline/Online & Background Tab Sync Events
   useEffect(() => {
+    const SYNC_THROTTLE_MS = 30_000; // at most once per 30 s per user session
+
+    const throttledSync = () => {
+      if (!currentUserId) return;
+      const now = Date.now();
+      if (now - lastMsgSyncRef.current < SYNC_THROTTLE_MS) return;
+      lastMsgSyncRef.current = now;
+      loadInitialMessages();
+    };
+
     const handleOnline = () => {
       setConnectionStatus('connected');
-      if (currentUserId) {
-        loadInitialMessages();
-      }
+      throttledSync();
     };
     const handleOffline = () => {
       setConnectionStatus('disconnected');
     };
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && currentUserId) {
-        loadInitialMessages();
+      if (document.visibilityState === 'visible') {
+        throttledSync();
       }
     };
 

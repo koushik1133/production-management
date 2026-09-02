@@ -58,7 +58,6 @@ const EMAIL_NAME_MAP: Record<string, string> = {
   'paint@lanetrailers.com': 'Paint',
   'bay1@lanetrailers.com': 'Bay 1',
   'bay2@lanetrailers.com': 'Bay 2',
-  'bay3@lantrailers.com': 'Bay 3',
   'bay3@lanetrailers.com': 'Bay 3',
   'bay4@lanetrailers.com': 'Bay 4',
   'prefab@lanetrailers.com': 'Prefab',
@@ -130,12 +129,34 @@ export async function getOrSyncProfile(userId: string, email?: string): Promise<
   }
 }
 
+// ─── Module-level profile cache ───────────────────────────────────────────────
+// fetchAllProfiles is called in realtime handlers and on every message load.
+// Without a cache it fires a DB query every single time, exhausting the pool.
+let _profilesCache: UserProfile[] | null = null;
+let _profilesCacheTs = 0;
+const PROFILES_CACHE_TTL_MS = 60_000; // 60 s
+
+export function invalidateProfilesCache() {
+  _profilesCache = null;
+  _profilesCacheTs = 0;
+}
+
 /**
  * Fetches all user profiles from public.profiles and merges defaults.
+ * Results are cached for 60 s to prevent pool exhaustion.
  */
 export async function fetchAllProfiles(): Promise<UserProfile[]> {
+  const now = Date.now();
+  if (_profilesCache && now - _profilesCacheTs < PROFILES_CACHE_TTL_MS) {
+    return _profilesCache;
+  }
+
   try {
-    const { data } = await supabase.from('profiles').select('*').order('name');
+    const { data } = await supabase
+      .from('profiles')
+      .select('id, name, role')  // Only needed columns — no SELECT *
+      .order('name')
+      .limit(500);
     const dbProfiles: UserProfile[] = (data || []).map((p) => ({
       id: p.id,
       name: p.name,
@@ -150,10 +171,13 @@ export async function fetchAllProfiles(): Promise<UserProfile[]> {
       }
     });
 
+    _profilesCache = result;
+    _profilesCacheTs = now;
     return result;
   } catch (err) {
     console.error('Error fetching profiles:', err);
-    return DEFAULT_PROFILES;
+    // Return cache if available, even if stale, to avoid hammering a failing DB
+    return _profilesCache ?? DEFAULT_PROFILES;
   }
 }
 

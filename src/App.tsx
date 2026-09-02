@@ -2315,8 +2315,18 @@ function AppContent({ userRole, currentUser }: { userRole: UserRole; currentUser
   }, [trailers]);
 
   const lastSyncTimeRef = useRef<number>(0);
+  const isFetchingRef = useRef(false);
 
   const fetchInitialData = useCallback(async (isSilent = false) => {
+    // Throttle silent syncs: never more than once per 15 s, and never overlapping
+    if (isSilent) {
+      const now = Date.now();
+      if (isFetchingRef.current || now - lastSyncTimeRef.current < 15000) return;
+    }
+    if (isFetchingRef.current) return; // Prevent overlapping full fetches too
+    isFetchingRef.current = true;
+    lastSyncTimeRef.current = Date.now();
+
     if (!isSilent) {
       setLoading(true);
     }
@@ -2426,6 +2436,7 @@ function AppContent({ userRole, currentUser }: { userRole: UserRole; currentUser
     } catch (err) {
       console.error('Error fetching data:', err);
     } finally {
+      isFetchingRef.current = false;
       if (!isSilent) {
         setLoading(false);
       }
@@ -2435,12 +2446,9 @@ function AppContent({ userRole, currentUser }: { userRole: UserRole; currentUser
   useEffect(() => {
     fetchInitialData(false);
 
+    // triggerSilentSync is a thin wrapper — the throttle + concurrency guard is now INSIDE fetchInitialData
     const triggerSilentSync = () => {
-      const now = Date.now();
-      if (now - lastSyncTimeRef.current > 15000) {
-        lastSyncTimeRef.current = now;
-        fetchInitialData(true);
-      }
+      fetchInitialData(true);
     };
 
     // Consolidated Realtime channel for all public tables (reduces DB connection pool pressure)
@@ -3271,20 +3279,21 @@ function AppContent({ userRole, currentUser }: { userRole: UserRole; currentUser
           return;
         }
 
-        // Update ordering columns ONLY for sibling cards whose order actually changed
-        const siblingUpdates = reorderedWithBay
+        // Update ordering for sibling cards that actually changed — one batched upsert instead of N round-trips
+        const changedSiblings = reorderedWithBay
           .filter(t => {
             if (t.id === activeId) return false;
             const orig = trailersRef.current.find(r => r.id === t.id);
             return !orig || orig.vertical_order !== t.vertical_order || orig.bay_vertical_order !== t.bay_vertical_order;
           })
-          .map(t => supabase.from('trailers').update({
+          .map(t => ({
+            id: t.id,
             vertical_order: t.vertical_order,
-            bay_vertical_order: t.bay_vertical_order
-          }).eq('id', t.id));
+            bay_vertical_order: t.bay_vertical_order,
+          }));
 
-        if (siblingUpdates.length > 0) {
-          await Promise.all(siblingUpdates);
+        if (changedSiblings.length > 0) {
+          await supabase.from('trailers').upsert(changedSiblings, { onConflict: 'id' });
         }
 
       } catch (err) {
