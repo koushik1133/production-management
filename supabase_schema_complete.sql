@@ -524,3 +524,39 @@ BEGIN
   END IF;
 EXCEPTION WHEN OTHERS THEN NULL;
 END $$;
+
+-- ========================================================
+-- Performance Indexes to prevent timeouts & pool exhaustion
+-- ========================================================
+CREATE INDEX IF NOT EXISTS idx_trailers_vertical_order ON public.trailers (vertical_order ASC);
+CREATE INDEX IF NOT EXISTS idx_trailers_serial_number ON public.trailers ("serialNumber");
+CREATE INDEX IF NOT EXISTS idx_trailers_is_archived_deleted ON public.trailers ("isArchived", "isDeleted");
+CREATE INDEX IF NOT EXISTS idx_trailers_station ON public.trailers (station);
+CREATE INDEX IF NOT EXISTS idx_trailers_current_phase ON public.trailers ("currentPhase");
+CREATE INDEX IF NOT EXISTS idx_trailers_updated_at ON public.trailers (updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_trailers_date_started ON public.trailers ("dateStarted" DESC);
+CREATE INDEX IF NOT EXISTS idx_trailers_station_bay_order ON public.trailers (station, bay_vertical_order ASC);
+
+CREATE INDEX IF NOT EXISTS idx_shipped_trailers_shipped_at ON public.shipped_trailers (shipped_at DESC);
+CREATE INDEX IF NOT EXISTS idx_shipped_trailers_invoice_number ON public.shipped_trailers (invoice_number);
+
+CREATE INDEX IF NOT EXISTS idx_messages_created_at ON public.messages (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_messages_sender_id ON public.messages (sender_id);
+CREATE INDEX IF NOT EXISTS idx_messages_recipient ON public.messages (recipient_type, recipient_id);
+CREATE INDEX IF NOT EXISTS idx_messages_user_filter ON public.messages (recipient_type, recipient_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_message_reads_user_message ON public.message_reads (user_id, message_id);
+
+CREATE INDEX IF NOT EXISTS idx_profiles_name ON public.profiles (name);
+CREATE INDEX IF NOT EXISTS idx_profiles_email ON public.profiles (email);
+
+CREATE INDEX IF NOT EXISTS idx_chat_groups_name ON public.chat_groups (name);
+
+CREATE INDEX IF NOT EXISTS idx_dealers_name ON public.dealers (name);
+
+CREATE INDEX IF NOT EXISTS idx_production_models_name ON public.production_models (name);
+
+CREATE INDEX IF NOT EXISTS idx_quotes_denied_denied_at ON public.quotes_denied (denied_at DESC);
+
+NOTIFY pgrst, 'reload schema';
+

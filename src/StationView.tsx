@@ -201,13 +201,20 @@ const StationView: React.FC<Props> = ({ trailers, setTrailers, onUpdateTrailer, 
           });
         });
 
-        // Targeted update calls so PostgREST only updates station and bay_vertical_order
-        await Promise.all(
-          reordered.map(t => supabase.from('trailers').update({
-            station: t.station,
-            bay_vertical_order: t.bay_vertical_order,
-          }).eq('id', t.id))
-        );
+        // Targeted update calls so PostgREST only updates station and bay_vertical_order for changed items
+        const changedTrailers = reordered.filter(t => {
+          const orig = trailers.find(prevT => prevT.id === t.id);
+          return !orig || orig.station !== t.station || orig.bay_vertical_order !== t.bay_vertical_order;
+        });
+
+        if (changedTrailers.length > 0) {
+          await Promise.all(
+            changedTrailers.map(t => supabase.from('trailers').update({
+              station: t.station,
+              bay_vertical_order: t.bay_vertical_order,
+            }).eq('id', t.id))
+          );
+        }
 
       } catch (err) {
         console.error('StationView DragEnd Error:', err);

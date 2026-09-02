@@ -346,12 +346,18 @@ export async function fetchMessages({
     const hasMore = (rawMessages || []).length > limit;
     const items = (rawMessages || []).slice(0, limit);
 
-    const { data: readData } = await supabase
-      .from('message_reads')
-      .select('message_id')
-      .eq('user_id', currentUserId);
+    const itemIds = items.map((m) => m.id);
+    let readMessageIds = new Set<string>();
 
-    const readMessageIds = new Set((readData || []).map((r) => r.message_id));
+    if (itemIds.length > 0) {
+      const { data: readData } = await supabase
+        .from('message_reads')
+        .select('message_id')
+        .eq('user_id', currentUserId)
+        .in('message_id', itemIds);
+
+      readMessageIds = new Set((readData || []).map((r) => r.message_id));
+    }
 
     const profiles = await fetchAllProfiles();
     const profileMap = new Map<string, UserProfile>();

@@ -308,7 +308,20 @@ export function useMessages(currentUser: User | null, isViewingMessagesPage: boo
     [recipientOptions]
   );
 
-  // 9. Realtime Subscription
+  // Keep latest refs for realtime callbacks to avoid re-subscribing on every state update
+  const currentProfileRef = useRef(currentProfile);
+  currentProfileRef.current = currentProfile;
+
+  const allProfilesRef = useRef(allProfiles);
+  allProfilesRef.current = allProfiles;
+
+  const chatGroupsRef = useRef(chatGroups);
+  chatGroupsRef.current = chatGroups;
+
+  const notificationsRef = useRef(notifications);
+  notificationsRef.current = notifications;
+
+  // 9. Realtime Subscription (Stable - connected once per user session)
   useEffect(() => {
     if (!currentUserId) return;
 
@@ -336,9 +349,9 @@ export function useMessages(currentUser: User | null, isViewingMessagesPage: boo
 
           let senderProf: UserProfile | undefined = undefined;
           if (newMsg.sender_id === currentUserId) {
-            senderProf = currentProfile || undefined;
+            senderProf = currentProfileRef.current || undefined;
           } else {
-            senderProf = allProfiles.find((p) => p.id === newMsg.sender_id);
+            senderProf = allProfilesRef.current.find((p) => p.id === newMsg.sender_id);
             if (!senderProf) {
               const profiles = await fetchAllProfiles();
               senderProf = profiles.find((p) => p.id === newMsg.sender_id);
@@ -347,12 +360,12 @@ export function useMessages(currentUser: User | null, isViewingMessagesPage: boo
 
           let recipientProf: UserProfile | undefined = undefined;
           if (newMsg.recipient_id) {
-            recipientProf = allProfiles.find((p) => p.id === newMsg.recipient_id);
+            recipientProf = allProfilesRef.current.find((p) => p.id === newMsg.recipient_id);
           }
 
           let msgGroup: ChatGroup | undefined = undefined;
           if (newMsg.recipient_type === 'group' && newMsg.recipient_id) {
-            msgGroup = chatGroups.find((g) => g.id === newMsg.recipient_id);
+            msgGroup = chatGroupsRef.current.find((g) => g.id === newMsg.recipient_id);
           }
 
           const formattedNewMsg: Message = {
@@ -378,7 +391,7 @@ export function useMessages(currentUser: User | null, isViewingMessagesPage: boo
           if (newMsg.sender_id !== currentUserId) {
             const senderTitle = senderProf?.name || 'Someone';
             const cleanBodyText = formatCleanNotificationMessage(newMsg.body, senderTitle);
-            notifications.sendNotification(`Message from ${senderTitle}`, {
+            notificationsRef.current.sendNotification(`Message from ${senderTitle}`, {
               body: cleanBodyText,
               senderName: senderTitle,
             });
@@ -424,11 +437,11 @@ export function useMessages(currentUser: User | null, isViewingMessagesPage: boo
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [currentUserId, currentProfile, allProfiles, chatGroups, notifications]);
+  }, [currentUserId]);
 
-  // 10. Presence Tracking
+  // 10. Presence Tracking (Stable - connected once per user session)
   useEffect(() => {
-    if (!currentUserId || !currentProfile) return;
+    if (!currentUserId) return;
 
     const presenceChannel = supabase.channel('online-presence', {
       config: {
@@ -451,7 +464,7 @@ export function useMessages(currentUser: User | null, isViewingMessagesPage: boo
         if (status === 'SUBSCRIBED') {
           await presenceChannel.track({
             userId: currentUserId,
-            name: currentProfile.name,
+            name: currentProfileRef.current?.name || 'User',
             onlineAt: new Date().toISOString(),
           });
         }
@@ -461,7 +474,7 @@ export function useMessages(currentUser: User | null, isViewingMessagesPage: boo
       presenceChannel.untrack();
       supabase.removeChannel(presenceChannel);
     };
-  }, [currentUserId, currentProfile]);
+  }, [currentUserId]);
 
   // 11. Offline/Online & Background Tab Sync Events
   useEffect(() => {

@@ -2341,10 +2341,9 @@ function AppContent({ userRole, currentUser }: { userRole: UserRole; currentUser
       }
       setHasPurchaseOrderCols(columnsSupported);
 
-      const [bayRes, modelsRes, templatesExistRes, shippedRes, dealersRes] = await Promise.all([
+      const [bayRes, modelsRes, shippedRes, dealersRes] = await Promise.all([
         supabase.from('bay_settings').select('*'),
-        supabase.from('production_models').select('id, name, category, target_hours, specs'),
-        supabase.from('production_models').select('name').not('spec_sheet_template', 'is', null),
+        supabase.from('production_models').select('id, name, category, target_hours, specs, spec_sheet_template'),
         supabase.from('shipped_trailers').select('serial_number, trailer_name, customer_name, vin_date, invoice_number, shipped_at, total_hours, prefab_hours, build_hours, paint_hours, outsource_hours, trim_hours, sale_price').order('shipped_at', { ascending: false }).limit(100),
         supabase.from('dealers').select('*').order('name')
       ]);
@@ -2400,10 +2399,9 @@ function AppContent({ userRole, currentUser }: { userRole: UserRole; currentUser
       }
       
       if (modelsRes.data) {
-        const templatesExistNames = new Set((templatesExistRes.data || []).map(r => r.name));
         const finalModels = modelsRes.data.map(m => ({
           ...m,
-          spec_sheet_template: templatesExistNames.has(m.name) ? 'EXISTS' : undefined
+          spec_sheet_template: m.spec_sheet_template ? 'EXISTS' : undefined
         }));
         setCatalogModels(finalModels);
       }
@@ -2437,9 +2435,6 @@ function AppContent({ userRole, currentUser }: { userRole: UserRole; currentUser
   useEffect(() => {
     fetchInitialData(false);
 
-    // Track active channels in refs to avoid stale closures
-    const activeChannels: Record<string, ReturnType<typeof supabase.channel>> = {};
-
     const triggerSilentSync = () => {
       const now = Date.now();
       if (now - lastSyncTimeRef.current > 15000) {
@@ -2448,184 +2443,119 @@ function AppContent({ userRole, currentUser }: { userRole: UserRole; currentUser
       }
     };
 
-    // --- Trailer Channel ---
-    const setupTrailerChannel = () => {
-      const ch = supabase
-        .channel('trailers-changes')
-        .on(
-          'postgres_changes' as any,
-          { event: '*', schema: 'public', table: 'trailers' },
-          (payload: any) => {
-            if (activeIdRef.current === payload.new?.id || activeIdRef.current === payload.old?.id) return;
-            if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-              const mapped = { ...payload.new };
-              // Always delete snake_case keys and promote to camelCase (even when null)
-              if ('sales_person' in mapped) { mapped.salesPerson = mapped.sales_person ?? undefined; delete mapped.sales_person; }
-              if ('dealer_location' in mapped) { mapped.dealerLocation = mapped.dealer_location ?? undefined; delete mapped.dealer_location; }
-              if ('dealer_common_address' in mapped) { mapped.dealerCommonAddress = mapped.dealer_common_address ?? undefined; delete mapped.dealer_common_address; }
-              if ('dealer_id' in mapped) { mapped.dealerId = mapped.dealer_id ?? undefined; delete mapped.dealer_id; }
-              if ('purchase_order' in mapped) { mapped.purchaseOrder = mapped.purchase_order ?? undefined; delete mapped.purchase_order; }
-              if ('consignment' in mapped && mapped.consignment === null) { mapped.consignment = undefined; }
+    // Consolidated Realtime channel for all public tables (reduces DB connection pool pressure)
+    const channel = supabase
+      .channel('app-realtime-feed')
+      .on(
+        'postgres_changes' as any,
+        { event: '*', schema: 'public', table: 'trailers' },
+        (payload: any) => {
+          if (activeIdRef.current === payload.new?.id || activeIdRef.current === payload.old?.id) return;
+          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+            const mapped = { ...payload.new };
+            if ('sales_person' in mapped) { mapped.salesPerson = mapped.sales_person ?? undefined; delete mapped.sales_person; }
+            if ('dealer_location' in mapped) { mapped.dealerLocation = mapped.dealer_location ?? undefined; delete mapped.dealer_location; }
+            if ('dealer_common_address' in mapped) { mapped.dealerCommonAddress = mapped.dealer_common_address ?? undefined; delete mapped.dealer_common_address; }
+            if ('dealer_id' in mapped) { mapped.dealerId = mapped.dealer_id ?? undefined; delete mapped.dealer_id; }
+            if ('purchase_order' in mapped) { mapped.purchaseOrder = mapped.purchase_order ?? undefined; delete mapped.purchase_order; }
+            if ('consignment' in mapped && mapped.consignment === null) { mapped.consignment = undefined; }
 
-              if (payload.eventType === 'INSERT') {
-                setTrailers(prev => {
-                  // Guard against duplicate id
-                  if (prev.find(t => t.id === mapped.id)) return prev;
-                  // Guard against duplicate serialNumber (case-insensitive)
-                  const incomingSerial = mapped.serialNumber?.trim().toLowerCase();
-                  if (incomingSerial && !mapped.isDeleted && prev.some(
-                    t => t.serialNumber?.trim().toLowerCase() === incomingSerial && !t.isDeleted
-                  )) {
-                    // A record with this serial already exists locally — skip the realtime insert
-                    return prev;
-                  }
-                  return [mapped as Trailer, ...prev].sort((a, b) => (a.vertical_order ?? 0) - (b.vertical_order ?? 0));
-                });
-              } else {
-                setTrailers(prev => {
-                  const updated = prev.map(t => {
-                    if (t.id === mapped.id) {
-                      return {
-                        ...t,
-                        ...mapped,
-                        spec_sheet_file: mapped.spec_sheet_file !== undefined ? mapped.spec_sheet_file : t.spec_sheet_file,
-                        photo_1_url: mapped.photo_1_url !== undefined ? mapped.photo_1_url : t.photo_1_url,
-                        photo_2_url: mapped.photo_2_url !== undefined ? mapped.photo_2_url : t.photo_2_url,
-                        photo_3_url: mapped.photo_3_url !== undefined ? mapped.photo_3_url : t.photo_3_url,
-                        inspection_sheet_file: mapped.inspection_sheet_file !== undefined ? mapped.inspection_sheet_file : t.inspection_sheet_file
-                      } as Trailer;
-                    }
-                    return t;
-                  });
-                  return [...updated].sort((a, b) => (a.vertical_order ?? 0) - (b.vertical_order ?? 0));
-                });
-              }
-            } else if (payload.eventType === 'DELETE') {
-              setTrailers(prev => prev.filter(t => t.id !== payload.old.id));
-            }
-          }
-        )
-        .subscribe((status: string) => {
-          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-            triggerSilentSync();
-          }
-        });
-      activeChannels['trailers'] = ch;
-    };
-
-    // --- Bay Settings Channel ---
-    const setupCapChannel = () => {
-      const ch = supabase
-        .channel('bay-settings-changes')
-        .on(
-          'postgres_changes' as any,
-          { event: '*', schema: 'public', table: 'bay_settings' },
-          (payload: any) => {
-            if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-              setBayCapacities(prev => ({ ...prev, [payload.new.id]: payload.new.capacity }));
-            }
-          }
-        )
-        .subscribe((status: string) => {
-          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-            triggerSilentSync();
-          }
-        });
-      activeChannels['bay'] = ch;
-    };
-
-    // --- Models Channel ---
-    const setupModelChannel = () => {
-      const ch = supabase
-        .channel('production-models-changes')
-        .on(
-          'postgres_changes' as any,
-          { event: '*', schema: 'public', table: 'production_models' },
-          (payload: any) => {
             if (payload.eventType === 'INSERT') {
-              setCatalogModels(prev => prev.find(m => m.id === payload.new.id) ? prev : [...prev, payload.new as CatalogModel]);
-            } else if (payload.eventType === 'UPDATE') {
-              setCatalogModels(prev => prev.map(m => {
-                if (m.id === payload.new.id) {
-                  return { ...m, ...payload.new, spec_sheet_template: payload.new.spec_sheet_template || m.spec_sheet_template };
+              setTrailers(prev => {
+                if (prev.find(t => t.id === mapped.id)) return prev;
+                const incomingSerial = mapped.serialNumber?.trim().toLowerCase();
+                if (incomingSerial && !mapped.isDeleted && prev.some(
+                  t => t.serialNumber?.trim().toLowerCase() === incomingSerial && !t.isDeleted
+                )) {
+                  return prev;
                 }
-                return m;
-              }));
-            } else if (payload.eventType === 'DELETE') {
-              setCatalogModels(prev => prev.filter(m => m.id !== payload.old.id));
+                return [mapped as Trailer, ...prev].sort((a, b) => (a.vertical_order ?? 0) - (b.vertical_order ?? 0));
+              });
+            } else {
+              setTrailers(prev => {
+                const updated = prev.map(t => {
+                  if (t.id === mapped.id) {
+                    return {
+                      ...t,
+                      ...mapped,
+                      spec_sheet_file: mapped.spec_sheet_file !== undefined ? mapped.spec_sheet_file : t.spec_sheet_file,
+                      photo_1_url: mapped.photo_1_url !== undefined ? mapped.photo_1_url : t.photo_1_url,
+                      photo_2_url: mapped.photo_2_url !== undefined ? mapped.photo_2_url : t.photo_2_url,
+                      photo_3_url: mapped.photo_3_url !== undefined ? mapped.photo_3_url : t.photo_3_url,
+                      inspection_sheet_file: mapped.inspection_sheet_file !== undefined ? mapped.inspection_sheet_file : t.inspection_sheet_file
+                    } as Trailer;
+                  }
+                  return t;
+                });
+                return [...updated].sort((a, b) => (a.vertical_order ?? 0) - (b.vertical_order ?? 0));
+              });
             }
+          } else if (payload.eventType === 'DELETE') {
+            setTrailers(prev => prev.filter(t => t.id !== payload.old.id));
           }
-        )
-        .subscribe((status: string) => {
-          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-            triggerSilentSync();
+        }
+      )
+      .on(
+        'postgres_changes' as any,
+        { event: '*', schema: 'public', table: 'bay_settings' },
+        (payload: any) => {
+          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+            setBayCapacities(prev => ({ ...prev, [payload.new.id]: payload.new.capacity }));
           }
-        });
-      activeChannels['models'] = ch;
-    };
-
-    // --- Dealers Channel ---
-    const setupDealerChannel = () => {
-      const ch = supabase
-        .channel('dealers-changes')
-        .on(
-          'postgres_changes' as any,
-          { event: '*', schema: 'public', table: 'dealers' },
-          (payload: any) => {
-            if (payload.eventType === 'INSERT') {
-              setDealers(prev => prev.find(d => d.id === payload.new.id) ? prev : [...prev, payload.new as any].sort((a,b)=>a.name.localeCompare(b.name)));
-            } else if (payload.eventType === 'UPDATE') {
-              setDealers(prev => prev.map(d => d.id === payload.new.id ? { ...d, ...payload.new } : d).sort((a,b)=>a.name.localeCompare(b.name)));
-            } else if (payload.eventType === 'DELETE') {
-              setDealers(prev => prev.filter(d => d.id !== payload.old.id));
-            }
+        }
+      )
+      .on(
+        'postgres_changes' as any,
+        { event: '*', schema: 'public', table: 'production_models' },
+        (payload: any) => {
+          if (payload.eventType === 'INSERT') {
+            setCatalogModels(prev => prev.find(m => m.id === payload.new.id) ? prev : [...prev, payload.new as CatalogModel]);
+          } else if (payload.eventType === 'UPDATE') {
+            setCatalogModels(prev => prev.map(m => {
+              if (m.id === payload.new.id) {
+                return { ...m, ...payload.new, spec_sheet_template: payload.new.spec_sheet_template || m.spec_sheet_template };
+              }
+              return m;
+            }));
+          } else if (payload.eventType === 'DELETE') {
+            setCatalogModels(prev => prev.filter(m => m.id !== payload.old.id));
           }
-        )
-        .subscribe((status: string) => {
-          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-            triggerSilentSync();
+        }
+      )
+      .on(
+        'postgres_changes' as any,
+        { event: '*', schema: 'public', table: 'dealers' },
+        (payload: any) => {
+          if (payload.eventType === 'INSERT') {
+            setDealers(prev => prev.find(d => d.id === payload.new.id) ? prev : [...prev, payload.new as any].sort((a,b)=>a.name.localeCompare(b.name)));
+          } else if (payload.eventType === 'UPDATE') {
+            setDealers(prev => prev.map(d => d.id === payload.new.id ? { ...d, ...payload.new } : d).sort((a,b)=>a.name.localeCompare(b.name)));
+          } else if (payload.eventType === 'DELETE') {
+            setDealers(prev => prev.filter(d => d.id !== payload.old.id));
           }
-        });
-      activeChannels['dealers'] = ch;
-    };
-
-    // --- Shipped Channel ---
-    const setupShippedChannel = () => {
-      const ch = supabase
-        .channel('shipped-changes')
-        .on(
-          'postgres_changes' as any,
-          { event: '*', schema: 'public', table: 'shipped_trailers' },
-          (payload: any) => {
-            if (payload.eventType === 'INSERT') {
-              setShippedTrailers(prev => prev.find(t => t.serial_number === payload.new.serial_number) ? prev : [payload.new as any, ...prev]);
-            } else if (payload.eventType === 'UPDATE') {
-              setShippedTrailers(prev => prev.map(t => t.serial_number === payload.new.serial_number ? { ...t, ...payload.new } : t));
-            } else if (payload.eventType === 'DELETE') {
-              setShippedTrailers(prev => prev.filter(t => t.serial_number !== payload.old.serial_number));
-            }
+        }
+      )
+      .on(
+        'postgres_changes' as any,
+        { event: '*', schema: 'public', table: 'shipped_trailers' },
+        (payload: any) => {
+          if (payload.eventType === 'INSERT') {
+            setShippedTrailers(prev => prev.find(t => t.serial_number === payload.new.serial_number) ? prev : [payload.new as any, ...prev]);
+          } else if (payload.eventType === 'UPDATE') {
+            setShippedTrailers(prev => prev.map(t => t.serial_number === payload.new.serial_number ? { ...t, ...payload.new } : t));
+          } else if (payload.eventType === 'DELETE') {
+            setShippedTrailers(prev => prev.filter(t => t.serial_number !== payload.old.serial_number));
           }
-        )
-        .subscribe((status: string) => {
-          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-            triggerSilentSync();
-          }
-        });
-      activeChannels['shipped'] = ch;
-    };
-
-    // Start all channels
-    setupTrailerChannel();
-    setupCapChannel();
-    setupModelChannel();
-    setupDealerChannel();
-    setupShippedChannel();
+        }
+      )
+      .subscribe((status: string) => {
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          triggerSilentSync();
+        }
+      });
 
     return () => {
-      // Remove all active channels
-      Object.values(activeChannels).forEach(ch => {
-        try { supabase.removeChannel(ch); } catch (_) { /* ignore */ }
-      });
+      try { supabase.removeChannel(channel); } catch (_) { /* ignore */ }
     };
   }, []);
 
@@ -3341,9 +3271,13 @@ function AppContent({ userRole, currentUser }: { userRole: UserRole; currentUser
           return;
         }
 
-        // Update ordering columns for sibling cards in the same phase column
+        // Update ordering columns ONLY for sibling cards whose order actually changed
         const siblingUpdates = reorderedWithBay
-          .filter(t => t.id !== activeId)
+          .filter(t => {
+            if (t.id === activeId) return false;
+            const orig = trailersRef.current.find(r => r.id === t.id);
+            return !orig || orig.vertical_order !== t.vertical_order || orig.bay_vertical_order !== t.bay_vertical_order;
+          })
           .map(t => supabase.from('trailers').update({
             vertical_order: t.vertical_order,
             bay_vertical_order: t.bay_vertical_order
