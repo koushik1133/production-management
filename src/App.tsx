@@ -304,6 +304,12 @@ function Dashboard({
   const handleShipSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!pendingShippingTrailer || isShipping) return;
+
+    const serial = pendingShippingTrailer.serialNumber;
+    const model = pendingShippingTrailer.model;
+    if (!window.confirm(`Are you sure you want to ship and archive trailer ${serial}${model ? ` (${model})` : ''}?`)) {
+      return;
+    }
     
     setIsShipping(true);
     try {
