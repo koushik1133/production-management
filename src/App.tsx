@@ -2513,35 +2513,41 @@ function AppContent({ userRole, currentUser }: { userRole: UserRole; currentUser
       if (modelsData && modelsData.length > 0) {
         setCatalogModels(modelsData as CatalogModel[]);
 
-        // Safely fetch template presence from Supabase Storage and DB without heavy 500 statement timeouts
+        // Asynchronously hydrate spec_sheet_template presence from DB (file-path rows only — avoids loading massive base64 blobs)
         (async () => {
           try {
-            const templatesMap: Record<string, string> = {};
+            // Only fetch rows where spec_sheet_template looks like a file path (starts with 'templates/')
+            // This avoids loading multi-megabyte base64 rows that cause 500 server timeouts
+            const { data: dbTemplates } = await supabase
+              .from('production_models')
+              .select('name, spec_sheet_template')
+              .like('spec_sheet_template', 'templates/%');
 
-            // 1. Check Supabase Storage templates directory
-            const { data: storageFiles } = await supabase.storage.from('trailers-files').list('templates', { limit: 200 });
-            if (storageFiles && storageFiles.length > 0) {
-              storageFiles.forEach(file => {
-                const cleanName = file.name.replace(/^spec_sheet_template_/, '').replace(/\.xlsx$/i, '');
-                templatesMap[cleanName] = `templates/${file.name}`;
-              });
-            }
-
-            // 2. Safely check lightweight DB non-null spec_sheet_template references
-            const { data: dbTemplates } = await supabase.from('production_models').select('name, spec_sheet_template').not('spec_sheet_template', 'is', null);
-            if (dbTemplates) {
-              dbTemplates.forEach(row => {
-                if (row.name && row.spec_sheet_template) {
-                  templatesMap[row.name] = row.spec_sheet_template.startsWith('data:') ? 'EXISTS' : row.spec_sheet_template;
+            if (dbTemplates && dbTemplates.length > 0) {
+              setCatalogModels(prev => prev.map(m => {
+                const found = dbTemplates.find(r => r.name === m.name);
+                if (found && found.spec_sheet_template) {
+                  return { ...m, spec_sheet_template: found.spec_sheet_template };
                 }
-              });
+                return m;
+              }));
             }
 
-            if (Object.keys(templatesMap).length > 0) {
-              setCatalogModels(prev => prev.map(m => ({
-                ...m,
-                spec_sheet_template: templatesMap[m.name] || m.spec_sheet_template
-              })));
+            // Separately check for any legacy base64 rows — just mark them as 'EXISTS' using a count trick
+            const { data: legacyRows } = await supabase
+              .from('production_models')
+              .select('name')
+              .not('spec_sheet_template', 'is', null)
+              .not('spec_sheet_template', 'like', 'templates/%');
+
+            if (legacyRows && legacyRows.length > 0) {
+              setCatalogModels(prev => prev.map(m => {
+                const isLegacy = legacyRows.some(r => r.name === m.name);
+                if (isLegacy && !m.spec_sheet_template) {
+                  return { ...m, spec_sheet_template: 'EXISTS' };
+                }
+                return m;
+              }));
             }
           } catch (err) {
             console.error('Error populating template presence:', err);
