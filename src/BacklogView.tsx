@@ -1,13 +1,55 @@
  
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Home, ArrowRight, Clock, Trash2, Calendar, AlertCircle, CheckCircle } from 'lucide-react';
+import { Home, ArrowRight, Clock, Trash2, Calendar, AlertCircle, CheckCircle, Copy } from 'lucide-react';
 import { PHASES, PHASE_METADATA } from './types';
 import type { Trailer, StationId, PhaseId, UserRole } from './types';
 import { addHours, format } from 'date-fns';
 import { injectTrailerDataIntoSpec } from './lib/injectSpecSheet';
 import { supabase } from './lib/supabase';
 import { fetchTemplateAsBase64 } from './utils/storage';
+
+export function getNextIncrementedSerial(baseSerial: string, existingTrailers: Trailer[]): string {
+  if (!baseSerial || !baseSerial.trim()) return '10001';
+  const trimmed = baseSerial.trim();
+  
+  // Extract trailing digits (e.g., "T473" -> prefix "T", numStr "473")
+  const match = trimmed.match(/^(.*?)(\d+)$/);
+  
+  let prefix = '';
+  let numVal = 0;
+  let padLen = 0;
+
+  if (match) {
+    prefix = match[1];
+    const numStr = match[2];
+    numVal = parseInt(numStr, 10);
+    padLen = numStr.length;
+  } else {
+    prefix = trimmed + '-';
+    numVal = 1;
+    padLen = 1;
+  }
+
+  const existingSerials = new Set(
+    existingTrailers
+      .filter(t => !t.isDeleted)
+      .map(t => t.serialNumber?.trim().toLowerCase())
+  );
+
+  let attempts = 0;
+  while (attempts < 1000) {
+    numVal += 1;
+    attempts++;
+    const nextNumStr = padLen > 0 ? numVal.toString().padStart(padLen, '0') : numVal.toString();
+    const candidate = `${prefix}${nextNumStr}`;
+    if (!existingSerials.has(candidate.toLowerCase())) {
+      return candidate;
+    }
+  }
+
+  return `${trimmed}-copy`;
+}
 
 interface Props {
   onAddTrailer: (trailer: Trailer) => void;
@@ -98,6 +140,56 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
 
   const [isCustomAddress, setIsCustomAddress] = useState(false);
   const [customAddressText, setCustomAddressText] = useState('');
+
+  const handleUseDetails = (trailer: Trailer) => {
+    const nextSerial = getNextIncrementedSerial(trailer.serialNumber, trailers);
+    const loc = trailer.dealerLocation || '';
+
+    setFormData({
+      name: trailer.name || '',
+      model: trailer.model || '',
+      serialNumber: nextSerial,
+      station: 'B1',
+      isPriority: trailer.isPriority || false,
+      partsStatus: {
+        tyres: trailer.partsStatus?.tyres || false,
+        steel: trailer.partsStatus?.steel || false,
+        parts: trailer.partsStatus?.parts || false
+      },
+      promisedShippingDate: trailer.promisedShippingDate || '',
+      dateRegistered: new Date().toISOString().split('T')[0],
+      sale_price: trailer.sale_price != null ? trailer.sale_price.toString() : '',
+      trailer_color: trailer.trailer_color || '',
+      trailer_plug: trailer.trailer_plug || '',
+      salesPerson: trailer.salesPerson || '',
+      dealerLocation: loc,
+      purchaseOrder: trailer.purchaseOrder || '',
+      consignment: trailer.consignment || ''
+    });
+
+    if (loc && trailer.name) {
+      const d = dealers.find(dl => dl.name === trailer.name);
+      const knownAddresses = d ? [...(d.common_address ? [d.common_address] : []), ...(d.addresses || [])] : [];
+      if (knownAddresses.length > 0 && !knownAddresses.includes(loc)) {
+        setIsCustomAddress(true);
+        setCustomAddressText(loc);
+      } else {
+        setIsCustomAddress(false);
+        setCustomAddressText('');
+      }
+    } else {
+      setIsCustomAddress(false);
+      setCustomAddressText('');
+    }
+
+    setToastMessage(`Copied details from ${trailer.serialNumber}! Form pre-filled with Serial #${nextSerial}.`);
+    setTimeout(() => setToastMessage(null), 4000);
+
+    const formElement = document.getElementById('backlog-registration-form');
+    if (formElement) {
+      formElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  };
 
   const selectedModelHours = formData.model ? localTargetHours[formData.model] : null;
   const totalHours = selectedModelHours ? Object.entries(selectedModelHours).reduce((a, [p, h]) => (p !== 'shipping' && p !== 'backlog') ? a + (h as number) : a, 0) : 0;
@@ -887,6 +979,36 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
                                     {estimatedDate && !isNaN(estimatedDate.getTime()) ? format(estimatedDate, 'MMM d, h:mm a') : '—'}
                                   </div>
                                 </div>
+
+                                {userRole === 'manager' && (
+                                   <button 
+                                     type="button"
+                                     onClick={(e) => {
+                                       e.stopPropagation();
+                                       handleUseDetails(t);
+                                     }}
+                                     title="Copy model & configuration details to registration form with next incremented serial number"
+                                     style={{ 
+                                       padding: '0.45rem 0.75rem', 
+                                       borderRadius: '10px', 
+                                       border: '1.5px solid var(--accent)', 
+                                       background: 'rgba(37, 99, 235, 0.08)', 
+                                       color: 'var(--accent)', 
+                                       fontSize: '0.75rem', 
+                                       fontWeight: 800, 
+                                       cursor: 'pointer',
+                                       display: 'flex',
+                                       alignItems: 'center',
+                                       gap: '0.35rem',
+                                       transition: 'all 0.15s ease',
+                                       whiteSpace: 'nowrap'
+                                     }}
+                                     onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(37, 99, 235, 0.18)'; }}
+                                     onMouseOut={(e) => { e.currentTarget.style.background = 'rgba(37, 99, 235, 0.08)'; }}
+                                   >
+                                     <Copy size={13} /> Use Details
+                                   </button>
+                                 )}
 
                                 {userRole === 'manager' && (
                                   <button 
