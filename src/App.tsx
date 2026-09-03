@@ -2449,8 +2449,7 @@ function AppContent({ userRole, currentUser }: { userRole: UserRole; currentUser
         supabase.from('bay_settings').select('*').then(res => { if (res.data) bayData = res.data; }),
         (async () => {
           try {
-            // Select lightweight columns only — excludes multi-megabyte base64 spec_sheet_template blobs to prevent 57014 statement timeouts
-            const res = await supabase.from('production_models').select('id, name, category, target_hours, specs');
+            const res = await supabase.from('production_models').select('id, name, category, target_hours, specs, spec_sheet_template');
             if (res.data) modelsData = res.data;
           } catch (err) {
             console.error('Error fetching production_models:', err);
@@ -2513,7 +2512,7 @@ function AppContent({ userRole, currentUser }: { userRole: UserRole; currentUser
       if (modelsData && modelsData.length > 0) {
         const finalModels = modelsData.map(m => ({
           ...m,
-          spec_sheet_template: m.spec_sheet_template ? 'EXISTS' : undefined
+          spec_sheet_template: m.spec_sheet_template ? (m.spec_sheet_template.startsWith('data:') ? 'EXISTS' : m.spec_sheet_template) : undefined
         }));
         setCatalogModels(finalModels);
       }
