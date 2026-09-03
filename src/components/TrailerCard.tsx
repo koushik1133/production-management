@@ -551,10 +551,12 @@ export const TrailerCard: React.FC<Props> = React.memo(({
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem' }}>
             <div>
-              <label style={{ display: 'block', fontSize: '0.625rem', color: 'var(--text-muted)', marginBottom: '2px', fontWeight: 700 }}>
+              <label htmlFor={`invoice-input-${trailer.id}`} style={{ display: 'block', fontSize: '0.625rem', color: 'var(--text-muted)', marginBottom: '2px', fontWeight: 700 }}>
                 INVOICE #
               </label>
               <input
+                id={`invoice-input-${trailer.id}`}
+                name="invoiceNumber"
                 type="text"
                 placeholder="Invoice #"
                 value={draftInvoice}
@@ -574,10 +576,12 @@ export const TrailerCard: React.FC<Props> = React.memo(({
               />
             </div>
             <div>
-              <label style={{ display: 'block', fontSize: '0.625rem', color: 'var(--text-muted)', marginBottom: '2px', fontWeight: 700 }}>
+              <label htmlFor={`vin-date-input-${trailer.id}`} style={{ display: 'block', fontSize: '0.625rem', color: 'var(--text-muted)', marginBottom: '2px', fontWeight: 700 }}>
                 VIN DATE
               </label>
               <input
+                id={`vin-date-input-${trailer.id}`}
+                name="vinDate"
                 type="date"
                 value={draftVinDate}
                 onChange={(e) => setDraftVinDate(e.target.value)}

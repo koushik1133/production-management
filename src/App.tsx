@@ -1494,15 +1494,17 @@ function Dashboard({
           <div style={{ padding: '1.25rem', background: 'var(--bg-secondary)', borderRadius: '16px', border: '1px solid var(--border-default)', marginBottom: '1.5rem' }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
               <div className="form-group" style={{ margin: 0 }}>
-                <label className="form-label" style={{ fontSize: '0.65rem' }}>Invoice Number</label>
-                <input required className="form-input" placeholder="INV-0000"
+                <label htmlFor="ship-modal-invoice-num" className="form-label" style={{ fontSize: '0.65rem' }}>Invoice Number</label>
+                <input id="ship-modal-invoice-num" name="invoice_number" required className="form-input" placeholder="INV-0000"
                   value={shippingForm.invoice_number}
                   onChange={e => setShippingForm(prev => ({ ...prev, invoice_number: e.target.value }))}
                 />
               </div>
               <div className="form-group" style={{ margin: 0 }}>
-                <label className="form-label" style={{ fontSize: '0.65rem' }}>VIN Date</label>
+                <label htmlFor="ship-modal-vin-date" className="form-label" style={{ fontSize: '0.65rem' }}>VIN Date</label>
                 <input 
+                  id="ship-modal-vin-date"
+                  name="vin_date"
                   required 
                   type="date" 
                   className="form-input"
@@ -1512,15 +1514,17 @@ function Dashboard({
                 />
               </div>
               <div className="form-group" style={{ margin: 0, marginTop: '1rem' }}>
-                <label className="form-label" style={{ fontSize: '0.65rem' }}>Customer Name</label>
-                <input required className="form-input" placeholder="e.g. Acme Logistics"
+                <label htmlFor="ship-modal-customer-name" className="form-label" style={{ fontSize: '0.65rem' }}>Customer Name</label>
+                <input id="ship-modal-customer-name" name="customer_name" required className="form-input" placeholder="e.g. Acme Logistics"
                   value={shippingForm.customer_name}
                   onChange={e => setShippingForm(prev => ({ ...prev, customer_name: e.target.value }))}
                 />
               </div>
               <div className="form-group" style={{ margin: 0, marginTop: '1rem' }}>
-                <label className="form-label" style={{ fontSize: '0.65rem' }}>Shipped Date</label>
+                <label htmlFor="ship-modal-shipped-date" className="form-label" style={{ fontSize: '0.65rem' }}>Shipped Date</label>
                 <input 
+                  id="ship-modal-shipped-date"
+                  name="shipped_date"
                   required 
                   type="date" 
                   className="form-input"
