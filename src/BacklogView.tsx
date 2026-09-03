@@ -980,64 +980,78 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
                                   </div>
                                 </div>
 
-                                {userRole === 'manager' && (
-                                   <button 
-                                     type="button"
-                                     onClick={(e) => {
-                                       e.stopPropagation();
-                                       handleUseDetails(t);
-                                     }}
-                                     title="Copy model & configuration details to registration form with next incremented serial number"
-                                     style={{ 
-                                       padding: '0.45rem 0.75rem', 
-                                       borderRadius: '10px', 
-                                       border: '1.5px solid var(--accent)', 
-                                       background: 'rgba(37, 99, 235, 0.08)', 
-                                       color: 'var(--accent)', 
-                                       fontSize: '0.75rem', 
-                                       fontWeight: 800, 
-                                       cursor: 'pointer',
-                                       display: 'flex',
-                                       alignItems: 'center',
-                                       gap: '0.35rem',
-                                       transition: 'all 0.15s ease',
-                                       whiteSpace: 'nowrap'
-                                     }}
-                                     onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(37, 99, 235, 0.18)'; }}
-                                     onMouseOut={(e) => { e.currentTarget.style.background = 'rgba(37, 99, 235, 0.08)'; }}
-                                   >
-                                     <Copy size={13} /> Use Details
-                                   </button>
-                                 )}
+                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', justifySelf: 'end' }}>
+                                   {userRole === 'manager' && (
+                                     <button 
+                                       type="button"
+                                       onClick={(e) => {
+                                         e.stopPropagation();
+                                         handleUseDetails(t);
+                                       }}
+                                       title="Copy model & configuration details to registration form with next incremented serial number"
+                                       style={{ 
+                                         padding: '0.55rem 0.9rem', 
+                                         borderRadius: '10px', 
+                                         border: '1px solid rgba(37, 99, 235, 0.35)', 
+                                         background: 'linear-gradient(135deg, rgba(37, 99, 235, 0.1) 0%, rgba(59, 130, 246, 0.18) 100%)', 
+                                         color: '#2563eb', 
+                                         fontSize: '0.78rem', 
+                                         fontWeight: 800, 
+                                         cursor: 'pointer',
+                                         display: 'flex',
+                                         alignItems: 'center',
+                                         gap: '0.45rem',
+                                         transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                                         whiteSpace: 'nowrap',
+                                         boxShadow: '0 2px 6px rgba(37, 99, 235, 0.12)'
+                                       }}
+                                       onMouseOver={(e) => { 
+                                         e.currentTarget.style.background = 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)'; 
+                                         e.currentTarget.style.color = '#ffffff';
+                                         e.currentTarget.style.borderColor = '#2563eb';
+                                         e.currentTarget.style.boxShadow = '0 4px 12px rgba(37, 99, 235, 0.35)';
+                                       }}
+                                       onMouseOut={(e) => { 
+                                         e.currentTarget.style.background = 'linear-gradient(135deg, rgba(37, 99, 235, 0.1) 0%, rgba(59, 130, 246, 0.18) 100%)'; 
+                                         e.currentTarget.style.color = '#2563eb';
+                                         e.currentTarget.style.borderColor = 'rgba(37, 99, 235, 0.35)';
+                                         e.currentTarget.style.boxShadow = '0 2px 6px rgba(37, 99, 235, 0.12)';
+                                       }}
+                                     >
+                                       <Copy size={14} /> Use Details
+                                     </button>
+                                   )}
 
-                                {userRole === 'manager' && (
-                                  <button 
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setConfirmingDeleteId(t.id);
-                                    }}
-                                    style={{ 
-                                      width: '36px', 
-                                      height: '36px', 
-                                      borderRadius: '10px', 
-                                      border: '1px solid #fee2e2', 
-                                      background: '#fff', 
-                                      color: '#ef4444', 
-                                      display: 'flex', 
-                                      alignItems: 'center', 
-                                      justifyContent: 'center',
-                                      cursor: 'pointer',
-                                      transition: 'all 0.2s ease',
-                                    }}
-                                    onMouseOver={(e) => { e.currentTarget.style.background = '#fef2f2'; e.currentTarget.style.borderColor = '#fca5a5'; }}
-                                    onMouseOut={(e) => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.borderColor = '#fee2e2'; }}
-                                  >
-                                    <Trash2 size={16} />
-                                  </button>
-                                )}
-                              </>
-                            )}
+                                   {userRole === 'manager' && (
+                                     <button 
+                                       type="button"
+                                       onClick={(e) => {
+                                         e.stopPropagation();
+                                         setConfirmingDeleteId(t.id);
+                                       }}
+                                       style={{ 
+                                         width: '36px', 
+                                         height: '36px', 
+                                         borderRadius: '10px', 
+                                         border: '1px solid #fee2e2', 
+                                         background: 'var(--bg-card)', 
+                                         color: '#ef4444', 
+                                         display: 'flex', 
+                                         alignItems: 'center', 
+                                         justifyContent: 'center',
+                                         cursor: 'pointer',
+                                         transition: 'all 0.2s ease',
+                                         flexShrink: 0
+                                       }}
+                                       onMouseOver={(e) => { e.currentTarget.style.background = '#fef2f2'; e.currentTarget.style.borderColor = '#fca5a5'; }}
+                                       onMouseOut={(e) => { e.currentTarget.style.background = 'var(--bg-card)'; e.currentTarget.style.borderColor = '#fee2e2'; }}
+                                     >
+                                       <Trash2 size={16} />
+                                     </button>
+                                   )}
+                                 </div>
+                               </>
+                             )}
                           </div>
                         );
                       })}

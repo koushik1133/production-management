@@ -1284,9 +1284,9 @@
   border-radius: 12px;
   padding: 1.25rem 1.5rem;
   display: grid;
-  grid-template-columns: 1.2fr 1.2fr 1fr 1.2fr 40px;
+  grid-template-columns: 1.3fr 1.1fr 0.9fr 1.1fr auto;
   align-items: center;
-  gap: 1.5rem;
+  gap: 1.25rem;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: var(--shadow-sm);
 }
