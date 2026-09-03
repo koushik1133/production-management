@@ -52,7 +52,6 @@ DECLARE
     {"email": "paint@lanetrailers.com", "name": "Paint", "role": "worker"},
     {"email": "bay1@lanetrailers.com", "name": "Bay 1", "role": "worker"},
     {"email": "bay2@lanetrailers.com", "name": "Bay 2", "role": "worker"},
-    {"email": "bay3@lantrailers.com", "name": "Bay 3", "role": "worker"},
     {"email": "bay3@lanetrailers.com", "name": "Bay 3", "role": "worker"},
     {"email": "bay4@lanetrailers.com", "name": "Bay 4", "role": "worker"},
     {"email": "prefab@lanetrailers.com", "name": "Prefab", "role": "worker"}
