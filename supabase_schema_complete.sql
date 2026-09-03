@@ -43,6 +43,7 @@ ALTER TABLE public.trailers ADD COLUMN IF NOT EXISTS spec_sheet_versions jsonb D
 ALTER TABLE public.trailers ADD COLUMN IF NOT EXISTS sale_price numeric;
 ALTER TABLE public.trailers ADD COLUMN IF NOT EXISTS trailer_color text;
 ALTER TABLE public.trailers ADD COLUMN IF NOT EXISTS trailer_plug text;
+ALTER TABLE public.trailers ADD COLUMN IF NOT EXISTS shipping_cost numeric DEFAULT 0;
 
 -- 2. BAY SETTINGS TABLE
 CREATE TABLE IF NOT EXISTS public.bay_settings (

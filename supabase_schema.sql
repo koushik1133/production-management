@@ -48,6 +48,8 @@ ALTER TABLE public.trailers ADD COLUMN IF NOT EXISTS trailer_color text;
 ALTER TABLE public.trailers ADD COLUMN IF NOT EXISTS trailer_plug text;
 ALTER TABLE public.trailers ADD COLUMN IF NOT EXISTS purchase_order text;
 ALTER TABLE public.trailers ADD COLUMN IF NOT EXISTS consignment text;
+ALTER TABLE public.trailers ADD COLUMN IF NOT EXISTS shipping_cost numeric DEFAULT 0;
+ALTER TABLE public.shipped_trailers ADD COLUMN IF NOT EXISTS shipping_cost numeric DEFAULT 0;
 -- 2. BAY SETTINGS TABLE
 CREATE TABLE IF NOT EXISTS public.bay_settings (
   id text PRIMARY KEY,

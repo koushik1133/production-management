@@ -2171,6 +2171,7 @@ function AppContent({ userRole, currentUser }: { userRole: UserRole; currentUser
   const [trailers, setTrailers] = useState<Trailer[]>([]);
   const [loading, setLoading] = useState(true);
   const [hasPurchaseOrderCols, setHasPurchaseOrderCols] = useState(false);
+  const [hasShippingCostCols, setHasShippingCostCols] = useState(false);
 
   useEffect(() => {
     // No resize logic needed for current sensor configuration
@@ -2422,23 +2423,24 @@ function AppContent({ userRole, currentUser }: { userRole: UserRole; currentUser
     try {
       let trailersRes;
       let columnsSupported = true;
+      let shippingCostSupported = false;
       try {
-        trailersRes = await supabase.from('trailers').select('id,name,model,serialNumber,station,dateStarted,currentPhase,history,partsStatus,finishingType,isArchived,archivedAt,isDeleted,invoiceNumber,vinDate,expectedDueDate,promisedShippingDate,notes,isPriority,updated_at,vertical_order,bay_vertical_order,sale_price,trailer_color,trailer_plug,sales_person,dealer_location,dealer_common_address,dealer_id,purchase_order,consignment');
+        trailersRes = await supabase.from('trailers').select('id,name,model,serialNumber,station,dateStarted,currentPhase,history,partsStatus,finishingType,isArchived,archivedAt,isDeleted,invoiceNumber,vinDate,expectedDueDate,promisedShippingDate,notes,isPriority,updated_at,vertical_order,bay_vertical_order,sale_price,trailer_color,trailer_plug,sales_person,dealer_location,dealer_common_address,dealer_id,purchase_order,consignment,shipping_cost');
         if (trailersRes.error) throw trailersRes.error;
+        shippingCostSupported = true;
       } catch (err: any) {
-        // Only fall back if the error is specifically a column-not-found error (42703)
-        // Transient network failures should NOT permanently disable purchase_order fields
-        const isColumnError = err?.code === '42703' || (typeof err?.message === 'string' && err.message.includes('column') && err.message.includes('does not exist'));
-        if (isColumnError) {
-          // Graceful fallback when columns do not exist in DB schema
+        // Fallback without shipping_cost column
+        try {
+          trailersRes = await supabase.from('trailers').select('id,name,model,serialNumber,station,dateStarted,currentPhase,history,partsStatus,finishingType,isArchived,archivedAt,isDeleted,invoiceNumber,vinDate,expectedDueDate,promisedShippingDate,notes,isPriority,updated_at,vertical_order,bay_vertical_order,sale_price,trailer_color,trailer_plug,sales_person,dealer_location,dealer_common_address,dealer_id,purchase_order,consignment');
+          if (trailersRes.error) throw trailersRes.error;
+        } catch (err2: any) {
+          // Graceful fallback when purchase_order / consignment columns do not exist in DB schema
           columnsSupported = false;
           trailersRes = await supabase.from('trailers').select('id,name,model,serialNumber,station,dateStarted,currentPhase,history,partsStatus,finishingType,isArchived,archivedAt,isDeleted,invoiceNumber,vinDate,expectedDueDate,promisedShippingDate,notes,isPriority,updated_at,vertical_order,bay_vertical_order,sale_price,trailer_color,trailer_plug,sales_person,dealer_location,dealer_common_address,dealer_id');
-        } else {
-          // Re-throw so the outer catch can show an error state
-          throw err;
         }
       }
       setHasPurchaseOrderCols(columnsSupported);
+      setHasShippingCostCols(shippingCostSupported);
 
       // Run queries with individual error handling to prevent a single table failure from crashing the app
       let bayData: any[] = [];
@@ -2457,7 +2459,19 @@ function AppContent({ userRole, currentUser }: { userRole: UserRole; currentUser
             console.error('Error fetching production_models:', err);
           }
         })(),
-        supabase.from('shipped_trailers').select('serial_number, trailer_name, customer_name, vin_date, invoice_number, shipped_at, total_hours, prefab_hours, build_hours, paint_hours, outsource_hours, trim_hours, sale_price').order('shipped_at', { ascending: false }).limit(100).then(res => { if (res.data) shippedData = res.data; }),
+        (async () => {
+          try {
+            const res = await supabase.from('shipped_trailers').select('serial_number, trailer_name, customer_name, vin_date, invoice_number, shipped_at, total_hours, prefab_hours, build_hours, paint_hours, outsource_hours, trim_hours, sale_price, shipping_cost').order('shipped_at', { ascending: false }).limit(100);
+            if (res.data) {
+              shippedData = res.data;
+            } else if (res.error) {
+              const fallback = await supabase.from('shipped_trailers').select('serial_number, trailer_name, customer_name, vin_date, invoice_number, shipped_at, total_hours, prefab_hours, build_hours, paint_hours, outsource_hours, trim_hours, sale_price').order('shipped_at', { ascending: false }).limit(100);
+              if (fallback.data) shippedData = fallback.data;
+            }
+          } catch (e) {
+            console.error('Error fetching shipped_trailers:', e);
+          }
+        })(),
         supabase.from('dealers').select('*').order('name').then(res => { if (res.data) dealersData = res.data; })
       ]);
       
@@ -2748,13 +2762,25 @@ function AppContent({ userRole, currentUser }: { userRole: UserRole; currentUser
       delete dbUpdates.consignment;
     }
 
+    if (!hasShippingCostCols) {
+      delete dbUpdates.shipping_cost;
+    }
+
     const runUpdate = async (retries = 3, delay = 1500): Promise<boolean> => {
-      const { error } = await supabase
+      let { error } = await supabase
         .from('trailers')
         .update(dbUpdates)
         .eq('id', id);
       
       if (error) {
+        if (error.code === '42703' || String(error.message || '').includes('shipping_cost') || String(error.message || '').includes('column')) {
+          if ('shipping_cost' in dbUpdates) {
+            console.warn('shipping_cost column not in trailers table yet, retrying update without it...');
+            delete dbUpdates.shipping_cost;
+            setHasShippingCostCols(false);
+            return runUpdate(retries, delay);
+          }
+        }
         if (retries > 0 && (error.code === '57014' || String(error.message || '').toLowerCase().includes('timeout'))) {
           console.warn(`Update trailer timed out. Retrying in ${delay}ms... (${retries} retries left)`);
           await new Promise(resolve => setTimeout(resolve, delay));
@@ -3626,7 +3652,15 @@ function getSuggestedBay(): StationId {
               localTargetHours={localTargetHours} 
               onDeleteTrailer={deleteTrailer} 
               onSaveShippedRecord={async (rec) => { 
-                const { data, error } = await supabase.from('shipped_trailers').upsert([rec]).select().single(); 
+                const recordToSave: any = { ...rec };
+                let { data, error } = await supabase.from('shipped_trailers').upsert([recordToSave]).select().single(); 
+                if (error && (error.code === '42703' || String(error.message || '').includes('shipping_cost') || String(error.message || '').includes('column'))) {
+                  console.warn('shipping_cost column not in shipped_trailers table yet. Retrying without it...');
+                  delete recordToSave.shipping_cost;
+                  const retryRes = await supabase.from('shipped_trailers').upsert([recordToSave]).select().single();
+                  data = retryRes.data;
+                  error = retryRes.error;
+                }
                 if (error) {
                   console.error('SHIPMENT ERROR:', error);
                   throw error;
