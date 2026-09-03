@@ -23,6 +23,7 @@ interface Props {
   localModelCategories?: { name: string; models: string[] }[];
   localSpecSheetTemplates?: Record<string, string>;
   onConvertTrailer?: (trailerId: string, targetModel: string, targetPhase: PhaseId, targetStation?: StationId) => Promise<boolean>;
+  onMoveBackToShipping?: (serialNumber: string) => Promise<void>;
 }
 
 const PHASE_LABELS = [
@@ -54,7 +55,8 @@ const ShippedRecord: React.FC<{
   onUnlockPrices?: () => boolean;
   onLockPrices?: () => void;
   onConvertFrame?: () => void;
-}> = ({ record, notes, onClose, userRole, isPriceUnlockedGlobally, onUnlockPrices, onLockPrices, onConvertFrame }) => {
+  onMoveBackToShipping?: () => void;
+}> = ({ record, notes, onClose, userRole, isPriceUnlockedGlobally, onUnlockPrices, onLockPrices, onConvertFrame, onMoveBackToShipping }) => {
   const [heavyData, setHeavyData] = useState<Partial<ShippedTrailer>>({});
   const [loading, setLoading] = useState(false);
 
@@ -380,6 +382,38 @@ const ShippedRecord: React.FC<{
           )}
         </div>
       )}
+
+        {/* Move Back to Shipping */}
+        {onMoveBackToShipping && (
+          <div style={{ marginTop: '0.5rem' }}>
+            <button
+              onClick={async () => {
+                if (window.confirm(`Move ${record.serial_number} back to the Shipping phase? This will remove it from the Shipped archive.`)) {
+                  await onMoveBackToShipping();
+                }
+              }}
+              className="btn btn-secondary"
+              style={{
+                width: '100%',
+                padding: '0.85rem',
+                borderRadius: '12px',
+                border: '1px solid #f59e0b',
+                color: '#f59e0b',
+                fontWeight: 800,
+                fontSize: '0.9rem',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '0.75rem',
+                background: 'rgba(245, 158, 11, 0.06)',
+                cursor: 'pointer'
+              }}
+            >
+              <Truck size={18} />
+              Move Back to Shipping
+            </button>
+          </div>
+        )}
       </div>
     </Modal>
   );
@@ -396,7 +430,8 @@ export const ArchiveView: React.FC<Props> = ({
   onLockPrices,
   localModelCategories = [],
   localSpecSheetTemplates = {},
-  onConvertTrailer
+  onConvertTrailer,
+  onMoveBackToShipping
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'shipped' | 'serial'>('shipped');
@@ -905,6 +940,10 @@ export const ArchiveView: React.FC<Props> = ({
               setConvertingTrailer(synthetic);
             }
           }}
+          onMoveBackToShipping={onMoveBackToShipping ? async () => {
+            await onMoveBackToShipping(selectedShipped.serial_number);
+            setSelectedSerial(null);
+          } : undefined}
         />
       )}
 

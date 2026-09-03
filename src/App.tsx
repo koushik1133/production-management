@@ -2776,6 +2776,54 @@ function AppContent({ userRole, currentUser }: { userRole: UserRole; currentUser
     if (error) console.error('Error deleting trailer:', error);
   };
 
+  const handleMoveBackToShipping = async (serialNumber: string): Promise<void> => {
+    try {
+      // 1. Delete from shipped_trailers
+      const { error: deleteError } = await supabase
+        .from('shipped_trailers')
+        .delete()
+        .eq('serial_number', serialNumber);
+      if (deleteError) throw deleteError;
+
+      // 2. Find the matching trailer in state or DB
+      let target = trailers.find(t => t.serialNumber === serialNumber);
+      if (!target) {
+        const { data } = await supabase
+          .from('trailers')
+          .select('id')
+          .eq('serialNumber', serialNumber)
+          .maybeSingle();
+        if (data) {
+          target = { id: data.id } as Trailer;
+        }
+      }
+
+      if (target) {
+        // 3. Restore to shipping phase in DB and state via updateTrailer
+        await updateTrailer(target.id, {
+          isArchived: false,
+          archivedAt: undefined,
+          currentPhase: 'shipping'
+        });
+      } else {
+        // Fallback direct DB update if not found in memory
+        await supabase
+          .from('trailers')
+          .update({ isArchived: false, archivedAt: null, currentPhase: 'shipping' })
+          .eq('serialNumber', serialNumber);
+        await fetchInitialData(true);
+      }
+
+      // 4. Remove from shippedTrailers state
+      setShippedTrailers(prev => prev.filter(t => t.serial_number !== serialNumber));
+
+      alert(`${serialNumber} has been moved back to Shipping.`);
+    } catch (err: any) {
+      console.error('Failed to move trailer back to shipping:', err);
+      alert('Failed to move trailer back to shipping: ' + (err?.message || JSON.stringify(err)));
+    }
+  };
+
   const handleConvertFrame = async (
     trailerId: string,
     targetModel: string,
@@ -3625,7 +3673,7 @@ function getSuggestedBay(): StationId {
             <Route path="/tv" element={<TVView trailers={trailers} localTargetHours={localTargetHours} userRole={userRole} />} />
             <Route path="/tv/station1" element={<TVView trailers={trailers} monitorMode="station1" localTargetHours={localTargetHours} userRole={userRole} />} />
             <Route path="/tv/station2" element={<TVView trailers={trailers} monitorMode="station2" localTargetHours={localTargetHours} userRole={userRole} />} />
-            <Route path="/archive" element={<ArchiveView trailers={trailers} onUpdateTrailer={updateTrailer} localTargetHours={localTargetHours} shippedTrailers={shippedTrailers} userRole={userRole} isPriceUnlockedGlobally={isPriceUnlockedGlobally} onUnlockPrices={unlockPricesGlobally} onLockPrices={() => { setIsPriceUnlockedGlobally(false); localStorage.setItem('lanetrailers_price_unlocked', 'false'); }} localModelCategories={localModelCategories} localSpecSheetTemplates={localSpecSheetTemplates} onConvertTrailer={handleConvertFrame} />} />
+            <Route path="/archive" element={<ArchiveView trailers={trailers} onUpdateTrailer={updateTrailer} localTargetHours={localTargetHours} shippedTrailers={shippedTrailers} userRole={userRole} isPriceUnlockedGlobally={isPriceUnlockedGlobally} onUnlockPrices={unlockPricesGlobally} onLockPrices={() => { setIsPriceUnlockedGlobally(false); localStorage.setItem('lanetrailers_price_unlocked', 'false'); }} localModelCategories={localModelCategories} localSpecSheetTemplates={localSpecSheetTemplates} onConvertTrailer={handleConvertFrame} onMoveBackToShipping={handleMoveBackToShipping} />} />
             <Route path="/quotes" element={<QuotesView trailers={trailers} onUpdateTrailer={updateTrailer} userRole={userRole} />} />
             <Route path="/schedule" element={<ScheduleView trailers={trailers} userRole={userRole} />} />
             <Route path="/messages" element={<MessagesView messaging={messaging} userRole={userRole} />} />
