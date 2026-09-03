@@ -506,6 +506,7 @@ function Dashboard({
         vinDate: shippingForm.vin_date.trim(),
         name: shippingForm.customer_name.trim() || pendingShippingTrailer.name,
         sale_price: parseFloat(shippingForm.sale_price) || pendingShippingTrailer.sale_price,
+        shipping_cost: parseFloat(shippingForm.shipping_cost) || 0,
         photo_1_url: finalP1Path,
         photo_2_url: finalP2Path,
         photo_3_url: finalP3Path,
@@ -1083,7 +1084,7 @@ function Dashboard({
                     vin_date: t.vinDate || '',
                     customer_name: t.name || '',
                     sale_price: t.sale_price?.toString() || '',
-                    shipping_cost: '',
+                    shipping_cost: t.shipping_cost?.toString() || '',
                     dealer_price: '',
                     cost_price: '',
                     shipped_date: new Date().toISOString().split('T')[0]

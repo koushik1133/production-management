@@ -63,6 +63,7 @@ export interface Trailer {
   dealerId?: string;
   purchaseOrder?: string;
   consignment?: string;
+  shipping_cost?: number | null;
 }
 
 export interface ShippedTrailer {
