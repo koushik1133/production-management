@@ -1,6 +1,6 @@
 # LT - Production & Sales Management System
- 
-A high-performance, real-time web application built for **** to manage manufacturing pipelines, bay allocations, backlog registrations, dealer networks, quote generation, and shipping archives.
+
+A high-performance, real-time web application built for **Lane Trailers** to manage manufacturing pipelines, bay allocations, backlog registrations, dealer networks, quote generation, and shipping archives.
 
 ---
 
@@ -38,7 +38,7 @@ A high-performance, real-time web application built for **** to manage manufactu
 | :--- | :--- | :--- |
 | **`/`** | **Dashboard (Kanban Pipeline)** | Main interactive production board divided into manufacturing phases (`PREFAB`, `BUILD`, `PAINT`, `OUTSOURCE`, `TRIM`). Features real-time drag-and-drop ordering, remaining workload hours, priority flags, and trailer details. |
 | **`/stations`** | **Bays (Station Allocations)** | Production bay matrix view mapping trailers to physical factory bays (`B1`, `B2`, `B3`, `B4`). Includes customizable bay capacities and live floor tracking. |
-| **`/backlog`** | **Backlog & Registration** | Queue management and unit registration. Allows registering new trailer orders, auto-assigning serial numbers, selecting dealer locations, and generating custom Excel quotes. |
+| **`/backlog`** | **Backlog & Registration** | Queue management and unit registration. Allows registering new trailer orders, auto-assigning serial numbers, selecting dealer locations, and generating custom Excel quotes. Includes "Use Details" smart serial increment functionality. |
 | **`/schedule`** | **Timeline & Scheduling** | Time-horizon scheduling view displaying estimated completion dates, promised shipping deadlines, and runway capacity analysis across weeks. |
 | **`/catalog`** | **Model & Dealer Catalog** | Centralized management hub for trailer models, target production hours per phase, spec configurations, Excel templates, and dealer branch locations *(Manager Access Only)*. |
 | **`/archive`** | **Shipping Archive** | Complete historical record of all shipped trailers with search filters, financial summaries, and automated ZIP exports for spec sheets and photos. |
@@ -53,7 +53,8 @@ A high-performance, real-time web application built for **** to manage manufactu
 3. **Role-Based View Controls**: Tailored user experiences for Managers and Factory Workers.
 4. **Automated Excel Quote & Spec Sheet Generation**: Fills spreadsheet templates on-the-fly directly in the browser and triggers downloads.
 5. **Mandatory Spec Sheet & Shipping Verification**: Safeguards in the shipping workflow to ensure compliance before completing shipments.
-6. **Ultra-Fast Payload Performance**: Optimized database queries utilizing Supabase Storage for documents to ensure sub-second page loads.
+6. **Smart Serial Duplicate Feature**: "Use Details" button to copy specs to the registration form with auto-incremented, non-conflicting serial numbers.
+7. **Ultra-Fast Payload Performance**: Optimized database queries utilizing Supabase Storage for documents to ensure sub-second page loads.
 
 ---
 
@@ -67,8 +68,8 @@ A high-performance, real-time web application built for **** to manage manufactu
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/****
-   cd *****
+   git clone https://github.com/lanetrailers/production.git
+   cd production
    ```
 
 2. **Install dependencies:**
@@ -97,4 +98,4 @@ A high-performance, real-time web application built for **** to manage manufactu
 
 ## 📄 License
 
-Internal Proprietary Software for **Koushik1133**. All Rights Reserved.
+Internal Proprietary Software for **Lane Trailers**. All Rights Reserved.
