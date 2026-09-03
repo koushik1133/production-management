@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Clock, Hash, Calendar, Crown, StickyNote, Truck, Layers, GripVertical, RefreshCw, Save, CheckCircle2, FileText } from 'lucide-react';
+import { Clock, Hash, Calendar, Crown, StickyNote, Truck, Layers, GripVertical, RefreshCw, CheckCircle2 } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import type { Trailer, StationId, PhaseId, UserRole } from '../types';
 import { STATIONS, PHASE_METADATA, calculateTrailerRemainingHours } from '../types';
@@ -67,46 +67,16 @@ export const TrailerCard: React.FC<Props> = React.memo(({
     }
   });
 
-  // Local draft state for shipping details editing directly on the card
-  const [draftInvoice, setDraftInvoice] = React.useState<string>(trailer.invoiceNumber || '');
-  const [draftVinDate, setDraftVinDate] = React.useState<string>(trailer.vinDate || '');
-  const [isSavingShipping, setIsSavingShipping] = React.useState<boolean>(false);
-  const [showSaveSuccess, setShowSaveSuccess] = React.useState<boolean>(false);
-
-  useEffect(() => {
-    setDraftInvoice(trailer.invoiceNumber || '');
-    setDraftVinDate(trailer.vinDate || '');
-  }, [trailer.invoiceNumber, trailer.vinDate]);
-
-  const isInvoiceChanged = draftInvoice.trim() !== (trailer.invoiceNumber || '').trim();
-  const isVinDateChanged = draftVinDate.trim() !== (trailer.vinDate || '').trim();
-  const isShippingDirty = isInvoiceChanged || isVinDateChanged;
-
   const isShippingPhase = trailer.currentPhase === 'shipping';
-  const hasCompleteShippingDetails = isShippingPhase && Boolean(
+  const hasShippingInfoSet = isShippingPhase && Boolean(
     (trailer.invoiceNumber && trailer.invoiceNumber.trim()) &&
     (trailer.vinDate && trailer.vinDate.trim())
   );
-  const hasPartialShippingDetails = isShippingPhase && !hasCompleteShippingDetails && Boolean(
+  const hasPartialShippingInfo = isShippingPhase && !hasShippingInfoSet && Boolean(
     (trailer.invoiceNumber && trailer.invoiceNumber.trim()) ||
-    (trailer.vinDate && trailer.vinDate.trim())
+    (trailer.vinDate && trailer.vinDate.trim()) ||
+    (trailer.sale_price && trailer.sale_price > 0)
   );
-
-  const handleSaveShippingDetails = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    e.preventDefault();
-    if (!onUpdateTrailer || !isShippingDirty || isSavingShipping) return;
-
-    setIsSavingShipping(true);
-    const updates: Partial<Trailer> = {};
-    if (isInvoiceChanged) updates.invoiceNumber = draftInvoice.trim();
-    if (isVinDateChanged) updates.vinDate = draftVinDate.trim();
-
-    onUpdateTrailer(trailer.id, updates);
-    setIsSavingShipping(false);
-    setShowSaveSuccess(true);
-    setTimeout(() => setShowSaveSuccess(false), 2000);
-  };
 
   useEffect(() => {
     if (isHighlighted && cardRef.current) {
@@ -131,23 +101,19 @@ export const TrailerCard: React.FC<Props> = React.memo(({
     cursor: isDragDisabled ? 'default' : (isDragging ? 'grabbing' : 'grab'),
     boxShadow: isOverlay
       ? '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)'
-      : isShippingDirty
-      ? '0 0 14px rgba(245, 158, 11, 0.45)'
-      : hasCompleteShippingDetails
-      ? '0 0 16px rgba(16, 185, 129, 0.35)'
-      : hasPartialShippingDetails
+      : hasShippingInfoSet
+      ? '0 0 16px rgba(16, 185, 129, 0.4)'
+      : hasPartialShippingInfo
       ? '0 0 10px rgba(59, 130, 246, 0.25)'
       : (isDragging ? 'none' : undefined),
-    borderColor: isShippingDirty
-      ? '#f59e0b'
-      : hasCompleteShippingDetails
+    borderColor: hasShippingInfoSet
       ? '#10b981'
-      : hasPartialShippingDetails
+      : hasPartialShippingInfo
       ? '#3b82f6'
       : undefined,
-    borderWidth: (isShippingDirty || hasCompleteShippingDetails || hasPartialShippingDetails) ? '2px' : undefined,
-    borderStyle: (isShippingDirty || hasCompleteShippingDetails || hasPartialShippingDetails) ? 'solid' : undefined,
-    background: hasCompleteShippingDetails
+    borderWidth: (hasShippingInfoSet || hasPartialShippingInfo) ? '2px' : undefined,
+    borderStyle: (hasShippingInfoSet || hasPartialShippingInfo) ? 'solid' : undefined,
+    background: hasShippingInfoSet
       ? 'linear-gradient(180deg, rgba(16, 185, 129, 0.08) 0%, var(--bg-card) 100%)'
       : undefined,
     rotate: isOverlay ? '2deg' : undefined,
@@ -500,149 +466,28 @@ export const TrailerCard: React.FC<Props> = React.memo(({
         </div>
       )}
 
-      {trailer.currentPhase === 'shipping' && (
-        <div 
-          className="shipping-card-panel"
-          onClick={(e) => e.stopPropagation()}
-          onMouseDown={(e) => e.stopPropagation()}
-          onPointerDown={(e) => e.stopPropagation()}
-          style={{ 
-            marginTop: '0.75rem', 
-            padding: '0.65rem', 
-            background: hasCompleteShippingDetails 
-              ? 'rgba(16, 185, 129, 0.08)' 
-              : 'rgba(255, 255, 255, 0.03)', 
-            borderRadius: '8px', 
-            border: `1px solid ${
-              isShippingDirty 
-                ? 'rgba(245, 158, 11, 0.6)' 
-                : hasCompleteShippingDetails 
-                ? 'rgba(16, 185, 129, 0.35)' 
-                : 'var(--border-default)'
-            }`,
-            display: 'flex', 
-            flexDirection: 'column', 
-            gap: '0.5rem' 
-          }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-              <FileText size={13} color={hasCompleteShippingDetails ? '#10b981' : isShippingDirty ? '#f59e0b' : 'var(--text-muted)'} />
-              <span style={{ 
-                fontSize: '0.7rem', 
-                fontWeight: 800, 
-                color: hasCompleteShippingDetails ? '#10b981' : isShippingDirty ? '#f59e0b' : 'var(--text-secondary)',
-                textTransform: 'uppercase',
-                letterSpacing: '0.02em'
-              }}>
-                {hasCompleteShippingDetails ? '✓ Shipping Info Set' : 'Shipping Details'}
-              </span>
-            </div>
-            {isShippingDirty ? (
-              <span style={{ fontSize: '0.625rem', fontWeight: 800, color: '#f59e0b', background: 'rgba(245, 158, 11, 0.15)', padding: '1px 6px', borderRadius: '4px' }}>
-                Unsaved Edits
-              </span>
-            ) : hasCompleteShippingDetails ? (
-              <span style={{ fontSize: '0.625rem', fontWeight: 800, color: '#10b981', background: 'rgba(16, 185, 129, 0.15)', padding: '1px 6px', borderRadius: '4px' }}>
-                Complete
-              </span>
-            ) : null}
+      {hasShippingInfoSet && (
+        <div style={{
+          marginTop: '0.5rem',
+          padding: '0.4rem 0.65rem',
+          background: 'rgba(16, 185, 129, 0.12)',
+          border: '1px solid rgba(16, 185, 129, 0.4)',
+          borderRadius: '8px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '0.4rem'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+            <CheckCircle2 size={14} color="#10b981" />
+            <span style={{ fontSize: '0.7rem', fontWeight: 900, color: '#10b981', letterSpacing: '0.02em' }}>
+              SHIPPING DETAILS ENTERED
+            </span>
           </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem' }}>
-            <div>
-              <label htmlFor={`invoice-input-${trailer.id}`} style={{ display: 'block', fontSize: '0.625rem', color: 'var(--text-muted)', marginBottom: '2px', fontWeight: 700 }}>
-                INVOICE #
-              </label>
-              <input
-                id={`invoice-input-${trailer.id}`}
-                name="invoiceNumber"
-                type="text"
-                placeholder="Invoice #"
-                value={draftInvoice}
-                onChange={(e) => setDraftInvoice(e.target.value)}
-                disabled={userRole !== 'manager'}
-                style={{
-                  width: '100%',
-                  padding: '4px 7px',
-                  fontSize: '0.75rem',
-                  fontWeight: 700,
-                  background: 'var(--bg-secondary)',
-                  color: 'var(--text-primary)',
-                  border: draftInvoice ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid var(--border-default)',
-                  borderRadius: '5px',
-                  outline: 'none'
-                }}
-              />
-            </div>
-            <div>
-              <label htmlFor={`vin-date-input-${trailer.id}`} style={{ display: 'block', fontSize: '0.625rem', color: 'var(--text-muted)', marginBottom: '2px', fontWeight: 700 }}>
-                VIN DATE
-              </label>
-              <input
-                id={`vin-date-input-${trailer.id}`}
-                name="vinDate"
-                type="date"
-                value={draftVinDate}
-                onChange={(e) => setDraftVinDate(e.target.value)}
-                disabled={userRole !== 'manager'}
-                style={{
-                  width: '100%',
-                  padding: '4px 7px',
-                  fontSize: '0.75rem',
-                  fontWeight: 700,
-                  background: 'var(--bg-secondary)',
-                  color: 'var(--text-primary)',
-                  border: draftVinDate ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid var(--border-default)',
-                  borderRadius: '5px',
-                  outline: 'none'
-                }}
-              />
-            </div>
-          </div>
-
-          {userRole === 'manager' && (
-            <button
-              className="btn"
-              onClick={handleSaveShippingDetails}
-              disabled={!isShippingDirty || isSavingShipping}
-              style={{
-                width: '100%',
-                padding: '6px 10px',
-                fontSize: '0.725rem',
-                fontWeight: 800,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '0.4rem',
-                borderRadius: '6px',
-                transition: 'all 0.2s ease',
-                background: showSaveSuccess
-                  ? '#059669'
-                  : isShippingDirty
-                  ? 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)'
-                  : 'var(--bg-secondary)',
-                color: isShippingDirty || showSaveSuccess ? '#ffffff' : 'var(--text-muted)',
-                border: isShippingDirty ? 'none' : '1px solid var(--border-default)',
-                boxShadow: isShippingDirty ? '0 2px 8px rgba(245, 158, 11, 0.4)' : 'none',
-                cursor: isShippingDirty ? 'pointer' : 'not-allowed',
-                opacity: isShippingDirty || showSaveSuccess ? 1 : 0.6
-              }}
-            >
-              {showSaveSuccess ? (
-                <>
-                  <CheckCircle2 size={14} /> Saved!
-                </>
-              ) : isShippingDirty ? (
-                <>
-                  <Save size={14} /> Save Shipping Info
-                </>
-              ) : (
-                <>
-                  <Save size={14} /> Save (No Changes)
-                </>
-              )}
-            </button>
+          {trailer.invoiceNumber && (
+            <span style={{ fontSize: '0.65rem', fontWeight: 800, color: '#059669', background: 'rgba(16, 185, 129, 0.15)', padding: '1px 6px', borderRadius: '4px' }}>
+              INV #{trailer.invoiceNumber}
+            </span>
           )}
         </div>
       )}
@@ -663,17 +508,22 @@ export const TrailerCard: React.FC<Props> = React.memo(({
           )}
           <button 
             className="btn btn-primary" 
-            style={{ width: '100%', gap: '0.75rem', background: '#10b981', opacity: userRole === 'manager' ? 1 : 0.85, cursor: userRole === 'manager' ? 'pointer' : 'default' }} 
+            style={{ 
+              width: '100%', 
+              gap: '0.6rem', 
+              background: hasShippingInfoSet ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : '#10b981', 
+              boxShadow: hasShippingInfoSet ? '0 4px 14px rgba(16, 185, 129, 0.4)' : 'none',
+              opacity: userRole === 'manager' ? 1 : 0.85, 
+              cursor: userRole === 'manager' ? 'pointer' : 'default' 
+            }} 
             onClick={(e) => {
               e.stopPropagation();
-              if (userRole !== 'manager') {
-                return;
-              }
+              if (userRole !== 'manager') return;
               if (onShipRequest) onShipRequest(trailer);
               else onUpdateTrailer?.(trailer.id, { isArchived: true, archivedAt: Date.now() });
             }}
           >
-            <Truck size={16} /> Mark as Shipped
+            <Truck size={16} /> {hasShippingInfoSet ? 'Shipping Details & Actions' : 'Mark as Shipped'}
           </button>
         </div>
       )}

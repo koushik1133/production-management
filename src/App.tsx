@@ -88,7 +88,9 @@ import {
   BarChart3,
   Lock,
   Unlock,
-  Key
+  Key,
+  Save,
+  Truck
 } from 'lucide-react';
 
 import { 
@@ -463,6 +465,60 @@ function Dashboard({
     } catch (err: any) {
       console.error(err);
       alert('Failed to complete shipment: ' + (err?.message || JSON.stringify(err)));
+    } finally {
+      setIsShipping(false);
+    }
+  };
+
+  const handleSaveShippingDetailsOnly = async () => {
+    if (!pendingShippingTrailer || isShipping) return;
+    setIsShipping(true);
+    try {
+      const serial = pendingShippingTrailer.serialNumber;
+
+      let finalP1Path = pendingShippingTrailer.photo_1_url || undefined;
+      if (shippingPhotos.p1) {
+        finalP1Path = await uploadFileToSupabase(shippingPhotos.p1, 'photo_1', serial);
+      }
+
+      let finalP2Path = pendingShippingTrailer.photo_2_url || undefined;
+      if (shippingPhotos.p2) {
+        finalP2Path = await uploadFileToSupabase(shippingPhotos.p2, 'photo_2', serial);
+      }
+
+      let finalP3Path = pendingShippingTrailer.photo_3_url || undefined;
+      if (shippingPhotos.p3) {
+        finalP3Path = await uploadFileToSupabase(shippingPhotos.p3, 'photo_3', serial);
+      }
+
+      let finalSpecPath = pendingShippingTrailer.spec_sheet_file || undefined;
+      if (shippingSpecSheet) {
+        finalSpecPath = await uploadFileToSupabase(shippingSpecSheet, 'spec_sheet', serial);
+      }
+
+      let finalInspectPath = pendingShippingTrailer.inspection_sheet_file || undefined;
+      if (shippingInspectionSheet) {
+        finalInspectPath = await uploadFileToSupabase(shippingInspectionSheet, 'inspection_sheet', serial);
+      }
+
+      const updates: Partial<Trailer> = {
+        invoiceNumber: shippingForm.invoice_number.trim(),
+        vinDate: shippingForm.vin_date.trim(),
+        name: shippingForm.customer_name.trim() || pendingShippingTrailer.name,
+        sale_price: parseFloat(shippingForm.sale_price) || pendingShippingTrailer.sale_price,
+        photo_1_url: finalP1Path,
+        photo_2_url: finalP2Path,
+        photo_3_url: finalP3Path,
+        spec_sheet_file: finalSpecPath,
+        inspection_sheet_file: finalInspectPath
+      };
+
+      await updateTrailer(pendingShippingTrailer.id, updates);
+      handleCloseShippingModal();
+      triggerToast('Shipping details saved! Trailer card highlighted on board.');
+    } catch (err: any) {
+      console.error('Failed to save shipping details:', err);
+      alert('Failed to save shipping details: ' + (err?.message || JSON.stringify(err)));
     } finally {
       setIsShipping(false);
     }
@@ -1005,11 +1061,8 @@ function Dashboard({
               onUpdateTrailer={updateTrailer} 
               onConvertRequest={(t) => setConvertingTrailer(t)}
               onShipRequest={async (t) => {
-                if (t.vinDate && t.invoiceNumber) {
-                  updateTrailer(t.id, { isArchived: true, archivedAt: Date.now() });
-                } else {
-                  // Initialize form fields immediately
-                  const getPhaseHours = (phaseId: string) => {
+                // Initialize form fields immediately and open modal so user can view/edit details or save without archiving
+                const getPhaseHours = (phaseId: string) => {
                     const entries = (t.history ?? []).filter(h => h.phase === phaseId);
                     const manual = entries.reduce((s, h) => s + (h.phaseManualHours || h.bayManualHours || 0), 0);
                     if (manual > 0) return manual.toString();
@@ -1063,7 +1116,6 @@ function Dashboard({
                   } catch (err) {
                     console.error("Error fetching heavy fields for shipping:", err);
                   }
-                }
               }}
               onCardClick={(t, mode = 'view') => {
                 setSelectedTrailerId(t.id);
@@ -1777,12 +1829,44 @@ function Dashboard({
             </div>
           )}
 
-          <div className="form-footer">
+          <div className="form-footer" style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap' }}>
             {!isShipping && (
                <button type="button" className="btn btn-secondary" onClick={handleCloseShippingModal}>Cancel</button>
             )}
-            <button type="submit" className="btn btn-primary" disabled={isShipping} style={{ padding: '0.75rem 2rem', minWidth: '200px' }}>
-              {isShipping ? 'Processing Shipment...' : 'Complete Shipment Checklist'}
+            <button 
+              type="button" 
+              className="btn" 
+              disabled={isShipping}
+              onClick={handleSaveShippingDetailsOnly}
+              style={{
+                background: 'rgba(16, 185, 129, 0.15)',
+                color: '#10b981',
+                border: '1px solid rgba(16, 185, 129, 0.4)',
+                fontWeight: 800,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                padding: '0.75rem 1.25rem',
+                borderRadius: '10px'
+              }}
+            >
+              <Save size={16} /> Save Details (Keep in Shipping)
+            </button>
+            <button 
+              type="submit" 
+              className="btn btn-primary" 
+              disabled={isShipping} 
+              style={{ 
+                padding: '0.75rem 1.75rem', 
+                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', 
+                fontWeight: 900, 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '0.5rem',
+                borderRadius: '10px'
+              }}
+            >
+              <Truck size={16} /> {isShipping ? 'Processing Shipment...' : 'Ship Trailer & Archive'}
             </button>
           </div>
         </form>
