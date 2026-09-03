@@ -2449,7 +2449,8 @@ function AppContent({ userRole, currentUser }: { userRole: UserRole; currentUser
         supabase.from('bay_settings').select('*').then(res => { if (res.data) bayData = res.data; }),
         (async () => {
           try {
-            const res = await supabase.from('production_models').select('id, name, category, target_hours, specs, spec_sheet_template');
+            // Select lightweight columns only — excludes multi-megabyte base64 spec_sheet_template blobs to prevent 500 statement timeouts
+            const res = await supabase.from('production_models').select('id, name, category, target_hours, specs');
             if (res.data) modelsData = res.data;
           } catch (err) {
             console.error('Error fetching production_models:', err);
@@ -2510,11 +2511,42 @@ function AppContent({ userRole, currentUser }: { userRole: UserRole; currentUser
       }
       
       if (modelsData && modelsData.length > 0) {
-        const finalModels = modelsData.map(m => ({
-          ...m,
-          spec_sheet_template: m.spec_sheet_template ? (m.spec_sheet_template.startsWith('data:') ? 'EXISTS' : m.spec_sheet_template) : undefined
-        }));
-        setCatalogModels(finalModels);
+        setCatalogModels(modelsData as CatalogModel[]);
+
+        // Safely fetch template presence from Supabase Storage and DB without heavy 500 statement timeouts
+        (async () => {
+          try {
+            const templatesMap: Record<string, string> = {};
+
+            // 1. Check Supabase Storage templates directory
+            const { data: storageFiles } = await supabase.storage.from('trailers-files').list('templates', { limit: 200 });
+            if (storageFiles && storageFiles.length > 0) {
+              storageFiles.forEach(file => {
+                const cleanName = file.name.replace(/^spec_sheet_template_/, '').replace(/\.xlsx$/i, '');
+                templatesMap[cleanName] = `templates/${file.name}`;
+              });
+            }
+
+            // 2. Safely check lightweight DB non-null spec_sheet_template references
+            const { data: dbTemplates } = await supabase.from('production_models').select('name, spec_sheet_template').not('spec_sheet_template', 'is', null);
+            if (dbTemplates) {
+              dbTemplates.forEach(row => {
+                if (row.name && row.spec_sheet_template) {
+                  templatesMap[row.name] = row.spec_sheet_template.startsWith('data:') ? 'EXISTS' : row.spec_sheet_template;
+                }
+              });
+            }
+
+            if (Object.keys(templatesMap).length > 0) {
+              setCatalogModels(prev => prev.map(m => ({
+                ...m,
+                spec_sheet_template: templatesMap[m.name] || m.spec_sheet_template
+              })));
+            }
+          } catch (err) {
+            console.error('Error populating template presence:', err);
+          }
+        })();
       }
       
       if (shippedData && shippedData.length > 0) setShippedTrailers(shippedData);
