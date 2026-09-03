@@ -248,12 +248,13 @@ export function useMessages(currentUser: User | null, isViewingMessagesPage: boo
       return true;
     });
 
+    const userConversations: ConversationItem[] = [];
     otherProfiles.forEach((p) => {
       const userMsgs = allMessages.filter((m) => isMessageInUserThread(m, p));
       const unread = userMsgs.filter((m) => m.sender_id !== currentUserId && !m.is_read_by_me).length;
       const lastMsg = userMsgs[userMsgs.length - 1];
 
-      list.push({
+      userConversations.push({
         id: p.id,
         name: p.name,
         type: 'user',
@@ -265,7 +266,33 @@ export function useMessages(currentUser: User | null, isViewingMessagesPage: boo
       });
     });
 
-    return list;
+    // Helper sorter: recent messages first (newest created_at DESC), then fallback to name ASC
+    const sortConversations = (items: ConversationItem[]): ConversationItem[] => {
+      const withMsgs: ConversationItem[] = [];
+      const withoutMsgs: ConversationItem[] = [];
+
+      items.forEach((item) => {
+        if (item.lastMessage?.created_at) {
+          withMsgs.push(item);
+        } else {
+          withoutMsgs.push(item);
+        }
+      });
+
+      withMsgs.sort((a, b) => {
+        const timeA = new Date(a.lastMessage!.created_at).getTime();
+        const timeB = new Date(b.lastMessage!.created_at).getTime();
+        return timeB - timeA;
+      });
+
+      withoutMsgs.sort((a, b) => a.name.localeCompare(b.name));
+
+      return [...withMsgs, ...withoutMsgs];
+    };
+
+    const sortedUserConvs = sortConversations(userConversations);
+
+    return [...list, ...sortedUserConvs];
   }, [allMessages, allProfiles, chatGroups, currentUserId, currentProfile, onlineUserIds, isMessageInUserThread]);
 
   // 6. Filter Messages for Active Conversation Thread
