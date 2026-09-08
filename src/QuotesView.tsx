@@ -5,6 +5,7 @@ import JSZip from 'jszip';
 import { Home, Search, BarChart3, Download, CheckCircle, XCircle, FileText, User, Hash, Calendar, Clock } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import type { Trailer, PhaseId, UserRole } from './types';
+import { triggerFileDownload } from './utils/storage';
 
 interface Props {
   trailers: Trailer[];
@@ -239,6 +240,15 @@ export const QuotesView: React.FC<Props> = ({ trailers, onUpdateTrailer, userRol
                       <div style={{ fontSize: '0.6rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '2px' }}>Quote Price</div>
                       <div style={{ fontSize: '1.1rem', fontWeight: 900, color: '#10b981' }}>${t.sale_price.toLocaleString()}</div>
                     </div>
+                  )}
+                  {t.spec_sheet_file && (
+                    <button
+                      onClick={() => triggerFileDownload(t.spec_sheet_file!, `${t.serialNumber}_Quote.xlsx`)}
+                      title="Download quote sheet"
+                      style={{ padding: '0.45rem 1rem', fontSize: '0.78rem', fontWeight: 800, background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.3)', borderRadius: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.35rem', color: '#6366f1', flexShrink: 0 }}
+                    >
+                      <Download size={14} /> Download Quote
+                    </button>
                   )}
                   {userRole === 'manager' && (
                     <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0 }}>
