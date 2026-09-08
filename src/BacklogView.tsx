@@ -213,6 +213,15 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
         alert('Failed to download template from server.');
         return;
       }
+    } else if (templateBase64 && !templateBase64.startsWith('data:')) {
+      // It's a relative file path in Supabase Storage — fetch it as base64
+      try {
+        templateBase64 = await fetchTemplateAsBase64(templateBase64);
+      } catch (e) {
+        console.error('Failed to fetch template file from storage:', e);
+        alert('Failed to download template from server.');
+        return;
+      }
     }
 
     if (!templateBase64) {
@@ -348,7 +357,16 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
         console.error('Failed to fetch template:', e);
         templateBase64 = undefined;
       }
+    } else if (templateBase64 && !templateBase64.startsWith('data:')) {
+      // Relative file path in Supabase Storage — fetch and convert to base64
+      try {
+        templateBase64 = await fetchTemplateAsBase64(templateBase64);
+      } catch (e) {
+        console.error('Failed to fetch template file from storage:', e);
+        templateBase64 = undefined;
+      }
     }
+
     const selectedDealer = dealers.find(d => d.name === formData.name);
     
     if (templateBase64) {

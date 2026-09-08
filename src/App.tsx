@@ -598,6 +598,14 @@ function Dashboard({
           console.error('Failed to fetch template:', err);
           templateBase64 = undefined;
         }
+      } else if (templateBase64 && !templateBase64.startsWith('data:')) {
+        // Relative file path in Supabase Storage — fetch and convert to base64
+        try {
+          templateBase64 = await fetchTemplateAsBase64(templateBase64);
+        } catch (err) {
+          console.error('Failed to fetch template file from storage:', err);
+          templateBase64 = undefined;
+        }
       }
 
       const selectedDealer = dealers.find(d => d.name === newTrailerData.name);
@@ -2913,6 +2921,14 @@ function AppContent({ userRole, currentUser }: { userRole: UserRole; currentUser
           }
         } catch (err) {
           console.error('Failed to fetch template for target model:', err);
+          templateBase64 = undefined;
+        }
+      } else if (templateBase64 && !templateBase64.startsWith('data:')) {
+        // Relative file path in Supabase Storage — fetch and convert to base64
+        try {
+          templateBase64 = await fetchTemplateAsBase64(templateBase64);
+        } catch (err) {
+          console.error('Failed to fetch template file from storage:', err);
           templateBase64 = undefined;
         }
       }
