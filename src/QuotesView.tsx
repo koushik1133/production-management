@@ -1,16 +1,20 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import JSZip from 'jszip';
-import { Home, Search, BarChart3, Download, CheckCircle, XCircle, FileText, User, Hash, Calendar, Clock } from 'lucide-react';
+import { Home, Search, BarChart3, Download, FileText, User, Hash, Calendar, Clock, Loader2 } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
-import type { Trailer, PhaseId, UserRole } from './types';
-import { triggerFileDownload } from './utils/storage';
+import type { Trailer, UserRole, QuoteRecord, Dealer } from './types';
+import { triggerFileDownload, isRelativePath, fetchFileBlob, fetchTemplateAsBase64 } from './utils/storage';
+import { supabase } from './lib/supabase';
+import { injectTrailerDataIntoSpec } from './lib/injectSpecSheet';
 
 interface Props {
-  trailers: Trailer[];
-  onUpdateTrailer: (id: string, updates: Partial<Trailer>) => void;
+  trailers?: Trailer[];
+  onUpdateTrailer?: (id: string, updates: Partial<Trailer>) => void;
   userRole: UserRole;
+  localSpecSheetTemplates?: Record<string, string>;
+  dealers?: Dealer[];
 }
 
 type ExportFilter = 'all' | 'today' | 'week' | 'month';
@@ -21,49 +25,170 @@ const safeDate = (ts: number | string | undefined): Date | null => {
   return isNaN(d.getTime()) ? null : d;
 };
 
-export const QuotesView: React.FC<Props> = ({ trailers, onUpdateTrailer, userRole }) => {
+export const QuotesView: React.FC<Props> = ({
+  trailers = [],
+  userRole,
+  localSpecSheetTemplates,
+  dealers = []
+}) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'date' | 'serial' | 'model'>('date');
   const [exportFilter, setExportFilter] = useState<ExportFilter>('all');
   const [exportStatus, setExportStatus] = useState<string | null>(null);
-  const [confirmAction, setConfirmAction] = useState<{ type: 'approve' | 'deny'; trailer: Trailer } | null>(null);
+  const [dbQuotes, setDbQuotes] = useState<QuoteRecord[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
-  const quoteTrailers = useMemo(() =>
-    trailers.filter(t => t.currentPhase === 'quote' && !t.isDeleted),
-    [trailers]
-  );
+  // Fetch persistent quotes from public.quotes table
+  const fetchQuotes = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('quotes')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (!error && data) {
+        setDbQuotes(data as QuoteRecord[]);
+      }
+    } catch (err) {
+      console.error('Error loading quotes from DB:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchQuotes();
+
+    const channel = supabase
+      .channel('quotes_realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'quotes' }, () => {
+        fetchQuotes();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  // Merge DB quotes with active trailers with phase 'quote' (fallback to guarantee zero data loss)
+  const allQuotes = useMemo(() => {
+    const list: QuoteRecord[] = [...dbQuotes];
+    const seenSerials = new Set(dbQuotes.map(q => q.serial_number?.trim().toLowerCase()).filter(Boolean));
+
+    if (trailers && trailers.length > 0) {
+      trailers
+        .filter(t => t.currentPhase === 'quote' && !t.isDeleted)
+        .forEach(t => {
+          const s = t.serialNumber?.trim().toLowerCase();
+          if (s && !seenSerials.has(s)) {
+            seenSerials.add(s);
+            list.push({
+              id: t.id,
+              trailer_id: t.id,
+              serial_number: t.serialNumber,
+              model: t.model,
+              dealer_name: t.name,
+              sale_price: t.sale_price,
+              trailer_color: t.trailer_color,
+              trailer_plug: t.trailer_plug,
+              sales_person: t.salesPerson,
+              dealer_location: t.dealerLocation,
+              dealer_address: t.dealerCommonAddress,
+              purchase_order: t.purchaseOrder,
+              consignment: t.consignment,
+              quote_file_path: t.spec_sheet_file,
+              status: 'quote',
+              created_at: t.dateStarted ? new Date(t.dateStarted).toISOString() : new Date().toISOString(),
+              notes: t.notes
+            });
+          }
+        });
+    }
+
+    return list;
+  }, [dbQuotes, trailers]);
 
   const filtered = useMemo(() => {
     const q = searchQuery.toLowerCase();
-    return quoteTrailers
-      .filter(t =>
-        t.serialNumber.toLowerCase().includes(q) ||
-        t.model.toLowerCase().includes(q) ||
-        t.name.toLowerCase().includes(q) ||
-        (t.notes || '').toLowerCase().includes(q)
+    return allQuotes
+      .filter(item =>
+        (item.serial_number || '').toLowerCase().includes(q) ||
+        (item.model || '').toLowerCase().includes(q) ||
+        (item.dealer_name || '').toLowerCase().includes(q) ||
+        (item.notes || '').toLowerCase().includes(q) ||
+        (item.sales_person || '').toLowerCase().includes(q)
       )
       .sort((a, b) => {
-        if (sortBy === 'serial') return a.serialNumber.localeCompare(b.serialNumber);
-        if (sortBy === 'model') return a.model.localeCompare(b.model);
-        return b.dateStarted - a.dateStarted;
+        if (sortBy === 'serial') return (a.serial_number || '').localeCompare(b.serial_number || '');
+        if (sortBy === 'model') return (a.model || '').localeCompare(b.model || '');
+        const dateA = safeDate(a.created_at)?.getTime() || 0;
+        const dateB = safeDate(b.created_at)?.getTime() || 0;
+        return dateB - dateA;
       });
-  }, [quoteTrailers, searchQuery, sortBy]);
+  }, [allQuotes, searchQuery, sortBy]);
 
-  const handleApprove = (t: Trailer) => {
-    onUpdateTrailer(t.id, { currentPhase: 'backlog' as PhaseId });
-    setConfirmAction(null);
-  };
+  // Download quote logic (fetches stored file or generates on the fly if needed)
+  const handleDownloadQuote = async (q: QuoteRecord) => {
+    setDownloadingId(q.id);
+    try {
+      if (q.quote_file_path) {
+        await triggerFileDownload(q.quote_file_path, `${q.serial_number}_Quote.xlsx`);
+        return;
+      }
 
-  const handleDeny = (t: Trailer) => {
-    onUpdateTrailer(t.id, { isDeleted: true, isArchived: true, archivedAt: Date.now() });
-    setConfirmAction(null);
+      // If no file path was stored yet, generate quote excel sheet on the fly
+      if (q.model) {
+        let templateBase64: string | undefined = localSpecSheetTemplates ? localSpecSheetTemplates[q.model] : undefined;
+        if (templateBase64 === 'EXISTS') {
+          const { data } = await supabase.from('production_models').select('spec_sheet_template').eq('name', q.model).single();
+          if (data?.spec_sheet_template) {
+            templateBase64 = await fetchTemplateAsBase64(data.spec_sheet_template);
+          }
+        } else if (templateBase64 && !templateBase64.startsWith('data:')) {
+          templateBase64 = await fetchTemplateAsBase64(templateBase64);
+        }
+
+        if (templateBase64) {
+          const selectedDealer = dealers.find(d => d.name === q.dealer_name);
+          const formattedDate = q.created_at ? format(new Date(q.created_at), 'MM/dd/yyyy') : undefined;
+          const injected = await injectTrailerDataIntoSpec(
+            templateBase64,
+            q.serial_number,
+            q.dealer_name || undefined,
+            q.trailer_color || undefined,
+            q.trailer_plug || undefined,
+            q.sale_price ? q.sale_price : undefined,
+            q.sales_person || undefined,
+            q.dealer_location || undefined,
+            selectedDealer?.common_address || q.dealer_address || undefined,
+            true, // hideOtherSheets for Quotes
+            formattedDate,
+            q.purchase_order || undefined,
+            q.consignment || undefined
+          );
+
+          const a = document.createElement('a');
+          a.href = injected;
+          a.download = `${q.serial_number}_Quote.xlsx`;
+          a.click();
+          return;
+        }
+      }
+
+      alert('No template or file found for this quote.');
+    } catch (err) {
+      console.error('Failed to download quote:', err);
+      alert('Failed to download quote.');
+    } finally {
+      setDownloadingId(null);
+    }
   };
 
   const handleExport = async () => {
     const now = new Date();
-    const year = format(now, 'yyyy');
     const toExport = filtered.filter(t => {
-      const d = safeDate(t.dateStarted);
+      const d = safeDate(t.created_at);
       if (!d) return exportFilter === 'all';
       if (exportFilter === 'today') return d.toDateString() === now.toDateString();
       if (exportFilter === 'week') return d.getTime() >= now.getTime() - 7 * 24 * 60 * 60 * 1000;
@@ -80,55 +205,88 @@ export const QuotesView: React.FC<Props> = ({ trailers, onUpdateTrailer, userRol
     try {
       setExportStatus('Building ZIP package...');
       const zip = new JSZip();
-      const folderName = `quotes_${year}`;
+
+      // Format date range: e.g. "080926 - 081226"
+      const dates = toExport
+        .map(q => safeDate(q.created_at))
+        .filter((d): d is Date => d !== null)
+        .sort((a, b) => a.getTime() - b.getTime());
+
+      let dateRangeStr = format(now, 'MMddyy');
+      if (dates.length > 0) {
+        const minStr = format(dates[0], 'MMddyy');
+        const maxStr = format(dates[dates.length - 1], 'MMddyy');
+        dateRangeStr = minStr === maxStr ? minStr : `${minStr} - ${maxStr}`;
+      }
+
+      const folderName = dateRangeStr;
       const folder = zip.folder(folderName);
 
       // 1. Master Excel file
       const rows = toExport.map(t => ({
-        'Quote Label': `${t.name} - ${t.model} ${t.serialNumber}${t.notes ? ` (${t.notes})` : ''}`,
-        'Serial Number': t.serialNumber,
-        'Model': t.model,
-        'Dealer / Customer': t.name,
+        'Quote Label': `${t.dealer_name || 'Customer'} - ${t.model || ''} ${t.serial_number}${t.notes ? ` (${t.notes})` : ''}`,
+        'Serial Number': t.serial_number,
+        'Model': t.model || '',
+        'Dealer / Customer': t.dealer_name || '',
+        'Sales Person': t.sales_person || '',
         'Notes': t.notes || '',
         'Sale Price': t.sale_price ?? '',
-        'Date Added': safeDate(t.dateStarted) ? format(safeDate(t.dateStarted)!, 'yyyy-MM-dd') : '',
+        'Date Added': safeDate(t.created_at) ? format(safeDate(t.created_at)!, 'yyyy-MM-dd') : '',
       }));
 
       const ws = XLSX.utils.json_to_sheet(rows);
       const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, `Quotes ${year}`);
+      XLSX.utils.book_append_sheet(wb, ws, `Quotes ${folderName}`);
       const excelBuf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-      folder?.file(`quotes_${year}_master.xlsx`, excelBuf);
+      folder?.file(`quotes_${folderName}_master.xlsx`, excelBuf);
 
-      // 2. Individual quote files inside the folder
-      toExport.forEach(t => {
-        const dStr = safeDate(t.dateStarted) ? format(safeDate(t.dateStarted)!, 'yyyy-MM-dd') : 'N/A';
-        const rawLabel = `${t.name} - ${t.model} - ${t.serialNumber}`;
+      // 2. Individual quote files inside folder
+      for (const t of toExport) {
+        const dStr = safeDate(t.created_at) ? format(safeDate(t.created_at)!, 'yyyy-MM-dd') : 'N/A';
+        const rawLabel = `${t.dealer_name || 'Customer'} - ${t.model || 'Model'} - ${t.serial_number}`;
         const safeFilename = rawLabel.replace(/[/\\?%*:|"<>]/g, '_').trim();
+
+        // If actual excel quote exists, package it into the zip
+        if (t.quote_file_path) {
+          try {
+            if (t.quote_file_path.startsWith('data:')) {
+              const base64Data = t.quote_file_path.includes(',') ? t.quote_file_path.split(',')[1] : t.quote_file_path;
+              folder?.file(`${safeFilename}.xlsx`, base64Data, { base64: true });
+            } else if (isRelativePath(t.quote_file_path)) {
+              const blob = await fetchFileBlob(t.quote_file_path);
+              folder?.file(`${safeFilename}.xlsx`, blob);
+            }
+          } catch (fileErr) {
+            console.warn(`Could not add excel file for ${t.serial_number}:`, fileErr);
+          }
+        }
 
         const fileContent = [
           `LANE TRAILERS — QUOTE SPECIFICATION`,
           `====================================`,
-          `Quote Label:      ${t.name} - ${t.model} ${t.serialNumber}${t.notes ? ` (${t.notes})` : ''}`,
-          `Serial Number:    ${t.serialNumber}`,
-          `Model:            ${t.model}`,
-          `Customer/Dealer:  ${t.name}`,
+          `Quote Label:      ${t.dealer_name || 'Customer'} - ${t.model || ''} ${t.serial_number}${t.notes ? ` (${t.notes})` : ''}`,
+          `Serial Number:    ${t.serial_number}`,
+          `Model:            ${t.model || 'N/A'}`,
+          `Customer/Dealer:  ${t.dealer_name || 'N/A'}`,
+          `Sales Person:     ${t.sales_person || 'N/A'}`,
           `Date Added:       ${dStr}`,
           `Sale Price:       ${t.sale_price != null ? `$${t.sale_price.toLocaleString()}` : 'Not Set'}`,
-          `Status:           Quote (Pending Approval)`,
+          `Trailer Color:    ${t.trailer_color || 'Standard'}`,
+          `Trailer Plug:     ${t.trailer_plug || 'Standard'}`,
+          `Status:           ${t.status || 'Quote'}`,
           `Notes / Options:  ${t.notes || 'None'}`,
           `------------------------------------`,
-          `Generated:        ${format(now, 'yyyy-MM-dd HH:mm:ss')}`
+          `Exported:         ${format(now, 'yyyy-MM-dd HH:mm:ss')}`
         ].join('\n');
 
         folder?.file(`${safeFilename}.txt`, fileContent);
-      });
+      }
 
       const zipBlob = await zip.generateAsync({ type: 'blob' });
       const url = URL.createObjectURL(zipBlob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `quotes_${year}.zip`;
+      a.download = `quotes_${folderName}.zip`;
       a.click();
       URL.revokeObjectURL(url);
 
@@ -166,7 +324,9 @@ export const QuotesView: React.FC<Props> = ({ trailers, onUpdateTrailer, userRol
             </div>
             <div>
               <h1 style={{ fontSize: '1.1rem', fontWeight: 900, letterSpacing: '-0.01em' }}>Quotes</h1>
-              <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', margin: 0 }}>{quoteTrailers.length} active quote{quoteTrailers.length !== 1 ? 's' : ''}</p>
+              <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', margin: 0 }}>
+                {filtered.length} quote{filtered.length !== 1 ? 's' : ''} recorded
+              </p>
             </div>
           </div>
         </div>
@@ -204,90 +364,92 @@ export const QuotesView: React.FC<Props> = ({ trailers, onUpdateTrailer, userRol
       </header>
 
       <main style={{ padding: '2rem', maxWidth: '1100px', margin: '0 auto' }}>
-        {filtered.length === 0 ? (
+        {isLoading ? (
+          <div style={{ textAlign: 'center', padding: '6rem 2rem', color: 'var(--text-muted)' }}>
+            <Loader2 size={36} className="animate-spin" style={{ margin: '0 auto 1rem', opacity: 0.7 }} />
+            <p style={{ fontSize: '0.9rem' }}>Loading quotes...</p>
+          </div>
+        ) : filtered.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '6rem 2rem', color: 'var(--text-muted)' }}>
             <BarChart3 size={48} style={{ marginBottom: '1rem', opacity: 0.3 }} />
             <h2 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '0.5rem' }}>
-              {searchQuery ? 'No quotes match your search' : 'No active quotes'}
+              {searchQuery ? 'No quotes match your search' : 'No quotes recorded'}
             </h2>
             <p style={{ fontSize: '0.85rem' }}>
-              {searchQuery ? 'Try a different keyword.' : 'Add a trailer to the "Quote" phase to track it here.'}
+              {searchQuery ? 'Try a different keyword.' : 'Quotes created on the Backlog registration will appear here.'}
             </p>
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-            {filtered.map(t => {
-              const addedDate = safeDate(t.dateStarted);
-              const quoteLabel = `${t.name} - ${t.model} ${t.serialNumber}${t.notes ? ` (${t.notes})` : ''}`;
+            {filtered.map(q => {
+              const addedDate = safeDate(q.created_at);
+              const quoteLabel = `${q.dealer_name || 'Customer'} - ${q.model || 'Model'} ${q.serial_number}${q.notes ? ` (${q.notes})` : ''}`;
+              const isDownloading = downloadingId === q.id;
+
               return (
-                <div key={t.id} style={{ background: 'var(--bg-card)', borderRadius: '16px', border: '1px solid var(--border-default)', padding: '1.25rem 1.5rem', display: 'flex', alignItems: 'center', gap: '1.5rem', boxShadow: 'var(--shadow-sm)' }}>
-                  {t.trailer_color && (
-                    <div title={t.trailer_color} style={{ width: '20px', height: '44px', flexShrink: 0, borderRadius: '8px', background: t.trailer_color, border: (t.trailer_color.toLowerCase() === 'white' || t.trailer_color === '#fff' || t.trailer_color === '#ffffff') ? '2px solid #94a3b8' : '1.5px solid rgba(255,255,255,0.15)', boxShadow: '0 1px 4px rgba(0,0,0,0.18)' }} />
+                <div key={q.id} style={{ background: 'var(--bg-card)', borderRadius: '16px', border: '1px solid var(--border-default)', padding: '1.25rem 1.5rem', display: 'flex', alignItems: 'center', gap: '1.5rem', boxShadow: 'var(--shadow-sm)' }}>
+                  {q.trailer_color && (
+                    <div title={q.trailer_color} style={{ width: '20px', height: '44px', flexShrink: 0, borderRadius: '8px', background: q.trailer_color, border: (q.trailer_color.toLowerCase() === 'white' || q.trailer_color === '#fff' || q.trailer_color === '#ffffff') ? '2px solid #94a3b8' : '1.5px solid rgba(255,255,255,0.15)', boxShadow: '0 1px 4px rgba(0,0,0,0.18)' }} />
                   )}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '0.35rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{quoteLabel}</div>
                     <div style={{ display: 'flex', gap: '1.25rem', flexWrap: 'wrap', alignItems: 'center' }}>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.75rem', color: 'var(--text-secondary)' }}><Hash size={13} /> {t.serialNumber}</span>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.75rem', color: 'var(--text-secondary)' }}><User size={13} /> {t.name}</span>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.75rem', color: 'var(--text-secondary)' }}><FileText size={13} /> {t.model}</span>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.75rem', color: 'var(--text-secondary)' }}><Hash size={13} /> {q.serial_number}</span>
+                      {q.dealer_name && <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.75rem', color: 'var(--text-secondary)' }}><User size={13} /> {q.dealer_name}</span>}
+                      {q.model && <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.75rem', color: 'var(--text-secondary)' }}><FileText size={13} /> {q.model}</span>}
+                      {q.sales_person && <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>👤 {q.sales_person}</span>}
                       {addedDate && <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}><Calendar size={13} /> {format(addedDate, 'MMM d, yyyy')}</span>}
                       {addedDate && <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}><Clock size={13} /> {formatDistanceToNow(addedDate, { addSuffix: true })}</span>}
                     </div>
-                    {t.notes && <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.35rem', fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.notes}</p>}
+                    {q.notes && <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.35rem', fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{q.notes}</p>}
                   </div>
-                  {userRole === 'manager' && t.sale_price != null && (
+                  {userRole === 'manager' && q.sale_price != null && (
                     <div style={{ textAlign: 'right', flexShrink: 0 }}>
                       <div style={{ fontSize: '0.6rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '2px' }}>Quote Price</div>
-                      <div style={{ fontSize: '1.1rem', fontWeight: 900, color: '#10b981' }}>${t.sale_price.toLocaleString()}</div>
+                      <div style={{ fontSize: '1.1rem', fontWeight: 900, color: '#10b981' }}>${q.sale_price.toLocaleString()}</div>
                     </div>
                   )}
-                  {t.spec_sheet_file && (
+
+                  {/* Prominent Download Button (Approve and Deny removed per user request) */}
+                  <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0 }}>
                     <button
-                      onClick={() => triggerFileDownload(t.spec_sheet_file!, `${t.serialNumber}_Quote.xlsx`)}
-                      title="Download quote sheet"
-                      style={{ padding: '0.45rem 1rem', fontSize: '0.78rem', fontWeight: 800, background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.3)', borderRadius: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.35rem', color: '#6366f1', flexShrink: 0 }}
+                      onClick={() => handleDownloadQuote(q)}
+                      disabled={isDownloading}
+                      title="Download generated quote sheet"
+                      style={{
+                        padding: '0.55rem 1.15rem',
+                        fontSize: '0.82rem',
+                        fontWeight: 800,
+                        background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
+                        border: 'none',
+                        borderRadius: '10px',
+                        cursor: isDownloading ? 'wait' : 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.45rem',
+                        color: '#ffffff',
+                        boxShadow: '0 4px 12px rgba(99, 102, 241, 0.35)'
+                      }}
                     >
-                      <Download size={14} /> Download Quote
+                      {isDownloading ? (
+                        <>
+                          <Loader2 size={15} className="animate-spin" />
+                          <span>Downloading...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Download size={15} />
+                          <span>Download</span>
+                        </>
+                      )}
                     </button>
-                  )}
-                  {userRole === 'manager' && (
-                    <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0 }}>
-                      <button onClick={() => setConfirmAction({ type: 'approve', trailer: t })} style={{ padding: '0.45rem 1rem', fontSize: '0.78rem', fontWeight: 800, background: '#10b981', border: 'none', borderRadius: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.35rem', color: '#fff' }}>
-                        <CheckCircle size={14} /> Approve
-                      </button>
-                      <button onClick={() => setConfirmAction({ type: 'deny', trailer: t })} style={{ padding: '0.45rem 1rem', fontSize: '0.78rem', fontWeight: 800, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.35rem', color: '#ef4444' }}>
-                        <XCircle size={14} /> Deny
-                      </button>
-                    </div>
-                  )}
+                  </div>
                 </div>
               );
             })}
           </div>
         )}
       </main>
-
-      {confirmAction && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }} onClick={() => setConfirmAction(null)}>
-          <div style={{ background: 'var(--bg-card)', borderRadius: '20px', border: '1px solid var(--border-default)', padding: '2rem', maxWidth: '420px', width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.4)' }} onClick={e => e.stopPropagation()}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
-              {confirmAction.type === 'approve' ? <CheckCircle size={22} color="#10b981" /> : <XCircle size={22} color="#ef4444" />}
-              <h3 style={{ fontSize: '1rem', fontWeight: 900 }}>{confirmAction.type === 'approve' ? 'Approve Quote' : 'Deny Quote'}</h3>
-            </div>
-            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1.5rem', lineHeight: 1.5 }}>
-              {confirmAction.type === 'approve'
-                ? <>Move <strong>{confirmAction.trailer.serialNumber}</strong> to the <strong>Backlog</strong> and start production?</>
-                : <>Mark <strong>{confirmAction.trailer.serialNumber}</strong> as <strong>Denied</strong>? It will be removed from the active queue.</>}
-            </p>
-            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
-              <button className="btn btn-secondary" onClick={() => setConfirmAction(null)} style={{ padding: '0.6rem 1.25rem', borderRadius: '10px', fontWeight: 700 }}>Cancel</button>
-              <button onClick={() => confirmAction.type === 'approve' ? handleApprove(confirmAction.trailer) : handleDeny(confirmAction.trailer)} style={{ padding: '0.6rem 1.5rem', borderRadius: '10px', fontWeight: 800, background: confirmAction.type === 'approve' ? '#10b981' : '#ef4444', border: 'none', color: '#fff', cursor: 'pointer' }}>
-                {confirmAction.type === 'approve' ? 'Yes, Approve' : 'Yes, Deny'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

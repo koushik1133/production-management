@@ -7,7 +7,7 @@ import type { Trailer, StationId, PhaseId, UserRole } from './types';
 import { addHours, format } from 'date-fns';
 import { injectTrailerDataIntoSpec } from './lib/injectSpecSheet';
 import { supabase } from './lib/supabase';
-import { fetchTemplateAsBase64 } from './utils/storage';
+import { fetchTemplateAsBase64, uploadFileToSupabase, dataURLtoFile } from './utils/storage';
 
 export function getNextIncrementedSerial(baseSerial: string, existingTrailers: Trailer[]): string {
   if (!baseSerial || !baseSerial.trim()) return '10001';
@@ -256,9 +256,43 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
       a.download = `${quoteId}_Quote.xlsx`;
       a.click();
 
-      // Save the quote to the database
+      const quoteTrailerId = crypto.randomUUID();
+
+      // Upload quote excel file to Supabase Storage (quotes folder)
+      let uploadedQuotePath: string | null = null;
+      try {
+        const quoteFile = dataURLtoFile(injected, `${quoteId}_Quote.xlsx`);
+        uploadedQuotePath = await uploadFileToSupabase(quoteFile, 'quote', quoteId);
+      } catch (uploadErr) {
+        console.error('Failed to upload quote to Supabase storage:', uploadErr);
+      }
+
+      // Save to permanent quotes table
+      try {
+        await supabase.from('quotes').insert({
+          trailer_id: quoteTrailerId,
+          serial_number: quoteId,
+          model: formData.model,
+          dealer_name: formData.name || '---',
+          sale_price: formData.sale_price ? parseFloat(formData.sale_price) : null,
+          trailer_color: formData.trailer_color || null,
+          trailer_plug: formData.trailer_plug || null,
+          sales_person: formData.salesPerson || null,
+          dealer_location: formData.dealerLocation || null,
+          dealer_address: selectedDealer?.common_address || null,
+          purchase_order: formData.purchaseOrder || null,
+          consignment: formData.consignment || null,
+          quote_file_path: uploadedQuotePath || injected,
+          status: 'quote',
+          created_at: new Date().toISOString()
+        });
+      } catch (quoteDbErr) {
+        console.warn('Could not insert into quotes table:', quoteDbErr);
+      }
+
+      // Save the quote to the trailers table
       const newQuote: Trailer = {
-        id: crypto.randomUUID(),
+        id: quoteTrailerId,
         name: formData.name || '---',
         model: formData.model,
         serialNumber: quoteId,
@@ -272,7 +306,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
         isDeleted: false,
         station: 'None',
         sale_price: formData.sale_price ? parseFloat(formData.sale_price) : undefined,
-        spec_sheet_file: injected,
+        spec_sheet_file: uploadedQuotePath || injected,
         trailer_color: formData.trailer_color || undefined,
         trailer_plug: formData.trailer_plug || undefined,
         salesPerson: formData.salesPerson || undefined,

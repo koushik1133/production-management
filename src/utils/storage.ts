@@ -32,6 +32,8 @@ export async function uploadFileToSupabase(file: File, type: string, id: string)
   const safeId = id.replace(/[^a-zA-Z0-9.-]/g, '_');
   if (type === 'spec_sheet_template') {
     folderPath = `templates/${safeId}`;
+  } else if (type === 'quote' || type.startsWith('quote')) {
+    folderPath = `quotes/${safeId}`;
   } else if (type === 'spec_sheet' || type === 'inspection_sheet' || type.startsWith('photo_')) {
     folderPath = `trailers/${safeId}`;
   } else {

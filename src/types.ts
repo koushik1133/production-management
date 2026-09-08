@@ -88,6 +88,26 @@ export interface ShippedTrailer {
   inspection_sheet_file?: string;
 }
 
+export interface QuoteRecord {
+  id: string;
+  trailer_id?: string | null;
+  serial_number: string;
+  model?: string;
+  dealer_name?: string;
+  sale_price?: number | null;
+  trailer_color?: string;
+  trailer_plug?: string;
+  sales_person?: string;
+  dealer_location?: string;
+  dealer_address?: string;
+  purchase_order?: string;
+  consignment?: string;
+  quote_file_path?: string | null;
+  status?: string;
+  created_at?: string;
+  notes?: string;
+}
+
 export interface Dealer {
   id: string;
   name: string;

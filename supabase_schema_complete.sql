@@ -248,6 +248,38 @@ GRANT ALL ON TABLE public.quotes_denied TO anon, authenticated;
 -- Refresh schema
 NOTIFY pgrst, 'reload schema';
 
+-- 3. Create quotes table for permanent backup of all quotes
+CREATE TABLE IF NOT EXISTS public.quotes (
+  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  trailer_id      text,
+  serial_number   text NOT NULL,
+  model           text,
+  dealer_name     text,
+  sale_price      numeric,
+  trailer_color   text,
+  trailer_plug    text,
+  sales_person    text,
+  dealer_location text,
+  dealer_address  text,
+  purchase_order  text,
+  consignment     text,
+  quote_file_path text,
+  notes           text,
+  status          text DEFAULT 'quote',
+  created_at      timestamptz DEFAULT timezone('utc', now()) NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_quotes_serial_number ON public.quotes (serial_number);
+CREATE INDEX IF NOT EXISTS idx_quotes_created_at ON public.quotes (created_at DESC);
+
+ALTER TABLE public.quotes ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Enable all access for quotes" ON public.quotes;
+CREATE POLICY "Enable all access for quotes" ON public.quotes FOR ALL USING (true) WITH CHECK (true);
+GRANT ALL ON TABLE public.quotes TO anon, authenticated;
+
+NOTIFY pgrst, 'reload schema';
+
+
 -- ====================================================================
 -- PATCH: 2026-09-01 — SUPABASE AUTH & RBAC USER SEEDING
 -- Password for all accounts: Road2Success
