@@ -375,7 +375,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
     try {
       const serialNum = formData.serialNumber || `UNIT-${Math.floor(10000 + Math.random() * 90000)}`;
 
-      const exists = trailers.some(t => t.serialNumber?.trim().toLowerCase() === serialNum.trim().toLowerCase() && !t.isDeleted && t.id !== approvingQuoteId && t.currentPhase !== 'quote');
+      const exists = trailers.some(t => t.serialNumber?.trim().toLowerCase() === serialNum.trim().toLowerCase() && !t.isDeleted && t.id !== approvingQuoteId);
       if (exists) {
         alert(`A trailer with serial number "${serialNum}" already exists. Serial numbers must be unique.`);
         setIsSubmitting(false);
@@ -578,16 +578,6 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
     }
   };
 
-  const isSerialConflict = Boolean(
-    formData.serialNumber &&
-    trailers.some(t => 
-      t.serialNumber?.trim().toLowerCase() === formData.serialNumber.trim().toLowerCase() && 
-      !t.isDeleted && 
-      t.id !== approvingQuoteId && 
-      t.currentPhase !== 'quote'
-    )
-  );
-
   return (
     <div className="backlog-page-wrapper">
       <div className="backlog-header-section" style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '2.5rem', minHeight: '52px' }}>
@@ -631,61 +621,48 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
                   <div style={{ padding: '1.25rem', background: 'var(--bg-secondary)', borderRadius: '12px', border: '1px solid var(--border-default)' }}>
                     <h3 style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '1rem', letterSpacing: '0.05em' }}>General Details</h3>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: '1rem' }}>
-                       <div className="form-group" style={{ marginBottom: 0 }}>
-                        <label className="form-label" style={{ fontSize: '0.75rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.45rem', flexWrap: 'wrap', gap: '6px' }}>
-                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                            <span>Serial Number *</span>
-                            {isSerialConflict && (
-                              <span style={{ 
-                                background: 'rgba(239, 68, 68, 0.15)', 
-                                color: '#ef4444', 
-                                border: '1px solid rgba(239, 68, 68, 0.3)',
-                                fontSize: '0.65rem', 
-                                fontWeight: 800,
-                                padding: '2px 7px',
-                                borderRadius: '5px',
-                                letterSpacing: '0.04em'
-                              }}>
-                                ALREADY EXISTS!
-                              </span>
-                            )}
-                          </div>
-                          {nextSuggestedSerial && (
-                            <button 
-                              type="button" 
-                              onClick={() => setFormData(prev => ({ ...prev, serialNumber: nextSuggestedSerial }))}
+                      {(() => {
+                        const isSerialDuplicate = !!formData.serialNumber && trailers.some(
+                          t => t.serialNumber?.trim().toLowerCase() === formData.serialNumber.trim().toLowerCase() && !t.isDeleted && t.id !== approvingQuoteId
+                        );
+
+                        return (
+                          <div className="form-group" style={{ marginBottom: 0 }}>
+                            <label className="form-label" style={{ fontSize: '0.75rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
+                              <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+                                <span>Serial Number *</span>
+                                {isSerialDuplicate && (
+                                  <span style={{ color: '#ef4444', fontSize: '0.65rem', fontWeight: 800 }}>ALREADY EXISTS!</span>
+                                )}
+                              </div>
+                              {nextSuggestedSerial && (
+                                <button 
+                                  type="button"
+                                  onClick={() => setFormData(prev => ({ ...prev, serialNumber: nextSuggestedSerial }))}
+                                  style={{ background: 'none', border: 'none', color: '#3b82f6', fontSize: '0.65rem', fontWeight: 800, cursor: 'pointer', padding: 0 }}
+                                >
+                                  SUGGEST: {nextSuggestedSerial}
+                                </button>
+                              )}
+                            </label>
+                            <input 
+                              type="text" 
+                              className="form-input" 
                               style={{ 
-                                background: 'rgba(59, 130, 246, 0.12)', 
-                                border: '1px solid rgba(59, 130, 246, 0.3)', 
-                                color: '#3b82f6', 
-                                fontSize: '0.68rem', 
-                                fontWeight: 800, 
-                                cursor: 'pointer', 
-                                padding: '2px 8px',
-                                borderRadius: '6px',
-                                transition: 'all 0.15s ease'
+                                padding: '0.75rem 1rem',
+                                fontSize: '0.95rem', 
+                                fontWeight: 700,
+                                color: 'var(--text-primary)',
+                                borderColor: isSerialDuplicate ? '#ef4444' : undefined,
+                                backgroundColor: isSerialDuplicate ? 'rgba(239, 68, 68, 0.12)' : 'var(--bg-card)' 
                               }}
-                            >
-                              SUGGEST: {nextSuggestedSerial}
-                            </button>
-                          )}
-                        </label>
-                        <input 
-                          type="text" 
-                          className="form-input" 
-                          style={{ 
-                            padding: '0.75rem 1rem',
-                            fontSize: '0.95rem', 
-                            fontWeight: 700,
-                            borderColor: isSerialConflict ? '#ef4444' : undefined,
-                            backgroundColor: isSerialConflict ? 'rgba(239, 68, 68, 0.12)' : 'var(--bg-card)',
-                            color: 'var(--text-primary)'
-                          }}
-                          placeholder="e.g. 10001" 
-                          value={formData.serialNumber} 
-                          onChange={(e) => setFormData({ ...formData, serialNumber: e.target.value })} 
-                        />
-                      </div>
+                              placeholder="e.g. 10001" 
+                              value={formData.serialNumber} 
+                              onChange={(e) => setFormData({ ...formData, serialNumber: e.target.value })} 
+                            />
+                          </div>
+                        );
+                      })()}
                       
                       <div className="form-group" style={{ marginBottom: 0 }}>
                         <label className="form-label" style={{ fontSize: '0.75rem' }}>Trailer Model *</label>
@@ -946,9 +923,9 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
                       fontSize: '1rem', 
                       borderRadius: '12px', 
                       position: 'relative',
-                      opacity: isSerialConflict ? 0.6 : 1
+                      opacity: trailers.some(t => t.serialNumber === formData.serialNumber && !t.isDeleted && t.id !== approvingQuoteId) ? 0.6 : 1
                     }}
-                    disabled={isSubmitting || isSerialConflict}
+                    disabled={isSubmitting || trailers.some(t => t.serialNumber === formData.serialNumber && !t.isDeleted && t.id !== approvingQuoteId)}
                   >
                     Confirm Registration <ArrowRight size={18} />
                     <div className="reco-badge-tag" style={{ 
@@ -1353,23 +1330,53 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
                 const renderQuoteRow = (quote: Trailer, isAutoDenied: boolean) => {
                   const createdAt = quote.dateStarted || quote.history?.[0]?.enteredAt || 0;
                   const ageDays = createdAt ? Math.floor((Date.now() - createdAt) / (1000 * 60 * 60 * 24)) : 0;
+                  const isBlackColor = quote.trailer_color && (
+                    quote.trailer_color.trim().toLowerCase() === 'black' || 
+                    quote.trailer_color.trim().toLowerCase() === '#000' || 
+                    quote.trailer_color.trim().toLowerCase() === '#000000' ||
+                    quote.trailer_color.trim().toLowerCase() === '#111' ||
+                    quote.trailer_color.trim().toLowerCase() === '#111111' ||
+                    quote.trailer_color.trim().toLowerCase() === '#1a1a1a' ||
+                    quote.trailer_color.trim().toLowerCase() === '#222'
+                  );
 
                   return (
-                    <div key={quote.id} style={{ padding: '1.25rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', transition: 'background-color 0.2s', background: 'var(--bg-card)', borderBottom: '1px solid var(--border-default)' }}>
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px', flexWrap: 'wrap' }}>
-                          <span style={{ fontWeight: 800, fontSize: '1.1rem', color: 'var(--text-primary)' }}>{quote.serialNumber}</span>
-                          <span style={{ fontSize: '0.8rem', background: '#fef3c7', color: '#b45309', padding: '2px 8px', borderRadius: '4px', fontWeight: 700 }}>{quote.model}</span>
-                          {isAutoDenied ? (
-                            <span style={{ fontSize: '0.72rem', background: '#fee2e2', color: '#dc2626', padding: '2px 8px', borderRadius: '6px', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '4px', border: '1px solid #fecaca' }}>
-                              <Clock size={12} /> Auto-Denied ({ageDays}d old)
-                            </span>
-                          ) : (
-                            <span style={{ fontSize: '0.72rem', background: '#eff6ff', color: '#2563eb', padding: '2px 8px', borderRadius: '6px', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '4px', border: '1px solid #bfdbfe' }}>
-                              <Clock size={12} /> Pending ({Math.max(0, 7 - ageDays)}d left)
-                            </span>
-                          )}
-                        </div>
+                    <div key={quote.id} style={{ padding: '1.25rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', transition: 'background-color 0.2s', background: 'var(--bg-card)', borderBottom: '1px solid var(--border-default)', gap: '1.25rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', minWidth: 0 }}>
+                        {quote.trailer_color && (
+                          <div 
+                            title={`Color: ${quote.trailer_color}`} 
+                            style={{ 
+                              width: '32px', 
+                              height: '32px', 
+                              flexShrink: 0, 
+                              borderRadius: '8px', 
+                              background: quote.trailer_color, 
+                              border: isBlackColor 
+                                ? '2.5px solid rgba(255, 255, 255, 0.95)' 
+                                : ((quote.trailer_color.toLowerCase() === 'white' || quote.trailer_color === '#fff' || quote.trailer_color === '#ffffff') 
+                                  ? '2px solid #94a3b8' 
+                                  : '1.5px solid rgba(255, 255, 255, 0.35)'), 
+                              boxShadow: isBlackColor 
+                                ? '0 0 0 1px rgba(0,0,0,0.6), 0 2px 6px rgba(255, 255, 255, 0.25)' 
+                                : '0 2px 5px rgba(0,0,0,0.18)' 
+                            }} 
+                          />
+                        )}
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px', flexWrap: 'wrap' }}>
+                            <span style={{ fontWeight: 800, fontSize: '1.1rem', color: 'var(--text-primary)' }}>{quote.serialNumber}</span>
+                            <span style={{ fontSize: '0.8rem', background: '#fef3c7', color: '#b45309', padding: '2px 8px', borderRadius: '4px', fontWeight: 700 }}>{quote.model}</span>
+                            {isAutoDenied ? (
+                              <span style={{ fontSize: '0.72rem', background: '#fee2e2', color: '#dc2626', padding: '2px 8px', borderRadius: '6px', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '4px', border: '1px solid #fecaca' }}>
+                                <Clock size={12} /> Auto-Denied ({ageDays}d old)
+                              </span>
+                            ) : (
+                              <span style={{ fontSize: '0.72rem', background: '#eff6ff', color: '#2563eb', padding: '2px 8px', borderRadius: '6px', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '4px', border: '1px solid #bfdbfe' }}>
+                                <Clock size={12} /> Pending ({Math.max(0, 7 - ageDays)}d left)
+                              </span>
+                            )}
+                          </div>
                         <div style={{ display: 'flex', gap: '16px', fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600, flexWrap: 'wrap' }}>
                           <span>Sales Rep: {quote.salesPerson || 'N/A'}</span>
                           <span>Dealer: {quote.name !== '---' ? quote.name : 'N/A'}</span>
@@ -1377,18 +1384,15 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
                           {createdAt > 0 && <span>Created: {format(new Date(createdAt), 'MMM d, yyyy')}</span>}
                         </div>
                       </div>
+                    </div>
                       
-                      <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+                    <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
                         <button 
                           onClick={() => {
-                            const quoteSerialNum = quote.serialNumber && !/^Q(UOTE)?(-\d+)?$/i.test(quote.serialNumber.trim())
-                              ? quote.serialNumber.trim()
-                              : (nextSuggestedSerial || '');
-
                             setFormData({
                               name: quote.name !== '---' ? quote.name : '',
                               model: quote.model,
-                              serialNumber: quoteSerialNum,
+                              serialNumber: nextSuggestedSerial || '',
                               station: 'B1',
                               isPriority: quote.isPriority || false,
                               partsStatus: quote.partsStatus || { tyres: false, steel: false, parts: false },
