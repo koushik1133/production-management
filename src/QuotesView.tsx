@@ -52,7 +52,7 @@ export const getQuoteStatus = (
     !t.isDeleted
   );
 
-  if (matchingTrailer && (matchingTrailer.quoteStatus === 'approved' || (matchingTrailer.notes && matchingTrailer.notes.includes('[STATUS:approved]')))) {
+  if (matchingTrailer && (matchingTrailer.quoteStatus === 'approved' || (matchingTrailer.notes && (matchingTrailer.notes.includes('[STATUS:approved]') || matchingTrailer.notes.includes('Approved into Backlog'))))) {
     return { label: 'Approved', type: 'approved', color: '#059669', bg: '#ecfdf5', border: '#a7f3d0' };
   }
 
@@ -134,13 +134,13 @@ export const QuotesView: React.FC<Props> = ({
     // 2. Merge active or historical quote trailers from trailers prop
     if (trailers && trailers.length > 0) {
       trailers
-        .filter(t => !t.isDeleted && (t.currentPhase === 'quote' || (t.notes && t.notes.includes('[STATUS:approved]'))))
+        .filter(t => !t.isDeleted && (t.currentPhase === 'quote' || (t.notes && (t.notes.includes('[STATUS:approved]') || t.notes.includes('Approved into Backlog')))))
         .forEach(t => {
           const displaySerial = t.serialNumber?.replace(/-Q$/i, '') || t.serialNumber;
           const s = displaySerial?.trim().toLowerCase();
           if (s) {
-            const isApproved = t.quoteStatus === 'approved' || (t.notes && t.notes.includes('[STATUS:approved]'));
-            const isDenied = t.quoteStatus === 'denied' || (t.notes && t.notes.includes('[STATUS:denied]'));
+            const isApproved = t.quoteStatus === 'approved' || (t.notes && (t.notes.includes('[STATUS:approved]') || t.notes.includes('Approved into Backlog')));
+            const isDenied = t.quoteStatus === 'denied' || (t.notes && (t.notes.includes('[STATUS:denied]') || t.notes.includes('[STATUS:auto_denied]')));
             const existing = map.get(s);
             if (existing) {
               if (isApproved && existing.status !== 'approved') {
@@ -515,7 +515,8 @@ export const QuotesView: React.FC<Props> = ({
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
             {filtered.map(q => {
               const addedDate = safeDate(q.created_at);
-              const quoteLabel = `${q.dealer_name || 'Customer'} - ${q.model || 'Model'} ${q.serial_number}${q.notes ? ` (${q.notes})` : ''}`;
+              const cleanNotes = (q.notes || '').replace(/\[STATUS:[^\]]+\]\s*/gi, '').trim();
+              const quoteLabel = `${q.dealer_name || 'Customer'} - ${q.model || 'Model'} ${q.serial_number}${cleanNotes ? ` (${cleanNotes})` : ''}`;
               const isDownloading = downloadingId === q.id;
               const statusInfo = getQuoteStatus(q, trailers);
 
@@ -572,7 +573,7 @@ export const QuotesView: React.FC<Props> = ({
                       {addedDate && <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}><Calendar size={13} /> {format(addedDate, 'MMM d, yyyy')}</span>}
                       {addedDate && <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}><Clock size={13} /> {formatDistanceToNow(addedDate, { addSuffix: true })}</span>}
                     </div>
-                    {q.notes && <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.35rem', fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{q.notes}</p>}
+                    {cleanNotes && <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.35rem', fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cleanNotes}</p>}
                   </div>
                   {userRole === 'manager' && q.sale_price != null && (
                     <div style={{ textAlign: 'right', flexShrink: 0 }}>

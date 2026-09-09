@@ -2518,7 +2518,7 @@ function AppContent({ userRole, currentUser }: { userRole: UserRole; currentUser
           mapped.history = Array.isArray(mapped.history) ? mapped.history : [];
 
           // Restore quoteStatus from notes or explicit column
-          if (t.notes && t.notes.includes('[STATUS:approved]')) {
+          if (t.notes && (t.notes.includes('[STATUS:approved]') || t.notes.includes('Approved into Backlog'))) {
             mapped.quoteStatus = 'approved';
           } else if (t.notes && (t.notes.includes('[STATUS:denied]') || t.notes.includes('[STATUS:auto_denied]'))) {
             mapped.quoteStatus = 'denied';

@@ -484,8 +484,8 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
       onAddTrailer(newBacklogTrailer);
 
       // 2. Keep the original quote row in trailers table as an independent approved quote
-      const cleanNotes = (originalQuote?.notes || '').replace(/\[STATUS:[^\]]+\]\s*/g, '');
-      const updatedNotes = `[STATUS:approved] Approved into Backlog #${serialNum}${cleanNotes ? ` • ${cleanNotes}` : ''}`.trim();
+      const cleanNotes = (originalQuote?.notes || '').replace(/\[STATUS:[^\]]+\]\s*/g, '').trim();
+      const updatedNotes = `Approved into Backlog #${serialNum}${cleanNotes ? ` • ${cleanNotes}` : ''}`.trim();
 
       // If user typed the exact same serial for production backlog as quote serial, suffix quote serial internally
       const safeQuoteSerial = serialNum.trim().toLowerCase() === quoteSerial.trim().toLowerCase()

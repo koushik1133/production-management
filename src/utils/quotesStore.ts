@@ -134,13 +134,13 @@ export async function fetchAllPersistentQuotes(trailers: Trailer[] = []): Promis
   // 3. Fallback: Merge trailers with phase 'quote' or quote history
   if (trailers && trailers.length > 0) {
     trailers
-      .filter(t => !t.isDeleted && (t.currentPhase === 'quote' || (t.notes && t.notes.includes('[STATUS:approved]'))))
+      .filter(t => !t.isDeleted && (t.currentPhase === 'quote' || (t.notes && (t.notes.includes('[STATUS:approved]') || t.notes.includes('Approved into Backlog')))))
       .forEach(t => {
         const displaySerial = t.serialNumber?.replace(/-Q$/i, '') || t.serialNumber;
         const s = displaySerial?.trim().toLowerCase();
         if (s && !map.has(s)) {
-          const isApproved = t.quoteStatus === 'approved' || (t.notes && t.notes.includes('[STATUS:approved]'));
-          const isDenied = t.quoteStatus === 'denied' || (t.notes && t.notes.includes('[STATUS:denied]'));
+          const isApproved = t.quoteStatus === 'approved' || (t.notes && (t.notes.includes('[STATUS:approved]') || t.notes.includes('Approved into Backlog')));
+          const isDenied = t.quoteStatus === 'denied' || (t.notes && (t.notes.includes('[STATUS:denied]') || t.notes.includes('[STATUS:auto_denied]')));
           const rec: QuoteRecord = {
             id: t.id,
             trailer_id: t.id,
