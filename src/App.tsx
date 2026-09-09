@@ -1079,12 +1079,17 @@ function Dashboard({
               onShipRequest={async (t) => {
                 // Initialize form fields immediately and open modal so user can view/edit details or save without archiving
                 const getPhaseHours = (phaseId: string) => {
-                    const entries = (t.history ?? []).filter(h => h.phase === phaseId);
-                    const manual = entries.reduce((s, h) => s + (h.phaseManualHours || h.bayManualHours || 0), 0);
-                    if (manual > 0) return manual.toString();
-                    const ms = entries.reduce((s, h) => s + (h.duration || ((h.exitedAt && h.enteredAt) ? h.exitedAt - h.enteredAt : 0)), 0);
-                    return (ms / 3600000).toFixed(1);
-                  };
+                  const entries = (t.history ?? []).filter(h => h.phase === phaseId);
+                  let found = false;
+                  let total = 0;
+                  entries.forEach(log => {
+                    if (log.phaseManualHours !== undefined || log.bayManualHours !== undefined) {
+                      found = true;
+                      total += (log.phaseManualHours ?? log.bayManualHours ?? 0);
+                    }
+                  });
+                  return (found && total > 0) ? total.toString() : '0.0';
+                };
 
                   setShippingHours({
                     prefab: getPhaseHours('prefab'),
