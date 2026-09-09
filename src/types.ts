@@ -12,6 +12,7 @@ export interface TimeLog {
   duration?: number;
   phaseManualHours?: number;
   bayManualHours?: number;
+  targetHours?: number;
 }
 
 export interface SpecSheetVersion {
@@ -199,8 +200,11 @@ export function calculateTrailerRemainingHours(trailer: Trailer, hoursConfig?: R
         return sum;
       }, 0);
 
-    // 2. Otherwise fall back to catalog model template target hours
-    const templateHours = hoursConfig?.[trailer.model]?.[pId] ?? MODEL_TARGET_HOURS[trailer.model]?.[pId] ?? PHASE_METADATA[pId]?.defaultTargetHours ?? 0;
+    // 2. Otherwise fall back to custom saved target hours or catalog model template target hours
+    const savedTarget = (trailer.history ?? []).slice().reverse().find(h => h.phase === pId && h.targetHours !== undefined)?.targetHours;
+    const templateHours = (savedTarget !== undefined && savedTarget > 0)
+      ? savedTarget
+      : (hoursConfig?.[trailer.model]?.[pId] ?? MODEL_TARGET_HOURS[trailer.model]?.[pId] ?? PHASE_METADATA[pId]?.defaultTargetHours ?? 0);
 
     const effectiveTargetHours = manualHours > 0 ? manualHours : templateHours;
 

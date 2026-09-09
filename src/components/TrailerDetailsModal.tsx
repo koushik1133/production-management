@@ -278,75 +278,127 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
   };
 
   // ── Local hours state ──────────────────────────────────────────────────
-  // We keep a local string map per phase so typing "855" feels instant.
-  // The DB is only written when the user clicks "Save Hours".
-  const getPhaseManualHoursFromHistory = React.useCallback((phaseId: string): number => {
+  // Current / entered hours: check if manual hours were explicitly entered
+  const getPhaseManualHoursFromHistory = React.useCallback((phaseId: string): number | null => {
     const entries = (trailer.history ?? []).filter(h => h.phase === phaseId);
+    let found = false;
     let total = 0;
     entries.forEach(log => {
       if (log.phaseManualHours !== undefined || log.bayManualHours !== undefined) {
+        found = true;
         total += (log.phaseManualHours ?? log.bayManualHours ?? 0);
-      } else if (log.duration) {
-        total += Math.round(log.duration / (1000 * 60 * 60));
-      } else if (log.exitedAt && log.enteredAt && (log.exitedAt > log.enteredAt)) {
-        total += Math.round((log.exitedAt - log.enteredAt) / (1000 * 60 * 60));
       }
     });
-    return total;
+    return found ? total : null;
   }, [trailer.history]);
 
-  const buildLocalHoursMap = React.useCallback((): Record<string, string> => {
+  // Target hours: custom saved target from trailer history, or catalog default
+  const getPhaseTargetHoursFromHistory = React.useCallback((phaseId: string): number => {
+    const entries = (trailer.history ?? []).filter(h => h.phase === phaseId);
+    const lastWithTarget = entries.slice().reverse().find(h => h.targetHours !== undefined);
+    if (lastWithTarget && lastWithTarget.targetHours !== undefined && lastWithTarget.targetHours > 0) {
+      return lastWithTarget.targetHours;
+    }
+    return localTargetHours?.[trailer.model]?.[phaseId as PhaseId] ?? PHASE_METADATA[phaseId as PhaseId]?.defaultTargetHours ?? 0;
+  }, [trailer.history, localTargetHours, trailer.model]);
+
+  const buildLocalCurrentHoursMap = React.useCallback((): Record<string, string> => {
     const map: Record<string, string> = {};
     PHASES.filter(p => !['backlog', 'shipping'].includes(p.id)).forEach(p => {
       const v = getPhaseManualHoursFromHistory(p.id);
-      if (v > 0) {
-        map[p.id] = String(v);
-      } else {
-        const defaultH = localTargetHours?.[trailer.model]?.[p.id] ?? PHASE_METADATA[p.id]?.defaultTargetHours ?? 0;
-        map[p.id] = defaultH > 0 ? String(defaultH) : '';
-      }
+      map[p.id] = (v !== null && v > 0) ? String(v) : '';
     });
     return map;
-  }, [getPhaseManualHoursFromHistory, localTargetHours, trailer.model]);
+  }, [getPhaseManualHoursFromHistory]);
 
-  const [localHours, setLocalHours] = React.useState<Record<string, string>>(() => buildLocalHoursMap());
+  const buildLocalTargetHoursMap = React.useCallback((): Record<string, string> => {
+    const map: Record<string, string> = {};
+    PHASES.filter(p => !['backlog', 'shipping'].includes(p.id)).forEach(p => {
+      const v = getPhaseTargetHoursFromHistory(p.id);
+      map[p.id] = v > 0 ? String(v) : '';
+    });
+    return map;
+  }, [getPhaseTargetHoursFromHistory]);
+
+  const [localCurrentHours, setLocalCurrentHours] = React.useState<Record<string, string>>(() => buildLocalCurrentHoursMap());
+  const [localTargetHoursState, setLocalTargetHoursState] = React.useState<Record<string, string>>(() => buildLocalTargetHoursMap());
   const [hoursDirty, setHoursDirty] = React.useState(false);
 
-  // Reset local hours whenever the trailer or modal reopens
+  // Reset local hours whenever trailer or modal reopens
   React.useEffect(() => {
-    setLocalHours(buildLocalHoursMap());
+    setLocalCurrentHours(buildLocalCurrentHoursMap());
+    setLocalTargetHoursState(buildLocalTargetHoursMap());
     setHoursDirty(false);
-  }, [trailer.id, trailer.history, buildLocalHoursMap]);
-
+  }, [trailer.id, trailer.history, buildLocalCurrentHoursMap, buildLocalTargetHoursMap]);
 
   const totalTimeDisplay = React.useMemo(() => {
     const activePhases = PHASES.filter(p => !['backlog', 'shipping'].includes(p.id));
-    const totalH = activePhases.reduce((sum, p) => {
-      return sum + (parseFloat(localHours[p.id] || '0') || 0);
-    }, 0);
-    const h = Math.floor(totalH);
-    const m = Math.round((totalH % 1) * 60);
-    return `${h}h ${m}m`;
-  }, [localHours]);
+    let totalCurrent = 0;
+    let hasCurrent = false;
+    let totalTarget = 0;
+
+    activePhases.forEach(p => {
+      const cur = parseFloat(localCurrentHours[p.id] || '');
+      if (!isNaN(cur) && cur > 0) {
+        totalCurrent += cur;
+        hasCurrent = true;
+      }
+      const tgt = parseFloat(localTargetHoursState[p.id] || '0') || 0;
+      totalTarget += tgt;
+    });
+
+    const formatHm = (val: number) => {
+      const h = Math.floor(val);
+      const m = Math.round((val % 1) * 60);
+      return `${h}h ${m}m`;
+    };
+
+    if (hasCurrent) {
+      return `${formatHm(totalCurrent)} (Target: ${formatHm(totalTarget)})`;
+    }
+    return `${formatHm(totalTarget)}`;
+  }, [localCurrentHours, localTargetHoursState]);
 
   const handleSaveHours = React.useCallback(() => {
     const updatedHistory = [...(trailer.history ?? [])];
     PHASES.filter(p => !['backlog', 'shipping'].includes(p.id)).forEach(phase => {
-      const val = parseFloat(localHours[phase.id] || '0') || 0;
+      const rawCur = localCurrentHours[phase.id];
+      const curVal = (rawCur !== undefined && rawCur !== '' && !isNaN(parseFloat(rawCur)))
+        ? parseFloat(rawCur)
+        : undefined;
+
+      const rawTgt = localTargetHoursState[phase.id];
+      const tgtVal = (rawTgt !== undefined && rawTgt !== '' && !isNaN(parseFloat(rawTgt)))
+        ? parseFloat(rawTgt)
+        : undefined;
+
       let targetIdx = -1;
       for (let i = updatedHistory.length - 1; i >= 0; i--) {
         if (updatedHistory[i].phase === phase.id) { targetIdx = i; break; }
       }
+
       if (targetIdx !== -1) {
-        updatedHistory[targetIdx] = { ...updatedHistory[targetIdx], phaseManualHours: val, bayManualHours: val };
-      } else if (val > 0) {
-        updatedHistory.push({ phase: phase.id, enteredAt: Date.now(), phaseManualHours: val, bayManualHours: val });
+        updatedHistory[targetIdx] = {
+          ...updatedHistory[targetIdx],
+          phaseManualHours: curVal,
+          bayManualHours: curVal,
+          targetHours: tgtVal
+        };
+      } else if (curVal !== undefined || tgtVal !== undefined) {
+        updatedHistory.push({
+          phase: phase.id,
+          enteredAt: Date.now(),
+          phaseManualHours: curVal,
+          bayManualHours: curVal,
+          targetHours: tgtVal
+        });
       }
     });
+
     onUpdate(trailer.id, { history: updatedHistory });
     setHoursDirty(false);
     triggerToast('Production Hours Saved!');
-  }, [trailer.id, trailer.history, localHours, onUpdate]);
+  }, [trailer.id, trailer.history, localCurrentHours, localTargetHoursState, onUpdate]);
 
   const formatLogDuration = (ms: number) => {
     const totalMinutes = Math.floor(ms / (1000 * 60));
@@ -874,28 +926,129 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                   </button>
                 </div>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '0.75rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(175px, 1fr))', gap: '0.75rem' }}>
                 {PHASES.filter(p => !['backlog', 'shipping'].includes(p.id)).map(phase => {
-                  const rawVal = localHours[phase.id] ?? '';
+                  const currentRaw = localCurrentHours[phase.id] ?? '';
+                  const targetRaw = localTargetHoursState[phase.id] ?? '';
+                  const hasEnteredCurrent = currentRaw !== '' && parseFloat(currentRaw) > 0;
 
                   return (
-                    <div key={phase.id} style={{ background: 'var(--bg-card)', padding: '0.6rem', borderRadius: '12px', border: `1.5px solid ${hoursDirty ? 'rgba(13,148,136,0.3)' : 'var(--border-default)'}`, boxShadow: 'var(--shadow-sm)' }}>
-                      <div style={{ fontSize: '0.6rem', fontWeight: 800, color: 'var(--text-primary)', textTransform: 'uppercase', marginBottom: '6px', letterSpacing: '0.025em' }}>{phase.title}</div>
-                      <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-secondary)', borderRadius: '6px', padding: '4px 8px', border: '1.5px solid var(--border-default)' }}>
-                        <input
-                          type="text"
-                          inputMode="decimal"
-                          style={{ width: '100%', border: 'none', background: 'transparent', fontSize: '1rem', fontWeight: 900, color: 'var(--text-primary)', textAlign: 'left', outline: 'none' }}
-                          value={rawVal}
-                          placeholder="0"
-                          onChange={(e) => {
-                            // Allow digits and a single decimal point
-                            const raw = e.target.value.replace(/[^0-9.]/g, '').replace(/(\..*?)\..*/g, '$1');
-                            setLocalHours(prev => ({ ...prev, [phase.id]: raw }));
-                            setHoursDirty(true);
+                    <div
+                      key={phase.id}
+                      style={{
+                        background: 'var(--bg-card)',
+                        padding: '0.65rem 0.75rem',
+                        borderRadius: '14px',
+                        border: `1.5px solid ${hasEnteredCurrent ? 'rgba(13,148,136,0.4)' : (hoursDirty ? 'rgba(13,148,136,0.2)' : 'var(--border-default)')}`,
+                        boxShadow: 'var(--shadow-sm)',
+                        transition: 'all 0.2s'
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                        <span style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                          {phase.title}
+                        </span>
+                        {hasEnteredCurrent ? (
+                          <span style={{ fontSize: '0.58rem', fontWeight: 800, color: '#0d9488', background: 'rgba(13,148,136,0.12)', padding: '1px 6px', borderRadius: '4px' }}>
+                            Entered
+                          </span>
+                        ) : (
+                          <span style={{ fontSize: '0.58rem', fontWeight: 700, color: 'var(--text-muted)' }}>
+                            Catalog
+                          </span>
+                        )}
+                      </div>
+
+                      <div
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: '1fr 1fr',
+                          background: 'var(--bg-secondary)',
+                          borderRadius: '8px',
+                          border: '1.5px solid var(--border-default)',
+                          overflow: 'hidden'
+                        }}
+                      >
+                        {/* Left half: Current timing (entered) */}
+                        <div
+                          style={{
+                            padding: '6px 8px',
+                            borderRight: '1px solid var(--border-default)',
+                            background: hasEnteredCurrent ? 'rgba(13,148,136,0.08)' : 'transparent',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '2px'
                           }}
-                        />
-                        <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', marginLeft: '4px' }}>h</span>
+                        >
+                          <span style={{ fontSize: '0.55rem', fontWeight: 800, color: hasEnteredCurrent ? '#0d9488' : 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                            Current
+                          </span>
+                          <div style={{ display: 'flex', alignItems: 'baseline' }}>
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              style={{
+                                width: '100%',
+                                border: 'none',
+                                background: 'transparent',
+                                fontSize: '0.95rem',
+                                fontWeight: 900,
+                                color: hasEnteredCurrent ? '#0d9488' : 'var(--text-primary)',
+                                outline: 'none',
+                                padding: 0
+                              }}
+                              value={currentRaw}
+                              placeholder="—"
+                              title="Enter current timing for this phase"
+                              onChange={(e) => {
+                                const raw = e.target.value.replace(/[^0-9.]/g, '').replace(/(\..*?)\..*/g, '$1');
+                                setLocalCurrentHours(prev => ({ ...prev, [phase.id]: raw }));
+                                setHoursDirty(true);
+                              }}
+                            />
+                            <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', marginLeft: '2px' }}>h</span>
+                          </div>
+                        </div>
+
+                        {/* Right half: Target timing (from catalog or custom) */}
+                        <div
+                          style={{
+                            padding: '6px 8px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '2px',
+                            background: 'rgba(0,0,0,0.015)'
+                          }}
+                        >
+                          <span style={{ fontSize: '0.55rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                            Target
+                          </span>
+                          <div style={{ display: 'flex', alignItems: 'baseline' }}>
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              style={{
+                                width: '100%',
+                                border: 'none',
+                                background: 'transparent',
+                                fontSize: '0.95rem',
+                                fontWeight: 800,
+                                color: 'var(--text-secondary)',
+                                outline: 'none',
+                                padding: 0
+                              }}
+                              value={targetRaw}
+                              placeholder="0"
+                              title="Catalog target timing for this phase"
+                              onChange={(e) => {
+                                const raw = e.target.value.replace(/[^0-9.]/g, '').replace(/(\..*?)\..*/g, '$1');
+                                setLocalTargetHoursState(prev => ({ ...prev, [phase.id]: raw }));
+                                setHoursDirty(true);
+                              }}
+                            />
+                            <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', marginLeft: '2px' }}>h</span>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   );

@@ -130,11 +130,15 @@ export const TrailerCard: React.FC<Props> = React.memo(({
   const currentManual = (trailer.history ?? [])
     .filter(h => h.phase === trailer.currentPhase)
     .reduce((sum, h) => sum + (h.phaseManualHours ?? h.bayManualHours ?? 0), 0);
+  const savedTarget = (trailer.history ?? [])
+    .slice().reverse().find(h => h.phase === trailer.currentPhase && h.targetHours !== undefined)?.targetHours;
   const targetHours = currentManual > 0
     ? currentManual
-    : (localTargetHours[trailer.model]?.[trailer.currentPhase]
-      ?? PHASE_METADATA[trailer.currentPhase]?.defaultTargetHours
-      ?? 40);
+    : ((savedTarget !== undefined && savedTarget > 0)
+      ? savedTarget
+      : (localTargetHours[trailer.model]?.[trailer.currentPhase]
+        ?? PHASE_METADATA[trailer.currentPhase]?.defaultTargetHours
+        ?? 40));
   const isBottleneck = trailer.currentPhase !== 'backlog' && hoursRemaining > targetHours;
 
   const timeToShipping = calculateTrailerRemainingHours(trailer, localTargetHours);
