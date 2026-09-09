@@ -98,7 +98,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
   const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
   const allQuoteTrailers = trailers
-    .filter(t => !t.isArchived && !t.isDeleted && t.currentPhase === 'quote')
+    .filter(t => !t.isArchived && !t.isDeleted && t.currentPhase === 'quote' && t.quoteStatus !== 'approved' && !t.notes?.includes('[STATUS:approved]'))
     .filter(t => 
       (t.name?.toLowerCase() ?? '').includes(searchQuery.toLowerCase()) || 
       (t.serialNumber?.toLowerCase() ?? '').includes(searchQuery.toLowerCase()) ||
@@ -107,7 +107,8 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
 
   const pendingQuoteTrailers = allQuoteTrailers
     .filter(t => {
-      if (t.quoteStatus === 'denied' || t.quoteStatus === 'auto_denied') return false;
+      if (t.quoteStatus === 'approved' || (t.notes && t.notes.includes('[STATUS:approved]'))) return false;
+      if (t.quoteStatus === 'denied' || t.quoteStatus === 'auto_denied' || (t.notes && (t.notes.includes('[STATUS:denied]') || t.notes.includes('[STATUS:auto_denied]')))) return false;
       const createdAt = t.dateStarted || t.history?.[0]?.enteredAt || Date.now();
       return (Date.now() - createdAt) <= SEVEN_DAYS_MS;
     })
@@ -115,7 +116,8 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
 
   const autoDeniedQuoteTrailers = allQuoteTrailers
     .filter(t => {
-      if (t.quoteStatus === 'denied' || t.quoteStatus === 'auto_denied') return true;
+      if (t.quoteStatus === 'approved' || (t.notes && t.notes.includes('[STATUS:approved]'))) return false;
+      if (t.quoteStatus === 'denied' || t.quoteStatus === 'auto_denied' || (t.notes && (t.notes.includes('[STATUS:denied]') || t.notes.includes('[STATUS:auto_denied]')))) return true;
       const createdAt = t.dateStarted || t.history?.[0]?.enteredAt || Date.now();
       return (Date.now() - createdAt) > SEVEN_DAYS_MS;
     })
@@ -447,31 +449,11 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
 
     if (approvingQuoteId) {
       const originalQuote = trailers.find(t => t.id === approvingQuoteId);
-      const quoteSerial = originalQuote?.serialNumber || serialNum;
+      const quoteSerial = originalQuote?.serialNumber || `Q-${Math.floor(1000 + Math.random() * 9000)}`;
 
-      // 1. Permanently save the approved quote record so it ALWAYS stays in Quotes view!
-      persistQuote({
-        id: originalQuote ? `quote-${originalQuote.id}` : crypto.randomUUID(),
-        trailer_id: approvingQuoteId,
-        serial_number: quoteSerial,
-        model: formData.model || originalQuote?.model,
-        dealer_name: formData.name || originalQuote?.name || '---',
-        sale_price: formData.sale_price ? parseFloat(formData.sale_price) : (originalQuote?.sale_price ?? null),
-        trailer_color: formData.trailer_color || originalQuote?.trailer_color,
-        trailer_plug: formData.trailer_plug || originalQuote?.trailer_plug,
-        sales_person: formData.salesPerson || originalQuote?.salesPerson,
-        dealer_location: dealerLocationVal || originalQuote?.dealerLocation,
-        dealer_address: selectedDealer?.common_address || originalQuote?.dealerCommonAddress,
-        purchase_order: formData.purchaseOrder || originalQuote?.purchaseOrder,
-        consignment: formData.consignment || originalQuote?.consignment,
-        quote_file_path: originalQuote?.spec_sheet_file || finalSpecSheetFile,
-        status: 'approved',
-        created_at: originalQuote?.dateStarted ? new Date(originalQuote.dateStarted).toISOString() : new Date().toISOString(),
-        notes: `Approved into Production Backlog #${serialNum}${originalQuote?.notes ? ` • ${originalQuote.notes}` : ''}`
-      });
-
-      // 2. Convert quote trailer to backlog for production without disturbing workflow
-      onUpdateTrailer(approvingQuoteId, {
+      // 1. Create a brand-new independent production trailer for Backlog
+      const newBacklogTrailer: Trailer = {
+        id: crypto.randomUUID(),
         name: formData.name || '---',
         model: formData.model,
         serialNumber: serialNum,
@@ -484,6 +466,9 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
         ],
         partsStatus: formData.partsStatus,
         promisedShippingDate: formData.promisedShippingDate,
+        isArchived: false,
+        isDeleted: false,
+        station: 'None',
         sale_price: formData.sale_price ? parseFloat(formData.sale_price) : undefined,
         spec_sheet_file: finalSpecSheetFile,
         trailer_color: formData.trailer_color || undefined,
@@ -493,11 +478,50 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
         dealerCommonAddress: selectedDealer?.common_address || undefined,
         dealerId: selectedDealer?.id || undefined,
         purchaseOrder: formData.purchaseOrder || undefined,
-        consignment: formData.consignment || undefined,
-        quoteStatus: 'approved'
+        consignment: formData.consignment || undefined
+      };
+
+      onAddTrailer(newBacklogTrailer);
+
+      // 2. Keep the original quote row in trailers table as an independent approved quote
+      const cleanNotes = (originalQuote?.notes || '').replace(/\[STATUS:[^\]]+\]\s*/g, '');
+      const updatedNotes = `[STATUS:approved] Approved into Backlog #${serialNum}${cleanNotes ? ` • ${cleanNotes}` : ''}`.trim();
+
+      // If user typed the exact same serial for production backlog as quote serial, suffix quote serial internally
+      const safeQuoteSerial = serialNum.trim().toLowerCase() === quoteSerial.trim().toLowerCase()
+        ? `${quoteSerial}-Q`
+        : quoteSerial;
+
+      onUpdateTrailer(approvingQuoteId, {
+        serialNumber: safeQuoteSerial,
+        quoteStatus: 'approved',
+        notes: updatedNotes
       });
+
+      // 3. Permanently save the approved quote record to persistent quotes store (localStorage + Supabase quotes table)
+      persistQuote({
+        id: originalQuote ? `quote-${originalQuote.id}` : crypto.randomUUID(),
+        trailer_id: approvingQuoteId,
+        serial_number: quoteSerial,
+        model: originalQuote?.model || formData.model,
+        dealer_name: originalQuote?.name || formData.name || '---',
+        sale_price: originalQuote?.sale_price ?? (formData.sale_price ? parseFloat(formData.sale_price) : null),
+        trailer_color: originalQuote?.trailer_color || formData.trailer_color,
+        trailer_plug: originalQuote?.trailer_plug || formData.trailer_plug,
+        sales_person: originalQuote?.salesPerson || formData.salesPerson,
+        dealer_location: originalQuote?.dealerLocation || dealerLocationVal,
+        dealer_address: originalQuote?.dealerCommonAddress || selectedDealer?.common_address,
+        purchase_order: originalQuote?.purchaseOrder || formData.purchaseOrder,
+        consignment: originalQuote?.consignment || formData.consignment,
+        quote_file_path: originalQuote?.spec_sheet_file || finalSpecSheetFile,
+        status: 'approved',
+        created_at: originalQuote?.dateStarted ? new Date(originalQuote.dateStarted).toISOString() : new Date().toISOString(),
+        notes: updatedNotes
+      });
+
       setApprovingQuoteId(null);
       setToastMessage('Quote Approved & Added to Backlog!');
+      setTimeout(() => setToastMessage(null), 3000);
     } else {
       const newTrailer: Trailer = {
         id: crypto.randomUUID(),

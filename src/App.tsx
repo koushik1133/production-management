@@ -2517,6 +2517,13 @@ function AppContent({ userRole, currentUser }: { userRole: UserRole; currentUser
           if ('consignment' in mapped && mapped.consignment === null) { mapped.consignment = undefined; }
           mapped.history = Array.isArray(mapped.history) ? mapped.history : [];
 
+          // Restore quoteStatus from notes or explicit column
+          if (t.notes && t.notes.includes('[STATUS:approved]')) {
+            mapped.quoteStatus = 'approved';
+          } else if (t.notes && (t.notes.includes('[STATUS:denied]') || t.notes.includes('[STATUS:auto_denied]'))) {
+            mapped.quoteStatus = 'denied';
+          }
+
           return mapped;
         });
         
@@ -2794,6 +2801,9 @@ function AppContent({ userRole, currentUser }: { userRole: UserRole; currentUser
       delete dbUpdates.shipping_cost;
     }
 
+    // Strip client-side helper fields that may not exist as columns in Postgres trailers table
+    delete dbUpdates.quoteStatus;
+
     const runUpdate = async (retries = 3, delay = 1500): Promise<boolean> => {
       let { error } = await supabase
         .from('trailers')
@@ -2802,10 +2812,19 @@ function AppContent({ userRole, currentUser }: { userRole: UserRole; currentUser
       
       if (error) {
         if (error.code === '42703' || String(error.message || '').includes('shipping_cost') || String(error.message || '').includes('column')) {
+          let handled = false;
           if ('shipping_cost' in dbUpdates) {
             console.warn('shipping_cost column not in trailers table yet, retrying update without it...');
             delete dbUpdates.shipping_cost;
             setHasShippingCostCols(false);
+            handled = true;
+          }
+          if ('quote_status' in dbUpdates || 'quoteStatus' in dbUpdates) {
+            delete dbUpdates.quote_status;
+            delete dbUpdates.quoteStatus;
+            handled = true;
+          }
+          if (handled) {
             return runUpdate(retries, delay);
           }
         }
@@ -3222,6 +3241,8 @@ function AppContent({ userRole, currentUser }: { userRole: UserRole; currentUser
       delete dbTrailer.purchase_order;
       delete dbTrailer.consignment;
     }
+
+    delete dbTrailer.quoteStatus;
 
     const { error } = await supabase
       .from('trailers')

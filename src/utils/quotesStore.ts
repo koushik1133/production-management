@@ -134,15 +134,17 @@ export async function fetchAllPersistentQuotes(trailers: Trailer[] = []): Promis
   // 3. Fallback: Merge trailers with phase 'quote' or quote history
   if (trailers && trailers.length > 0) {
     trailers
-      .filter(t => !t.isDeleted && (t.currentPhase === 'quote' || t.quoteStatus === 'approved' || t.history?.some(h => h.phase === 'quote')))
+      .filter(t => !t.isDeleted && (t.currentPhase === 'quote' || (t.notes && t.notes.includes('[STATUS:approved]'))))
       .forEach(t => {
-        const s = t.serialNumber?.trim().toLowerCase();
+        const displaySerial = t.serialNumber?.replace(/-Q$/i, '') || t.serialNumber;
+        const s = displaySerial?.trim().toLowerCase();
         if (s && !map.has(s)) {
-          const isApproved = t.quoteStatus === 'approved' || t.currentPhase !== 'quote';
+          const isApproved = t.quoteStatus === 'approved' || (t.notes && t.notes.includes('[STATUS:approved]'));
+          const isDenied = t.quoteStatus === 'denied' || (t.notes && t.notes.includes('[STATUS:denied]'));
           const rec: QuoteRecord = {
             id: t.id,
             trailer_id: t.id,
-            serial_number: t.serialNumber,
+            serial_number: displaySerial,
             model: t.model,
             dealer_name: t.name,
             sale_price: t.sale_price ?? null,
@@ -154,7 +156,7 @@ export async function fetchAllPersistentQuotes(trailers: Trailer[] = []): Promis
             purchase_order: t.purchaseOrder,
             consignment: t.consignment,
             quote_file_path: t.spec_sheet_file,
-            status: isApproved ? 'approved' : (t.quoteStatus === 'denied' ? 'denied' : 'quote'),
+            status: isApproved ? 'approved' : (isDenied ? 'denied' : 'quote'),
             created_at: t.dateStarted ? new Date(t.dateStarted).toISOString() : new Date().toISOString(),
             notes: t.notes
           };

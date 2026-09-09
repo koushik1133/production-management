@@ -42,18 +42,21 @@ export const getQuoteStatus = (
     return { label: 'Auto-Denied', type: 'auto_denied', color: '#dc2626', bg: '#fef2f2', border: '#fecaca' };
   }
 
-  // Check if trailer has advanced past quote into backlog or beyond
+  // Check if trailer matching this quote is approved or in backlog
   const matchingTrailer = trailers.find(t =>
     ((quote.trailer_id && t.id === quote.trailer_id) ||
-     (t.serialNumber && quote.serial_number && t.serialNumber.trim().toLowerCase() === quote.serial_number.trim().toLowerCase())) &&
+     (t.serialNumber && quote.serial_number && (
+       t.serialNumber.trim().toLowerCase() === quote.serial_number.trim().toLowerCase() ||
+       t.serialNumber.trim().toLowerCase() === `${quote.serial_number.trim().toLowerCase()}-q`
+     ))) &&
     !t.isDeleted
   );
 
-  if (matchingTrailer && matchingTrailer.currentPhase !== 'quote') {
+  if (matchingTrailer && (matchingTrailer.quoteStatus === 'approved' || (matchingTrailer.notes && matchingTrailer.notes.includes('[STATUS:approved]')))) {
     return { label: 'Approved', type: 'approved', color: '#059669', bg: '#ecfdf5', border: '#a7f3d0' };
   }
 
-  if (matchingTrailer?.quoteStatus === 'denied' || matchingTrailer?.isDeleted) {
+  if (matchingTrailer?.quoteStatus === 'denied' || matchingTrailer?.isDeleted || (matchingTrailer?.notes && matchingTrailer.notes.includes('[STATUS:denied]'))) {
     return { label: 'Denied', type: 'denied', color: '#dc2626', bg: '#fef2f2', border: '#fecaca' };
   }
 
@@ -131,11 +134,13 @@ export const QuotesView: React.FC<Props> = ({
     // 2. Merge active or historical quote trailers from trailers prop
     if (trailers && trailers.length > 0) {
       trailers
-        .filter(t => (t.currentPhase === 'quote' || t.quoteStatus === 'approved' || t.history?.some(h => h.phase === 'quote')) && !t.isDeleted)
+        .filter(t => !t.isDeleted && (t.currentPhase === 'quote' || (t.notes && t.notes.includes('[STATUS:approved]'))))
         .forEach(t => {
-          const s = t.serialNumber?.trim().toLowerCase();
+          const displaySerial = t.serialNumber?.replace(/-Q$/i, '') || t.serialNumber;
+          const s = displaySerial?.trim().toLowerCase();
           if (s) {
-            const isApproved = t.quoteStatus === 'approved' || t.currentPhase !== 'quote';
+            const isApproved = t.quoteStatus === 'approved' || (t.notes && t.notes.includes('[STATUS:approved]'));
+            const isDenied = t.quoteStatus === 'denied' || (t.notes && t.notes.includes('[STATUS:denied]'));
             const existing = map.get(s);
             if (existing) {
               if (isApproved && existing.status !== 'approved') {
@@ -145,7 +150,7 @@ export const QuotesView: React.FC<Props> = ({
               map.set(s, {
                 id: t.id,
                 trailer_id: t.id,
-                serial_number: t.serialNumber,
+                serial_number: displaySerial,
                 model: t.model,
                 dealer_name: t.name,
                 sale_price: t.sale_price ?? null,
@@ -157,7 +162,7 @@ export const QuotesView: React.FC<Props> = ({
                 purchase_order: t.purchaseOrder,
                 consignment: t.consignment,
                 quote_file_path: t.spec_sheet_file,
-                status: isApproved ? 'approved' : (t.quoteStatus === 'denied' ? 'denied' : 'quote'),
+                status: isApproved ? 'approved' : (isDenied ? 'denied' : 'quote'),
                 created_at: t.dateStarted ? new Date(t.dateStarted).toISOString() : new Date().toISOString(),
                 notes: t.notes
               });
