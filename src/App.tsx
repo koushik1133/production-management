@@ -99,7 +99,8 @@ import {
   MODEL_TARGET_HOURS,
   STATIONS,
   PHASE_METADATA,
-  calculateTrailerRemainingHours
+  calculateTrailerRemainingHours,
+  getModelPhaseAverages
 } from './types';
 import type { Trailer, PhaseId, StationId, ModelSpec, CatalogModel, ShippedTrailer, UserRole, Dealer } from './types';
 
@@ -2247,6 +2248,11 @@ function AppContent({ userRole, currentUser }: { userRole: UserRole; currentUser
   const [shippedTrailers, setShippedTrailers] = useState<ShippedTrailer[]>([]);
   const [dealers, setDealers] = useState<{ id: string; name: string; addresses?: string[]; common_address?: string; }[]>([]);
 
+  const quickEditAverages = useMemo(() => {
+    if (!editingModelName) return null;
+    return getModelPhaseAverages(editingModelName, trailers, shippedTrailers);
+  }, [editingModelName, trailers, shippedTrailers]);
+
   const [isPriceUnlockedGlobally, setIsPriceUnlockedGlobally] = useState(() => {
     return localStorage.getItem('lanetrailers_price_unlocked') === 'true';
   });
@@ -3733,7 +3739,7 @@ function getSuggestedBay(): StationId {
             <Route path="/quotes" element={<QuotesView trailers={trailers} userRole={userRole} localSpecSheetTemplates={localSpecSheetTemplates} dealers={dealers} />} />
             <Route path="/schedule" element={<ScheduleView trailers={trailers} userRole={userRole} />} />
             <Route path="/messages" element={<MessagesView messaging={messaging} userRole={userRole} />} />
-            <Route path="/catalog" element={userRole === 'manager' ? <CatalogView categories={localModelCategories} hours={localTargetHours} specs={localModelSpecs} templates={localSpecSheetTemplates} onAddModel={handleAddModel} onEditModel={handleEditModel} onDeleteModel={handleDeleteModel} dealers={dealers} onAddDealer={handleAddDealer} onEditDealer={handleEditDealer} onDeleteDealer={handleDeleteDealer} userRole={userRole} trailers={trailers} /> : <Navigate to="/" replace />} />
+            <Route path="/catalog" element={userRole === 'manager' ? <CatalogView categories={localModelCategories} hours={localTargetHours} specs={localModelSpecs} templates={localSpecSheetTemplates} onAddModel={handleAddModel} onEditModel={handleEditModel} onDeleteModel={handleDeleteModel} dealers={dealers} onAddDealer={handleAddDealer} onEditDealer={handleEditDealer} onDeleteDealer={handleDeleteDealer} userRole={userRole} trailers={trailers} shippedTrailers={shippedTrailers} /> : <Navigate to="/" replace />} />
           </Routes>
 
           {/* Quick Model Spec Editor - Only for Managers */}
@@ -3767,19 +3773,99 @@ function getSuggestedBay(): StationId {
                 </div>
 
                 {/* Phase target hours */}
-                <label style={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', color: '#94a3b8', display: 'block', marginBottom: '0.75rem' }}>Target Hours by Phase</label>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                  <label style={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', color: '#94a3b8', margin: 0 }}>Target Hours by Phase</label>
+                  <span style={{ fontSize: '0.62rem', fontWeight: 700, color: '#94a3b8' }}>
+                    Left: Avg Actual • Right: Target
+                  </span>
+                </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem', marginBottom: '1.5rem' }}>
-                  {modelFormData && PHASES.filter(p => !['backlog', 'shipping'].includes(p.id)).map(phase => (
-                    <div key={phase.id}>
-                      <label style={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', color: '#94a3b8', display: 'block', marginBottom: '4px' }}>{phase.title}</label>
-                      <input 
-                        type="number"
-                        className="form-input"
-                        value={modelFormData[phase.id] || ''}
-                        onChange={e => setModelFormData({ ...modelFormData, [phase.id]: parseInt(e.target.value, 10) || 0 })}
-                      />
-                    </div>
-                  ))}
+                  {modelFormData && PHASES.filter(p => !['backlog', 'shipping'].includes(p.id)).map(phase => {
+                    const stats = quickEditAverages ? quickEditAverages[phase.id] : null;
+                    const hasAvg = stats && stats.avg !== null;
+                    return (
+                      <div key={phase.id} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <label style={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', color: '#94a3b8', margin: 0 }}>{phase.title}</label>
+                          {hasAvg ? (
+                            <span style={{ fontSize: '0.58rem', fontWeight: 800, color: '#0d9488', background: 'rgba(13,148,136,0.1)', padding: '1px 6px', borderRadius: '4px' }}>
+                              {stats.count} {stats.count === 1 ? 'unit' : 'units'}
+                            </span>
+                          ) : (
+                            <span style={{ fontSize: '0.58rem', fontWeight: 700, color: '#94a3b8' }}>
+                              No data
+                            </span>
+                          )}
+                        </div>
+                        <div
+                          style={{
+                            display: 'grid',
+                            gridTemplateColumns: '1fr 1fr',
+                            background: 'var(--bg-card)',
+                            borderRadius: '8px',
+                            border: `1.5px solid ${hasAvg ? 'rgba(13,148,136,0.3)' : 'var(--border-default)'}`,
+                            overflow: 'hidden'
+                          }}
+                        >
+                          {/* Left: Actual Average Timing */}
+                          <div
+                            style={{
+                              padding: '6px 8px',
+                              borderRight: '1px solid var(--border-default)',
+                              background: hasAvg ? 'rgba(13,148,136,0.06)' : 'transparent',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: '2px',
+                              justifyContent: 'center'
+                            }}
+                            title={hasAvg ? `Average actual hours from ${stats.count} unit(s): ${stats.avg}h` : 'No units have entered hours for this phase yet'}
+                          >
+                            <span style={{ fontSize: '0.55rem', fontWeight: 800, color: hasAvg ? '#0d9488' : 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                              Avg Actual
+                            </span>
+                            <div style={{ display: 'flex', alignItems: 'baseline' }}>
+                              <span style={{ fontSize: '0.95rem', fontWeight: 900, color: hasAvg ? '#0d9488' : 'var(--text-muted)' }}>
+                                {hasAvg ? stats.avg : '—'}
+                              </span>
+                              <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', marginLeft: '2px' }}>h</span>
+                            </div>
+                          </div>
+
+                          {/* Right: Target Hours Input */}
+                          <div
+                            style={{
+                              padding: '6px 8px',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: '2px',
+                              background: 'rgba(0,0,0,0.015)'
+                            }}
+                          >
+                            <span style={{ fontSize: '0.55rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                              Target (h)
+                            </span>
+                            <input 
+                              type="number"
+                              min="0"
+                              step="0.5"
+                              style={{
+                                width: '100%',
+                                padding: '3px 6px',
+                                fontSize: '0.95rem',
+                                fontWeight: 800,
+                                border: '1px solid var(--border-default)',
+                                borderRadius: '4px',
+                                background: 'var(--bg-card)',
+                                color: 'var(--text-primary)'
+                              }}
+                              value={modelFormData[phase.id] !== undefined ? modelFormData[phase.id] : ''}
+                              onChange={e => setModelFormData({ ...modelFormData, [phase.id]: parseFloat(e.target.value) || 0 })}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
                 <button className="btn btn-primary" style={{ width: '100%', padding: '0.75rem', fontWeight: 700 }} onClick={handleSaveModelSpecs}>Save Specifications</button>
               </div>

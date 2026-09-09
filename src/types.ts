@@ -225,3 +225,96 @@ export function calculateTrailerRemainingHours(trailer: Trailer, hoursConfig?: R
 
   return Number.isFinite(total) ? Math.max(0, total) : 0;
 }
+
+export interface ModelPhaseStats {
+  avg: number | null;
+  count: number;
+  total: number;
+}
+
+/**
+ * Calculates the actual average production hours entered per phase across all trailers of a given model.
+ * Inspects both active trailers (phaseManualHours / bayManualHours) and shipped trailers.
+ * Deduplicates by serial number to ensure no trailer is counted twice.
+ */
+export function getModelPhaseAverages(
+  modelName: string,
+  trailers: Trailer[] = [],
+  shippedTrailers: ShippedTrailer[] = []
+): Record<PhaseId, ModelPhaseStats> {
+  const normModel = (modelName || '').trim().toLowerCase();
+  const phases: PhaseId[] = ['quote', 'backlog', 'prefab', 'build', 'paint', 'outsource', 'trim', 'shipping'];
+
+  const result: Record<PhaseId, ModelPhaseStats> = {
+    quote: { avg: null, count: 0, total: 0 },
+    backlog: { avg: null, count: 0, total: 0 },
+    prefab: { avg: null, count: 0, total: 0 },
+    build: { avg: null, count: 0, total: 0 },
+    paint: { avg: null, count: 0, total: 0 },
+    outsource: { avg: null, count: 0, total: 0 },
+    trim: { avg: null, count: 0, total: 0 },
+    shipping: { avg: null, count: 0, total: 0 }
+  };
+
+  if (!normModel) return result;
+
+  phases.forEach(phaseId => {
+    const serialHoursMap = new Map<string, number>();
+
+    // 1. Scan active & archived trailers in the trailers table
+    trailers.forEach(t => {
+      if ((t.model || '').trim().toLowerCase() !== normModel || t.isDeleted) return;
+      const serial = (t.serialNumber || t.id || '').trim();
+      if (!serial) return;
+
+      const entries = (t.history ?? []).filter(h => h.phase === phaseId);
+      let manualSum = 0;
+      let hasManual = false;
+      entries.forEach(log => {
+        if (log.phaseManualHours !== undefined && log.phaseManualHours > 0) {
+          manualSum += log.phaseManualHours;
+          hasManual = true;
+        } else if (log.bayManualHours !== undefined && log.bayManualHours > 0) {
+          manualSum += log.bayManualHours;
+          hasManual = true;
+        }
+      });
+
+      if (hasManual && manualSum > 0) {
+        serialHoursMap.set(serial, manualSum);
+      }
+    });
+
+    // 2. Scan shipped_trailers for any completed units
+    shippedTrailers.forEach(s => {
+      if ((s.trailer_name || '').trim().toLowerCase() !== normModel) return;
+      const serial = (s.serial_number || '').trim();
+      if (!serial || serialHoursMap.has(serial)) return;
+
+      let shippedPhaseHours = 0;
+      if (phaseId === 'prefab') shippedPhaseHours = s.prefab_hours ?? 0;
+      else if (phaseId === 'build') shippedPhaseHours = s.build_hours ?? 0;
+      else if (phaseId === 'paint') shippedPhaseHours = s.paint_hours ?? 0;
+      else if (phaseId === 'outsource') shippedPhaseHours = s.outsource_hours ?? 0;
+      else if (phaseId === 'trim') shippedPhaseHours = s.trim_hours ?? 0;
+
+      if (shippedPhaseHours > 0) {
+        serialHoursMap.set(serial, shippedPhaseHours);
+      }
+    });
+
+    const values = Array.from(serialHoursMap.values());
+    if (values.length > 0) {
+      const sum = values.reduce((a, b) => a + b, 0);
+      const avg = Math.round((sum / values.length) * 10) / 10;
+      result[phaseId] = {
+        avg,
+        count: values.length,
+        total: Math.round(sum * 10) / 10
+      };
+    }
+  });
+
+  return result;
+}
+

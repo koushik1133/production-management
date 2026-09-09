@@ -1,8 +1,8 @@
 import React, { useState, useRef } from 'react';
 import { Search, Clock, Weight, ChevronRight, Home, Plus, Edit, Trash2, Info, MapPin, Download, Upload, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { PHASES } from './types';
-import type { PhaseId, ModelSpec, UserRole, Dealer, Trailer } from './types';
+import { PHASES, getModelPhaseAverages } from './types';
+import type { PhaseId, ModelSpec, UserRole, Dealer, Trailer, ShippedTrailer } from './types';
 import { Modal } from './components/Modal';
 import Papa from 'papaparse';
 import { supabase } from './lib/supabase';
@@ -22,9 +22,10 @@ interface Props {
   onDeleteDealer: (id: string) => void;
   userRole: UserRole;
   trailers?: Trailer[];
+  shippedTrailers?: ShippedTrailer[];
 }
 
-export const CatalogView: React.FC<Props> = ({ categories, hours, specs, templates, onAddModel, onEditModel, onDeleteModel, dealers, onAddDealer, onEditDealer, onDeleteDealer, userRole, trailers }) => {
+export const CatalogView: React.FC<Props> = ({ categories, hours, specs, templates, onAddModel, onEditModel, onDeleteModel, dealers, onAddDealer, onEditDealer, onDeleteDealer, userRole, trailers = [], shippedTrailers = [] }) => {
   const navigate = useNavigate();
   const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth <= 768 : false);
   React.useEffect(() => {
@@ -193,6 +194,30 @@ export const CatalogView: React.FC<Props> = ({ categories, hours, specs, templat
       .filter(([phase]) => !['backlog', 'shipping'].includes(phase))
       .reduce((sum, [_, h]) => sum + (h as number), 0);
   };
+
+  const allModelAverages = React.useMemo(() => {
+    const map: Record<string, Record<PhaseId, { avg: number | null; count: number; total: number }>> = {};
+    categories.forEach(cat => {
+      cat.models.forEach(modelName => {
+        map[modelName] = getModelPhaseAverages(modelName, trailers, shippedTrailers);
+      });
+    });
+    return map;
+  }, [categories, trailers, shippedTrailers]);
+
+  const calculateTotalAvgHours = React.useCallback((modelName: string): number | null => {
+    const modelStats = allModelAverages[modelName];
+    if (!modelStats) return null;
+    let total = 0;
+    let hasAny = false;
+    PHASES.filter(p => !['backlog', 'shipping'].includes(p.id)).forEach(p => {
+      if (modelStats[p.id]?.avg !== null) {
+        total += modelStats[p.id].avg!;
+        hasAny = true;
+      }
+    });
+    return hasAny ? Math.round(total * 10) / 10 : null;
+  }, [allModelAverages]);
 
   const filteredCategories = categories.map(cat => ({
     ...cat,
@@ -379,9 +404,16 @@ export const CatalogView: React.FC<Props> = ({ categories, hours, specs, templat
                     </div>
                     <div style={{ background: 'var(--glass-bg)', padding: '0.65rem', borderRadius: '10px', border: '1px solid var(--glass-border)' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--accent)', fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', marginBottom: '0.2rem' }}>
-                        <Clock size={12} /> Build Time
+                        <Clock size={12} /> Target / Avg Time
                       </div>
-                      <div style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--accent)' }}>{calculateTotalHours(model)}h</div>
+                      <div style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--accent)', display: 'flex', alignItems: 'baseline', gap: '5px', flexWrap: 'wrap' }}>
+                        <span>{calculateTotalHours(model)}h</span>
+                        {calculateTotalAvgHours(model) !== null && (
+                          <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#0d9488' }}>
+                            (Avg {calculateTotalAvgHours(model)}h)
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
 
@@ -465,17 +497,108 @@ export const CatalogView: React.FC<Props> = ({ categories, hours, specs, templat
                         )}
                       </div>
 
-                      <h4 style={{ fontSize: '0.65rem', fontWeight: 900, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        Phase Target Metrics
-                        <Info size={11} color="var(--text-muted)" />
-                      </h4>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-                        {PHASES.filter(p => !['backlog', 'shipping'].includes(p.id)).map(p => (
-                          <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0.75rem', background: 'var(--bg-secondary)', borderRadius: '8px', border: '1px solid var(--border-default)' }}>
-                            <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-secondary)' }}>{p.title}</span>
-                            <span style={{ fontSize: '0.7rem', fontWeight: 900, color: 'var(--text-primary)' }}>{hours[model]?.[p.id] || 0}h</span>
-                          </div>
-                        ))}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                        <h4 style={{ fontSize: '0.65rem', fontWeight: 900, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}>
+                          Phase Hours Breakdown
+                          <Info size={11} color="var(--text-muted)" />
+                        </h4>
+                        <span style={{ fontSize: '0.62rem', fontWeight: 700, color: 'var(--text-muted)' }}>
+                          Left: Avg Actual • Right: Catalog Target
+                        </span>
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))', gap: '0.6rem' }}>
+                        {PHASES.filter(p => !['backlog', 'shipping'].includes(p.id)).map(p => {
+                          const targetH = hours[model]?.[p.id] ?? 0;
+                          const stats = allModelAverages[model]?.[p.id];
+                          const hasAvg = stats && stats.avg !== null;
+
+                          return (
+                            <div
+                              key={p.id}
+                              style={{
+                                background: 'var(--bg-secondary)',
+                                padding: '0.6rem 0.75rem',
+                                borderRadius: '12px',
+                                border: `1px solid ${hasAvg ? 'rgba(13,148,136,0.25)' : 'var(--border-default)'}`,
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '6px'
+                              }}
+                            >
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                  {p.title}
+                                </span>
+                                {hasAvg ? (
+                                  <span style={{ fontSize: '0.58rem', fontWeight: 800, color: '#0d9488', background: 'rgba(13,148,136,0.1)', padding: '1px 6px', borderRadius: '4px' }}>
+                                    {stats.count} {stats.count === 1 ? 'unit' : 'units'}
+                                  </span>
+                                ) : (
+                                  <span style={{ fontSize: '0.58rem', fontWeight: 700, color: 'var(--text-muted)' }}>
+                                    No data
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* Split Box: Left = Avg Actual, Right = Catalog Target */}
+                              <div
+                                style={{
+                                  display: 'grid',
+                                  gridTemplateColumns: '1fr 1fr',
+                                  background: 'var(--bg-card)',
+                                  borderRadius: '8px',
+                                  border: '1.5px solid var(--border-default)',
+                                  overflow: 'hidden'
+                                }}
+                              >
+                                {/* Left: Actual Average Timing */}
+                                <div
+                                  style={{
+                                    padding: '6px 8px',
+                                    borderRight: '1px solid var(--border-default)',
+                                    background: hasAvg ? 'rgba(13,148,136,0.06)' : 'transparent',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '2px'
+                                  }}
+                                  title={hasAvg ? `Average actual hours from ${stats.count} unit(s): ${stats.avg}h` : 'No units have entered hours for this phase yet'}
+                                >
+                                  <span style={{ fontSize: '0.55rem', fontWeight: 800, color: hasAvg ? '#0d9488' : 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                    Avg Actual
+                                  </span>
+                                  <div style={{ display: 'flex', alignItems: 'baseline' }}>
+                                    <span style={{ fontSize: '0.95rem', fontWeight: 900, color: hasAvg ? '#0d9488' : 'var(--text-muted)' }}>
+                                      {hasAvg ? stats.avg : '—'}
+                                    </span>
+                                    <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', marginLeft: '2px' }}>h</span>
+                                  </div>
+                                </div>
+
+                                {/* Right: Fixed Catalog Target Timing */}
+                                <div
+                                  style={{
+                                    padding: '6px 8px',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '2px',
+                                    background: 'rgba(0,0,0,0.015)'
+                                  }}
+                                  title="Catalog benchmark/target timing"
+                                >
+                                  <span style={{ fontSize: '0.55rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                    Target
+                                  </span>
+                                  <div style={{ display: 'flex', alignItems: 'baseline' }}>
+                                    <span style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-secondary)' }}>
+                                      {targetH}
+                                    </span>
+                                    <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', marginLeft: '2px' }}>h</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   )}
