@@ -282,6 +282,11 @@ export function getModelPhaseAverages(
 
       if (hasManual && manualSum > 0) {
         serialHoursMap.set(serial, manualSum);
+      } else {
+        const lastTarget = entries.slice().reverse().find(h => h.targetHours !== undefined && h.targetHours > 0);
+        if (lastTarget && lastTarget.targetHours) {
+          serialHoursMap.set(serial, lastTarget.targetHours);
+        }
       }
     });
 

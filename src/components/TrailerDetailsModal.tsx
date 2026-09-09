@@ -284,12 +284,21 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
     let found = false;
     let total = 0;
     entries.forEach(log => {
-      if (log.phaseManualHours !== undefined || log.bayManualHours !== undefined) {
+      if (log.phaseManualHours !== undefined && log.phaseManualHours > 0) {
         found = true;
-        total += (log.phaseManualHours ?? log.bayManualHours ?? 0);
+        total += log.phaseManualHours;
+      } else if (log.bayManualHours !== undefined && log.bayManualHours > 0) {
+        found = true;
+        total += log.bayManualHours;
       }
     });
-    return found ? total : null;
+    if (found && total > 0) return total;
+    // Fallback: if user previously entered/saved custom hours on this trailer
+    const lastTarget = entries.slice().reverse().find(h => h.targetHours !== undefined && h.targetHours > 0);
+    if (lastTarget && lastTarget.targetHours) {
+      return lastTarget.targetHours;
+    }
+    return null;
   }, [trailer.history]);
 
   // Target hours: custom saved target from trailer history, or catalog default
