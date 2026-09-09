@@ -43,6 +43,7 @@ export interface Trailer {
   partsStatus?: PartsStatus;
   isArchived?: boolean;
   archivedAt?: number;
+  quoteStatus?: 'quote' | 'approved' | 'denied' | 'auto_denied';
   isDeleted?: boolean;
   invoiceNumber?: string;
   vinDate?: string;

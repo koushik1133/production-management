@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import JSZip from 'jszip';
-import { Home, Search, BarChart3, Download, FileText, User, Hash, Calendar, Clock, Loader2 } from 'lucide-react';
+import { Home, Search, BarChart3, Download, FileText, User, Hash, Calendar, Clock, Loader2, CheckCircle2, XCircle } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import type { Trailer, UserRole, QuoteRecord, Dealer } from './types';
 import { triggerFileDownload, isRelativePath, fetchFileBlob, fetchTemplateAsBase64 } from './utils/storage';
@@ -18,11 +18,55 @@ interface Props {
 }
 
 type ExportFilter = 'all' | 'today' | 'week' | 'month';
+export type QuoteStatusType = 'approved' | 'auto_denied' | 'denied' | 'pending';
 
 const safeDate = (ts: number | string | undefined): Date | null => {
   if (!ts) return null;
   const d = typeof ts === 'number' ? new Date(ts) : new Date(ts);
   return isNaN(d.getTime()) ? null : d;
+};
+
+export const getQuoteStatus = (
+  quote: QuoteRecord,
+  trailers: Trailer[] = []
+): { label: string; type: QuoteStatusType; color: string; bg: string; border: string } => {
+  const explicitStatus = (quote.status || '').toLowerCase();
+  if (explicitStatus === 'approved') {
+    return { label: 'Approved', type: 'approved', color: '#059669', bg: '#ecfdf5', border: '#a7f3d0' };
+  }
+  if (explicitStatus === 'denied') {
+    return { label: 'Denied', type: 'denied', color: '#dc2626', bg: '#fef2f2', border: '#fecaca' };
+  }
+  if (explicitStatus === 'auto_denied') {
+    return { label: 'Auto-Denied', type: 'auto_denied', color: '#dc2626', bg: '#fef2f2', border: '#fecaca' };
+  }
+
+  // Check if trailer has advanced past quote into backlog or beyond
+  const matchingTrailer = trailers.find(t =>
+    ((quote.trailer_id && t.id === quote.trailer_id) ||
+     (t.serialNumber && quote.serial_number && t.serialNumber.trim().toLowerCase() === quote.serial_number.trim().toLowerCase())) &&
+    !t.isDeleted
+  );
+
+  if (matchingTrailer && matchingTrailer.currentPhase !== 'quote') {
+    return { label: 'Approved', type: 'approved', color: '#059669', bg: '#ecfdf5', border: '#a7f3d0' };
+  }
+
+  if (matchingTrailer?.quoteStatus === 'denied' || matchingTrailer?.isDeleted) {
+    return { label: 'Denied', type: 'denied', color: '#dc2626', bg: '#fef2f2', border: '#fecaca' };
+  }
+
+  // 7-day auto-denial check
+  const createdAtMs = safeDate(quote.created_at)?.getTime() || (matchingTrailer?.dateStarted || 0);
+  if (createdAtMs > 0) {
+    const ageMs = Date.now() - createdAtMs;
+    const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+    if (ageMs > SEVEN_DAYS_MS) {
+      return { label: 'Auto-Denied (7+ Days)', type: 'auto_denied', color: '#dc2626', bg: '#fef2f2', border: '#fecaca' };
+    }
+  }
+
+  return { label: 'Pending Quote', type: 'pending', color: '#2563eb', bg: '#eff6ff', border: '#bfdbfe' };
 };
 
 export const QuotesView: React.FC<Props> = ({
@@ -34,6 +78,7 @@ export const QuotesView: React.FC<Props> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'date' | 'serial' | 'model'>('date');
   const [exportFilter, setExportFilter] = useState<ExportFilter>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'auto_denied' | 'approved'>('all');
   const [exportStatus, setExportStatus] = useState<string | null>(null);
   const [dbQuotes, setDbQuotes] = useState<QuoteRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -78,7 +123,7 @@ export const QuotesView: React.FC<Props> = ({
 
     if (trailers && trailers.length > 0) {
       trailers
-        .filter(t => t.currentPhase === 'quote' && !t.isDeleted)
+        .filter(t => (t.currentPhase === 'quote' || t.history?.some(h => h.phase === 'quote')) && !t.isDeleted)
         .forEach(t => {
           const s = t.serialNumber?.trim().toLowerCase();
           if (s && !seenSerials.has(s)) {
@@ -98,7 +143,7 @@ export const QuotesView: React.FC<Props> = ({
               purchase_order: t.purchaseOrder,
               consignment: t.consignment,
               quote_file_path: t.spec_sheet_file,
-              status: 'quote',
+              status: t.quoteStatus === 'denied' ? 'denied' : (t.currentPhase !== 'quote' ? 'approved' : 'quote'),
               created_at: t.dateStarted ? new Date(t.dateStarted).toISOString() : new Date().toISOString(),
               notes: t.notes
             });
@@ -109,16 +154,37 @@ export const QuotesView: React.FC<Props> = ({
     return list;
   }, [dbQuotes, trailers]);
 
+  const statusCounts = useMemo(() => {
+    let pending = 0;
+    let autoDenied = 0;
+    let approved = 0;
+    allQuotes.forEach(q => {
+      const st = getQuoteStatus(q, trailers);
+      if (st.type === 'pending') pending++;
+      else if (st.type === 'auto_denied' || st.type === 'denied') autoDenied++;
+      else if (st.type === 'approved') approved++;
+    });
+    return { pending, autoDenied, approved };
+  }, [allQuotes, trailers]);
+
   const filtered = useMemo(() => {
     const q = searchQuery.toLowerCase();
     return allQuotes
-      .filter(item =>
-        (item.serial_number || '').toLowerCase().includes(q) ||
-        (item.model || '').toLowerCase().includes(q) ||
-        (item.dealer_name || '').toLowerCase().includes(q) ||
-        (item.notes || '').toLowerCase().includes(q) ||
-        (item.sales_person || '').toLowerCase().includes(q)
-      )
+      .filter(item => {
+        if (statusFilter !== 'all') {
+          const st = getQuoteStatus(item, trailers);
+          if (statusFilter === 'pending' && st.type !== 'pending') return false;
+          if (statusFilter === 'auto_denied' && st.type !== 'auto_denied' && st.type !== 'denied') return false;
+          if (statusFilter === 'approved' && st.type !== 'approved') return false;
+        }
+        return (
+          (item.serial_number || '').toLowerCase().includes(q) ||
+          (item.model || '').toLowerCase().includes(q) ||
+          (item.dealer_name || '').toLowerCase().includes(q) ||
+          (item.notes || '').toLowerCase().includes(q) ||
+          (item.sales_person || '').toLowerCase().includes(q)
+        );
+      })
       .sort((a, b) => {
         if (sortBy === 'serial') return (a.serial_number || '').localeCompare(b.serial_number || '');
         if (sortBy === 'model') return (a.model || '').localeCompare(b.model || '');
@@ -126,7 +192,7 @@ export const QuotesView: React.FC<Props> = ({
         const dateB = safeDate(b.created_at)?.getTime() || 0;
         return dateB - dateA;
       });
-  }, [allQuotes, searchQuery, sortBy]);
+  }, [allQuotes, searchQuery, sortBy, statusFilter, trailers]);
 
   // Download quote logic (fetches stored file or generates on the fly if needed)
   const handleDownloadQuote = async (q: QuoteRecord) => {
@@ -364,6 +430,48 @@ export const QuotesView: React.FC<Props> = ({
       </header>
 
       <main style={{ padding: '2rem', maxWidth: '1100px', margin: '0 auto' }}>
+        {/* Status Filter Tabs */}
+        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+          {[
+            { id: 'all', label: 'All Quotes', count: allQuotes.length },
+            { id: 'pending', label: 'Pending', count: statusCounts.pending },
+            { id: 'auto_denied', label: 'Auto-Denied', count: statusCounts.autoDenied },
+            { id: 'approved', label: 'Approved', count: statusCounts.approved },
+          ].map(tab => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setStatusFilter(tab.id as any)}
+              style={{
+                padding: '0.45rem 1rem',
+                borderRadius: '10px',
+                border: statusFilter === tab.id ? '1px solid var(--accent)' : '1px solid var(--border-default)',
+                background: statusFilter === tab.id ? 'var(--accent)' : 'var(--bg-card)',
+                color: statusFilter === tab.id ? '#ffffff' : 'var(--text-secondary)',
+                fontWeight: 800,
+                fontSize: '0.82rem',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              <span>{tab.label}</span>
+              <span style={{
+                fontSize: '0.72rem',
+                padding: '2px 7px',
+                borderRadius: '8px',
+                background: statusFilter === tab.id ? 'rgba(255,255,255,0.25)' : 'var(--bg-secondary)',
+                color: statusFilter === tab.id ? '#ffffff' : 'var(--text-muted)',
+                fontWeight: 700
+              }}>
+                {tab.count}
+              </span>
+            </button>
+          ))}
+        </div>
+
         {isLoading ? (
           <div style={{ textAlign: 'center', padding: '6rem 2rem', color: 'var(--text-muted)' }}>
             <Loader2 size={36} className="animate-spin" style={{ margin: '0 auto 1rem', opacity: 0.7 }} />
@@ -373,10 +481,10 @@ export const QuotesView: React.FC<Props> = ({
           <div style={{ textAlign: 'center', padding: '6rem 2rem', color: 'var(--text-muted)' }}>
             <BarChart3 size={48} style={{ marginBottom: '1rem', opacity: 0.3 }} />
             <h2 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '0.5rem' }}>
-              {searchQuery ? 'No quotes match your search' : 'No quotes recorded'}
+              {searchQuery ? 'No quotes match your search' : 'No quotes found'}
             </h2>
             <p style={{ fontSize: '0.85rem' }}>
-              {searchQuery ? 'Try a different keyword.' : 'Quotes created on the Backlog registration will appear here.'}
+              {searchQuery ? 'Try a different keyword or filter.' : 'Quotes created on the Backlog registration will appear here.'}
             </p>
           </div>
         ) : (
@@ -385,14 +493,53 @@ export const QuotesView: React.FC<Props> = ({
               const addedDate = safeDate(q.created_at);
               const quoteLabel = `${q.dealer_name || 'Customer'} - ${q.model || 'Model'} ${q.serial_number}${q.notes ? ` (${q.notes})` : ''}`;
               const isDownloading = downloadingId === q.id;
+              const statusInfo = getQuoteStatus(q, trailers);
 
               return (
                 <div key={q.id} style={{ background: 'var(--bg-card)', borderRadius: '16px', border: '1px solid var(--border-default)', padding: '1.25rem 1.5rem', display: 'flex', alignItems: 'center', gap: '1.5rem', boxShadow: 'var(--shadow-sm)' }}>
+                  {/* Square color swatch */}
                   {q.trailer_color && (
-                    <div title={q.trailer_color} style={{ width: '20px', height: '44px', flexShrink: 0, borderRadius: '8px', background: q.trailer_color, border: (q.trailer_color.toLowerCase() === 'white' || q.trailer_color === '#fff' || q.trailer_color === '#ffffff') ? '2px solid #94a3b8' : '1.5px solid rgba(255,255,255,0.15)', boxShadow: '0 1px 4px rgba(0,0,0,0.18)' }} />
+                    <div 
+                      title={`Color: ${q.trailer_color}`} 
+                      style={{ 
+                        width: '32px', 
+                        height: '32px', 
+                        flexShrink: 0, 
+                        borderRadius: '8px', 
+                        background: q.trailer_color, 
+                        border: (q.trailer_color.toLowerCase() === 'white' || q.trailer_color === '#fff' || q.trailer_color === '#ffffff') ? '2px solid #94a3b8' : '1.5px solid rgba(255,255,255,0.15)', 
+                        boxShadow: '0 2px 5px rgba(0,0,0,0.18)' 
+                      }} 
+                    />
                   )}
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '0.35rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{quoteLabel}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '0.35rem', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-primary)' }}>{quoteLabel}</span>
+                      {/* Status Note Badge (Approved, Auto-Denied, Denied, Pending) */}
+                      <span style={{
+                        fontSize: '0.68rem',
+                        fontWeight: 800,
+                        padding: '2px 8px',
+                        borderRadius: '6px',
+                        background: statusInfo.bg,
+                        color: statusInfo.color,
+                        border: `1px solid ${statusInfo.border}`,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.04em'
+                      }}>
+                        {statusInfo.type === 'approved' ? (
+                          <CheckCircle2 size={12} />
+                        ) : statusInfo.type === 'pending' ? (
+                          <Clock size={12} />
+                        ) : (
+                          <XCircle size={12} />
+                        )}
+                        {statusInfo.label}
+                      </span>
+                    </div>
                     <div style={{ display: 'flex', gap: '1.25rem', flexWrap: 'wrap', alignItems: 'center' }}>
                       <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.75rem', color: 'var(--text-secondary)' }}><Hash size={13} /> {q.serial_number}</span>
                       {q.dealer_name && <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.75rem', color: 'var(--text-secondary)' }}><User size={13} /> {q.dealer_name}</span>}
@@ -410,7 +557,7 @@ export const QuotesView: React.FC<Props> = ({
                     </div>
                   )}
 
-                  {/* Prominent Download Button (Approve and Deny removed per user request) */}
+                  {/* Prominent Download Button */}
                   <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0 }}>
                     <button
                       onClick={() => handleDownloadQuote(q)}

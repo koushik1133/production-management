@@ -94,14 +94,33 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
       (t.model?.toLowerCase() ?? '').includes(searchQuery.toLowerCase())
     );
 
-  const quoteTrailers = trailers
-    .filter(t => !t.isArchived && t.currentPhase === 'quote')
+  const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+
+  const allQuoteTrailers = trailers
+    .filter(t => !t.isArchived && !t.isDeleted && t.currentPhase === 'quote')
     .filter(t => 
       (t.name?.toLowerCase() ?? '').includes(searchQuery.toLowerCase()) || 
       (t.serialNumber?.toLowerCase() ?? '').includes(searchQuery.toLowerCase()) ||
       (t.model?.toLowerCase() ?? '').includes(searchQuery.toLowerCase())
-    )
+    );
+
+  const pendingQuoteTrailers = allQuoteTrailers
+    .filter(t => {
+      if (t.quoteStatus === 'denied' || t.quoteStatus === 'auto_denied') return false;
+      const createdAt = t.dateStarted || t.history?.[0]?.enteredAt || Date.now();
+      return (Date.now() - createdAt) <= SEVEN_DAYS_MS;
+    })
     .sort((a, b) => (a.dateStarted || 0) - (b.dateStarted || 0));
+
+  const autoDeniedQuoteTrailers = allQuoteTrailers
+    .filter(t => {
+      if (t.quoteStatus === 'denied' || t.quoteStatus === 'auto_denied') return true;
+      const createdAt = t.dateStarted || t.history?.[0]?.enteredAt || Date.now();
+      return (Date.now() - createdAt) > SEVEN_DAYS_MS;
+    })
+    .sort((a, b) => (b.dateStarted || 0) - (a.dateStarted || 0));
+
+  const [selectedQuoteTab, setSelectedQuoteTab] = useState<'pending' | 'auto_denied' | 'all'>('pending');
 
   const handleTogglePart = (trailer: Trailer, partKey: keyof NonNullable<Trailer['partsStatus']>) => {
     const currentStatus = trailer.partsStatus || { tyres: false, steel: false, parts: false };
@@ -1139,34 +1158,143 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
             </div>
           </div>
           
-          {/* Pending Quotes Section */}
+          {/* Quotes Section (Pending & Auto Denied) */}
           {userRole === 'manager' && (
-            <div style={{ marginTop: '2rem' }}>
-            <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              Pending Quotes
-              <span style={{ fontSize: '0.8rem', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '12px', color: 'var(--text-muted)' }}>
-                {quoteTrailers.length}
-              </span>
-            </h2>
-            
-            <div style={{ background: 'var(--bg-card)', borderRadius: '16px', border: '1px solid var(--border-default)', overflow: 'hidden', boxShadow: 'var(--shadow-sm)' }}>
-              {quoteTrailers.length > 0 ? (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr', borderTop: '1px solid var(--border-default)' }}>
-                  {quoteTrailers.map(quote => (
-                    <div key={quote.id} style={{ padding: '1.25rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', transition: 'background-color 0.2s', background: 'var(--bg-card)' }}>
+            <div style={{ marginTop: '2.5rem' }}>
+              {/* Tabs Switcher */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+                <div style={{ display: 'flex', gap: '0.5rem', background: 'var(--bg-card)', padding: '4px', borderRadius: '12px', border: '1px solid var(--border-default)' }}>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedQuoteTab('pending')}
+                    style={{
+                      padding: '0.45rem 1rem',
+                      borderRadius: '8px',
+                      border: 'none',
+                      fontSize: '0.85rem',
+                      fontWeight: 800,
+                      cursor: 'pointer',
+                      background: selectedQuoteTab === 'pending' ? 'var(--accent)' : 'transparent',
+                      color: selectedQuoteTab === 'pending' ? '#fff' : 'var(--text-secondary)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    Pending Quotes
+                    <span style={{
+                      fontSize: '0.75rem',
+                      padding: '2px 7px',
+                      borderRadius: '10px',
+                      background: selectedQuoteTab === 'pending' ? 'rgba(255,255,255,0.25)' : 'var(--bg-secondary)',
+                      color: selectedQuoteTab === 'pending' ? '#fff' : 'var(--text-muted)',
+                      fontWeight: 700
+                    }}>
+                      {pendingQuoteTrailers.length}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSelectedQuoteTab('auto_denied')}
+                    style={{
+                      padding: '0.45rem 1rem',
+                      borderRadius: '8px',
+                      border: 'none',
+                      fontSize: '0.85rem',
+                      fontWeight: 800,
+                      cursor: 'pointer',
+                      background: selectedQuoteTab === 'auto_denied' ? '#ef4444' : 'transparent',
+                      color: selectedQuoteTab === 'auto_denied' ? '#fff' : 'var(--text-secondary)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    Auto Denied Quotes
+                    <span style={{
+                      fontSize: '0.75rem',
+                      padding: '2px 7px',
+                      borderRadius: '10px',
+                      background: selectedQuoteTab === 'auto_denied' ? 'rgba(255,255,255,0.25)' : '#fee2e2',
+                      color: selectedQuoteTab === 'auto_denied' ? '#fff' : '#b91c1c',
+                      fontWeight: 700
+                    }}>
+                      {autoDeniedQuoteTrailers.length}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSelectedQuoteTab('all')}
+                    style={{
+                      padding: '0.45rem 1rem',
+                      borderRadius: '8px',
+                      border: 'none',
+                      fontSize: '0.85rem',
+                      fontWeight: 800,
+                      cursor: 'pointer',
+                      background: selectedQuoteTab === 'all' ? 'var(--bg-secondary)' : 'transparent',
+                      color: selectedQuoteTab === 'all' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    Show Both
+                    <span style={{
+                      fontSize: '0.75rem',
+                      padding: '2px 7px',
+                      borderRadius: '10px',
+                      background: 'var(--bg-secondary)',
+                      color: 'var(--text-muted)',
+                      fontWeight: 700
+                    }}>
+                      {allQuoteTrailers.length}
+                    </span>
+                  </button>
+                </div>
+
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Clock size={14} />
+                  <span>Quotes older than 7 days automatically move to Auto Denied</span>
+                </div>
+              </div>
+
+              {/* Helper renderer for quote row */}
+              {(() => {
+                const renderQuoteRow = (quote: Trailer, isAutoDenied: boolean) => {
+                  const createdAt = quote.dateStarted || quote.history?.[0]?.enteredAt || 0;
+                  const ageDays = createdAt ? Math.floor((Date.now() - createdAt) / (1000 * 60 * 60 * 24)) : 0;
+
+                  return (
+                    <div key={quote.id} style={{ padding: '1.25rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', transition: 'background-color 0.2s', background: 'var(--bg-card)', borderBottom: '1px solid var(--border-default)' }}>
                       <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '4px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px', flexWrap: 'wrap' }}>
                           <span style={{ fontWeight: 800, fontSize: '1.1rem', color: 'var(--text-primary)' }}>{quote.serialNumber}</span>
                           <span style={{ fontSize: '0.8rem', background: '#fef3c7', color: '#b45309', padding: '2px 8px', borderRadius: '4px', fontWeight: 700 }}>{quote.model}</span>
+                          {isAutoDenied ? (
+                            <span style={{ fontSize: '0.72rem', background: '#fee2e2', color: '#dc2626', padding: '2px 8px', borderRadius: '6px', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '4px', border: '1px solid #fecaca' }}>
+                              <Clock size={12} /> Auto-Denied ({ageDays}d old)
+                            </span>
+                          ) : (
+                            <span style={{ fontSize: '0.72rem', background: '#eff6ff', color: '#2563eb', padding: '2px 8px', borderRadius: '6px', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '4px', border: '1px solid #bfdbfe' }}>
+                              <Clock size={12} /> Pending ({Math.max(0, 7 - ageDays)}d left)
+                            </span>
+                          )}
                         </div>
-                        <div style={{ display: 'flex', gap: '16px', fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                        <div style={{ display: 'flex', gap: '16px', fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600, flexWrap: 'wrap' }}>
                           <span>Sales Rep: {quote.salesPerson || 'N/A'}</span>
                           <span>Dealer: {quote.name !== '---' ? quote.name : 'N/A'}</span>
                           {quote.sale_price && <span style={{ color: '#059669' }}>Price: ${quote.sale_price.toLocaleString()}</span>}
+                          {createdAt > 0 && <span>Created: {format(new Date(createdAt), 'MMM d, yyyy')}</span>}
                         </div>
                       </div>
                       
-                      <div style={{ display: 'flex', gap: '8px' }}>
+                      <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
                         <button 
                           onClick={() => {
                             setFormData({
@@ -1189,6 +1317,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
                             setApprovingQuoteId(quote.id);
                             window.scrollTo({ top: 0, behavior: 'smooth' });
                           }}
+                          title={isAutoDenied ? "Approve this quote and add to backlog" : "Approve quote and add to backlog"}
                           style={{
                             padding: '0.6rem 1.25rem',
                             borderRadius: '8px',
@@ -1210,10 +1339,24 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
                         {userRole === 'manager' && onDeleteTrailer && (
                           <button 
                             onClick={() => {
-                              if (window.confirm(`Are you sure you want to completely delete quote ${quote.serialNumber}? This cannot be undone.`)) {
-                                onDeleteTrailer(quote.id);
-                                setToastMessage('Quote Rejected & Deleted');
-                                setTimeout(() => setToastMessage(null), 3000);
+                              if (isAutoDenied) {
+                                if (window.confirm(`Permanently delete quote ${quote.serialNumber}? This cannot be undone.`)) {
+                                  onDeleteTrailer(quote.id);
+                                  try {
+                                    supabase.from('quotes').update({ status: 'denied' }).eq('serial_number', quote.serialNumber).then();
+                                  } catch (e) {}
+                                  setToastMessage('Quote Deleted');
+                                  setTimeout(() => setToastMessage(null), 3000);
+                                }
+                              } else {
+                                if (window.confirm(`Deny quote ${quote.serialNumber}? It will be moved to Auto Denied Quotes.`)) {
+                                  onUpdateTrailer(quote.id, { quoteStatus: 'denied' });
+                                  try {
+                                    supabase.from('quotes').update({ status: 'denied' }).eq('serial_number', quote.serialNumber).then();
+                                  } catch (e) {}
+                                  setToastMessage('Quote Denied & Moved');
+                                  setTimeout(() => setToastMessage(null), 3000);
+                                }
                               }
                             }}
                             style={{
@@ -1231,20 +1374,67 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
                               transition: 'all 0.2s'
                             }}
                           >
-                            <Trash2 size={16} /> Deny
+                            <Trash2 size={16} /> {isAutoDenied ? 'Delete' : 'Deny'}
                           </button>
                         )}
                       </div>
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>
-                  No pending quotes found.
-                </div>
-              )}
+                  );
+                };
+
+                return (
+                  <>
+                    {/* Pending Quotes Section */}
+                    {(selectedQuoteTab === 'pending' || selectedQuoteTab === 'all') && (
+                      <div style={{ marginBottom: selectedQuoteTab === 'all' ? '2.5rem' : 0 }}>
+                        <h2 style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          Pending Quotes
+                          <span style={{ fontSize: '0.8rem', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '12px', color: 'var(--text-muted)' }}>
+                            {pendingQuoteTrailers.length}
+                          </span>
+                        </h2>
+                        
+                        <div style={{ background: 'var(--bg-card)', borderRadius: '16px', border: '1px solid var(--border-default)', overflow: 'hidden', boxShadow: 'var(--shadow-sm)' }}>
+                          {pendingQuoteTrailers.length > 0 ? (
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr' }}>
+                              {pendingQuoteTrailers.map(q => renderQuoteRow(q, false))}
+                            </div>
+                          ) : (
+                            <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+                              No pending quotes within the last 7 days.
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Auto Denied Quotes Section (Placed below Pending Quotes) */}
+                    {(selectedQuoteTab === 'auto_denied' || selectedQuoteTab === 'all') && (
+                      <div>
+                        <h2 style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          Auto Denied Quotes (7+ Days)
+                          <span style={{ fontSize: '0.8rem', background: '#fee2e2', color: '#b91c1c', padding: '2px 8px', borderRadius: '12px', fontWeight: 700 }}>
+                            {autoDeniedQuoteTrailers.length}
+                          </span>
+                        </h2>
+                        
+                        <div style={{ background: 'var(--bg-card)', borderRadius: '16px', border: '1px solid var(--border-default)', overflow: 'hidden', boxShadow: 'var(--shadow-sm)' }}>
+                          {autoDeniedQuoteTrailers.length > 0 ? (
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr' }}>
+                              {autoDeniedQuoteTrailers.map(q => renderQuoteRow(q, true))}
+                            </div>
+                          ) : (
+                            <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+                              No auto-denied quotes found.
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
             </div>
-          </div>
           )}
           
           {toastMessage && (
