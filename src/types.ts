@@ -203,21 +203,8 @@ export function calculateTrailerRemainingHours(trailer: Trailer, hoursConfig?: R
       ? savedTarget
       : (hoursConfig?.[trailer.model]?.[pId] ?? MODEL_TARGET_HOURS[trailer.model]?.[pId] ?? PHASE_METADATA[pId]?.defaultTargetHours ?? 0);
 
-    const effectiveTargetHours = manualHours > 0 ? manualHours : templateHours;
-
-    if (pId === trailer.currentPhase) {
-      // Current phase progress: check if time spent or manual progress
-      const curLog = (trailer.history ?? []).slice().reverse().find(h => h.phase === pId && !h.exitedAt);
-      if (curLog && !manualHours) {
-        const safeEnteredAt = (curLog.enteredAt && Number.isFinite(curLog.enteredAt)) ? curLog.enteredAt : Date.now();
-        const elapsedHours = (Date.now() - safeEnteredAt) / (1000 * 60 * 60);
-        total += Math.max(0, effectiveTargetHours - elapsedHours);
-      } else {
-        total += Math.max(0, effectiveTargetHours);
-      }
-    } else {
-      total += Math.max(0, effectiveTargetHours);
-    }
+    const effectiveHours = manualHours > 0 ? manualHours : templateHours;
+    total += Math.max(0, effectiveHours);
   });
 
   return Number.isFinite(total) ? Math.max(0, total) : 0;

@@ -236,7 +236,7 @@ function Dashboard({
     setShippingPhotos({ p1: null, p2: null, p3: null });
     setShippingSpecSheet(null);
     setShippingInspectionSheet(null);
-    setShippingHours({ prefab: '0', build: '0', paint: '0', outsource: '0', trim: '0' });
+    setShippingHours({ prefab: '', build: '', paint: '', outsource: '', trim: '' });
     setShippingForm({ 
       invoice_number: '', 
       vin_date: '', 
@@ -253,7 +253,7 @@ function Dashboard({
   const [shippingSpecSheet, setShippingSpecSheet] = useState<File | null>(null);
   const [shippingInspectionSheet, setShippingInspectionSheet] = useState<File | null>(null);
   const [shippingHours, setShippingHours] = useState<Record<string, string>>({
-    prefab: '0', build: '0', paint: '0', outsource: '0', trim: '0'
+    prefab: '', build: '', paint: '', outsource: '', trim: ''
   });
   const [isShipping, setIsShipping] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -1088,7 +1088,7 @@ function Dashboard({
                       total += (log.phaseManualHours ?? log.bayManualHours ?? 0);
                     }
                   });
-                  return (found && total > 0) ? total.toString() : '0.0';
+                  return (found && total > 0) ? total.toString() : '';
                 };
 
                   setShippingHours({
@@ -1610,25 +1610,28 @@ function Dashboard({
           </div>
 
           <div style={{ padding: '1.25rem', background: 'rgba(59, 130, 246, 0.05)', borderRadius: '16px', border: '1px solid rgba(59, 130, 246, 0.2)', marginBottom: '1.5rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '1.25rem' }}>
-              <Clock size={16} color="var(--accent)" />
-              <span style={{ fontSize: '0.75rem', fontWeight: 900, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Production Hours Verification</span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', marginBottom: '1.25rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                <Clock size={16} color="var(--accent)" />
+                <span style={{ fontSize: '0.75rem', fontWeight: 900, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Production Hours (Optional)</span>
+              </div>
+              <span style={{ fontSize: '0.68rem', color: 'var(--text-secondary)' }}>Pre-filled from entered trailer hours. You can enter or edit them here at shipping, but it is not mandatory.</span>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem' }}>
               {['prefab', 'build', 'paint', 'outsource', 'trim'].map(phase => (
                 <div key={phase} className="form-group" style={{ margin: 0 }}>
-                  <label className="form-label" style={{ fontSize: '0.6rem', opacity: 0.8 }}>{phase}</label>
+                  <label className="form-label" style={{ fontSize: '0.6rem', opacity: 0.8, textTransform: 'uppercase' }}>{phase}</label>
                   <input 
                     type="number" 
                     step="0.1"
+                    min="0"
+                    placeholder="0.0"
                     className="form-input" 
                     style={{ padding: '0.5rem', textAlign: 'center' }}
-                    value={shippingHours[phase]}
+                    value={shippingHours[phase] ?? ''}
                     onChange={e => {
                       const raw = e.target.value;
-                      // Clamp to '0' if the user clears the field or enters non-numeric text
-                      const safe = raw === '' || isNaN(parseFloat(raw)) ? '0' : raw;
-                      setShippingHours(prev => ({ ...prev, [phase]: safe }));
+                      setShippingHours(prev => ({ ...prev, [phase]: raw }));
                     }}
                   />
                 </div>
