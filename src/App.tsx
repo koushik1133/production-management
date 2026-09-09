@@ -2419,7 +2419,7 @@ function AppContent({ userRole, currentUser }: { userRole: UserRole; currentUser
         // Guard against infinite loop on dense serial ranges
         const MAX_SERIAL_ITER = 10000;
         let iter = 0;
-        while (trailers.some(tr => tr.serialNumber === suggested) && iter < MAX_SERIAL_ITER) {
+        while (trailers.some(tr => tr.serialNumber === suggested && tr.currentPhase !== 'quote' && !tr.isDeleted) && iter < MAX_SERIAL_ITER) {
           nextNum++;
           iter++;
           suggested = `${prefix}${nextNum.toString().padStart(numStr.length, "0")}`;

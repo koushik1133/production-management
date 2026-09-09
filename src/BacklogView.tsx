@@ -375,7 +375,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
     try {
       const serialNum = formData.serialNumber || `UNIT-${Math.floor(10000 + Math.random() * 90000)}`;
 
-      const exists = trailers.some(t => t.serialNumber?.trim().toLowerCase() === serialNum.trim().toLowerCase() && !t.isDeleted && t.id !== approvingQuoteId);
+      const exists = trailers.some(t => t.serialNumber?.trim().toLowerCase() === serialNum.trim().toLowerCase() && !t.isDeleted && t.id !== approvingQuoteId && t.currentPhase !== 'quote');
       if (exists) {
         alert(`A trailer with serial number "${serialNum}" already exists. Serial numbers must be unique.`);
         setIsSubmitting(false);
@@ -578,6 +578,16 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
     }
   };
 
+  const isSerialConflict = Boolean(
+    formData.serialNumber &&
+    trailers.some(t => 
+      t.serialNumber?.trim().toLowerCase() === formData.serialNumber.trim().toLowerCase() && 
+      !t.isDeleted && 
+      t.id !== approvingQuoteId && 
+      t.currentPhase !== 'quote'
+    )
+  );
+
   return (
     <div className="backlog-page-wrapper">
       <div className="backlog-header-section" style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '2.5rem', minHeight: '52px' }}>
@@ -621,19 +631,40 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
                   <div style={{ padding: '1.25rem', background: 'var(--bg-secondary)', borderRadius: '12px', border: '1px solid var(--border-default)' }}>
                     <h3 style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '1rem', letterSpacing: '0.05em' }}>General Details</h3>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: '1rem' }}>
-                      <div className="form-group" style={{ marginBottom: 0 }}>
-                        <label className="form-label" style={{ fontSize: '0.75rem', display: 'flex', justifyContent: 'space-between' }}>
+                       <div className="form-group" style={{ marginBottom: 0 }}>
+                        <label className="form-label" style={{ fontSize: '0.75rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.45rem', flexWrap: 'wrap', gap: '6px' }}>
                           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                             <span>Serial Number *</span>
-                            {trailers.some(t => t.serialNumber === formData.serialNumber && !t.isDeleted) && (
-                              <span style={{ color: '#ef4444', fontSize: '0.65rem', fontWeight: 800 }}>ALREADY EXISTS!</span>
+                            {isSerialConflict && (
+                              <span style={{ 
+                                background: 'rgba(239, 68, 68, 0.15)', 
+                                color: '#ef4444', 
+                                border: '1px solid rgba(239, 68, 68, 0.3)',
+                                fontSize: '0.65rem', 
+                                fontWeight: 800,
+                                padding: '2px 7px',
+                                borderRadius: '5px',
+                                letterSpacing: '0.04em'
+                              }}>
+                                ALREADY EXISTS!
+                              </span>
                             )}
                           </div>
                           {nextSuggestedSerial && (
                             <button 
-                              type="button"
+                              type="button" 
                               onClick={() => setFormData(prev => ({ ...prev, serialNumber: nextSuggestedSerial }))}
-                              style={{ background: 'none', border: 'none', color: '#2563eb', fontSize: '0.65rem', fontWeight: 800, cursor: 'pointer', padding: 0 }}
+                              style={{ 
+                                background: 'rgba(59, 130, 246, 0.12)', 
+                                border: '1px solid rgba(59, 130, 246, 0.3)', 
+                                color: '#3b82f6', 
+                                fontSize: '0.68rem', 
+                                fontWeight: 800, 
+                                cursor: 'pointer', 
+                                padding: '2px 8px',
+                                borderRadius: '6px',
+                                transition: 'all 0.15s ease'
+                              }}
                             >
                               SUGGEST: {nextSuggestedSerial}
                             </button>
@@ -646,8 +677,9 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
                             padding: '0.75rem 1rem',
                             fontSize: '0.95rem', 
                             fontWeight: 700,
-                            borderColor: trailers.some(t => t.serialNumber === formData.serialNumber && !t.isDeleted) ? '#fecdd3' : undefined,
-                            backgroundColor: trailers.some(t => t.serialNumber === formData.serialNumber && !t.isDeleted) ? '#fff1f2' : 'var(--bg-card)' 
+                            borderColor: isSerialConflict ? '#ef4444' : undefined,
+                            backgroundColor: isSerialConflict ? 'rgba(239, 68, 68, 0.12)' : 'var(--bg-card)',
+                            color: 'var(--text-primary)'
                           }}
                           placeholder="e.g. 10001" 
                           value={formData.serialNumber} 
@@ -914,9 +946,9 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
                       fontSize: '1rem', 
                       borderRadius: '12px', 
                       position: 'relative',
-                      opacity: trailers.some(t => t.serialNumber === formData.serialNumber && !t.isDeleted) ? 0.6 : 1
+                      opacity: isSerialConflict ? 0.6 : 1
                     }}
-                    disabled={isSubmitting || trailers.some(t => t.serialNumber === formData.serialNumber && !t.isDeleted && t.id !== approvingQuoteId)}
+                    disabled={isSubmitting || isSerialConflict}
                   >
                     Confirm Registration <ArrowRight size={18} />
                     <div className="reco-badge-tag" style={{ 
@@ -1349,10 +1381,14 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
                       <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
                         <button 
                           onClick={() => {
+                            const quoteSerialNum = quote.serialNumber && !/^Q(UOTE)?(-\d+)?$/i.test(quote.serialNumber.trim())
+                              ? quote.serialNumber.trim()
+                              : (nextSuggestedSerial || '');
+
                             setFormData({
                               name: quote.name !== '---' ? quote.name : '',
                               model: quote.model,
-                              serialNumber: nextSuggestedSerial || '',
+                              serialNumber: quoteSerialNum,
                               station: 'B1',
                               isPriority: quote.isPriority || false,
                               partsStatus: quote.partsStatus || { tyres: false, steel: false, parts: false },
