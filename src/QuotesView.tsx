@@ -8,6 +8,7 @@ import type { Trailer, UserRole, QuoteRecord, Dealer } from './types';
 import { triggerFileDownload, isRelativePath, fetchFileBlob, fetchTemplateAsBase64 } from './utils/storage';
 import { supabase } from './lib/supabase';
 import { injectTrailerDataIntoSpec } from './lib/injectSpecSheet';
+import { fetchAllPersistentQuotes, QUOTES_UPDATED_EVENT } from './utils/quotesStore';
 
 interface Props {
   trailers?: Trailer[];
@@ -84,18 +85,13 @@ export const QuotesView: React.FC<Props> = ({
   const [isLoading, setIsLoading] = useState(true);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
-  // Fetch persistent quotes from public.quotes table
+  // Fetch persistent quotes from Supabase and persistent storage
   const fetchQuotes = async () => {
     try {
-      const { data, error } = await supabase
-        .from('quotes')
-        .select('*')
-        .order('created_at', { ascending: false });
-      if (!error && data) {
-        setDbQuotes(data as QuoteRecord[]);
-      }
+      const data = await fetchAllPersistentQuotes(trailers);
+      setDbQuotes(data);
     } catch (err) {
-      console.error('Error loading quotes from DB:', err);
+      console.error('Error loading quotes:', err);
     } finally {
       setIsLoading(false);
     }
@@ -103,6 +99,11 @@ export const QuotesView: React.FC<Props> = ({
 
   useEffect(() => {
     fetchQuotes();
+
+    const handleLocalUpdate = () => {
+      fetchQuotes();
+    };
+    window.addEventListener(QUOTES_UPDATED_EVENT, handleLocalUpdate);
 
     const channel = supabase
       .channel('quotes_realtime')
@@ -112,46 +113,64 @@ export const QuotesView: React.FC<Props> = ({
       .subscribe();
 
     return () => {
+      window.removeEventListener(QUOTES_UPDATED_EVENT, handleLocalUpdate);
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [trailers]);
 
-  // Merge DB quotes with active trailers with phase 'quote' (fallback to guarantee zero data loss)
+  // Merge DB/local quotes with active trailers (guarantee zero data loss and keep approved quotes)
   const allQuotes = useMemo(() => {
-    const list: QuoteRecord[] = [...dbQuotes];
-    const seenSerials = new Set(dbQuotes.map(q => q.serial_number?.trim().toLowerCase()).filter(Boolean));
+    const map = new Map<string, QuoteRecord>();
 
+    // 1. Load all persistent quotes first
+    dbQuotes.forEach(q => {
+      const k = q.serial_number ? q.serial_number.trim().toLowerCase() : q.id;
+      if (k) map.set(k, q);
+    });
+
+    // 2. Merge active or historical quote trailers from trailers prop
     if (trailers && trailers.length > 0) {
       trailers
-        .filter(t => (t.currentPhase === 'quote' || t.history?.some(h => h.phase === 'quote')) && !t.isDeleted)
+        .filter(t => (t.currentPhase === 'quote' || t.quoteStatus === 'approved' || t.history?.some(h => h.phase === 'quote')) && !t.isDeleted)
         .forEach(t => {
           const s = t.serialNumber?.trim().toLowerCase();
-          if (s && !seenSerials.has(s)) {
-            seenSerials.add(s);
-            list.push({
-              id: t.id,
-              trailer_id: t.id,
-              serial_number: t.serialNumber,
-              model: t.model,
-              dealer_name: t.name,
-              sale_price: t.sale_price,
-              trailer_color: t.trailer_color,
-              trailer_plug: t.trailer_plug,
-              sales_person: t.salesPerson,
-              dealer_location: t.dealerLocation,
-              dealer_address: t.dealerCommonAddress,
-              purchase_order: t.purchaseOrder,
-              consignment: t.consignment,
-              quote_file_path: t.spec_sheet_file,
-              status: t.quoteStatus === 'denied' ? 'denied' : (t.currentPhase !== 'quote' ? 'approved' : 'quote'),
-              created_at: t.dateStarted ? new Date(t.dateStarted).toISOString() : new Date().toISOString(),
-              notes: t.notes
-            });
+          if (s) {
+            const isApproved = t.quoteStatus === 'approved' || t.currentPhase !== 'quote';
+            const existing = map.get(s);
+            if (existing) {
+              if (isApproved && existing.status !== 'approved') {
+                map.set(s, { ...existing, status: 'approved' });
+              }
+            } else {
+              map.set(s, {
+                id: t.id,
+                trailer_id: t.id,
+                serial_number: t.serialNumber,
+                model: t.model,
+                dealer_name: t.name,
+                sale_price: t.sale_price ?? null,
+                trailer_color: t.trailer_color,
+                trailer_plug: t.trailer_plug,
+                sales_person: t.salesPerson,
+                dealer_location: t.dealerLocation,
+                dealer_address: t.dealerCommonAddress,
+                purchase_order: t.purchaseOrder,
+                consignment: t.consignment,
+                quote_file_path: t.spec_sheet_file,
+                status: isApproved ? 'approved' : (t.quoteStatus === 'denied' ? 'denied' : 'quote'),
+                created_at: t.dateStarted ? new Date(t.dateStarted).toISOString() : new Date().toISOString(),
+                notes: t.notes
+              });
+            }
           }
         });
     }
 
-    return list;
+    return Array.from(map.values()).sort((a, b) => {
+      const dateA = safeDate(a.created_at)?.getTime() || 0;
+      const dateB = safeDate(b.created_at)?.getTime() || 0;
+      return dateB - dateA;
+    });
   }, [dbQuotes, trailers]);
 
   const statusCounts = useMemo(() => {

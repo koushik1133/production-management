@@ -8,6 +8,7 @@ import { addHours, format } from 'date-fns';
 import { injectTrailerDataIntoSpec } from './lib/injectSpecSheet';
 import { supabase } from './lib/supabase';
 import { fetchTemplateAsBase64, uploadFileToSupabase, dataURLtoFile } from './utils/storage';
+import { persistQuote } from './utils/quotesStore';
 
 export function getNextIncrementedSerial(baseSerial: string, existingTrailers: Trailer[]): string {
   if (!baseSerial || !baseSerial.trim()) return '10001';
@@ -286,28 +287,26 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
         console.error('Failed to upload quote to Supabase storage:', uploadErr);
       }
 
-      // Save to permanent quotes table
-      try {
-        await supabase.from('quotes').insert({
-          trailer_id: quoteTrailerId,
-          serial_number: quoteId,
-          model: formData.model,
-          dealer_name: formData.name || '---',
-          sale_price: formData.sale_price ? parseFloat(formData.sale_price) : null,
-          trailer_color: formData.trailer_color || null,
-          trailer_plug: formData.trailer_plug || null,
-          sales_person: formData.salesPerson || null,
-          dealer_location: formData.dealerLocation || null,
-          dealer_address: selectedDealer?.common_address || null,
-          purchase_order: formData.purchaseOrder || null,
-          consignment: formData.consignment || null,
-          quote_file_path: uploadedQuotePath || injected,
-          status: 'quote',
-          created_at: new Date().toISOString()
-        });
-      } catch (quoteDbErr) {
-        console.warn('Could not insert into quotes table:', quoteDbErr);
-      }
+      // Save to permanent quotes store (localStorage + Supabase)
+      persistQuote({
+        id: quoteTrailerId,
+        trailer_id: quoteTrailerId,
+        serial_number: quoteId,
+        model: formData.model,
+        dealer_name: formData.name || '---',
+        sale_price: formData.sale_price ? parseFloat(formData.sale_price) : null,
+        trailer_color: formData.trailer_color || undefined,
+        trailer_plug: formData.trailer_plug || undefined,
+        sales_person: formData.salesPerson || undefined,
+        dealer_location: formData.dealerLocation || undefined,
+        dealer_address: selectedDealer?.common_address || undefined,
+        purchase_order: formData.purchaseOrder || undefined,
+        consignment: formData.consignment || undefined,
+        quote_file_path: uploadedQuotePath || injected,
+        status: 'quote',
+        created_at: new Date().toISOString(),
+        notes: formData.purchaseOrder ? `PO: ${formData.purchaseOrder}` : undefined
+      });
 
       // Save the quote to the trailers table
       const newQuote: Trailer = {
@@ -447,6 +446,31 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
     }
 
     if (approvingQuoteId) {
+      const originalQuote = trailers.find(t => t.id === approvingQuoteId);
+      const quoteSerial = originalQuote?.serialNumber || serialNum;
+
+      // 1. Permanently save the approved quote record so it ALWAYS stays in Quotes view!
+      persistQuote({
+        id: originalQuote ? `quote-${originalQuote.id}` : crypto.randomUUID(),
+        trailer_id: approvingQuoteId,
+        serial_number: quoteSerial,
+        model: formData.model || originalQuote?.model,
+        dealer_name: formData.name || originalQuote?.name || '---',
+        sale_price: formData.sale_price ? parseFloat(formData.sale_price) : (originalQuote?.sale_price ?? null),
+        trailer_color: formData.trailer_color || originalQuote?.trailer_color,
+        trailer_plug: formData.trailer_plug || originalQuote?.trailer_plug,
+        sales_person: formData.salesPerson || originalQuote?.salesPerson,
+        dealer_location: dealerLocationVal || originalQuote?.dealerLocation,
+        dealer_address: selectedDealer?.common_address || originalQuote?.dealerCommonAddress,
+        purchase_order: formData.purchaseOrder || originalQuote?.purchaseOrder,
+        consignment: formData.consignment || originalQuote?.consignment,
+        quote_file_path: originalQuote?.spec_sheet_file || finalSpecSheetFile,
+        status: 'approved',
+        created_at: originalQuote?.dateStarted ? new Date(originalQuote.dateStarted).toISOString() : new Date().toISOString(),
+        notes: `Approved into Production Backlog #${serialNum}${originalQuote?.notes ? ` • ${originalQuote.notes}` : ''}`
+      });
+
+      // 2. Convert quote trailer to backlog for production without disturbing workflow
       onUpdateTrailer(approvingQuoteId, {
         name: formData.name || '---',
         model: formData.model,
@@ -454,7 +478,10 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
         isPriority: formData.isPriority,
         dateStarted: formData.dateRegistered ? new Date(formData.dateRegistered + 'T12:00:00').getTime() : Date.now(),
         currentPhase: 'backlog',
-        history: [{ phase: 'backlog', enteredAt: Date.now() }],
+        history: [
+          ...(originalQuote?.history || [{ phase: 'quote', enteredAt: originalQuote?.dateStarted || Date.now() }]),
+          { phase: 'backlog', enteredAt: Date.now() }
+        ],
         partsStatus: formData.partsStatus,
         promisedShippingDate: formData.promisedShippingDate,
         sale_price: formData.sale_price ? parseFloat(formData.sale_price) : undefined,
@@ -466,7 +493,8 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
         dealerCommonAddress: selectedDealer?.common_address || undefined,
         dealerId: selectedDealer?.id || undefined,
         purchaseOrder: formData.purchaseOrder || undefined,
-        consignment: formData.consignment || undefined
+        consignment: formData.consignment || undefined,
+        quoteStatus: 'approved'
       });
       setApprovingQuoteId(null);
       setToastMessage('Quote Approved & Added to Backlog!');
@@ -1351,9 +1379,25 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
                               } else {
                                 if (window.confirm(`Deny quote ${quote.serialNumber}? It will be moved to Auto Denied Quotes.`)) {
                                   onUpdateTrailer(quote.id, { quoteStatus: 'denied' });
-                                  try {
-                                    supabase.from('quotes').update({ status: 'denied' }).eq('serial_number', quote.serialNumber).then();
-                                  } catch (e) {}
+                                  persistQuote({
+                                    id: `quote-${quote.id}`,
+                                    trailer_id: quote.id,
+                                    serial_number: quote.serialNumber,
+                                    model: quote.model,
+                                    dealer_name: quote.name,
+                                    sale_price: quote.sale_price ?? null,
+                                    trailer_color: quote.trailer_color,
+                                    trailer_plug: quote.trailer_plug,
+                                    sales_person: quote.salesPerson,
+                                    dealer_location: quote.dealerLocation,
+                                    dealer_address: quote.dealerCommonAddress,
+                                    purchase_order: quote.purchaseOrder,
+                                    consignment: quote.consignment,
+                                    quote_file_path: quote.spec_sheet_file,
+                                    status: 'denied',
+                                    created_at: quote.dateStarted ? new Date(quote.dateStarted).toISOString() : new Date().toISOString(),
+                                    notes: quote.notes
+                                  });
                                   setToastMessage('Quote Denied & Moved');
                                   setTimeout(() => setToastMessage(null), 3000);
                                 }
