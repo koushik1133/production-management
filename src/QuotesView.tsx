@@ -523,20 +523,48 @@ export const QuotesView: React.FC<Props> = ({
               return (
                 <div key={q.id} style={{ background: 'var(--bg-card)', borderRadius: '16px', border: '1px solid var(--border-default)', padding: '1.25rem 1.5rem', display: 'flex', alignItems: 'center', gap: '1.5rem', boxShadow: 'var(--shadow-sm)' }}>
                   {/* Square color swatch */}
-                  {q.trailer_color && (
-                    <div 
-                      title={`Color: ${q.trailer_color}`} 
-                      style={{ 
-                        width: '32px', 
-                        height: '32px', 
-                        flexShrink: 0, 
-                        borderRadius: '8px', 
-                        background: q.trailer_color, 
-                        border: (q.trailer_color.toLowerCase() === 'white' || q.trailer_color === '#fff' || q.trailer_color === '#ffffff') ? '2px solid #94a3b8' : '1.5px solid rgba(255,255,255,0.15)', 
-                        boxShadow: '0 2px 5px rgba(0,0,0,0.18)' 
-                      }} 
-                    />
-                  )}
+                  {q.trailer_color && (() => {
+                    const colorLower = q.trailer_color.toLowerCase().trim();
+                    const isWhiteOrNear = colorLower === 'white' || colorLower === '#fff' || colorLower === '#ffffff' || colorLower === 'ivory' || colorLower === 'cream';
+                    const blackColors = ['black', 'jet black', 'matte black', 'gloss black', 'onyx', 'charcoal', '#000', '#000000', '#111', '#111111', '#1a1a1a', '#18181b', '#09090b', '#222', '#222222', '#333', '#333333'];
+                    const isVeryDarkHex = (hex: string) => {
+                      const clean = hex.replace('#', '');
+                      if (clean.length === 3) {
+                        const r = parseInt(clean[0] + clean[0], 16);
+                        const g = parseInt(clean[1] + clean[1], 16);
+                        const b = parseInt(clean[2] + clean[2], 16);
+                        return !isNaN(r) && !isNaN(g) && !isNaN(b) && (r * 0.299 + g * 0.587 + b * 0.114 < 45);
+                      } else if (clean.length === 6) {
+                        const r = parseInt(clean.slice(0, 2), 16);
+                        const g = parseInt(clean.slice(2, 4), 16);
+                        const b = parseInt(clean.slice(4, 6), 16);
+                        return !isNaN(r) && !isNaN(g) && !isNaN(b) && (r * 0.299 + g * 0.587 + b * 0.114 < 45);
+                      }
+                      return false;
+                    };
+                    const isBlackOrDark = blackColors.some(bc => colorLower.includes(bc)) || isVeryDarkHex(colorLower);
+
+                    return (
+                      <div 
+                        title={`Color: ${q.trailer_color}`} 
+                        style={{ 
+                          width: '32px', 
+                          height: '32px', 
+                          flexShrink: 0, 
+                          borderRadius: '8px', 
+                          background: q.trailer_color, 
+                          border: isBlackOrDark
+                            ? '2px solid #ffffff' 
+                            : isWhiteOrNear 
+                            ? '2px solid #94a3b8' 
+                            : '1.5px solid rgba(255,255,255,0.2)', 
+                          boxShadow: isBlackOrDark
+                            ? '0 0 0 1px rgba(255, 255, 255, 0.35), 0 2px 6px rgba(0,0,0,0.5)'
+                            : '0 2px 5px rgba(0,0,0,0.18)' 
+                        }} 
+                      />
+                    );
+                  })()}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '0.35rem', flexWrap: 'wrap' }}>
                       <span style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-primary)' }}>{quoteLabel}</span>
