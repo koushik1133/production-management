@@ -284,21 +284,12 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
     let found = false;
     let total = 0;
     entries.forEach(log => {
-      if (log.phaseManualHours !== undefined && log.phaseManualHours > 0) {
+      if (log.phaseManualHours !== undefined || log.bayManualHours !== undefined) {
         found = true;
-        total += log.phaseManualHours;
-      } else if (log.bayManualHours !== undefined && log.bayManualHours > 0) {
-        found = true;
-        total += log.bayManualHours;
+        total += (log.phaseManualHours ?? log.bayManualHours ?? 0);
       }
     });
-    if (found && total > 0) return total;
-    // Fallback: if user previously entered/saved custom hours on this trailer
-    const lastTarget = entries.slice().reverse().find(h => h.targetHours !== undefined && h.targetHours > 0);
-    if (lastTarget && lastTarget.targetHours) {
-      return lastTarget.targetHours;
-    }
-    return null;
+    return found ? total : null;
   }, [trailer.history]);
 
   // Target hours: custom saved target from trailer history, or catalog default
@@ -363,9 +354,9 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
     };
 
     if (hasCurrent) {
-      return `${formatHm(totalCurrent)} (Target: ${formatHm(totalTarget)})`;
+      return `Total: ${formatHm(totalCurrent)} (Target: ${formatHm(totalTarget)})`;
     }
-    return `${formatHm(totalTarget)}`;
+    return totalTarget > 0 ? `Target: ${formatHm(totalTarget)}` : '—';
   }, [localCurrentHours, localTargetHoursState]);
 
   const handleSaveHours = React.useCallback(() => {
@@ -913,7 +904,7 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                   <div style={{ fontSize: '0.8rem', fontWeight: 800, color: '#0d9488', background: 'var(--bg-card)', padding: '2px 10px', borderRadius: '99px', border: '1px solid rgba(16, 185, 129, 0.1)' }}>
-                    Total: {totalTimeDisplay}
+                    {totalTimeDisplay}
                   </div>
                   <button
                     type="button"

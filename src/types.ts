@@ -261,36 +261,7 @@ export function getModelPhaseAverages(
   phases.forEach(phaseId => {
     const serialHoursMap = new Map<string, number>();
 
-    // 1. Scan active & archived trailers in the trailers table
-    trailers.forEach(t => {
-      if ((t.model || '').trim().toLowerCase() !== normModel || t.isDeleted) return;
-      const serial = (t.serialNumber || t.id || '').trim();
-      if (!serial) return;
-
-      const entries = (t.history ?? []).filter(h => h.phase === phaseId);
-      let manualSum = 0;
-      let hasManual = false;
-      entries.forEach(log => {
-        if (log.phaseManualHours !== undefined && log.phaseManualHours > 0) {
-          manualSum += log.phaseManualHours;
-          hasManual = true;
-        } else if (log.bayManualHours !== undefined && log.bayManualHours > 0) {
-          manualSum += log.bayManualHours;
-          hasManual = true;
-        }
-      });
-
-      if (hasManual && manualSum > 0) {
-        serialHoursMap.set(serial, manualSum);
-      } else {
-        const lastTarget = entries.slice().reverse().find(h => h.targetHours !== undefined && h.targetHours > 0);
-        if (lastTarget && lastTarget.targetHours) {
-          serialHoursMap.set(serial, lastTarget.targetHours);
-        }
-      }
-    });
-
-    // 2. Scan shipped_trailers for any completed units
+    // 1. Scan shipped trailers for completed units with entered hours
     shippedTrailers.forEach(s => {
       if ((s.trailer_name || '').trim().toLowerCase() !== normModel) return;
       const serial = (s.serial_number || '').trim();
@@ -303,8 +274,29 @@ export function getModelPhaseAverages(
       else if (phaseId === 'outsource') shippedPhaseHours = s.outsource_hours ?? 0;
       else if (phaseId === 'trim') shippedPhaseHours = s.trim_hours ?? 0;
 
+      // Only count if genuine hours were entered (> 0)
       if (shippedPhaseHours > 0) {
         serialHoursMap.set(serial, shippedPhaseHours);
+      }
+    });
+
+    // 2. Scan archived (completed) trailers from trailers table if not already in shipped_trailers
+    trailers.forEach(t => {
+      if ((t.model || '').trim().toLowerCase() !== normModel || t.isDeleted || !t.isArchived) return;
+      const serial = (t.serialNumber || t.id || '').trim();
+      if (!serial || serialHoursMap.has(serial)) return;
+
+      const entries = (t.history ?? []).filter(h => h.phase === phaseId);
+      const lastEntry = entries.slice().reverse().find(
+        h => (h.phaseManualHours !== undefined && h.phaseManualHours > 0) ||
+             (h.bayManualHours !== undefined && h.bayManualHours > 0)
+      );
+
+      if (lastEntry) {
+        const val = lastEntry.phaseManualHours ?? lastEntry.bayManualHours ?? 0;
+        if (val > 0) {
+          serialHoursMap.set(serial, val);
+        }
       }
     });
 

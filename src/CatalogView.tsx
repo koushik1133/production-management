@@ -208,15 +208,15 @@ export const CatalogView: React.FC<Props> = ({ categories, hours, specs, templat
   const calculateTotalAvgHours = React.useCallback((modelName: string): number | null => {
     const modelStats = allModelAverages[modelName];
     if (!modelStats) return null;
+    const activePhases = PHASES.filter(p => !['backlog', 'shipping'].includes(p.id));
     let total = 0;
-    let hasAny = false;
-    PHASES.filter(p => !['backlog', 'shipping'].includes(p.id)).forEach(p => {
-      if (modelStats[p.id]?.avg !== null) {
-        total += modelStats[p.id].avg!;
-        hasAny = true;
+    for (const p of activePhases) {
+      if (modelStats[p.id]?.avg === null || modelStats[p.id]?.avg === undefined) {
+        return null;
       }
-    });
-    return hasAny ? Math.round(total * 10) / 10 : null;
+      total += modelStats[p.id].avg!;
+    }
+    return Math.round(total * 10) / 10;
   }, [allModelAverages]);
 
   const filteredCategories = categories.map(cat => ({
