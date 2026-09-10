@@ -103,23 +103,15 @@ export const QuotesView: React.FC<Props> = ({
   useEffect(() => {
     fetchQuotes();
 
-    const handleLocalUpdate = () => {
+    const handleUpdate = () => {
       fetchQuotes();
     };
-    window.addEventListener(QUOTES_UPDATED_EVENT, handleLocalUpdate);
-
-    const channel = supabase
-      .channel('quotes_realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'quotes' }, () => {
-        fetchQuotes();
-      })
-      .subscribe();
+    window.addEventListener(QUOTES_UPDATED_EVENT, handleUpdate);
 
     return () => {
-      window.removeEventListener(QUOTES_UPDATED_EVENT, handleLocalUpdate);
-      supabase.removeChannel(channel);
+      window.removeEventListener(QUOTES_UPDATED_EVENT, handleUpdate);
     };
-  }, [trailers]);
+  }, []);
 
   // Merge DB/local quotes with active trailers (guarantee zero data loss and keep approved quotes)
   const allQuotes = useMemo(() => {

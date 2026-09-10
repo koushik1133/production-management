@@ -110,7 +110,7 @@ const staticModelCategories = MODEL_CATEGORIES;
 import logo from './assets/lane-logo-v4.png';
 import './App.css';
 
-import { supabase } from './lib/supabase';
+import { supabase, clearCorruptedSession } from './lib/supabase';
 import { isManagerEmail } from './lib/messaging';
 
 function Dashboard({ 
@@ -1997,29 +1997,33 @@ function AuthGate({ children }: { children: (role: UserRole, user: User | null) 
     supabase.auth.getSession()
       .then(({ data: { session }, error: sessionError }) => {
         if (sessionError) {
-          if (sessionError.message?.toLowerCase().includes('refresh token')) {
-            supabase.auth.signOut({ scope: 'local' }).catch(() => {});
-          }
+          console.warn('Supabase auth session error detected, purging corrupted token:', sessionError.message);
+          clearCorruptedSession();
+          setAuth({ isAuthenticated: false, role: null, user: null });
+          setLoading(false);
+          return;
         }
         if (session?.user) {
           const role: UserRole = isManagerEmail(session.user.email) ? 'manager' : 'worker';
           setAuth({ isAuthenticated: true, role, user: session.user });
+        } else {
+          setAuth({ isAuthenticated: false, role: null, user: null });
         }
         setLoading(false);
       })
       .catch((err) => {
-        if (String(err)?.toLowerCase().includes('refresh token')) {
-          supabase.auth.signOut({ scope: 'local' }).catch(() => {});
-        }
+        console.warn('Supabase auth getSession caught exception, resetting auth state:', err);
+        clearCorruptedSession();
+        setAuth({ isAuthenticated: false, role: null, user: null });
         setLoading(false);
       });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session?.user && event !== 'SIGNED_OUT') {
+      if (event === 'SIGNED_OUT' || !session?.user) {
+        setAuth({ isAuthenticated: false, role: null, user: null });
+      } else if (session?.user) {
         const role: UserRole = isManagerEmail(session.user.email) ? 'manager' : 'worker';
         setAuth({ isAuthenticated: true, role, user: session.user });
-      } else {
-        setAuth({ isAuthenticated: false, role: null, user: null });
       }
       setLoading(false);
     });
@@ -2041,6 +2045,13 @@ function AuthGate({ children }: { children: (role: UserRole, user: User | null) 
     });
 
     if (signInError) {
+      // If server returned a 500 or database error, display error immediately and avoid cascading retries
+      if (signInError.status === 500 || signInError.message?.toLowerCase().includes('database error')) {
+        setError(signInError.message || 'Authentication server error. Please try again.');
+        setLoading(false);
+        return;
+      }
+
       // Fallback auto-provisioning via GoTrue API if account needs initialization
       try {
         const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
@@ -2419,7 +2430,7 @@ function AppContent({ userRole, currentUser }: { userRole: UserRole; currentUser
         // Guard against infinite loop on dense serial ranges
         const MAX_SERIAL_ITER = 10000;
         let iter = 0;
-        while (trailers.some(tr => tr.serialNumber === suggested && tr.currentPhase !== 'quote' && !tr.isDeleted) && iter < MAX_SERIAL_ITER) {
+        while (trailers.some(tr => tr.serialNumber === suggested) && iter < MAX_SERIAL_ITER) {
           nextNum++;
           iter++;
           suggested = `${prefix}${nextNum.toString().padStart(numStr.length, "0")}`;
@@ -2742,6 +2753,15 @@ function AppContent({ userRole, currentUser }: { userRole: UserRole; currentUser
             setShippedTrailers(prev => prev.map(t => t.serial_number === payload.new.serial_number ? { ...t, ...payload.new } : t));
           } else if (payload.eventType === 'DELETE') {
             setShippedTrailers(prev => prev.filter(t => t.serial_number !== payload.old.serial_number));
+          }
+        }
+      )
+      .on(
+        'postgres_changes' as any,
+        { event: '*', schema: 'public', table: 'quotes' },
+        () => {
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('quotes_updated'));
           }
         }
       )

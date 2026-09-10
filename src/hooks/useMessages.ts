@@ -502,7 +502,9 @@ export function useMessages(currentUser: User | null, isViewingMessagesPage: boo
       });
 
     return () => {
-      supabase.removeChannel(channel);
+      try {
+        supabase.removeChannel(channel);
+      } catch (_) {}
     };
   }, [currentUserId]);
 
@@ -538,8 +540,10 @@ export function useMessages(currentUser: User | null, isViewingMessagesPage: boo
       });
 
     return () => {
-      presenceChannel.untrack();
-      supabase.removeChannel(presenceChannel);
+      try {
+        presenceChannel.untrack();
+        supabase.removeChannel(presenceChannel);
+      } catch (_) {}
     };
   }, [currentUserId]);
 

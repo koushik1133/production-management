@@ -7,13 +7,33 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY environment variables.');
 }
 
+export function clearCorruptedSession() {
+  try {
+    supabase.auth.signOut({ scope: 'local' }).catch(() => {});
+  } catch (_) {}
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      Object.keys(window.localStorage).forEach((key) => {
+        if (key.startsWith('sb-') && key.endsWith('-auth-token')) {
+          window.localStorage.removeItem(key);
+        }
+      });
+    }
+  } catch (_) {}
+}
+
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+  },
   realtime: {
-    // Increase heartbeat so idle tabs don't spam the server
-    heartbeatIntervalMs: 30000,
-    // Supabase default reconnect is very aggressive; back off to reduce pool pressure
-    reconnectAfterMs: (tries: number) => Math.min(tries * 2000, 30000),
-    // Longer timeout before considering a connection dead
-    timeout: 60000,
+    // 15-second heartbeat keeps backgrounded tabs connected without hitting 60s browser throttle timeout
+    heartbeatIntervalMs: 15000,
+    // Smooth exponential backoff for reconnects
+    reconnectAfterMs: (tries: number) => Math.min(tries * 1500, 20000),
+    // 30-second timeout before reconnecting
+    timeout: 30000,
   },
 });
