@@ -5,6 +5,52 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" />
     <title>sales-manager</title>
+    <script>
+      (function() {
+        // Guard against browser/DevTools internal instrumentation bugs
+        // (e.g. Chromium issue: Cannot read properties of undefined (reading 'startTime') at et.reportAllChanges in injected VM scripts)
+        function isInstrumentationBug(msg, error, source) {
+          var m = String(msg || (error && error.message) || '');
+          var s = String((error && error.stack) || '');
+          var src = String(source || '');
+          return (
+            (m.indexOf("reading 'startTime'") !== -1 || m.indexOf('startTime') !== -1) &&
+            (s.indexOf('reportAllChanges') !== -1 || src.indexOf('VM') !== -1 || s.indexOf('anonymous') !== -1 || !src)
+          );
+        }
+
+        window.addEventListener('error', function(event) {
+          if (isInstrumentationBug(event.message, event.error, event.filename)) {
+            event.preventDefault();
+            if (typeof event.stopImmediatePropagation === 'function') {
+              event.stopImmediatePropagation();
+            }
+            return true;
+          }
+        }, true);
+
+        var origOnError = window.onerror;
+        window.onerror = function(msg, url, lineNo, columnNo, error) {
+          if (isInstrumentationBug(msg, error, url)) {
+            return true;
+          }
+          if (origOnError) {
+            return origOnError.apply(this, arguments);
+          }
+          return false;
+        };
+
+        window.addEventListener('unhandledrejection', function(event) {
+          var reason = event && event.reason;
+          if (isInstrumentationBug(reason && reason.message, reason, '')) {
+            event.preventDefault();
+            if (typeof event.stopImmediatePropagation === 'function') {
+              event.stopImmediatePropagation();
+            }
+          }
+        });
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

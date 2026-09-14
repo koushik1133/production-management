@@ -22,19 +22,46 @@ export const ScheduleView: React.FC<Props> = ({ trailers, userRole }) => {
     (t.model?.toLowerCase() ?? '').includes(searchQuery.toLowerCase())
   );
 
+  const parseValidDate = (dateStr?: string | null): Date | null => {
+    if (!dateStr || typeof dateStr !== 'string' || !dateStr.trim()) return null;
+    const candidate = dateStr.includes('T') ? dateStr : `${dateStr.trim()}T12:00:00`;
+    let d = new Date(candidate);
+    if (isNaN(d.getTime())) {
+      d = new Date(dateStr);
+    }
+    return isNaN(d.getTime()) ? null : d;
+  };
+
   // Grouping logic
   const today = startOfDay(new Date());
   
   const groups = {
-    overdue: filteredTrailers.filter(t => t.promisedShippingDate && isBefore(startOfDay(new Date(t.promisedShippingDate + 'T12:00:00')), today)),
-    today: filteredTrailers.filter(t => t.promisedShippingDate && isToday(new Date(t.promisedShippingDate + 'T12:00:00'))),
-    upcoming: filteredTrailers.filter(t => t.promisedShippingDate && !isToday(new Date(t.promisedShippingDate + 'T12:00:00')) && !isBefore(startOfDay(new Date(t.promisedShippingDate + 'T12:00:00')), today)),
-    unscheduled: filteredTrailers.filter(t => !t.promisedShippingDate)
+    overdue: filteredTrailers.filter(t => {
+      const d = parseValidDate(t.promisedShippingDate);
+      return d ? isBefore(startOfDay(d), today) : false;
+    }),
+    today: filteredTrailers.filter(t => {
+      const d = parseValidDate(t.promisedShippingDate);
+      return d ? isToday(d) : false;
+    }),
+    upcoming: filteredTrailers.filter(t => {
+      const d = parseValidDate(t.promisedShippingDate);
+      return d ? (!isToday(d) && !isBefore(startOfDay(d), today)) : false;
+    }),
+    unscheduled: filteredTrailers.filter(t => !parseValidDate(t.promisedShippingDate))
   };
 
-  // Sort groups by date
-  groups.upcoming.sort((a, b) => new Date(a.promisedShippingDate!).getTime() - new Date(b.promisedShippingDate!).getTime());
-  groups.overdue.sort((a, b) => new Date(a.promisedShippingDate!).getTime() - new Date(b.promisedShippingDate!).getTime());
+  // Sort groups safely by date
+  groups.upcoming.sort((a, b) => {
+    const da = parseValidDate(a.promisedShippingDate)?.getTime() ?? 0;
+    const db = parseValidDate(b.promisedShippingDate)?.getTime() ?? 0;
+    return da - db;
+  });
+  groups.overdue.sort((a, b) => {
+    const da = parseValidDate(a.promisedShippingDate)?.getTime() ?? 0;
+    const db = parseValidDate(b.promisedShippingDate)?.getTime() ?? 0;
+    return da - db;
+  });
 
   const RenderTrailerList = (list: Trailer[], title: string, color: string, icon: React.ReactNode) => {
     if (list.length === 0) return null;
@@ -49,11 +76,12 @@ export const ScheduleView: React.FC<Props> = ({ trailers, userRole }) => {
         </div>
         
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1rem' }}>
-          {list.map(trailer => {
+          {list.map((trailer, index) => {
             const phase = PHASES.find(p => p.id === trailer.currentPhase);
+            const validDate = parseValidDate(trailer.promisedShippingDate);
             return (
               <div 
-                key={trailer.id}
+                key={trailer.id || `trailer-${index}`}
                 className="schedule-card"
                 style={{
                   background: 'var(--bg-card)',
@@ -68,11 +96,11 @@ export const ScheduleView: React.FC<Props> = ({ trailers, userRole }) => {
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
                   <div>
-                    <div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)' }}>{trailer.model}</div>
-                    <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 600 }}>{trailer.name}</div>
+                    <div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)' }}>{trailer.model || 'Unknown Model'}</div>
+                    <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 600 }}>{trailer.name || 'Unnamed Unit'}</div>
                   </div>
                   <div style={{ background: 'var(--bg-secondary)', padding: '0.25rem 0.6rem', borderRadius: '8px', fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-secondary)' }}>
-                    #{trailer.serialNumber}
+                    #{trailer.serialNumber || 'N/A'}
                   </div>
                 </div>
 
@@ -81,13 +109,13 @@ export const ScheduleView: React.FC<Props> = ({ trailers, userRole }) => {
                     <span style={{ fontSize: '0.6rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', display: 'block', marginBottom: '0.25rem' }}>Current Phase</span>
                     <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--accent)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                       <Clock size={14} />
-                      {phase?.title}
+                      {phase?.title || 'Not Set'}
                     </div>
                   </div>
                   <div style={{ flex: 1, padding: '0.75rem', background: trailer.isPriority ? 'var(--priority-bg)' : 'var(--bg-secondary)', borderRadius: '12px', border: '1px solid', borderColor: trailer.isPriority ? 'var(--priority-border)' : 'var(--border-default)' }}>
                     <span style={{ fontSize: '0.6rem', fontWeight: 800, color: trailer.isPriority ? '#be123c' : 'var(--text-muted)', textTransform: 'uppercase', display: 'block', marginBottom: '0.25rem' }}>Due Date</span>
                     <div style={{ fontSize: '0.85rem', fontWeight: 800, color: trailer.isPriority ? '#e11d48' : 'var(--text-primary)' }}>
-                      {trailer.promisedShippingDate ? format(new Date(trailer.promisedShippingDate + 'T12:00:00'), 'MMM d, yyyy') : 'NOT SET'}
+                      {validDate ? format(validDate, 'MMM d, yyyy') : 'NOT SET'}
                     </div>
                   </div>
                 </div>
@@ -95,7 +123,7 @@ export const ScheduleView: React.FC<Props> = ({ trailers, userRole }) => {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '0.5rem', borderTop: '1px solid var(--border-default)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--text-secondary)' }}>
                     <MapPin size={14} />
-                    <span style={{ fontSize: '0.75rem', fontWeight: 700 }}>Bay: {trailer.station}</span>
+                    <span style={{ fontSize: '0.75rem', fontWeight: 700 }}>Bay: {trailer.station || 'Unassigned'}</span>
                   </div>
                   <button 
                     onClick={() => navigate(`/?highlight=${trailer.id}`)} 
