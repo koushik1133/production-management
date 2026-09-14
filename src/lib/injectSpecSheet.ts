@@ -323,33 +323,146 @@ export async function injectTrailerDataIntoSpec(
     zip.file(sheetPath, newXml);
   }
 
-  // If hideOtherSheets is true, hide all sheets except the first one
+  // If hideOtherSheets is true (Quotes mode), completely delete all sheets except the first one
+  // so that the generated quote Excel file strictly contains ONLY the customer quote sheet,
+  // preventing dealers/customers from unhiding internal factory sheets (Purchase Info, Trim Build, Inspection, etc.)
   if (hideOtherSheets) {
-    const workbookFile = zip.file('xl/workbook.xml');
-    if (workbookFile) {
-      let wbXml = await workbookFile.async('string');
-      
-      // We use regex to add state="hidden" to avoid DOMParser destroying Excel's delicate XML namespaces
-      let sheetCount = 0;
-      wbXml = wbXml.replace(/<sheet [^>]+>/gi, (match) => {
-        sheetCount++;
-        if (sheetCount > 1) {
-          if (match.toLowerCase().includes('state=')) {
-            // Replace existing state attribute with state="hidden"
-            return match.replace(/state="[^"]+"/i, 'state="hidden"');
-          } else {
-            // Add state="hidden" right before the closing bracket
-            return match.replace(/\/?>$/, ' state="hidden"/>');
-          }
+    const wbFile = zip.file('xl/workbook.xml');
+    const wbRelsFile = zip.file('xl/_rels/workbook.xml.rels');
+    const ctFile = zip.file('[Content_Types].xml');
+
+    if (wbFile && wbRelsFile && ctFile) {
+      const parser = new DOMParser();
+      const serializer = new XMLSerializer();
+
+      // 1. Parse xl/workbook.xml and identify sheets to keep and remove
+      const wbXml = await wbFile.async('string');
+      const wbDoc = parser.parseFromString(wbXml, 'application/xml');
+      const sheetNodes = Array.from(wbDoc.getElementsByTagName('sheet'));
+
+      if (sheetNodes.length > 1) {
+        const deletedRIds = new Set<string>();
+        const deletedSheetNames = new Set<string>();
+
+        // Keep index 0 (first sheet), delete all subsequent sheets
+        for (let i = 1; i < sheetNodes.length; i++) {
+          const s = sheetNodes[i];
+          const rId = s.getAttribute('r:id') || s.getAttribute('id');
+          if (rId) deletedRIds.add(rId);
+          const name = s.getAttribute('name');
+          if (name) deletedSheetNames.add(name.toLowerCase());
+          s.parentNode?.removeChild(s);
         }
-        return match;
-      });
-      
-      // Force the active tab to be the first sheet. If a hidden sheet is set as the active tab, 
-      // Excel will forcefully unhide it.
-      wbXml = wbXml.replace(/activeTab="\d+"/gi, 'activeTab="0"');
-      
-      zip.file('xl/workbook.xml', wbXml);
+
+        // Clean definedNames referencing deleted sheets
+        const definedNames = Array.from(wbDoc.getElementsByTagName('definedName'));
+        definedNames.forEach(dn => {
+          const localSheetId = dn.getAttribute('localSheetId');
+          if (localSheetId && localSheetId !== '0') {
+            dn.parentNode?.removeChild(dn);
+          }
+        });
+
+        // Ensure first sheet is the active tab
+        const wbViews = wbDoc.getElementsByTagName('workbookView');
+        if (wbViews.length > 0) {
+          wbViews[0].setAttribute('activeTab', '0');
+        }
+
+        // 2. Parse xl/_rels/workbook.xml.rels and find target file paths
+        const wbRelsXml = await wbRelsFile.async('string');
+        const wbRelsDoc = parser.parseFromString(wbRelsXml, 'application/xml');
+        const relNodes = Array.from(wbRelsDoc.getElementsByTagName('Relationship'));
+        const deletedTargets = new Set<string>();
+
+        relNodes.forEach(rel => {
+          const id = rel.getAttribute('Id');
+          if (id && deletedRIds.has(id)) {
+            const target = rel.getAttribute('Target');
+            if (target) {
+              const fullPath = target.startsWith('xl/') ? target : `xl/${target}`;
+              deletedTargets.add(fullPath);
+            }
+            rel.parentNode?.removeChild(rel);
+          }
+          // Remove calcChain relationship if present
+          const relType = rel.getAttribute('Type') || '';
+          const relTarget = rel.getAttribute('Target') || '';
+          if (relType.includes('calcChain') || relTarget.includes('calcChain')) {
+            rel.parentNode?.removeChild(rel);
+          }
+        });
+
+        // 3. Parse [Content_Types].xml and remove Overrides for deleted files
+        const ctXml = await ctFile.async('string');
+        const ctDoc = parser.parseFromString(ctXml, 'application/xml');
+        const overrideNodes = Array.from(ctDoc.getElementsByTagName('Override'));
+        overrideNodes.forEach(ov => {
+          const partName = ov.getAttribute('PartName');
+          if (!partName) return;
+          const norm = partName.startsWith('/') ? partName.substring(1) : partName;
+          if (deletedTargets.has(norm) || norm.includes('calcChain')) {
+            ov.parentNode?.removeChild(ov);
+          }
+        });
+
+        // 4. Delete worksheet files & their rels from the ZIP archive
+        deletedTargets.forEach(targetPath => {
+          zip.remove(targetPath);
+          const parts = targetPath.split('/');
+          const filename = parts.pop();
+          const dir = parts.join('/');
+          zip.remove(`${dir}/_rels/${filename}.rels`);
+        });
+        zip.remove('xl/calcChain.xml');
+
+        // 5. Freeze formulas in Sheet 1 that reference the deleted sheets
+        // to prevent #REF! errors when opening the quote in Excel
+        const s1File = zip.file('xl/worksheets/sheet1.xml');
+        if (s1File) {
+          const s1XmlStr = await s1File.async('string');
+          const s1Doc = parser.parseFromString(s1XmlStr, 'application/xml');
+          const cellNodes = Array.from(s1Doc.getElementsByTagName('c'));
+          cellNodes.forEach(cell => {
+            const fNode = cell.getElementsByTagName('f')[0];
+            if (fNode) {
+              const formula = (fNode.textContent || '').trim();
+              const referencesDeleted = formula.includes('!') || Array.from(deletedSheetNames).some(name => formula.toLowerCase().includes(name));
+              if (referencesDeleted) {
+                // Remove formula node so Excel uses the static/cached value
+                cell.removeChild(fNode);
+                if (!cell.getAttribute('t')) {
+                  cell.setAttribute('t', 'str');
+                }
+              }
+            }
+          });
+          let s1Xml = serializer.serializeToString(s1Doc);
+          if (!s1Xml.startsWith('<?xml')) {
+            s1Xml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' + s1Xml;
+          }
+          zip.file('xl/worksheets/sheet1.xml', s1Xml);
+        }
+
+        // 6. Serialize updated XMLs back into the ZIP
+        let newWbXml = serializer.serializeToString(wbDoc);
+        if (!newWbXml.startsWith('<?xml')) {
+          newWbXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' + newWbXml;
+        }
+        zip.file('xl/workbook.xml', newWbXml);
+
+        let newWbRelsXml = serializer.serializeToString(wbRelsDoc);
+        if (!newWbRelsXml.startsWith('<?xml')) {
+          newWbRelsXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' + newWbRelsXml;
+        }
+        zip.file('xl/_rels/workbook.xml.rels', newWbRelsXml);
+
+        let newCtXml = serializer.serializeToString(ctDoc);
+        if (!newCtXml.startsWith('<?xml')) {
+          newCtXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' + newCtXml;
+        }
+        zip.file('[Content_Types].xml', newCtXml);
+      }
     }
   }
 
