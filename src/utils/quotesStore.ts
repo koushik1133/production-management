@@ -72,6 +72,7 @@ export async function persistQuote(quote: QuoteRecord): Promise<void> {
       status: quote.status || 'quote',
       created_at: quote.created_at || new Date().toISOString(),
       notes: quote.notes || null,
+      lad_options: quote.lad_options || quote.ladOptions || null,
       updated_at: new Date().toISOString()
     });
 

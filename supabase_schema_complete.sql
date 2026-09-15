@@ -44,6 +44,8 @@ ALTER TABLE public.trailers ADD COLUMN IF NOT EXISTS sale_price numeric;
 ALTER TABLE public.trailers ADD COLUMN IF NOT EXISTS trailer_color text;
 ALTER TABLE public.trailers ADD COLUMN IF NOT EXISTS trailer_plug text;
 ALTER TABLE public.trailers ADD COLUMN IF NOT EXISTS shipping_cost numeric DEFAULT 0;
+ALTER TABLE public.trailers ADD COLUMN IF NOT EXISTS lad_options jsonb DEFAULT '{}'::jsonb;
+ALTER TABLE public.trailers ADD COLUMN IF NOT EXISTS "ladOptions" jsonb DEFAULT '{}'::jsonb;
 
 -- 2. BAY SETTINGS TABLE
 CREATE TABLE IF NOT EXISTS public.bay_settings (
@@ -265,6 +267,7 @@ CREATE TABLE IF NOT EXISTS public.quotes (
   consignment     text,
   quote_file_path text,
   notes           text,
+  lad_options     jsonb DEFAULT '{}'::jsonb,
   status          text DEFAULT 'quote',
   created_at      timestamptz DEFAULT timezone('utc', now()) NOT NULL
 );

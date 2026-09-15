@@ -2691,6 +2691,7 @@ function AppContent({ userRole, currentUser }: { userRole: UserRole; currentUser
       let columnsSupported = true;
       let shippingCostSupported = false;
 
+      const withLadCols = 'id,name,model,serialNumber,station,dateStarted,currentPhase,history,partsStatus,finishingType,isArchived,archivedAt,isDeleted,invoiceNumber,vinDate,expectedDueDate,promisedShippingDate,notes,isPriority,updated_at,vertical_order,bay_vertical_order,sale_price,trailer_color,trailer_plug,sales_person,dealer_location,dealer_common_address,dealer_id,purchase_order,consignment,shipping_cost,lad_options';
       const fullCols = 'id,name,model,serialNumber,station,dateStarted,currentPhase,history,partsStatus,finishingType,isArchived,archivedAt,isDeleted,invoiceNumber,vinDate,expectedDueDate,promisedShippingDate,notes,isPriority,updated_at,vertical_order,bay_vertical_order,sale_price,trailer_color,trailer_plug,sales_person,dealer_location,dealer_common_address,dealer_id,purchase_order,consignment,shipping_cost';
       const noShippingCols = 'id,name,model,serialNumber,station,dateStarted,currentPhase,history,partsStatus,finishingType,isArchived,archivedAt,isDeleted,invoiceNumber,vinDate,expectedDueDate,promisedShippingDate,notes,isPriority,updated_at,vertical_order,bay_vertical_order,sale_price,trailer_color,trailer_plug,sales_person,dealer_location,dealer_common_address,dealer_id,purchase_order,consignment';
       const minimalCols = 'id,name,model,serialNumber,station,dateStarted,currentPhase,history,partsStatus,finishingType,isArchived,archivedAt,isDeleted,invoiceNumber,vinDate,expectedDueDate,promisedShippingDate,notes,isPriority,updated_at,vertical_order,bay_vertical_order,sale_price,trailer_color,trailer_plug,sales_person,dealer_location,dealer_common_address,dealer_id';
@@ -2700,19 +2701,26 @@ function AppContent({ userRole, currentUser }: { userRole: UserRole; currentUser
         trailersRes = await supabase.from('trailers').select(supportedColumnsRef.current);
       } else {
         try {
-          trailersRes = await supabase.from('trailers').select(fullCols);
+          trailersRes = await supabase.from('trailers').select(withLadCols);
           if (trailersRes.error) throw trailersRes.error;
-          supportedColumnsRef.current = fullCols;
+          supportedColumnsRef.current = withLadCols;
           shippingCostSupported = true;
-        } catch (err: any) {
+        } catch (errLad: any) {
           try {
-            trailersRes = await supabase.from('trailers').select(noShippingCols);
+            trailersRes = await supabase.from('trailers').select(fullCols);
             if (trailersRes.error) throw trailersRes.error;
-            supportedColumnsRef.current = noShippingCols;
-          } catch (err2: any) {
-            columnsSupported = false;
-            supportedColumnsRef.current = minimalCols;
-            trailersRes = await supabase.from('trailers').select(minimalCols);
+            supportedColumnsRef.current = fullCols;
+            shippingCostSupported = true;
+          } catch (err: any) {
+            try {
+              trailersRes = await supabase.from('trailers').select(noShippingCols);
+              if (trailersRes.error) throw trailersRes.error;
+              supportedColumnsRef.current = noShippingCols;
+            } catch (err2: any) {
+              columnsSupported = false;
+              supportedColumnsRef.current = minimalCols;
+              trailersRes = await supabase.from('trailers').select(minimalCols);
+            }
           }
         }
       }
