@@ -88,8 +88,16 @@ export const QuotesView: React.FC<Props> = ({
   const [isLoading, setIsLoading] = useState(true);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
+  const isFetchingRef = useRef(false);
+  const lastFetchTimeRef = useRef(0);
+
   // Fetch persistent quotes from Supabase and persistent storage
-  const fetchQuotes = async () => {
+  const fetchQuotes = useCallback(async () => {
+    const now = Date.now();
+    if (isFetchingRef.current || (now - lastFetchTimeRef.current < 1500)) return;
+    isFetchingRef.current = true;
+    lastFetchTimeRef.current = now;
+
     try {
       const data = await fetchAllPersistentQuotes(trailers);
       setDbQuotes(data);
@@ -97,8 +105,9 @@ export const QuotesView: React.FC<Props> = ({
       console.error('Error loading quotes:', err);
     } finally {
       setIsLoading(false);
+      isFetchingRef.current = false;
     }
-  };
+  }, [trailers]);
 
   useEffect(() => {
     fetchQuotes();
@@ -111,22 +120,23 @@ export const QuotesView: React.FC<Props> = ({
     return () => {
       window.removeEventListener(QUOTES_UPDATED_EVENT, handleUpdate);
     };
-  }, []);
+  }, [fetchQuotes]);
 
-  // Merge DB/local quotes with active trailers (guarantee zero data loss and keep approved quotes)
+  // Merge DB/local quotes with active quote trailers (guarantee zero data loss and keep approved quotes)
   const allQuotes = useMemo(() => {
     const map = new Map<string, QuoteRecord>();
 
-    // 1. Load all persistent quotes first
+    // 1. Load all persistent quotes first (ground truth from public.quotes table)
     dbQuotes.forEach(q => {
       const k = q.serial_number ? q.serial_number.trim().toLowerCase() : q.id;
       if (k) map.set(k, q);
     });
 
-    // 2. Merge active or historical quote trailers from trailers prop
+    // 2. Merge only actual active quote trailers from trailers prop (currentPhase === 'quote')
+    // We NEVER merge production backlog/floor units here to prevent phantom duplicate cards
     if (trailers && trailers.length > 0) {
       trailers
-        .filter(t => !t.isDeleted && (t.currentPhase === 'quote' || (t.notes && (t.notes.includes('[STATUS:approved]') || t.notes.includes('Approved into Backlog')))))
+        .filter(t => !t.isDeleted && t.currentPhase === 'quote')
         .forEach(t => {
           const displaySerial = t.serialNumber?.replace(/-Q$/i, '') || t.serialNumber;
           const s = displaySerial?.trim().toLowerCase();

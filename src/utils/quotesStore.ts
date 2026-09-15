@@ -22,7 +22,7 @@ export function getStoredLocalQuotes(): QuoteRecord[] {
 /**
  * Upsert a quote into localStorage and notify all active listeners
  */
-export function saveStoredLocalQuote(quote: QuoteRecord): void {
+export function saveStoredLocalQuote(quote: QuoteRecord, emitEvent = true): void {
   try {
     const current = getStoredLocalQuotes();
     const existingIndex = current.findIndex(q => 
@@ -37,7 +37,9 @@ export function saveStoredLocalQuote(quote: QuoteRecord): void {
     }
 
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(current));
-    window.dispatchEvent(new CustomEvent(QUOTES_UPDATED_EVENT, { detail: quote }));
+    if (emitEvent) {
+      window.dispatchEvent(new CustomEvent(QUOTES_UPDATED_EVENT, { detail: quote }));
+    }
   } catch (err) {
     console.warn('Failed to save quote locally:', err);
   }
@@ -48,7 +50,7 @@ export function saveStoredLocalQuote(quote: QuoteRecord): void {
  */
 export async function persistQuote(quote: QuoteRecord): Promise<void> {
   // 1. Immediately save to local persistent storage
-  saveStoredLocalQuote(quote);
+  saveStoredLocalQuote(quote, true);
 
   // 2. Try to save to Supabase quotes table
   try {
@@ -58,7 +60,7 @@ export async function persistQuote(quote: QuoteRecord): Promise<void> {
       serial_number: quote.serial_number,
       model: quote.model || null,
       dealer_name: quote.dealer_name || null,
-      sale_price: quote.sale_price ?? null,
+      sale_price: quote.sale_price,
       trailer_color: quote.trailer_color || null,
       trailer_plug: quote.trailer_plug || null,
       sales_person: quote.sales_person || null,
@@ -69,31 +71,29 @@ export async function persistQuote(quote: QuoteRecord): Promise<void> {
       quote_file_path: quote.quote_file_path || null,
       status: quote.status || 'quote',
       created_at: quote.created_at || new Date().toISOString(),
-      notes: quote.notes || null
-    }, { onConflict: 'id' });
+      notes: quote.notes || null,
+      updated_at: new Date().toISOString()
+    });
 
     if (error) {
-      console.warn('Notice: quotes table sync deferred:', error.message);
+      console.warn('Could not upsert quote to Supabase quotes table:', error.message);
     }
   } catch (err) {
-    console.warn('Could not sync quote to Supabase quotes table:', err);
+    console.warn('Supabase quotes table upsert exception:', err);
   }
 }
 
 /**
- * Load all quotes from Supabase, localStorage, and trailers fallback
+ * Loads all persistent quotes:
+ * 1. From public.quotes table
+ * 2. From localStorage cache
+ * 3. Fallback: only legacy trailers with currentPhase === 'quote'
  */
 export async function fetchAllPersistentQuotes(trailers: Trailer[] = []): Promise<QuoteRecord[]> {
   const map = new Map<string, QuoteRecord>();
 
-  // 1. Load from localStorage
-  const localQuotes = getStoredLocalQuotes();
-  localQuotes.forEach(q => {
-    const key = q.serial_number ? q.serial_number.trim().toLowerCase() : q.id;
-    if (key) map.set(key, q);
-  });
-
-  // 2. Load from Supabase quotes table
+  // 1. Load from Supabase quotes table (primary source of truth)
+  let dbSuccess = false;
   try {
     const { data, error } = await supabase
       .from('quotes')
@@ -101,6 +101,7 @@ export async function fetchAllPersistentQuotes(trailers: Trailer[] = []): Promis
       .order('created_at', { ascending: false });
 
     if (!error && data && Array.isArray(data)) {
+      dbSuccess = true;
       data.forEach((q: any) => {
         const record: QuoteRecord = {
           id: q.id,
@@ -123,18 +124,31 @@ export async function fetchAllPersistentQuotes(trailers: Trailer[] = []): Promis
         };
         const key = record.serial_number ? record.serial_number.trim().toLowerCase() : record.id;
         if (key) map.set(key, record);
-        // Also save to localStorage to maintain local cache
-        saveStoredLocalQuote(record);
       });
+
+      // Synchronize clean database records into local storage cache
+      try {
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(Array.from(map.values())));
+      } catch (_) {}
     }
   } catch (err) {
-    // Graceful fallback if quotes table doesn't exist yet
+    // DB query failed or table not available
   }
 
-  // 3. Fallback: Merge trailers with phase 'quote' or quote history
+  // 2. If DB was unreachable, fallback to localStorage cache
+  if (!dbSuccess) {
+    const localQuotes = getStoredLocalQuotes();
+    localQuotes.forEach(q => {
+      const key = q.serial_number ? q.serial_number.trim().toLowerCase() : q.id;
+      if (key && !map.has(key)) map.set(key, q);
+    });
+  }
+
+  // 3. Fallback: Merge only active quote trailers from trailers board state (currentPhase === 'quote')
+  // NEVER merge production units (backlog, build, etc.) to prevent phantom duplicate cards
   if (trailers && trailers.length > 0) {
     trailers
-      .filter(t => !t.isDeleted && (t.currentPhase === 'quote' || (t.notes && (t.notes.includes('[STATUS:approved]') || t.notes.includes('Approved into Backlog')))))
+      .filter(t => !t.isDeleted && t.currentPhase === 'quote')
       .forEach(t => {
         const displaySerial = t.serialNumber?.replace(/-Q$/i, '') || t.serialNumber;
         const s = displaySerial?.trim().toLowerCase();
