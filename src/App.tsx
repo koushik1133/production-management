@@ -2586,38 +2586,20 @@ function AppContent({ userRole, currentUser }: { userRole: UserRole; currentUser
       if (modelsData && modelsData.length > 0) {
         setCatalogModels(modelsData as CatalogModel[]);
 
-        // Asynchronously hydrate spec_sheet_template presence from DB (file-path rows only — avoids loading massive base64 blobs)
+        // Hydrate template presence from DB using a lightweight null-bitmap check
+        // Avoids loading or pattern-matching multi-megabyte base64 strings that trigger 500 statement timeouts
         (async () => {
           try {
-            // Only fetch rows where spec_sheet_template looks like a file path (starts with 'templates/')
-            // This avoids loading multi-megabyte base64 rows that cause 500 server timeouts
-            const { data: dbTemplates } = await supabase
-              .from('production_models')
-              .select('name, spec_sheet_template')
-              .like('spec_sheet_template', 'templates/%');
-
-            if (dbTemplates && dbTemplates.length > 0) {
-              setCatalogModels(prev => prev.map(m => {
-                const found = dbTemplates.find(r => r.name === m.name);
-                if (found && found.spec_sheet_template) {
-                  return { ...m, spec_sheet_template: found.spec_sheet_template };
-                }
-                return m;
-              }));
-            }
-
-            // Separately check for any legacy base64 rows — just mark them as 'EXISTS' using a count trick
-            const { data: legacyRows } = await supabase
+            const { data: modelsWithTemplates, error } = await supabase
               .from('production_models')
               .select('name')
-              .not('spec_sheet_template', 'is', null)
-              .not('spec_sheet_template', 'like', 'templates/%');
+              .not('spec_sheet_template', 'is', null);
 
-            if (legacyRows && legacyRows.length > 0) {
+            if (!error && modelsWithTemplates && modelsWithTemplates.length > 0) {
+              const nameSet = new Set(modelsWithTemplates.map(r => r.name));
               setCatalogModels(prev => prev.map(m => {
-                const isLegacy = legacyRows.some(r => r.name === m.name);
-                if (isLegacy && !m.spec_sheet_template) {
-                  return { ...m, spec_sheet_template: 'EXISTS' };
+                if (nameSet.has(m.name)) {
+                  return { ...m, spec_sheet_template: m.spec_sheet_template || 'EXISTS' };
                 }
                 return m;
               }));
