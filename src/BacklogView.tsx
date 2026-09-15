@@ -159,10 +159,10 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
     purchaseOrder: '',
     consignment: '',
     ladOptions: {
-      dualHydraulicJacks: false,
-      bumperPullSetup: false,
-      dualSidePlatforms: false,
-      singleSidePlatforms: false
+      dualHydraulicJacks: '',
+      bumperPullSetup: '',
+      dualSidePlatforms: '',
+      singleSidePlatforms: ''
     } as LadOptions
   });
 
@@ -194,10 +194,10 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
       purchaseOrder: trailer.purchaseOrder || '',
       consignment: trailer.consignment || '',
       ladOptions: trailer.ladOptions || trailer.lad_options || {
-        dualHydraulicJacks: false,
-        bumperPullSetup: false,
-        dualSidePlatforms: false,
-        singleSidePlatforms: false
+        dualHydraulicJacks: '',
+        bumperPullSetup: '',
+        dualSidePlatforms: '',
+        singleSidePlatforms: ''
       }
     });
 
@@ -376,10 +376,10 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
         purchaseOrder: '',
         consignment: '',
         ladOptions: {
-          dualHydraulicJacks: false,
-          bumperPullSetup: false,
-          dualSidePlatforms: false,
-          singleSidePlatforms: false
+          dualHydraulicJacks: '',
+          bumperPullSetup: '',
+          dualSidePlatforms: '',
+          singleSidePlatforms: ''
         }
       });
       setToastMessage('Quote Generated Successfully!');
@@ -601,10 +601,10 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
         purchaseOrder: '',
         consignment: '',
         ladOptions: {
-          dualHydraulicJacks: false,
-          bumperPullSetup: false,
-          dualSidePlatforms: false,
-          singleSidePlatforms: false
+          dualHydraulicJacks: '',
+          bumperPullSetup: '',
+          dualSidePlatforms: '',
+          singleSidePlatforms: ''
         }
       });
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -723,7 +723,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
                         )}
                       </div>
 
-                      {/* LAD Drone Trailer Optional Configurations */}
+                      {/* LAD Drone Trailer Optional Configurations (Money Inputs) */}
                       {formData.model && formData.model.trim().toUpperCase().startsWith('LAD') && (
                         <div style={{
                           gridColumn: '1 / -1',
@@ -743,150 +743,194 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
                               </span>
                             </div>
                             <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                              Fills directly into spec sheet cells
+                              Enter optional pricing for spec sheet cells
                             </span>
                           </div>
 
-                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.75rem' }}>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.75rem' }}>
                             {/* Dual Hydraulic Jacks (L29) */}
-                            <label style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '0.65rem',
-                              padding: '0.65rem 0.85rem',
-                              background: 'var(--bg-card)',
-                              border: formData.ladOptions?.dualHydraulicJacks ? '1.5px solid #2563eb' : '1px solid var(--border-default)',
-                              borderRadius: '6px',
-                              cursor: 'pointer',
-                              userSelect: 'none',
-                              transition: 'all 0.15s ease'
-                            }}>
-                              <input
-                                type="checkbox"
-                                checked={!!formData.ladOptions?.dualHydraulicJacks}
-                                onChange={e => setFormData({
-                                  ...formData,
-                                  ladOptions: {
-                                    ...formData.ladOptions,
-                                    dualHydraulicJacks: e.target.checked
-                                  }
-                                })}
-                                style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#2563eb' }}
-                              />
-                              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                            <div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                                <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-primary)' }}>
                                   Dual Hydraulic Jacks
-                                </span>
+                                </label>
                                 <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
-                                  Spec Sheet Cell: <strong>L29</strong>
+                                  Cell: <strong>L29</strong>
                                 </span>
                               </div>
-                            </label>
+                              <div style={{ position: 'relative' }}>
+                                <span style={{
+                                  position: 'absolute',
+                                  left: '0.75rem',
+                                  top: '50%',
+                                  transform: 'translateY(-50%)',
+                                  fontSize: '0.85rem',
+                                  fontWeight: 700,
+                                  color: 'var(--text-muted)',
+                                  pointerEvents: 'none'
+                                }}>$</span>
+                                <input
+                                  type="text"
+                                  inputMode="decimal"
+                                  className="form-input"
+                                  style={{
+                                    paddingLeft: '1.75rem',
+                                    paddingTop: '0.55rem',
+                                    paddingBottom: '0.55rem',
+                                    fontSize: '0.88rem',
+                                    fontWeight: 600,
+                                    background: 'var(--bg-card)'
+                                  }}
+                                  placeholder="0.00"
+                                  value={formData.ladOptions?.dualHydraulicJacks !== undefined && formData.ladOptions?.dualHydraulicJacks !== false ? String(formData.ladOptions.dualHydraulicJacks) : ''}
+                                  onChange={e => setFormData({
+                                    ...formData,
+                                    ladOptions: {
+                                      ...formData.ladOptions,
+                                      dualHydraulicJacks: e.target.value
+                                    }
+                                  })}
+                                />
+                              </div>
+                            </div>
 
                             {/* Bumper Pull Setup (L30) */}
-                            <label style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '0.65rem',
-                              padding: '0.65rem 0.85rem',
-                              background: 'var(--bg-card)',
-                              border: formData.ladOptions?.bumperPullSetup ? '1.5px solid #2563eb' : '1px solid var(--border-default)',
-                              borderRadius: '6px',
-                              cursor: 'pointer',
-                              userSelect: 'none',
-                              transition: 'all 0.15s ease'
-                            }}>
-                              <input
-                                type="checkbox"
-                                checked={!!formData.ladOptions?.bumperPullSetup}
-                                onChange={e => setFormData({
-                                  ...formData,
-                                  ladOptions: {
-                                    ...formData.ladOptions,
-                                    bumperPullSetup: e.target.checked
-                                  }
-                                })}
-                                style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#2563eb' }}
-                              />
-                              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                            <div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                                <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-primary)' }}>
                                   Bumper Pull Setup
-                                </span>
+                                </label>
                                 <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
-                                  Spec Sheet Cell: <strong>L30</strong>
+                                  Cell: <strong>L30</strong>
                                 </span>
                               </div>
-                            </label>
+                              <div style={{ position: 'relative' }}>
+                                <span style={{
+                                  position: 'absolute',
+                                  left: '0.75rem',
+                                  top: '50%',
+                                  transform: 'translateY(-50%)',
+                                  fontSize: '0.85rem',
+                                  fontWeight: 700,
+                                  color: 'var(--text-muted)',
+                                  pointerEvents: 'none'
+                                }}>$</span>
+                                <input
+                                  type="text"
+                                  inputMode="decimal"
+                                  className="form-input"
+                                  style={{
+                                    paddingLeft: '1.75rem',
+                                    paddingTop: '0.55rem',
+                                    paddingBottom: '0.55rem',
+                                    fontSize: '0.88rem',
+                                    fontWeight: 600,
+                                    background: 'var(--bg-card)'
+                                  }}
+                                  placeholder="0.00"
+                                  value={formData.ladOptions?.bumperPullSetup !== undefined && formData.ladOptions?.bumperPullSetup !== false ? String(formData.ladOptions.bumperPullSetup) : ''}
+                                  onChange={e => setFormData({
+                                    ...formData,
+                                    ladOptions: {
+                                      ...formData.ladOptions,
+                                      bumperPullSetup: e.target.value
+                                    }
+                                  })}
+                                />
+                              </div>
+                            </div>
 
                             {/* Dual Side Platforms (L31) */}
-                            <label style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '0.65rem',
-                              padding: '0.65rem 0.85rem',
-                              background: 'var(--bg-card)',
-                              border: formData.ladOptions?.dualSidePlatforms ? '1.5px solid #2563eb' : '1px solid var(--border-default)',
-                              borderRadius: '6px',
-                              cursor: 'pointer',
-                              userSelect: 'none',
-                              transition: 'all 0.15s ease'
-                            }}>
-                              <input
-                                type="checkbox"
-                                checked={!!formData.ladOptions?.dualSidePlatforms}
-                                onChange={e => setFormData({
-                                  ...formData,
-                                  ladOptions: {
-                                    ...formData.ladOptions,
-                                    dualSidePlatforms: e.target.checked
-                                  }
-                                })}
-                                style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#2563eb' }}
-                              />
-                              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                            <div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                                <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-primary)' }}>
                                   Dual Side Platforms
-                                </span>
+                                </label>
                                 <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
-                                  Spec Sheet Cell: <strong>L31</strong>
+                                  Cell: <strong>L31</strong>
                                 </span>
                               </div>
-                            </label>
+                              <div style={{ position: 'relative' }}>
+                                <span style={{
+                                  position: 'absolute',
+                                  left: '0.75rem',
+                                  top: '50%',
+                                  transform: 'translateY(-50%)',
+                                  fontSize: '0.85rem',
+                                  fontWeight: 700,
+                                  color: 'var(--text-muted)',
+                                  pointerEvents: 'none'
+                                }}>$</span>
+                                <input
+                                  type="text"
+                                  inputMode="decimal"
+                                  className="form-input"
+                                  style={{
+                                    paddingLeft: '1.75rem',
+                                    paddingTop: '0.55rem',
+                                    paddingBottom: '0.55rem',
+                                    fontSize: '0.88rem',
+                                    fontWeight: 600,
+                                    background: 'var(--bg-card)'
+                                  }}
+                                  placeholder="0.00"
+                                  value={formData.ladOptions?.dualSidePlatforms !== undefined && formData.ladOptions?.dualSidePlatforms !== false ? String(formData.ladOptions.dualSidePlatforms) : ''}
+                                  onChange={e => setFormData({
+                                    ...formData,
+                                    ladOptions: {
+                                      ...formData.ladOptions,
+                                      dualSidePlatforms: e.target.value
+                                    }
+                                  })}
+                                />
+                              </div>
+                            </div>
 
                             {/* Single Side Platforms (L32) */}
-                            <label style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '0.65rem',
-                              padding: '0.65rem 0.85rem',
-                              background: 'var(--bg-card)',
-                              border: formData.ladOptions?.singleSidePlatforms ? '1.5px solid #2563eb' : '1px solid var(--border-default)',
-                              borderRadius: '6px',
-                              cursor: 'pointer',
-                              userSelect: 'none',
-                              transition: 'all 0.15s ease'
-                            }}>
-                              <input
-                                type="checkbox"
-                                checked={!!formData.ladOptions?.singleSidePlatforms}
-                                onChange={e => setFormData({
-                                  ...formData,
-                                  ladOptions: {
-                                    ...formData.ladOptions,
-                                    singleSidePlatforms: e.target.checked
-                                  }
-                                })}
-                                style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#2563eb' }}
-                              />
-                              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                            <div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                                <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-primary)' }}>
                                   Single Side Platforms
-                                </span>
+                                </label>
                                 <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
-                                  Spec Sheet Cell: <strong>L32</strong>
+                                  Cell: <strong>L32</strong>
                                 </span>
                               </div>
-                            </label>
+                              <div style={{ position: 'relative' }}>
+                                <span style={{
+                                  position: 'absolute',
+                                  left: '0.75rem',
+                                  top: '50%',
+                                  transform: 'translateY(-50%)',
+                                  fontSize: '0.85rem',
+                                  fontWeight: 700,
+                                  color: 'var(--text-muted)',
+                                  pointerEvents: 'none'
+                                }}>$</span>
+                                <input
+                                  type="text"
+                                  inputMode="decimal"
+                                  className="form-input"
+                                  style={{
+                                    paddingLeft: '1.75rem',
+                                    paddingTop: '0.55rem',
+                                    paddingBottom: '0.55rem',
+                                    fontSize: '0.88rem',
+                                    fontWeight: 600,
+                                    background: 'var(--bg-card)'
+                                  }}
+                                  placeholder="0.00"
+                                  value={formData.ladOptions?.singleSidePlatforms !== undefined && formData.ladOptions?.singleSidePlatforms !== false ? String(formData.ladOptions.singleSidePlatforms) : ''}
+                                  onChange={e => setFormData({
+                                    ...formData,
+                                    ladOptions: {
+                                      ...formData.ladOptions,
+                                      singleSidePlatforms: e.target.value
+                                    }
+                                  })}
+                                />
+                              </div>
+                            </div>
                           </div>
                         </div>
                       )}
@@ -1610,10 +1654,10 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
                               purchaseOrder: quote.purchaseOrder || '',
                               consignment: quote.consignment || '',
                               ladOptions: quote.ladOptions || quote.lad_options || {
-                                dualHydraulicJacks: false,
-                                bumperPullSetup: false,
-                                dualSidePlatforms: false,
-                                singleSidePlatforms: false
+                                dualHydraulicJacks: '',
+                                bumperPullSetup: '',
+                                dualSidePlatforms: '',
+                                singleSidePlatforms: ''
                               }
                             });
                             setApprovingQuoteId(quote.id);

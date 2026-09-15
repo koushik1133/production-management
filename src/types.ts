@@ -29,10 +29,10 @@ export interface PartsStatus {
 }
 
 export interface LadOptions {
-  dualHydraulicJacks?: boolean | string;
-  bumperPullSetup?: boolean | string;
-  dualSidePlatforms?: boolean | string;
-  singleSidePlatforms?: boolean | string;
+  dualHydraulicJacks?: string | number | boolean;
+  bumperPullSetup?: string | number | boolean;
+  dualSidePlatforms?: string | number | boolean;
+  singleSidePlatforms?: string | number | boolean;
 }
 
 export interface Trailer {

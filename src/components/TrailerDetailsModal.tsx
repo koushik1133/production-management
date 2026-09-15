@@ -122,10 +122,10 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
     consignment: trailer.consignment || '',
     dealerLocation: trailer.dealerLocation || '',
     ladOptions: trailer.ladOptions || trailer.lad_options || {
-      dualHydraulicJacks: false,
-      bumperPullSetup: false,
-      dualSidePlatforms: false,
-      singleSidePlatforms: false
+      dualHydraulicJacks: '',
+      bumperPullSetup: '',
+      dualSidePlatforms: '',
+      singleSidePlatforms: ''
     } as LadOptions
   });
 
@@ -152,10 +152,10 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
         consignment: trailer.consignment || '',
         dealerLocation: trailer.dealerLocation || '',
         ladOptions: trailer.ladOptions || trailer.lad_options || {
-          dualHydraulicJacks: false,
-          bumperPullSetup: false,
-          dualSidePlatforms: false,
-          singleSidePlatforms: false
+          dualHydraulicJacks: '',
+          bumperPullSetup: '',
+          dualSidePlatforms: '',
+          singleSidePlatforms: ''
         }
       });
       setLocalNotes(trailer.notes || '');
@@ -692,138 +692,190 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                     </span>
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.65rem' }}>
-                    <label style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.5rem',
-                      padding: '0.6rem 0.75rem',
-                      background: 'var(--bg-card)',
-                      border: editForm.ladOptions?.dualHydraulicJacks ? '1.5px solid #2563eb' : '1px solid var(--border-default)',
-                      borderRadius: '6px',
-                      cursor: 'pointer',
-                      userSelect: 'none'
-                    }}>
-                      <input
-                        type="checkbox"
-                        checked={!!editForm.ladOptions?.dualHydraulicJacks}
-                        onChange={e => setEditForm({
-                          ...editForm,
-                          ladOptions: {
-                            ...editForm.ladOptions,
-                            dualHydraulicJacks: e.target.checked
-                          }
-                        })}
-                        style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#2563eb' }}
-                      />
-                      <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.75rem' }}>
+                    {/* Dual Hydraulic Jacks (L29) */}
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                        <label style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-primary)' }}>
                           Dual Hydraulic Jacks
-                        </span>
-                        <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
-                          Spec Cell: <strong>L29</strong>
+                        </label>
+                        <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+                          Cell: <strong>L29</strong>
                         </span>
                       </div>
-                    </label>
+                      <div style={{ position: 'relative' }}>
+                        <span style={{
+                          position: 'absolute',
+                          left: '0.75rem',
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          fontSize: '0.85rem',
+                          fontWeight: 700,
+                          color: 'var(--text-muted)',
+                          pointerEvents: 'none'
+                        }}>$</span>
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          className="form-input"
+                          style={{
+                            paddingLeft: '1.75rem',
+                            paddingTop: '0.55rem',
+                            paddingBottom: '0.55rem',
+                            fontSize: '0.88rem',
+                            fontWeight: 600,
+                            background: 'var(--bg-card)'
+                          }}
+                          placeholder="0.00"
+                          value={editForm.ladOptions?.dualHydraulicJacks !== undefined && editForm.ladOptions?.dualHydraulicJacks !== false ? String(editForm.ladOptions.dualHydraulicJacks) : ''}
+                          onChange={e => setEditForm({
+                            ...editForm,
+                            ladOptions: {
+                              ...editForm.ladOptions,
+                              dualHydraulicJacks: e.target.value
+                            }
+                          })}
+                        />
+                      </div>
+                    </div>
 
-                    <label style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.5rem',
-                      padding: '0.6rem 0.75rem',
-                      background: 'var(--bg-card)',
-                      border: editForm.ladOptions?.bumperPullSetup ? '1.5px solid #2563eb' : '1px solid var(--border-default)',
-                      borderRadius: '6px',
-                      cursor: 'pointer',
-                      userSelect: 'none'
-                    }}>
-                      <input
-                        type="checkbox"
-                        checked={!!editForm.ladOptions?.bumperPullSetup}
-                        onChange={e => setEditForm({
-                          ...editForm,
-                          ladOptions: {
-                            ...editForm.ladOptions,
-                            bumperPullSetup: e.target.checked
-                          }
-                        })}
-                        style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#2563eb' }}
-                      />
-                      <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                    {/* Bumper Pull Setup (L30) */}
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                        <label style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-primary)' }}>
                           Bumper Pull Setup
-                        </span>
-                        <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
-                          Spec Cell: <strong>L30</strong>
+                        </label>
+                        <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+                          Cell: <strong>L30</strong>
                         </span>
                       </div>
-                    </label>
+                      <div style={{ position: 'relative' }}>
+                        <span style={{
+                          position: 'absolute',
+                          left: '0.75rem',
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          fontSize: '0.85rem',
+                          fontWeight: 700,
+                          color: 'var(--text-muted)',
+                          pointerEvents: 'none'
+                        }}>$</span>
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          className="form-input"
+                          style={{
+                            paddingLeft: '1.75rem',
+                            paddingTop: '0.55rem',
+                            paddingBottom: '0.55rem',
+                            fontSize: '0.88rem',
+                            fontWeight: 600,
+                            background: 'var(--bg-card)'
+                          }}
+                          placeholder="0.00"
+                          value={editForm.ladOptions?.bumperPullSetup !== undefined && editForm.ladOptions?.bumperPullSetup !== false ? String(editForm.ladOptions.bumperPullSetup) : ''}
+                          onChange={e => setEditForm({
+                            ...editForm,
+                            ladOptions: {
+                              ...editForm.ladOptions,
+                              bumperPullSetup: e.target.value
+                            }
+                          })}
+                        />
+                      </div>
+                    </div>
 
-                    <label style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.5rem',
-                      padding: '0.6rem 0.75rem',
-                      background: 'var(--bg-card)',
-                      border: editForm.ladOptions?.dualSidePlatforms ? '1.5px solid #2563eb' : '1px solid var(--border-default)',
-                      borderRadius: '6px',
-                      cursor: 'pointer',
-                      userSelect: 'none'
-                    }}>
-                      <input
-                        type="checkbox"
-                        checked={!!editForm.ladOptions?.dualSidePlatforms}
-                        onChange={e => setEditForm({
-                          ...editForm,
-                          ladOptions: {
-                            ...editForm.ladOptions,
-                            dualSidePlatforms: e.target.checked
-                          }
-                        })}
-                        style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#2563eb' }}
-                      />
-                      <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                    {/* Dual Side Platforms (L31) */}
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                        <label style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-primary)' }}>
                           Dual Side Platforms
-                        </span>
-                        <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
-                          Spec Cell: <strong>L31</strong>
+                        </label>
+                        <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+                          Cell: <strong>L31</strong>
                         </span>
                       </div>
-                    </label>
+                      <div style={{ position: 'relative' }}>
+                        <span style={{
+                          position: 'absolute',
+                          left: '0.75rem',
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          fontSize: '0.85rem',
+                          fontWeight: 700,
+                          color: 'var(--text-muted)',
+                          pointerEvents: 'none'
+                        }}>$</span>
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          className="form-input"
+                          style={{
+                            paddingLeft: '1.75rem',
+                            paddingTop: '0.55rem',
+                            paddingBottom: '0.55rem',
+                            fontSize: '0.88rem',
+                            fontWeight: 600,
+                            background: 'var(--bg-card)'
+                          }}
+                          placeholder="0.00"
+                          value={editForm.ladOptions?.dualSidePlatforms !== undefined && editForm.ladOptions?.dualSidePlatforms !== false ? String(editForm.ladOptions.dualSidePlatforms) : ''}
+                          onChange={e => setEditForm({
+                            ...editForm,
+                            ladOptions: {
+                              ...editForm.ladOptions,
+                              dualSidePlatforms: e.target.value
+                            }
+                          })}
+                        />
+                      </div>
+                    </div>
 
-                    <label style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.5rem',
-                      padding: '0.6rem 0.75rem',
-                      background: 'var(--bg-card)',
-                      border: editForm.ladOptions?.singleSidePlatforms ? '1.5px solid #2563eb' : '1px solid var(--border-default)',
-                      borderRadius: '6px',
-                      cursor: 'pointer',
-                      userSelect: 'none'
-                    }}>
-                      <input
-                        type="checkbox"
-                        checked={!!editForm.ladOptions?.singleSidePlatforms}
-                        onChange={e => setEditForm({
-                          ...editForm,
-                          ladOptions: {
-                            ...editForm.ladOptions,
-                            singleSidePlatforms: e.target.checked
-                          }
-                        })}
-                        style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#2563eb' }}
-                      />
-                      <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                    {/* Single Side Platforms (L32) */}
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                        <label style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-primary)' }}>
                           Single Side Platforms
-                        </span>
-                        <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
-                          Spec Cell: <strong>L32</strong>
+                        </label>
+                        <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+                          Cell: <strong>L32</strong>
                         </span>
                       </div>
-                    </label>
+                      <div style={{ position: 'relative' }}>
+                        <span style={{
+                          position: 'absolute',
+                          left: '0.75rem',
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          fontSize: '0.85rem',
+                          fontWeight: 700,
+                          color: 'var(--text-muted)',
+                          pointerEvents: 'none'
+                        }}>$</span>
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          className="form-input"
+                          style={{
+                            paddingLeft: '1.75rem',
+                            paddingTop: '0.55rem',
+                            paddingBottom: '0.55rem',
+                            fontSize: '0.88rem',
+                            fontWeight: 600,
+                            background: 'var(--bg-card)'
+                          }}
+                          placeholder="0.00"
+                          value={editForm.ladOptions?.singleSidePlatforms !== undefined && editForm.ladOptions?.singleSidePlatforms !== false ? String(editForm.ladOptions.singleSidePlatforms) : ''}
+                          onChange={e => setEditForm({
+                            ...editForm,
+                            ladOptions: {
+                              ...editForm.ladOptions,
+                              singleSidePlatforms: e.target.value
+                            }
+                          })}
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}

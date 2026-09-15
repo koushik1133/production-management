@@ -551,10 +551,10 @@ function Dashboard({
     purchaseOrder: '',
     consignment: '',
     ladOptions: {
-      dualHydraulicJacks: false,
-      bumperPullSetup: false,
-      dualSidePlatforms: false,
-      singleSidePlatforms: false
+      dualHydraulicJacks: '',
+      bumperPullSetup: '',
+      dualSidePlatforms: '',
+      singleSidePlatforms: ''
     } as LadOptions
   });
 
@@ -694,10 +694,10 @@ function Dashboard({
         purchaseOrder: '',
         consignment: '',
         ladOptions: {
-          dualHydraulicJacks: false,
-          bumperPullSetup: false,
-          dualSidePlatforms: false,
-          singleSidePlatforms: false
+          dualHydraulicJacks: '',
+          bumperPullSetup: '',
+          dualSidePlatforms: '',
+          singleSidePlatforms: ''
         }
       });
     } finally { setIsAdding(false); }
@@ -1389,142 +1389,190 @@ function Dashboard({
                   </span>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.6rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.75rem' }}>
                   {/* Dual Hydraulic Jacks (L29) */}
-                  <label style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.5rem',
-                    padding: '0.5rem 0.75rem',
-                    background: 'var(--bg-card)',
-                    border: newTrailerData.ladOptions?.dualHydraulicJacks ? '1.5px solid #2563eb' : '1px solid var(--border-default)',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    userSelect: 'none'
-                  }}>
-                    <input
-                      type="checkbox"
-                      checked={!!newTrailerData.ladOptions?.dualHydraulicJacks}
-                      onChange={e => setNewTrailerData({
-                        ...newTrailerData,
-                        ladOptions: {
-                          ...newTrailerData.ladOptions,
-                          dualHydraulicJacks: e.target.checked
-                        }
-                      })}
-                      style={{ width: '15px', height: '15px', cursor: 'pointer', accentColor: '#2563eb' }}
-                    />
-                    <div style={{ display: 'flex', flexDirection: 'column' }}>
-                      <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                      <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-primary)' }}>
                         Dual Hydraulic Jacks
-                      </span>
-                      <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
-                        Spec Cell: <strong>L29</strong>
+                      </label>
+                      <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+                        Cell: <strong>L29</strong>
                       </span>
                     </div>
-                  </label>
+                    <div style={{ position: 'relative' }}>
+                      <span style={{
+                        position: 'absolute',
+                        left: '0.75rem',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        fontSize: '0.85rem',
+                        fontWeight: 700,
+                        color: 'var(--text-muted)',
+                        pointerEvents: 'none'
+                      }}>$</span>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        className="form-input"
+                        style={{
+                          paddingLeft: '1.75rem',
+                          paddingTop: '0.55rem',
+                          paddingBottom: '0.55rem',
+                          fontSize: '0.88rem',
+                          fontWeight: 600,
+                          background: 'var(--bg-card)'
+                        }}
+                        placeholder="0.00"
+                        value={newTrailerData.ladOptions?.dualHydraulicJacks !== undefined && newTrailerData.ladOptions?.dualHydraulicJacks !== false ? String(newTrailerData.ladOptions.dualHydraulicJacks) : ''}
+                        onChange={e => setNewTrailerData({
+                          ...newTrailerData,
+                          ladOptions: {
+                            ...newTrailerData.ladOptions,
+                            dualHydraulicJacks: e.target.value
+                          }
+                        })}
+                      />
+                    </div>
+                  </div>
 
                   {/* Bumper Pull Setup (L30) */}
-                  <label style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.5rem',
-                    padding: '0.5rem 0.75rem',
-                    background: 'var(--bg-card)',
-                    border: newTrailerData.ladOptions?.bumperPullSetup ? '1.5px solid #2563eb' : '1px solid var(--border-default)',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    userSelect: 'none'
-                  }}>
-                    <input
-                      type="checkbox"
-                      checked={!!newTrailerData.ladOptions?.bumperPullSetup}
-                      onChange={e => setNewTrailerData({
-                        ...newTrailerData,
-                        ladOptions: {
-                          ...newTrailerData.ladOptions,
-                          bumperPullSetup: e.target.checked
-                        }
-                      })}
-                      style={{ width: '15px', height: '15px', cursor: 'pointer', accentColor: '#2563eb' }}
-                    />
-                    <div style={{ display: 'flex', flexDirection: 'column' }}>
-                      <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                      <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-primary)' }}>
                         Bumper Pull Setup
-                      </span>
-                      <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
-                        Spec Cell: <strong>L30</strong>
+                      </label>
+                      <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+                        Cell: <strong>L30</strong>
                       </span>
                     </div>
-                  </label>
+                    <div style={{ position: 'relative' }}>
+                      <span style={{
+                        position: 'absolute',
+                        left: '0.75rem',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        fontSize: '0.85rem',
+                        fontWeight: 700,
+                        color: 'var(--text-muted)',
+                        pointerEvents: 'none'
+                      }}>$</span>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        className="form-input"
+                        style={{
+                          paddingLeft: '1.75rem',
+                          paddingTop: '0.55rem',
+                          paddingBottom: '0.55rem',
+                          fontSize: '0.88rem',
+                          fontWeight: 600,
+                          background: 'var(--bg-card)'
+                        }}
+                        placeholder="0.00"
+                        value={newTrailerData.ladOptions?.bumperPullSetup !== undefined && newTrailerData.ladOptions?.bumperPullSetup !== false ? String(newTrailerData.ladOptions.bumperPullSetup) : ''}
+                        onChange={e => setNewTrailerData({
+                          ...newTrailerData,
+                          ladOptions: {
+                            ...newTrailerData.ladOptions,
+                            bumperPullSetup: e.target.value
+                          }
+                        })}
+                      />
+                    </div>
+                  </div>
 
                   {/* Dual Side Platforms (L31) */}
-                  <label style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.5rem',
-                    padding: '0.5rem 0.75rem',
-                    background: 'var(--bg-card)',
-                    border: newTrailerData.ladOptions?.dualSidePlatforms ? '1.5px solid #2563eb' : '1px solid var(--border-default)',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    userSelect: 'none'
-                  }}>
-                    <input
-                      type="checkbox"
-                      checked={!!newTrailerData.ladOptions?.dualSidePlatforms}
-                      onChange={e => setNewTrailerData({
-                        ...newTrailerData,
-                        ladOptions: {
-                          ...newTrailerData.ladOptions,
-                          dualSidePlatforms: e.target.checked
-                        }
-                      })}
-                      style={{ width: '15px', height: '15px', cursor: 'pointer', accentColor: '#2563eb' }}
-                    />
-                    <div style={{ display: 'flex', flexDirection: 'column' }}>
-                      <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                      <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-primary)' }}>
                         Dual Side Platforms
-                      </span>
-                      <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
-                        Spec Cell: <strong>L31</strong>
+                      </label>
+                      <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+                        Cell: <strong>L31</strong>
                       </span>
                     </div>
-                  </label>
+                    <div style={{ position: 'relative' }}>
+                      <span style={{
+                        position: 'absolute',
+                        left: '0.75rem',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        fontSize: '0.85rem',
+                        fontWeight: 700,
+                        color: 'var(--text-muted)',
+                        pointerEvents: 'none'
+                      }}>$</span>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        className="form-input"
+                        style={{
+                          paddingLeft: '1.75rem',
+                          paddingTop: '0.55rem',
+                          paddingBottom: '0.55rem',
+                          fontSize: '0.88rem',
+                          fontWeight: 600,
+                          background: 'var(--bg-card)'
+                        }}
+                        placeholder="0.00"
+                        value={newTrailerData.ladOptions?.dualSidePlatforms !== undefined && newTrailerData.ladOptions?.dualSidePlatforms !== false ? String(newTrailerData.ladOptions.dualSidePlatforms) : ''}
+                        onChange={e => setNewTrailerData({
+                          ...newTrailerData,
+                          ladOptions: {
+                            ...newTrailerData.ladOptions,
+                            dualSidePlatforms: e.target.value
+                          }
+                        })}
+                      />
+                    </div>
+                  </div>
 
                   {/* Single Side Platforms (L32) */}
-                  <label style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.5rem',
-                    padding: '0.5rem 0.75rem',
-                    background: 'var(--bg-card)',
-                    border: newTrailerData.ladOptions?.singleSidePlatforms ? '1.5px solid #2563eb' : '1px solid var(--border-default)',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    userSelect: 'none'
-                  }}>
-                    <input
-                      type="checkbox"
-                      checked={!!newTrailerData.ladOptions?.singleSidePlatforms}
-                      onChange={e => setNewTrailerData({
-                        ...newTrailerData,
-                        ladOptions: {
-                          ...newTrailerData.ladOptions,
-                          singleSidePlatforms: e.target.checked
-                        }
-                      })}
-                      style={{ width: '15px', height: '15px', cursor: 'pointer', accentColor: '#2563eb' }}
-                    />
-                    <div style={{ display: 'flex', flexDirection: 'column' }}>
-                      <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                      <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-primary)' }}>
                         Single Side Platforms
-                      </span>
-                      <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
-                        Spec Cell: <strong>L32</strong>
+                      </label>
+                      <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+                        Cell: <strong>L32</strong>
                       </span>
                     </div>
-                  </label>
+                    <div style={{ position: 'relative' }}>
+                      <span style={{
+                        position: 'absolute',
+                        left: '0.75rem',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        fontSize: '0.85rem',
+                        fontWeight: 700,
+                        color: 'var(--text-muted)',
+                        pointerEvents: 'none'
+                      }}>$</span>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        className="form-input"
+                        style={{
+                          paddingLeft: '1.75rem',
+                          paddingTop: '0.55rem',
+                          paddingBottom: '0.55rem',
+                          fontSize: '0.88rem',
+                          fontWeight: 600,
+                          background: 'var(--bg-card)'
+                        }}
+                        placeholder="0.00"
+                        value={newTrailerData.ladOptions?.singleSidePlatforms !== undefined && newTrailerData.ladOptions?.singleSidePlatforms !== false ? String(newTrailerData.ladOptions.singleSidePlatforms) : ''}
+                        onChange={e => setNewTrailerData({
+                          ...newTrailerData,
+                          ladOptions: {
+                            ...newTrailerData.ladOptions,
+                            singleSidePlatforms: e.target.value
+                          }
+                        })}
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
             )}

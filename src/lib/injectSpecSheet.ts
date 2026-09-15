@@ -87,10 +87,10 @@ export async function injectTrailerDataIntoSpec(
       'TODAYS_DATE': today,
       'PURCHASE_ORDER': purchaseOrder || '',
       'CONSIGNMENT': consignment || '',
-      'DUAL_HYDRAULIC_JACKS': typeof ladOptions?.dualHydraulicJacks === 'boolean' ? (ladOptions.dualHydraulicJacks ? 'Yes' : '') : (ladOptions?.dualHydraulicJacks || ''),
-      'BUMPER_PULL_SETUP': typeof ladOptions?.bumperPullSetup === 'boolean' ? (ladOptions.bumperPullSetup ? 'Yes' : '') : (ladOptions?.bumperPullSetup || ''),
-      'DUAL_SIDE_PLATFORMS': typeof ladOptions?.dualSidePlatforms === 'boolean' ? (ladOptions.dualSidePlatforms ? 'Yes' : '') : (ladOptions?.dualSidePlatforms || ''),
-      'SINGLE_SIDE_PLATFORMS': typeof ladOptions?.singleSidePlatforms === 'boolean' ? (ladOptions.singleSidePlatforms ? 'Yes' : '') : (ladOptions?.singleSidePlatforms || '')
+      'DUAL_HYDRAULIC_JACKS': ladOptions?.dualHydraulicJacks ? (typeof ladOptions.dualHydraulicJacks === 'boolean' ? 'Yes' : formatPrice(ladOptions.dualHydraulicJacks as any)) : '',
+      'BUMPER_PULL_SETUP': ladOptions?.bumperPullSetup ? (typeof ladOptions.bumperPullSetup === 'boolean' ? 'Yes' : formatPrice(ladOptions.bumperPullSetup as any)) : '',
+      'DUAL_SIDE_PLATFORMS': ladOptions?.dualSidePlatforms ? (typeof ladOptions.dualSidePlatforms === 'boolean' ? 'Yes' : formatPrice(ladOptions.dualSidePlatforms as any)) : '',
+      'SINGLE_SIDE_PLATFORMS': ladOptions?.singleSidePlatforms ? (typeof ladOptions.singleSidePlatforms === 'boolean' ? 'Yes' : formatPrice(ladOptions.singleSidePlatforms as any)) : ''
     };
 
     for (const [key, val] of Object.entries(placeholderMap)) {
@@ -188,10 +188,15 @@ export async function injectTrailerDataIntoSpec(
     }
   }
 
-  const formatLadOption = (val?: boolean | string): string | undefined => {
+  const formatLadOption = (val?: boolean | string | number): string | number | undefined => {
+    if (val === undefined || val === null || val === false || val === '') return undefined;
     if (val === true) return 'Yes';
-    if (typeof val === 'string' && val.trim().length > 0) return val.trim();
-    return undefined;
+    if (typeof val === 'number') return val;
+    const str = String(val).trim();
+    if (!str) return undefined;
+    const num = parseFloat(str.replace(/[^0-9.-]/g, ''));
+    if (!isNaN(num)) return num;
+    return str;
   };
 
   const l29Val = formatLadOption(ladOptions?.dualHydraulicJacks);
@@ -334,21 +339,32 @@ export async function injectTrailerDataIntoSpec(
         cells.forEach(c => row!.appendChild(c));
       }
 
-      // Remove any existing value types
-      cell.removeAttribute('t');
-      cell.setAttribute('t', 'inlineStr');
-      
       // Clear existing children (like <v> or <is>)
       while (cell.firstChild) {
         cell.removeChild(cell.firstChild);
       }
-      
-      // Create <is><t>VALUE</t></is>
-      const isElement = doc.createElementNS(ns, 'is');
-      const tElement = doc.createElementNS(ns, 't');
-      tElement.textContent = String(value);
-      isElement.appendChild(tElement);
-      cell.appendChild(isElement);
+
+      // If value is numeric, write as number (<v>number</v>) so Excel calculations and formulas work
+      const cleanNum = typeof value === 'number'
+        ? value
+        : (typeof value === 'string' && /^-?\d+(\.\d+)?$/.test(value.replace(/[\$,]/g, '').trim())
+            ? parseFloat(value.replace(/[\$,]/g, '').trim())
+            : null);
+
+      if (cleanNum !== null && !isNaN(cleanNum)) {
+        cell.removeAttribute('t'); // OpenXML numeric cell
+        const vElement = doc.createElementNS(ns, 'v');
+        vElement.textContent = String(cleanNum);
+        cell.appendChild(vElement);
+      } else {
+        cell.removeAttribute('t');
+        cell.setAttribute('t', 'inlineStr');
+        const isElement = doc.createElementNS(ns, 'is');
+        const tElement = doc.createElementNS(ns, 't');
+        tElement.textContent = String(value);
+        isElement.appendChild(tElement);
+        cell.appendChild(isElement);
+      }
     }
     
     // Serialize back to string
