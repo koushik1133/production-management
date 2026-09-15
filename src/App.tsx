@@ -2445,6 +2445,7 @@ function AppContent({ userRole, currentUser }: { userRole: UserRole; currentUser
 
   const lastSyncTimeRef = useRef<number>(0);
   const isFetchingRef = useRef(false);
+  const supportedColumnsRef = useRef<string | null>(null);
 
   const fetchInitialData = useCallback(async (isSilent = false) => {
     // Throttle silent syncs: never more than once per 15 s, and never overlapping
@@ -2463,19 +2464,30 @@ function AppContent({ userRole, currentUser }: { userRole: UserRole; currentUser
       let trailersRes;
       let columnsSupported = true;
       let shippingCostSupported = false;
-      try {
-        trailersRes = await supabase.from('trailers').select('id,name,model,serialNumber,station,dateStarted,currentPhase,history,partsStatus,finishingType,isArchived,archivedAt,isDeleted,invoiceNumber,vinDate,expectedDueDate,promisedShippingDate,notes,isPriority,updated_at,vertical_order,bay_vertical_order,sale_price,trailer_color,trailer_plug,sales_person,dealer_location,dealer_common_address,dealer_id,purchase_order,consignment,shipping_cost');
-        if (trailersRes.error) throw trailersRes.error;
-        shippingCostSupported = true;
-      } catch (err: any) {
-        // Fallback without shipping_cost column
+
+      const fullCols = 'id,name,model,serialNumber,station,dateStarted,currentPhase,history,partsStatus,finishingType,isArchived,archivedAt,isDeleted,invoiceNumber,vinDate,expectedDueDate,promisedShippingDate,notes,isPriority,updated_at,vertical_order,bay_vertical_order,sale_price,trailer_color,trailer_plug,sales_person,dealer_location,dealer_common_address,dealer_id,purchase_order,consignment,shipping_cost';
+      const noShippingCols = 'id,name,model,serialNumber,station,dateStarted,currentPhase,history,partsStatus,finishingType,isArchived,archivedAt,isDeleted,invoiceNumber,vinDate,expectedDueDate,promisedShippingDate,notes,isPriority,updated_at,vertical_order,bay_vertical_order,sale_price,trailer_color,trailer_plug,sales_person,dealer_location,dealer_common_address,dealer_id,purchase_order,consignment';
+      const minimalCols = 'id,name,model,serialNumber,station,dateStarted,currentPhase,history,partsStatus,finishingType,isArchived,archivedAt,isDeleted,invoiceNumber,vinDate,expectedDueDate,promisedShippingDate,notes,isPriority,updated_at,vertical_order,bay_vertical_order,sale_price,trailer_color,trailer_plug,sales_person,dealer_location,dealer_common_address,dealer_id';
+
+      // If we already resolved which column set works, execute that query directly in one shot
+      if (supportedColumnsRef.current) {
+        trailersRes = await supabase.from('trailers').select(supportedColumnsRef.current);
+      } else {
         try {
-          trailersRes = await supabase.from('trailers').select('id,name,model,serialNumber,station,dateStarted,currentPhase,history,partsStatus,finishingType,isArchived,archivedAt,isDeleted,invoiceNumber,vinDate,expectedDueDate,promisedShippingDate,notes,isPriority,updated_at,vertical_order,bay_vertical_order,sale_price,trailer_color,trailer_plug,sales_person,dealer_location,dealer_common_address,dealer_id,purchase_order,consignment');
+          trailersRes = await supabase.from('trailers').select(fullCols);
           if (trailersRes.error) throw trailersRes.error;
-        } catch (err2: any) {
-          // Graceful fallback when purchase_order / consignment columns do not exist in DB schema
-          columnsSupported = false;
-          trailersRes = await supabase.from('trailers').select('id,name,model,serialNumber,station,dateStarted,currentPhase,history,partsStatus,finishingType,isArchived,archivedAt,isDeleted,invoiceNumber,vinDate,expectedDueDate,promisedShippingDate,notes,isPriority,updated_at,vertical_order,bay_vertical_order,sale_price,trailer_color,trailer_plug,sales_person,dealer_location,dealer_common_address,dealer_id');
+          supportedColumnsRef.current = fullCols;
+          shippingCostSupported = true;
+        } catch (err: any) {
+          try {
+            trailersRes = await supabase.from('trailers').select(noShippingCols);
+            if (trailersRes.error) throw trailersRes.error;
+            supportedColumnsRef.current = noShippingCols;
+          } catch (err2: any) {
+            columnsSupported = false;
+            supportedColumnsRef.current = minimalCols;
+            trailersRes = await supabase.from('trailers').select(minimalCols);
+          }
         }
       }
       setHasPurchaseOrderCols(columnsSupported);
@@ -2767,7 +2779,10 @@ function AppContent({ userRole, currentUser }: { userRole: UserRole; currentUser
       )
       .subscribe((status: string) => {
         if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          triggerSilentSync();
+          // Add backoff delay so we do not hammer an already stressed DB connection
+          setTimeout(() => {
+            triggerSilentSync();
+          }, 5000);
         }
       });
 
