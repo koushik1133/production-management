@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { formatDistanceToNow, format } from 'date-fns';
 import { History, FileText, Send, Crown, Trash2, Image as ImageIcon, DollarSign, Download, CheckCircle, RefreshCw } from 'lucide-react';
-import type { Trailer, PhaseId, ShippedTrailer, UserRole } from '../types';
+import type { Trailer, PhaseId, ShippedTrailer, UserRole, LadOptions } from '../types';
 import { BAY_WEEKLY_HOURS, calculateTrailerRemainingHours, PHASES, PHASE_METADATA } from '../types';
 import { Modal } from './Modal';
 import { injectTrailerDataIntoSpec } from '../lib/injectSpecSheet';
@@ -120,7 +120,13 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
     trailer_plug: trailer.trailer_plug || '',
     purchaseOrder: trailer.purchaseOrder || '',
     consignment: trailer.consignment || '',
-    dealerLocation: trailer.dealerLocation || ''
+    dealerLocation: trailer.dealerLocation || '',
+    ladOptions: trailer.ladOptions || trailer.lad_options || {
+      dualHydraulicJacks: false,
+      bumperPullSetup: false,
+      dualSidePlatforms: false,
+      singleSidePlatforms: false
+    } as LadOptions
   });
 
   const [localNotes, setLocalNotes] = React.useState(trailer.notes || '');
@@ -144,13 +150,19 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
         trailer_plug: trailer.trailer_plug || '',
         purchaseOrder: trailer.purchaseOrder || '',
         consignment: trailer.consignment || '',
-        dealerLocation: trailer.dealerLocation || ''
+        dealerLocation: trailer.dealerLocation || '',
+        ladOptions: trailer.ladOptions || trailer.lad_options || {
+          dualHydraulicJacks: false,
+          bumperPullSetup: false,
+          dualSidePlatforms: false,
+          singleSidePlatforms: false
+        }
       });
       setLocalNotes(trailer.notes || '');
       setIsCustomAddress(false);
       setCustomAddressText('');
     }
-  }, [trailer.id, isOpen, specSheetFile, inspectionSheetFile, trailer.salesPerson, trailer.trailer_color, trailer.trailer_plug, trailer.purchaseOrder, trailer.consignment, trailer.dealerLocation]);
+  }, [trailer.id, isOpen, specSheetFile, inspectionSheetFile, trailer.salesPerson, trailer.trailer_color, trailer.trailer_plug, trailer.purchaseOrder, trailer.consignment, trailer.dealerLocation, trailer.ladOptions, trailer.lad_options]);
 
   const handleGenerateSpecSheet = async (customValues?: Partial<Trailer>): Promise<string | undefined> => {
     const name = customValues ? customValues.name : trailer.name;
@@ -225,7 +237,8 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
         false,
         formattedDate,
         purchaseOrderVal,
-        consignmentVal
+        consignmentVal,
+        customValues?.ladOptions || customValues?.lad_options || editForm.ladOptions || trailer.ladOptions || trailer.lad_options
       );
 
       const fileObj = dataURLtoFile(injected, `${(serial || 'Trailer').trim()}_SpecSheet.xlsx`);
@@ -456,7 +469,8 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
       editForm.trailer_plug !== (trailer.trailer_plug || '') ||
       editForm.purchaseOrder !== (trailer.purchaseOrder || '') ||
       editForm.consignment !== (trailer.consignment || '') ||
-      dealerLocationVal !== (trailer.dealerLocation || '');
+      dealerLocationVal !== (trailer.dealerLocation || '') ||
+      JSON.stringify(editForm.ladOptions || {}) !== JSON.stringify(trailer.ladOptions || trailer.lad_options || {});
 
     const templateBase64 = localSpecSheetTemplates[trailer.model];
     if (templateBase64 && hasExcelFieldChanges) {
@@ -472,7 +486,9 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
           dealerLocation: dealerLocationVal,
           dealerCommonAddress: dealers.find(d => d.name === editForm.name)?.common_address || trailer.dealerCommonAddress,
           purchaseOrder: editForm.purchaseOrder,
-          consignment: editForm.consignment
+          consignment: editForm.consignment,
+          ladOptions: editForm.ladOptions,
+          lad_options: editForm.ladOptions
         });
         if (newFilePath) {
           updatedSpecSheetFile = newFilePath;
@@ -489,7 +505,9 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
       dealerId: dealers.find(d => d.name === editForm.name)?.id || trailer.dealerId,
       sale_price: editForm.sale_price ? parseFloat(editForm.sale_price) : (editForm.sale_price === '' ? null : undefined),
       notes: localNotes,
-      spec_sheet_file: updatedSpecSheetFile
+      spec_sheet_file: updatedSpecSheetFile,
+      ladOptions: editForm.ladOptions,
+      lad_options: editForm.ladOptions
     };
     onUpdate(trailer.id, updates);
     setIsEditing(false);
@@ -649,6 +667,166 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                   style={{ background: 'rgba(255,255,255,0.02)', fontWeight: 700 }}
                 />
               </div>
+
+              {/* LAD Drone Trailer Optional Configurations */}
+              {trailer.model && trailer.model.trim().toUpperCase().startsWith('LAD') && (
+                <div style={{
+                  gridColumn: '1 / -1',
+                  marginTop: '0.5rem',
+                  padding: '1rem',
+                  background: 'rgba(59, 130, 246, 0.05)',
+                  border: '1px solid rgba(59, 130, 246, 0.3)',
+                  borderRadius: '8px'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <span style={{ fontSize: '0.8rem', fontWeight: 800, color: '#2563eb', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                        LAD Drone Trailer Configuration (Optional)
+                      </span>
+                      <span style={{ fontSize: '0.7rem', padding: '0.15rem 0.5rem', borderRadius: '4px', background: '#dbeafe', color: '#1e40af', fontWeight: 700 }}>
+                        Excel L29–L32
+                      </span>
+                    </div>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                      Spec sheet cells L29, L30, L31, L32
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.65rem' }}>
+                    <label style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      padding: '0.6rem 0.75rem',
+                      background: 'var(--bg-card)',
+                      border: editForm.ladOptions?.dualHydraulicJacks ? '1.5px solid #2563eb' : '1px solid var(--border-default)',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      userSelect: 'none'
+                    }}>
+                      <input
+                        type="checkbox"
+                        checked={!!editForm.ladOptions?.dualHydraulicJacks}
+                        onChange={e => setEditForm({
+                          ...editForm,
+                          ladOptions: {
+                            ...editForm.ladOptions,
+                            dualHydraulicJacks: e.target.checked
+                          }
+                        })}
+                        style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#2563eb' }}
+                      />
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                          Dual Hydraulic Jacks
+                        </span>
+                        <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
+                          Spec Cell: <strong>L29</strong>
+                        </span>
+                      </div>
+                    </label>
+
+                    <label style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      padding: '0.6rem 0.75rem',
+                      background: 'var(--bg-card)',
+                      border: editForm.ladOptions?.bumperPullSetup ? '1.5px solid #2563eb' : '1px solid var(--border-default)',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      userSelect: 'none'
+                    }}>
+                      <input
+                        type="checkbox"
+                        checked={!!editForm.ladOptions?.bumperPullSetup}
+                        onChange={e => setEditForm({
+                          ...editForm,
+                          ladOptions: {
+                            ...editForm.ladOptions,
+                            bumperPullSetup: e.target.checked
+                          }
+                        })}
+                        style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#2563eb' }}
+                      />
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                          Bumper Pull Setup
+                        </span>
+                        <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
+                          Spec Cell: <strong>L30</strong>
+                        </span>
+                      </div>
+                    </label>
+
+                    <label style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      padding: '0.6rem 0.75rem',
+                      background: 'var(--bg-card)',
+                      border: editForm.ladOptions?.dualSidePlatforms ? '1.5px solid #2563eb' : '1px solid var(--border-default)',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      userSelect: 'none'
+                    }}>
+                      <input
+                        type="checkbox"
+                        checked={!!editForm.ladOptions?.dualSidePlatforms}
+                        onChange={e => setEditForm({
+                          ...editForm,
+                          ladOptions: {
+                            ...editForm.ladOptions,
+                            dualSidePlatforms: e.target.checked
+                          }
+                        })}
+                        style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#2563eb' }}
+                      />
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                          Dual Side Platforms
+                        </span>
+                        <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
+                          Spec Cell: <strong>L31</strong>
+                        </span>
+                      </div>
+                    </label>
+
+                    <label style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      padding: '0.6rem 0.75rem',
+                      background: 'var(--bg-card)',
+                      border: editForm.ladOptions?.singleSidePlatforms ? '1.5px solid #2563eb' : '1px solid var(--border-default)',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      userSelect: 'none'
+                    }}>
+                      <input
+                        type="checkbox"
+                        checked={!!editForm.ladOptions?.singleSidePlatforms}
+                        onChange={e => setEditForm({
+                          ...editForm,
+                          ladOptions: {
+                            ...editForm.ladOptions,
+                            singleSidePlatforms: e.target.checked
+                          }
+                        })}
+                        style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#2563eb' }}
+                      />
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                          Single Side Platforms
+                        </span>
+                        <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
+                          Spec Cell: <strong>L32</strong>
+                        </span>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+              )}
               {userRole === 'manager' && (
                 <div style={{ background: 'rgba(217, 119, 6, 0.05)', padding: '1rem', borderRadius: '12px', border: '1px solid rgba(217, 119, 6, 0.2)' }}>
                   <label className="form-label" style={{ color: '#d97706', fontSize: '0.75rem', fontWeight: 800 }}>Sale Price ($)</label>

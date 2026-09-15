@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Home, ArrowRight, Clock, Trash2, Calendar, AlertCircle, CheckCircle, Copy } from 'lucide-react';
 import { PHASES, PHASE_METADATA } from './types';
-import type { Trailer, StationId, PhaseId, UserRole } from './types';
+import type { Trailer, StationId, PhaseId, UserRole, LadOptions } from './types';
 import { addHours, format } from 'date-fns';
 import { injectTrailerDataIntoSpec } from './lib/injectSpecSheet';
 import { supabase } from './lib/supabase';
@@ -157,7 +157,13 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
     salesPerson: '',
     dealerLocation: '',
     purchaseOrder: '',
-    consignment: ''
+    consignment: '',
+    ladOptions: {
+      dualHydraulicJacks: false,
+      bumperPullSetup: false,
+      dualSidePlatforms: false,
+      singleSidePlatforms: false
+    } as LadOptions
   });
 
   const [isCustomAddress, setIsCustomAddress] = useState(false);
@@ -186,7 +192,13 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
       salesPerson: trailer.salesPerson || '',
       dealerLocation: loc,
       purchaseOrder: trailer.purchaseOrder || '',
-      consignment: trailer.consignment || ''
+      consignment: trailer.consignment || '',
+      ladOptions: trailer.ladOptions || trailer.lad_options || {
+        dualHydraulicJacks: false,
+        bumperPullSetup: false,
+        dualSidePlatforms: false,
+        singleSidePlatforms: false
+      }
     });
 
     if (loc && trailer.name) {
@@ -270,7 +282,8 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
           month: '2-digit', day: '2-digit', year: 'numeric'
         }) : undefined,
         formData.purchaseOrder || undefined,
-        formData.consignment || undefined
+        formData.consignment || undefined,
+        formData.ladOptions
       );
 
       const a = document.createElement('a');
@@ -307,7 +320,9 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
         quote_file_path: uploadedQuotePath || injected,
         status: 'quote',
         created_at: new Date().toISOString(),
-        notes: formData.purchaseOrder ? `PO: ${formData.purchaseOrder}` : undefined
+        notes: formData.purchaseOrder ? `PO: ${formData.purchaseOrder}` : undefined,
+        lad_options: formData.ladOptions,
+        ladOptions: formData.ladOptions
       });
 
       // Save the quote to the trailers table
@@ -334,7 +349,9 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
         dealerCommonAddress: selectedDealer?.common_address || undefined,
         dealerId: selectedDealer?.id || undefined,
         purchaseOrder: formData.purchaseOrder || undefined,
-        consignment: formData.consignment || undefined
+        consignment: formData.consignment || undefined,
+        ladOptions: formData.ladOptions,
+        lad_options: formData.ladOptions
       };
       onAddTrailer(newQuote);
 
@@ -357,7 +374,13 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
         salesPerson: '',
         dealerLocation: '',
         purchaseOrder: '',
-        consignment: ''
+        consignment: '',
+        ladOptions: {
+          dualHydraulicJacks: false,
+          bumperPullSetup: false,
+          dualSidePlatforms: false,
+          singleSidePlatforms: false
+        }
       });
       setToastMessage('Quote Generated Successfully!');
       setTimeout(() => setToastMessage(null), 3000);
@@ -440,7 +463,8 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
             month: '2-digit', day: '2-digit', year: 'numeric'
           }) : undefined,
           formData.purchaseOrder || undefined,
-          formData.consignment || undefined
+          formData.consignment || undefined,
+          formData.ladOptions
         );
       } catch (error) {
         console.error("Failed to generate spec sheet", error);
@@ -478,7 +502,9 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
         dealerCommonAddress: selectedDealer?.common_address || undefined,
         dealerId: selectedDealer?.id || undefined,
         purchaseOrder: formData.purchaseOrder || undefined,
-        consignment: formData.consignment || undefined
+        consignment: formData.consignment || undefined,
+        ladOptions: originalQuote?.ladOptions || originalQuote?.lad_options || formData.ladOptions,
+        lad_options: originalQuote?.ladOptions || originalQuote?.lad_options || formData.ladOptions
       };
 
       onAddTrailer(newBacklogTrailer);
@@ -516,7 +542,9 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
         quote_file_path: originalQuote?.spec_sheet_file || finalSpecSheetFile,
         status: 'approved',
         created_at: originalQuote?.dateStarted ? new Date(originalQuote.dateStarted).toISOString() : new Date().toISOString(),
-        notes: updatedNotes
+        notes: updatedNotes,
+        lad_options: originalQuote?.lad_options || originalQuote?.ladOptions || formData.ladOptions,
+        ladOptions: originalQuote?.lad_options || originalQuote?.ladOptions || formData.ladOptions
       });
 
       setApprovingQuoteId(null);
@@ -546,7 +574,9 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
         dealerCommonAddress: selectedDealer?.common_address || undefined,
         dealerId: selectedDealer?.id || undefined,
         purchaseOrder: formData.purchaseOrder || undefined,
-        consignment: formData.consignment || undefined
+        consignment: formData.consignment || undefined,
+        ladOptions: formData.ladOptions,
+        lad_options: formData.ladOptions
       };
       onAddTrailer(newTrailer);
       setToastMessage('Added to Backlog Successfully!');
@@ -569,7 +599,13 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
         salesPerson: '',
         dealerLocation: '',
         purchaseOrder: '',
-        consignment: ''
+        consignment: '',
+        ladOptions: {
+          dualHydraulicJacks: false,
+          bumperPullSetup: false,
+          dualSidePlatforms: false,
+          singleSidePlatforms: false
+        }
       });
       window.scrollTo({ top: 0, behavior: 'smooth' });
       setTimeout(() => setToastMessage(null), 3000);
@@ -686,6 +722,174 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
                           </div>
                         )}
                       </div>
+
+                      {/* LAD Drone Trailer Optional Configurations */}
+                      {formData.model && formData.model.trim().toUpperCase().startsWith('LAD') && (
+                        <div style={{
+                          gridColumn: '1 / -1',
+                          marginTop: '0.5rem',
+                          padding: '1rem',
+                          background: 'rgba(59, 130, 246, 0.05)',
+                          border: '1px solid rgba(59, 130, 246, 0.3)',
+                          borderRadius: '8px'
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              <span style={{ fontSize: '0.8rem', fontWeight: 800, color: '#2563eb', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                                LAD Drone Trailer Configuration (Optional)
+                              </span>
+                              <span style={{ fontSize: '0.7rem', padding: '0.15rem 0.5rem', borderRadius: '4px', background: '#dbeafe', color: '#1e40af', fontWeight: 700 }}>
+                                Excel L29–L32
+                              </span>
+                            </div>
+                            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                              Fills directly into spec sheet cells
+                            </span>
+                          </div>
+
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.75rem' }}>
+                            {/* Dual Hydraulic Jacks (L29) */}
+                            <label style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '0.65rem',
+                              padding: '0.65rem 0.85rem',
+                              background: 'var(--bg-card)',
+                              border: formData.ladOptions?.dualHydraulicJacks ? '1.5px solid #2563eb' : '1px solid var(--border-default)',
+                              borderRadius: '6px',
+                              cursor: 'pointer',
+                              userSelect: 'none',
+                              transition: 'all 0.15s ease'
+                            }}>
+                              <input
+                                type="checkbox"
+                                checked={!!formData.ladOptions?.dualHydraulicJacks}
+                                onChange={e => setFormData({
+                                  ...formData,
+                                  ladOptions: {
+                                    ...formData.ladOptions,
+                                    dualHydraulicJacks: e.target.checked
+                                  }
+                                })}
+                                style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#2563eb' }}
+                              />
+                              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                                  Dual Hydraulic Jacks
+                                </span>
+                                <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+                                  Spec Sheet Cell: <strong>L29</strong>
+                                </span>
+                              </div>
+                            </label>
+
+                            {/* Bumper Pull Setup (L30) */}
+                            <label style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '0.65rem',
+                              padding: '0.65rem 0.85rem',
+                              background: 'var(--bg-card)',
+                              border: formData.ladOptions?.bumperPullSetup ? '1.5px solid #2563eb' : '1px solid var(--border-default)',
+                              borderRadius: '6px',
+                              cursor: 'pointer',
+                              userSelect: 'none',
+                              transition: 'all 0.15s ease'
+                            }}>
+                              <input
+                                type="checkbox"
+                                checked={!!formData.ladOptions?.bumperPullSetup}
+                                onChange={e => setFormData({
+                                  ...formData,
+                                  ladOptions: {
+                                    ...formData.ladOptions,
+                                    bumperPullSetup: e.target.checked
+                                  }
+                                })}
+                                style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#2563eb' }}
+                              />
+                              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                                  Bumper Pull Setup
+                                </span>
+                                <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+                                  Spec Sheet Cell: <strong>L30</strong>
+                                </span>
+                              </div>
+                            </label>
+
+                            {/* Dual Side Platforms (L31) */}
+                            <label style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '0.65rem',
+                              padding: '0.65rem 0.85rem',
+                              background: 'var(--bg-card)',
+                              border: formData.ladOptions?.dualSidePlatforms ? '1.5px solid #2563eb' : '1px solid var(--border-default)',
+                              borderRadius: '6px',
+                              cursor: 'pointer',
+                              userSelect: 'none',
+                              transition: 'all 0.15s ease'
+                            }}>
+                              <input
+                                type="checkbox"
+                                checked={!!formData.ladOptions?.dualSidePlatforms}
+                                onChange={e => setFormData({
+                                  ...formData,
+                                  ladOptions: {
+                                    ...formData.ladOptions,
+                                    dualSidePlatforms: e.target.checked
+                                  }
+                                })}
+                                style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#2563eb' }}
+                              />
+                              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                                  Dual Side Platforms
+                                </span>
+                                <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+                                  Spec Sheet Cell: <strong>L31</strong>
+                                </span>
+                              </div>
+                            </label>
+
+                            {/* Single Side Platforms (L32) */}
+                            <label style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '0.65rem',
+                              padding: '0.65rem 0.85rem',
+                              background: 'var(--bg-card)',
+                              border: formData.ladOptions?.singleSidePlatforms ? '1.5px solid #2563eb' : '1px solid var(--border-default)',
+                              borderRadius: '6px',
+                              cursor: 'pointer',
+                              userSelect: 'none',
+                              transition: 'all 0.15s ease'
+                            }}>
+                              <input
+                                type="checkbox"
+                                checked={!!formData.ladOptions?.singleSidePlatforms}
+                                onChange={e => setFormData({
+                                  ...formData,
+                                  ladOptions: {
+                                    ...formData.ladOptions,
+                                    singleSidePlatforms: e.target.checked
+                                  }
+                                })}
+                                style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#2563eb' }}
+                              />
+                              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                                  Single Side Platforms
+                                </span>
+                                <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+                                  Spec Sheet Cell: <strong>L32</strong>
+                                </span>
+                              </div>
+                            </label>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -1404,7 +1608,13 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
                               salesPerson: quote.salesPerson || '',
                               dealerLocation: quote.dealerLocation || '',
                               purchaseOrder: quote.purchaseOrder || '',
-                              consignment: quote.consignment || ''
+                              consignment: quote.consignment || '',
+                              ladOptions: quote.ladOptions || quote.lad_options || {
+                                dualHydraulicJacks: false,
+                                bumperPullSetup: false,
+                                dualSidePlatforms: false,
+                                singleSidePlatforms: false
+                              }
                             });
                             setApprovingQuoteId(quote.id);
                             window.scrollTo({ top: 0, behavior: 'smooth' });

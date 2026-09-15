@@ -1,4 +1,5 @@
 import JSZip from 'jszip';
+import type { LadOptions } from '../types';
 
 /**
  * Surgically injects trailer data into specific cells using JSZip.
@@ -19,7 +20,8 @@ export async function injectTrailerDataIntoSpec(
   hideOtherSheets: boolean = false,
   dateCreated?: string,
   purchaseOrder?: string,
-  consignment?: string
+  consignment?: string,
+  ladOptions?: LadOptions
 ): Promise<string> {
   const base64Data = base64File.includes(',') ? base64File.split(',')[1] : base64File;
   
@@ -84,7 +86,11 @@ export async function injectTrailerDataIntoSpec(
       'DEALER_ADDRESS': dealerCommonAddress || '',
       'TODAYS_DATE': today,
       'PURCHASE_ORDER': purchaseOrder || '',
-      'CONSIGNMENT': consignment || ''
+      'CONSIGNMENT': consignment || '',
+      'DUAL_HYDRAULIC_JACKS': typeof ladOptions?.dualHydraulicJacks === 'boolean' ? (ladOptions.dualHydraulicJacks ? 'Yes' : '') : (ladOptions?.dualHydraulicJacks || ''),
+      'BUMPER_PULL_SETUP': typeof ladOptions?.bumperPullSetup === 'boolean' ? (ladOptions.bumperPullSetup ? 'Yes' : '') : (ladOptions?.bumperPullSetup || ''),
+      'DUAL_SIDE_PLATFORMS': typeof ladOptions?.dualSidePlatforms === 'boolean' ? (ladOptions.dualSidePlatforms ? 'Yes' : '') : (ladOptions?.dualSidePlatforms || ''),
+      'SINGLE_SIDE_PLATFORMS': typeof ladOptions?.singleSidePlatforms === 'boolean' ? (ladOptions.singleSidePlatforms ? 'Yes' : '') : (ladOptions?.singleSidePlatforms || '')
     };
 
     for (const [key, val] of Object.entries(placeholderMap)) {
@@ -182,13 +188,28 @@ export async function injectTrailerDataIntoSpec(
     }
   }
 
+  const formatLadOption = (val?: boolean | string): string | undefined => {
+    if (val === true) return 'Yes';
+    if (typeof val === 'string' && val.trim().length > 0) return val.trim();
+    return undefined;
+  };
+
+  const l29Val = formatLadOption(ladOptions?.dualHydraulicJacks);
+  const l30Val = formatLadOption(ladOptions?.bumperPullSetup);
+  const l31Val = formatLadOption(ladOptions?.dualSidePlatforms);
+  const l32Val = formatLadOption(ladOptions?.singleSidePlatforms);
+
   // 2. Hardcoded Cell Replacement (Legacy Backwards Compatibility)
   // Map of which sheets get which updates
   // Based on standard template layout: Price=B15, Name=G4 (Trim Build), etc.
   const updates: Record<string, Record<string, string | number | undefined>> = {
     'xl/worksheets/sheet1.xml': {
       'H4': serialNumber,
-      'J55': formatPrice(salePrice)
+      'J55': formatPrice(salePrice),
+      ...(l29Val ? { 'L29': l29Val } : {}),
+      ...(l30Val ? { 'L30': l30Val } : {}),
+      ...(l31Val ? { 'L31': l31Val } : {}),
+      ...(l32Val ? { 'L32': l32Val } : {})
     },
     'xl/worksheets/sheet2.xml': {
       'B2': serialNumber,
@@ -271,8 +292,27 @@ export async function injectTrailerDataIntoSpec(
 
       const rowNum = cellRef.replace(/[A-Z]/g, '');
       
-      const row = doc.querySelector(`row[r="${rowNum}"]`);
-      if (!row) continue; // If row doesn't exist, skip.
+      let row = doc.querySelector(`row[r="${rowNum}"]`);
+      if (!row) {
+        const sheetData = doc.getElementsByTagName('sheetData')[0];
+        if (sheetData) {
+          const docNs = doc.documentElement.namespaceURI || 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
+          row = doc.createElementNS(docNs, 'row');
+          row.setAttribute('r', rowNum);
+          
+          const existingRows = Array.from(sheetData.getElementsByTagName('row'));
+          const nextRow = existingRows.find(r => {
+            const rVal = parseInt(r.getAttribute('r') || '0', 10);
+            return rVal > parseInt(rowNum, 10);
+          });
+          if (nextRow) {
+            sheetData.insertBefore(row, nextRow);
+          } else {
+            sheetData.appendChild(row);
+          }
+        }
+      }
+      if (!row) continue; // If row doesn't exist and couldn't be created, skip.
 
       const ns = row.namespaceURI;
 

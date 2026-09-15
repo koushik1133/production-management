@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import JSZip from 'jszip';
@@ -257,7 +257,8 @@ export const QuotesView: React.FC<Props> = ({
             true, // hideOtherSheets for Quotes
             formattedDate,
             q.purchase_order || undefined,
-            q.consignment || undefined
+            q.consignment || undefined,
+            q.lad_options || q.ladOptions
           );
 
           const a = document.createElement('a');

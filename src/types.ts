@@ -28,6 +28,13 @@ export interface PartsStatus {
   parts: boolean;
 }
 
+export interface LadOptions {
+  dualHydraulicJacks?: boolean | string;
+  bumperPullSetup?: boolean | string;
+  dualSidePlatforms?: boolean | string;
+  singleSidePlatforms?: boolean | string;
+}
+
 export interface Trailer {
   id: string;
   name: string;
@@ -66,6 +73,8 @@ export interface Trailer {
   purchaseOrder?: string;
   consignment?: string;
   shipping_cost?: number | null;
+  ladOptions?: LadOptions;
+  lad_options?: LadOptions;
 }
 
 export interface ShippedTrailer {
@@ -108,6 +117,8 @@ export interface QuoteRecord {
   status?: string;
   created_at?: string;
   notes?: string;
+  ladOptions?: LadOptions;
+  lad_options?: LadOptions;
 }
 
 export interface Dealer {

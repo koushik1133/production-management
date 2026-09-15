@@ -102,7 +102,7 @@ import {
   calculateTrailerRemainingHours,
   getModelPhaseAverages
 } from './types';
-import type { Trailer, PhaseId, StationId, ModelSpec, CatalogModel, ShippedTrailer, UserRole, Dealer } from './types';
+import type { Trailer, PhaseId, StationId, ModelSpec, CatalogModel, ShippedTrailer, UserRole, Dealer, LadOptions } from './types';
 
 const staticModelCategories = MODEL_CATEGORIES;
 
@@ -549,7 +549,13 @@ function Dashboard({
     dealerLocation: '',
     dealerCommonAddress: '',
     purchaseOrder: '',
-    consignment: ''
+    consignment: '',
+    ladOptions: {
+      dualHydraulicJacks: false,
+      bumperPullSetup: false,
+      dualSidePlatforms: false,
+      singleSidePlatforms: false
+    } as LadOptions
   });
 
   const handleAddTrailer = async (e: React.FormEvent) => {
@@ -630,7 +636,8 @@ function Dashboard({
             false,
             formattedDate,
             newTrailerData.purchaseOrder || undefined,
-            newTrailerData.consignment || undefined
+            newTrailerData.consignment || undefined,
+            newTrailerData.ladOptions
           );
 
           const fileObj = dataURLtoFile(base64Data, `${serialNum.trim()}_SpecSheet.xlsx`);
@@ -661,7 +668,9 @@ function Dashboard({
         dealerId: selectedDealer?.id || undefined,
         purchaseOrder: newTrailerData.purchaseOrder || undefined,
         consignment: newTrailerData.consignment || undefined,
-        spec_sheet_file: finalSpecSheetFile
+        spec_sheet_file: finalSpecSheetFile,
+        ladOptions: newTrailerData.ladOptions,
+        lad_options: newTrailerData.ladOptions
       };
       await addTrailer(newTrailer);
       setIsAddModalOpen(false);
@@ -683,7 +692,13 @@ function Dashboard({
         dealerLocation: '',
         dealerCommonAddress: '',
         purchaseOrder: '',
-        consignment: ''
+        consignment: '',
+        ladOptions: {
+          dualHydraulicJacks: false,
+          bumperPullSetup: false,
+          dualSidePlatforms: false,
+          singleSidePlatforms: false
+        }
       });
     } finally { setIsAdding(false); }
   };
@@ -1350,6 +1365,169 @@ function Dashboard({
               <option value="">Select Model...</option>
               {localModelCategories.map(cat => <optgroup key={cat.name} label={cat.name}>{cat.models.map(m => <option key={m} value={m}>{m}</option>)}</optgroup>)}
             </select>
+
+            {/* LAD Drone Trailer Optional Configurations */}
+            {newTrailerData.model && newTrailerData.model.trim().toUpperCase().startsWith('LAD') && (
+              <div style={{
+                marginTop: '0.75rem',
+                padding: '0.85rem',
+                background: 'rgba(59, 130, 246, 0.05)',
+                border: '1px solid rgba(59, 130, 246, 0.3)',
+                borderRadius: '8px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.65rem', flexWrap: 'wrap', gap: '0.25rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#2563eb', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                      LAD Drone Trailer Configuration (Optional)
+                    </span>
+                    <span style={{ fontSize: '0.68rem', padding: '0.1rem 0.4rem', borderRadius: '4px', background: '#dbeafe', color: '#1e40af', fontWeight: 700 }}>
+                      Excel L29–L32
+                    </span>
+                  </div>
+                  <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                    Fills directly into spec sheet cells
+                  </span>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.6rem' }}>
+                  {/* Dual Hydraulic Jacks (L29) */}
+                  <label style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    padding: '0.5rem 0.75rem',
+                    background: 'var(--bg-card)',
+                    border: newTrailerData.ladOptions?.dualHydraulicJacks ? '1.5px solid #2563eb' : '1px solid var(--border-default)',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    userSelect: 'none'
+                  }}>
+                    <input
+                      type="checkbox"
+                      checked={!!newTrailerData.ladOptions?.dualHydraulicJacks}
+                      onChange={e => setNewTrailerData({
+                        ...newTrailerData,
+                        ladOptions: {
+                          ...newTrailerData.ladOptions,
+                          dualHydraulicJacks: e.target.checked
+                        }
+                      })}
+                      style={{ width: '15px', height: '15px', cursor: 'pointer', accentColor: '#2563eb' }}
+                    />
+                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                      <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                        Dual Hydraulic Jacks
+                      </span>
+                      <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
+                        Spec Cell: <strong>L29</strong>
+                      </span>
+                    </div>
+                  </label>
+
+                  {/* Bumper Pull Setup (L30) */}
+                  <label style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    padding: '0.5rem 0.75rem',
+                    background: 'var(--bg-card)',
+                    border: newTrailerData.ladOptions?.bumperPullSetup ? '1.5px solid #2563eb' : '1px solid var(--border-default)',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    userSelect: 'none'
+                  }}>
+                    <input
+                      type="checkbox"
+                      checked={!!newTrailerData.ladOptions?.bumperPullSetup}
+                      onChange={e => setNewTrailerData({
+                        ...newTrailerData,
+                        ladOptions: {
+                          ...newTrailerData.ladOptions,
+                          bumperPullSetup: e.target.checked
+                        }
+                      })}
+                      style={{ width: '15px', height: '15px', cursor: 'pointer', accentColor: '#2563eb' }}
+                    />
+                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                      <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                        Bumper Pull Setup
+                      </span>
+                      <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
+                        Spec Cell: <strong>L30</strong>
+                      </span>
+                    </div>
+                  </label>
+
+                  {/* Dual Side Platforms (L31) */}
+                  <label style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    padding: '0.5rem 0.75rem',
+                    background: 'var(--bg-card)',
+                    border: newTrailerData.ladOptions?.dualSidePlatforms ? '1.5px solid #2563eb' : '1px solid var(--border-default)',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    userSelect: 'none'
+                  }}>
+                    <input
+                      type="checkbox"
+                      checked={!!newTrailerData.ladOptions?.dualSidePlatforms}
+                      onChange={e => setNewTrailerData({
+                        ...newTrailerData,
+                        ladOptions: {
+                          ...newTrailerData.ladOptions,
+                          dualSidePlatforms: e.target.checked
+                        }
+                      })}
+                      style={{ width: '15px', height: '15px', cursor: 'pointer', accentColor: '#2563eb' }}
+                    />
+                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                      <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                        Dual Side Platforms
+                      </span>
+                      <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
+                        Spec Cell: <strong>L31</strong>
+                      </span>
+                    </div>
+                  </label>
+
+                  {/* Single Side Platforms (L32) */}
+                  <label style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    padding: '0.5rem 0.75rem',
+                    background: 'var(--bg-card)',
+                    border: newTrailerData.ladOptions?.singleSidePlatforms ? '1.5px solid #2563eb' : '1px solid var(--border-default)',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    userSelect: 'none'
+                  }}>
+                    <input
+                      type="checkbox"
+                      checked={!!newTrailerData.ladOptions?.singleSidePlatforms}
+                      onChange={e => setNewTrailerData({
+                        ...newTrailerData,
+                        ladOptions: {
+                          ...newTrailerData.ladOptions,
+                          singleSidePlatforms: e.target.checked
+                        }
+                      })}
+                      style={{ width: '15px', height: '15px', cursor: 'pointer', accentColor: '#2563eb' }}
+                    />
+                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                      <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                        Single Side Platforms
+                      </span>
+                      <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
+                        Spec Cell: <strong>L32</strong>
+                      </span>
+                    </div>
+                  </label>
+                </div>
+              </div>
+            )}
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
             <div className="form-group">
@@ -2526,9 +2704,9 @@ function AppContent({ userRole, currentUser }: { userRole: UserRole; currentUser
         supabase.from('dealers').select('*').order('name').then(res => { if (res.data) dealersData = res.data; })
       ]);
       
-      if (trailersRes.data) {
+      if (trailersRes?.data && Array.isArray(trailersRes.data)) {
         // Map backend snake_case columns back to frontend camelCase properties
-        const mappedTrailers = trailersRes.data.map(t => {
+        const mappedTrailers = (trailersRes.data as any[]).map((t: any) => {
           const mapped: any = { ...t };
           // Always delete snake_case keys and promote to camelCase (even when null)
           if ('sales_person' in mapped) { mapped.salesPerson = mapped.sales_person ?? undefined; delete mapped.sales_person; }
