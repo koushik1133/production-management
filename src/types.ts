@@ -73,8 +73,8 @@ export interface Trailer {
   purchaseOrder?: string;
   consignment?: string;
   shipping_cost?: number | null;
-  ladOptions?: LadOptions;
-  lad_options?: LadOptions;
+  ladOptions?: LadOptions | null;
+  lad_options?: LadOptions | null;
 }
 
 export interface ShippedTrailer {
@@ -103,22 +103,22 @@ export interface QuoteRecord {
   id: string;
   trailer_id?: string | null;
   serial_number: string;
-  model?: string;
-  dealer_name?: string;
+  model?: string | null;
+  dealer_name?: string | null;
   sale_price?: number | null;
-  trailer_color?: string;
-  trailer_plug?: string;
-  sales_person?: string;
-  dealer_location?: string;
-  dealer_address?: string;
-  purchase_order?: string;
-  consignment?: string;
+  trailer_color?: string | null;
+  trailer_plug?: string | null;
+  sales_person?: string | null;
+  dealer_location?: string | null;
+  dealer_address?: string | null;
+  purchase_order?: string | null;
+  consignment?: string | null;
   quote_file_path?: string | null;
-  status?: string;
-  created_at?: string;
-  notes?: string;
-  ladOptions?: LadOptions;
-  lad_options?: LadOptions;
+  status?: string | null;
+  created_at?: string | null;
+  notes?: string | null;
+  ladOptions?: LadOptions | null;
+  lad_options?: LadOptions | null;
 }
 
 export interface Dealer {

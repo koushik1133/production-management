@@ -8,7 +8,7 @@ import type { Trailer, UserRole, QuoteRecord, Dealer, CatalogModel } from './typ
 import { triggerFileDownload, isRelativePath, fetchFileBlob, fetchTemplateAsBase64 } from './utils/storage';
 import { supabase } from './lib/supabase';
 import { injectTrailerDataIntoSpec } from './lib/injectSpecSheet';
-import { fetchAllPersistentQuotes, saveStoredLocalQuote, QUOTES_UPDATED_EVENT } from './utils/quotesStore';
+import { fetchAllPersistentQuotes, saveStoredLocalQuote, QUOTES_UPDATED_EVENT, hasLadKeys, extractLadFromNotes } from './utils/quotesStore';
 import { EditQuoteModal } from './components/EditQuoteModal';
 
 interface Props {
@@ -23,7 +23,7 @@ interface Props {
 type ExportFilter = 'all' | 'today' | 'week' | 'month';
 export type QuoteStatusType = 'approved' | 'auto_denied' | 'denied' | 'pending';
 
-const safeDate = (ts: number | string | undefined): Date | null => {
+const safeDate = (ts: number | string | null | undefined): Date | null => {
   if (!ts) return null;
   const d = typeof ts === 'number' ? new Date(ts) : new Date(ts);
   return isNaN(d.getTime()) ? null : d;
@@ -78,7 +78,7 @@ export const getQuoteStatus = (
 export const QuotesView: React.FC<Props> = ({
   trailers = [],
   userRole,
-  localSpecSheetTemplates,
+  localSpecSheetTemplates = {},
   dealers = [],
   catalogModels = [],
   onUpdateTrailer
@@ -96,31 +96,55 @@ export const QuotesView: React.FC<Props> = ({
   const isFetchingRef = useRef(false);
   const lastFetchTimeRef = useRef(0);
 
-  const handleSaveQuote = async (updated: QuoteRecord) => {
+  // Save changes from Edit Quote modal
+  const handleSaveEditQuote = async (updated: QuoteRecord) => {
+    let lad = updated.lad_options || updated.ladOptions || extractLadFromNotes(updated.notes);
+    if (typeof lad === 'string') {
+      try { lad = JSON.parse(lad); } catch (_) {}
+    }
+
+    let updatedNotes = updated.notes || null;
+    if (hasLadKeys(lad)) {
+      const clean = (updatedNotes || '').replace(/\[LAD:[^\]]+\]\s*/g, '').trim();
+      updatedNotes = `${clean ? `${clean} ` : ''}[LAD:${JSON.stringify(lad)}]`.trim();
+    }
+
+    const enrichedUpdated: QuoteRecord = {
+      ...updated,
+      notes: updatedNotes,
+      lad_options: hasLadKeys(lad) ? lad : undefined,
+      ladOptions: hasLadKeys(lad) ? lad : undefined
+    };
+
     // 1. Update in Supabase public.quotes table
     try {
       const payload: any = {
-        id: updated.id,
-        trailer_id: updated.trailer_id || null,
-        serial_number: updated.serial_number,
-        model: updated.model || null,
-        dealer_name: updated.dealer_name || null,
-        sale_price: updated.sale_price,
-        trailer_color: updated.trailer_color || null,
-        trailer_plug: updated.trailer_plug || null,
-        sales_person: updated.sales_person || null,
-        dealer_location: updated.dealer_location || null,
-        dealer_address: updated.dealer_address || null,
-        purchase_order: updated.purchase_order || null,
-        consignment: updated.consignment || null,
-        quote_file_path: updated.quote_file_path || null,
-        status: updated.status || 'quote',
-        notes: updated.notes || null,
-        lad_options: updated.lad_options || updated.ladOptions || null,
+        id: enrichedUpdated.id,
+        trailer_id: enrichedUpdated.trailer_id || null,
+        serial_number: enrichedUpdated.serial_number,
+        model: enrichedUpdated.model || null,
+        dealer_name: enrichedUpdated.dealer_name || null,
+        sale_price: enrichedUpdated.sale_price,
+        trailer_color: enrichedUpdated.trailer_color || null,
+        trailer_plug: enrichedUpdated.trailer_plug || null,
+        sales_person: enrichedUpdated.sales_person || null,
+        dealer_location: enrichedUpdated.dealer_location || null,
+        dealer_address: enrichedUpdated.dealer_address || null,
+        purchase_order: enrichedUpdated.purchase_order || null,
+        consignment: enrichedUpdated.consignment || null,
+        quote_file_path: enrichedUpdated.quote_file_path || null,
+        status: enrichedUpdated.status || 'quote',
+        notes: updatedNotes,
+        lad_options: hasLadKeys(lad) ? lad : null,
         updated_at: new Date().toISOString()
       };
 
-      const { error } = await supabase.from('quotes').upsert(payload);
+      let { error } = await supabase.from('quotes').upsert(payload);
+      if (error && (String(error.message || '').includes('lad_options') || String(error.message || '').includes('column'))) {
+        delete payload.lad_options;
+        const res = await supabase.from('quotes').upsert(payload);
+        error = res.error;
+      }
       if (error) {
         console.warn('Supabase quote upsert warning:', error.message);
       }
@@ -129,47 +153,47 @@ export const QuotesView: React.FC<Props> = ({
     }
 
     // 2. Persist locally to storage & emit update event
-    saveStoredLocalQuote(updated, true);
+    saveStoredLocalQuote(enrichedUpdated, true);
 
     // 3. Update local state immediately
     setDbQuotes(prev => {
       const idx = prev.findIndex(q => 
-        (updated.id && q.id === updated.id) || 
-        (q.serial_number?.trim().toLowerCase() === updated.serial_number?.trim().toLowerCase())
+        (enrichedUpdated.id && q.id === enrichedUpdated.id) || 
+        (q.serial_number?.trim().toLowerCase() === enrichedUpdated.serial_number?.trim().toLowerCase())
       );
       if (idx >= 0) {
         const next = [...prev];
-        next[idx] = updated;
+        next[idx] = enrichedUpdated;
         return next;
       }
-      return [updated, ...prev];
+      return [enrichedUpdated, ...prev];
     });
 
     // 4. If a live active trailer exists matching this quote, update it too
     const matchingTrailer = (trailers || []).find(t =>
-      ((updated.trailer_id && t.id === updated.trailer_id) ||
-       (t.serialNumber && updated.serial_number && (
-         t.serialNumber.trim().toLowerCase() === updated.serial_number.trim().toLowerCase() ||
-         t.serialNumber.trim().toLowerCase() === `${updated.serial_number.trim().toLowerCase()}-q`
+      ((enrichedUpdated.trailer_id && t.id === enrichedUpdated.trailer_id) ||
+       (t.serialNumber && enrichedUpdated.serial_number && (
+         t.serialNumber.trim().toLowerCase() === enrichedUpdated.serial_number.trim().toLowerCase() ||
+         t.serialNumber.trim().toLowerCase() === `${enrichedUpdated.serial_number.trim().toLowerCase()}-q`
        ))) &&
       !t.isDeleted
     );
 
     if (matchingTrailer && onUpdateTrailer) {
       onUpdateTrailer(matchingTrailer.id, {
-        name: updated.dealer_name,
-        model: updated.model,
-        sale_price: updated.sale_price ?? undefined,
-        trailer_color: updated.trailer_color,
-        trailer_plug: updated.trailer_plug,
-        salesPerson: updated.sales_person,
-        dealerLocation: updated.dealer_location,
-        dealerCommonAddress: updated.dealer_address,
-        purchaseOrder: updated.purchase_order,
-        consignment: updated.consignment,
-        notes: updated.notes,
-        ladOptions: updated.lad_options || updated.ladOptions,
-        lad_options: updated.lad_options || updated.ladOptions
+        name: enrichedUpdated.dealer_name || undefined,
+        model: enrichedUpdated.model || undefined,
+        sale_price: enrichedUpdated.sale_price ?? undefined,
+        trailer_color: enrichedUpdated.trailer_color || undefined,
+        trailer_plug: enrichedUpdated.trailer_plug || undefined,
+        salesPerson: enrichedUpdated.sales_person || undefined,
+        dealerLocation: enrichedUpdated.dealer_location || undefined,
+        dealerCommonAddress: enrichedUpdated.dealer_address || undefined,
+        purchaseOrder: enrichedUpdated.purchase_order || undefined,
+        consignment: enrichedUpdated.consignment || undefined,
+        notes: updatedNotes || undefined,
+        ladOptions: hasLadKeys(lad) ? lad : undefined,
+        lad_options: hasLadKeys(lad) ? lad : undefined
       });
     }
   };
@@ -224,7 +248,7 @@ export const QuotesView: React.FC<Props> = ({
           const displaySerial = t.serialNumber?.replace(/-Q$/i, '') || t.serialNumber;
           const s = displaySerial?.trim().toLowerCase();
           if (s) {
-            let tLad = t.lad_options || t.ladOptions;
+            let tLad = t.lad_options || t.ladOptions || extractLadFromNotes(t.notes);
             if (typeof tLad === 'string') {
               try { tLad = JSON.parse(tLad); } catch (_) {}
             }
@@ -232,11 +256,11 @@ export const QuotesView: React.FC<Props> = ({
             const isDenied = t.quoteStatus === 'denied' || (t.notes && (t.notes.includes('[STATUS:denied]') || t.notes.includes('[STATUS:auto_denied]')));
             const existing = map.get(s);
             if (existing) {
-              let existingLad = existing.lad_options || existing.ladOptions;
+              let existingLad = existing.lad_options || existing.ladOptions || extractLadFromNotes(existing.notes);
               if (typeof existingLad === 'string') {
                 try { existingLad = JSON.parse(existingLad); } catch (_) {}
               }
-              const mergedLad = existingLad || tLad;
+              const mergedLad = hasLadKeys(existingLad) ? existingLad : (hasLadKeys(tLad) ? tLad : undefined);
               map.set(s, {
                 ...existing,
                 status: isApproved ? 'approved' : existing.status,
@@ -262,8 +286,8 @@ export const QuotesView: React.FC<Props> = ({
                 status: isApproved ? 'approved' : (isDenied ? 'denied' : 'quote'),
                 created_at: t.dateStarted ? new Date(t.dateStarted).toISOString() : new Date().toISOString(),
                 notes: t.notes,
-                lad_options: tLad,
-                ladOptions: tLad
+                lad_options: hasLadKeys(tLad) ? tLad : undefined,
+                ladOptions: hasLadKeys(tLad) ? tLad : undefined
               });
             }
           }
@@ -277,11 +301,11 @@ export const QuotesView: React.FC<Props> = ({
           const s = displaySerial?.trim().toLowerCase();
           if (s && map.has(s)) {
             const existing = map.get(s)!;
-            let tLad = t.lad_options || t.ladOptions;
+            let tLad = t.lad_options || t.ladOptions || extractLadFromNotes(t.notes);
             if (typeof tLad === 'string') {
               try { tLad = JSON.parse(tLad); } catch (_) {}
             }
-            if ((!existing.lad_options && !existing.ladOptions) && tLad) {
+            if (!hasLadKeys(existing.lad_options) && hasLadKeys(tLad)) {
               map.set(s, { ...existing, lad_options: tLad, ladOptions: tLad });
             }
           }
@@ -348,7 +372,10 @@ export const QuotesView: React.FC<Props> = ({
         !t.isDeleted
       );
 
-      let effectiveLad = q.lad_options || q.ladOptions || matchingTrailer?.lad_options || matchingTrailer?.ladOptions;
+      let effectiveLad = q.lad_options || q.ladOptions || extractLadFromNotes(q.notes);
+      if (!hasLadKeys(effectiveLad) && matchingTrailer) {
+        effectiveLad = matchingTrailer.lad_options || matchingTrailer.ladOptions || extractLadFromNotes(matchingTrailer.notes);
+      }
       if (typeof effectiveLad === 'string') {
         try { effectiveLad = JSON.parse(effectiveLad); } catch (_) {}
       }
@@ -383,7 +410,7 @@ export const QuotesView: React.FC<Props> = ({
             formattedDate,
             q.purchase_order || undefined,
             q.consignment || undefined,
-            effectiveLad
+            effectiveLad || undefined
           );
 
           const a = document.createElement('a');
@@ -802,7 +829,7 @@ export const QuotesView: React.FC<Props> = ({
         quote={editingQuote}
         dealers={dealers}
         catalogModels={catalogModels}
-        onSave={handleSaveQuote}
+        onSave={handleSaveEditQuote}
       />
     </div>
   );
