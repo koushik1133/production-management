@@ -3504,6 +3504,12 @@ function AppContent({ userRole, currentUser }: { userRole: UserRole; currentUser
     if ('dealerLocation' in dbTrailer) { dbTrailer.dealer_location = dbTrailer.dealerLocation; delete dbTrailer.dealerLocation; }
     if ('dealerCommonAddress' in dbTrailer) { dbTrailer.dealer_common_address = dbTrailer.dealerCommonAddress; delete dbTrailer.dealerCommonAddress; }
     if ('dealerId' in dbTrailer) { dbTrailer.dealer_id = dbTrailer.dealerId; delete dbTrailer.dealerId; }
+    if ('ladOptions' in dbTrailer) {
+      if (!('lad_options' in dbTrailer) || !dbTrailer.lad_options) {
+        dbTrailer.lad_options = dbTrailer.ladOptions;
+      }
+      delete dbTrailer.ladOptions;
+    }
     
     if (hasPurchaseOrderCols) {
       if ('purchaseOrder' in dbTrailer) { dbTrailer.purchase_order = dbTrailer.purchaseOrder; delete dbTrailer.purchaseOrder; }
@@ -3514,11 +3520,23 @@ function AppContent({ userRole, currentUser }: { userRole: UserRole; currentUser
       delete dbTrailer.consignment;
     }
 
+    if (!hasShippingCostCols) {
+      delete dbTrailer.shipping_cost;
+    }
+
     delete dbTrailer.quoteStatus;
 
-    const { error } = await supabase
+    let { error } = await supabase
       .from('trailers')
       .insert([dbTrailer]);
+
+    if (error && (error.code === '42703' || String(error.message || '').includes('lad_options') || String(error.message || '').includes('shipping_cost') || String(error.message || '').includes('column'))) {
+      console.warn('DB column missing, retrying addTrailer without optional columns...');
+      if ('lad_options' in dbTrailer) delete dbTrailer.lad_options;
+      if ('shipping_cost' in dbTrailer) delete dbTrailer.shipping_cost;
+      const retryRes = await supabase.from('trailers').insert([dbTrailer]);
+      error = retryRes.error;
+    }
     
     if (error) {
       // If the DB rejected due to a unique constraint violation, silently roll back.
