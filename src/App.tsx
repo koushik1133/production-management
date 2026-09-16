@@ -2271,43 +2271,9 @@ function AuthGate({ children }: { children: (role: UserRole, user: User | null) 
     });
 
     if (signInError) {
-      // If server returned a 500 or database error, display error immediately and avoid cascading retries
-      if (signInError.status === 500 || signInError.message?.toLowerCase().includes('database error')) {
-        setError(signInError.message || 'Authentication server error. Please try again.');
-        setLoading(false);
-        return;
-      }
-
-      // Fallback auto-provisioning via GoTrue API if account needs initialization
-      try {
-        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-          email: cleanEmail,
-          password: cleanPassword,
-        });
-
-        if (!signUpError && signUpData?.session) {
-          const role: UserRole = isManagerEmail(cleanEmail) ? 'manager' : 'worker';
-          setAuth({ isAuthenticated: true, role, user: signUpData.user });
-          setLoading(false);
-          return;
-        } else if (!signUpError) {
-          const retry = await supabase.auth.signInWithPassword({
-            email: cleanEmail,
-            password: cleanPassword,
-          });
-          if (!retry.error && retry.data?.session) {
-            const role: UserRole = isManagerEmail(cleanEmail) ? 'manager' : 'worker';
-            setAuth({ isAuthenticated: true, role, user: retry.data.user });
-            setLoading(false);
-            return;
-          }
-        }
-      } catch {
-        // Fallback error, display original sign in error message
-      }
-
-      setError(signInError.message);
+      setError(signInError.message || 'Invalid email or password.');
       setLoading(false);
+      return;
     }
   };
 
@@ -4016,7 +3982,7 @@ function getSuggestedBay(): StationId {
             <Route path="/tv/station1" element={<TVView trailers={trailers} monitorMode="station1" localTargetHours={localTargetHours} userRole={userRole} />} />
             <Route path="/tv/station2" element={<TVView trailers={trailers} monitorMode="station2" localTargetHours={localTargetHours} userRole={userRole} />} />
             <Route path="/archive" element={<ArchiveView trailers={trailers} onUpdateTrailer={updateTrailer} localTargetHours={localTargetHours} shippedTrailers={shippedTrailers} userRole={userRole} isPriceUnlockedGlobally={isPriceUnlockedGlobally} onUnlockPrices={unlockPricesGlobally} onLockPrices={() => { setIsPriceUnlockedGlobally(false); localStorage.setItem('lanetrailers_price_unlocked', 'false'); }} localModelCategories={localModelCategories} localSpecSheetTemplates={localSpecSheetTemplates} onConvertTrailer={handleConvertFrame} onMoveBackToShipping={handleMoveBackToShipping} />} />
-            <Route path="/quotes" element={<QuotesView trailers={trailers} userRole={userRole} localSpecSheetTemplates={localSpecSheetTemplates} dealers={dealers} />} />
+            <Route path="/quotes" element={<QuotesView trailers={trailers} userRole={userRole} localSpecSheetTemplates={localSpecSheetTemplates} dealers={dealers} onUpdateTrailer={updateTrailer} catalogModels={catalogModels} />} />
             <Route path="/schedule" element={<ScheduleView trailers={trailers} userRole={userRole} />} />
             <Route path="/messages" element={<MessagesView messaging={messaging} userRole={userRole} />} />
             <Route path="/catalog" element={userRole === 'manager' ? <CatalogView categories={localModelCategories} hours={localTargetHours} specs={localModelSpecs} templates={localSpecSheetTemplates} onAddModel={handleAddModel} onEditModel={handleEditModel} onDeleteModel={handleDeleteModel} dealers={dealers} onAddDealer={handleAddDealer} onEditDealer={handleEditDealer} onDeleteDealer={handleDeleteDealer} userRole={userRole} trailers={trailers} shippedTrailers={shippedTrailers} /> : <Navigate to="/" replace />} />

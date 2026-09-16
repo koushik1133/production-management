@@ -2,13 +2,14 @@ import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import { Link } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import JSZip from 'jszip';
-import { Home, Search, BarChart3, Download, FileText, User, Hash, Calendar, Clock, Loader2, CheckCircle2, XCircle } from 'lucide-react';
+import { Home, Search, BarChart3, Download, FileText, User, Hash, Calendar, Clock, Loader2, CheckCircle2, XCircle, Pencil } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
-import type { Trailer, UserRole, QuoteRecord, Dealer } from './types';
+import type { Trailer, UserRole, QuoteRecord, Dealer, CatalogModel } from './types';
 import { triggerFileDownload, isRelativePath, fetchFileBlob, fetchTemplateAsBase64 } from './utils/storage';
 import { supabase } from './lib/supabase';
 import { injectTrailerDataIntoSpec } from './lib/injectSpecSheet';
-import { fetchAllPersistentQuotes, QUOTES_UPDATED_EVENT } from './utils/quotesStore';
+import { fetchAllPersistentQuotes, saveStoredLocalQuote, QUOTES_UPDATED_EVENT } from './utils/quotesStore';
+import { EditQuoteModal } from './components/EditQuoteModal';
 
 interface Props {
   trailers?: Trailer[];
@@ -16,6 +17,7 @@ interface Props {
   userRole: UserRole;
   localSpecSheetTemplates?: Record<string, string>;
   dealers?: Dealer[];
+  catalogModels?: CatalogModel[];
 }
 
 type ExportFilter = 'all' | 'today' | 'week' | 'month';
@@ -77,7 +79,9 @@ export const QuotesView: React.FC<Props> = ({
   trailers = [],
   userRole,
   localSpecSheetTemplates,
-  dealers = []
+  dealers = [],
+  catalogModels = [],
+  onUpdateTrailer
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'date' | 'serial' | 'model'>('date');
@@ -87,9 +91,88 @@ export const QuotesView: React.FC<Props> = ({
   const [dbQuotes, setDbQuotes] = useState<QuoteRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [editingQuote, setEditingQuote] = useState<QuoteRecord | null>(null);
 
   const isFetchingRef = useRef(false);
   const lastFetchTimeRef = useRef(0);
+
+  const handleSaveQuote = async (updated: QuoteRecord) => {
+    // 1. Update in Supabase public.quotes table
+    try {
+      const payload: any = {
+        id: updated.id,
+        trailer_id: updated.trailer_id || null,
+        serial_number: updated.serial_number,
+        model: updated.model || null,
+        dealer_name: updated.dealer_name || null,
+        sale_price: updated.sale_price,
+        trailer_color: updated.trailer_color || null,
+        trailer_plug: updated.trailer_plug || null,
+        sales_person: updated.sales_person || null,
+        dealer_location: updated.dealer_location || null,
+        dealer_address: updated.dealer_address || null,
+        purchase_order: updated.purchase_order || null,
+        consignment: updated.consignment || null,
+        quote_file_path: updated.quote_file_path || null,
+        status: updated.status || 'quote',
+        notes: updated.notes || null,
+        lad_options: updated.lad_options || updated.ladOptions || null,
+        updated_at: new Date().toISOString()
+      };
+
+      const { error } = await supabase.from('quotes').upsert(payload);
+      if (error) {
+        console.warn('Supabase quote upsert warning:', error.message);
+      }
+    } catch (err) {
+      console.warn('Supabase quote update exception:', err);
+    }
+
+    // 2. Persist locally to storage & emit update event
+    saveStoredLocalQuote(updated, true);
+
+    // 3. Update local state immediately
+    setDbQuotes(prev => {
+      const idx = prev.findIndex(q => 
+        (updated.id && q.id === updated.id) || 
+        (q.serial_number?.trim().toLowerCase() === updated.serial_number?.trim().toLowerCase())
+      );
+      if (idx >= 0) {
+        const next = [...prev];
+        next[idx] = updated;
+        return next;
+      }
+      return [updated, ...prev];
+    });
+
+    // 4. If a live active trailer exists matching this quote, update it too
+    const matchingTrailer = (trailers || []).find(t =>
+      ((updated.trailer_id && t.id === updated.trailer_id) ||
+       (t.serialNumber && updated.serial_number && (
+         t.serialNumber.trim().toLowerCase() === updated.serial_number.trim().toLowerCase() ||
+         t.serialNumber.trim().toLowerCase() === `${updated.serial_number.trim().toLowerCase()}-q`
+       ))) &&
+      !t.isDeleted
+    );
+
+    if (matchingTrailer && onUpdateTrailer) {
+      onUpdateTrailer(matchingTrailer.id, {
+        name: updated.dealer_name,
+        model: updated.model,
+        sale_price: updated.sale_price ?? undefined,
+        trailer_color: updated.trailer_color,
+        trailer_plug: updated.trailer_plug,
+        salesPerson: updated.sales_person,
+        dealerLocation: updated.dealer_location,
+        dealerCommonAddress: updated.dealer_address,
+        purchaseOrder: updated.purchase_order,
+        consignment: updated.consignment,
+        notes: updated.notes,
+        ladOptions: updated.lad_options || updated.ladOptions,
+        lad_options: updated.lad_options || updated.ladOptions
+      });
+    }
+  };
 
   // Fetch persistent quotes from Supabase and persistent storage
   const fetchQuotes = useCallback(async () => {
@@ -600,8 +683,31 @@ export const QuotesView: React.FC<Props> = ({
                     </div>
                   )}
 
-                  {/* Prominent Download Button */}
-                  <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0 }}>
+                  {/* Action Buttons: Edit & Download */}
+                  <div style={{ display: 'flex', gap: '0.6rem', flexShrink: 0, alignItems: 'center' }}>
+                    <button
+                      type="button"
+                      onClick={() => setEditingQuote(q)}
+                      title="Edit quote specifications and pricing"
+                      style={{
+                        padding: '0.55rem 1rem',
+                        fontSize: '0.82rem',
+                        fontWeight: 700,
+                        background: 'var(--bg-secondary, #334155)',
+                        border: '1px solid var(--border-default, #475569)',
+                        borderRadius: '10px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.45rem',
+                        color: 'var(--text-primary, #ffffff)',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      <Pencil size={14} />
+                      <span>Edit</span>
+                    </button>
+
                     <button
                       onClick={() => handleDownloadQuote(q)}
                       disabled={isDownloading}
@@ -640,6 +746,16 @@ export const QuotesView: React.FC<Props> = ({
           </div>
         )}
       </main>
+
+      {/* Edit Quote Modal */}
+      <EditQuoteModal
+        isOpen={!!editingQuote}
+        onClose={() => setEditingQuote(null)}
+        quote={editingQuote}
+        dealers={dealers}
+        catalogModels={catalogModels}
+        onSave={handleSaveQuote}
+      />
     </div>
   );
 };

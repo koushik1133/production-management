@@ -12,14 +12,36 @@ export function clearCorruptedSession() {
     supabase.auth.signOut({ scope: 'local' }).catch(() => {});
   } catch (_) {}
   try {
-    if (typeof window !== 'undefined' && window.localStorage) {
-      Object.keys(window.localStorage).forEach((key) => {
-        if (key.startsWith('sb-') && key.endsWith('-auth-token')) {
-          window.localStorage.removeItem(key);
-        }
-      });
+    if (typeof window !== 'undefined') {
+      if (window.localStorage) {
+        Object.keys(window.localStorage).forEach((key) => {
+          if (key.includes('auth-token') || key.startsWith('sb-')) {
+            window.localStorage.removeItem(key);
+          }
+        });
+      }
+      if (window.sessionStorage) {
+        Object.keys(window.sessionStorage).forEach((key) => {
+          if (key.includes('auth-token') || key.startsWith('sb-')) {
+            window.sessionStorage.removeItem(key);
+          }
+        });
+      }
     }
   } catch (_) {}
+}
+
+// Global safety listener: catch stale token refresh 500s from Supabase GoTrue and clear bad tokens
+if (typeof window !== 'undefined') {
+  window.addEventListener('unhandledrejection', (event) => {
+    const reason = event?.reason;
+    const msg = String(reason?.message || reason || '').toLowerCase();
+    const status = reason?.status;
+    if (status === 500 && (msg.includes('token') || msg.includes('auth') || msg.includes('gotrue'))) {
+      console.warn('Caught unhandled auth 500 error from GoTrue, clearing stale credentials:', msg);
+      clearCorruptedSession();
+    }
+  });
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
