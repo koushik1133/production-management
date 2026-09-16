@@ -80,7 +80,7 @@ export const EditQuoteModal: React.FC<EditQuoteModalProps> = ({
         dealer_address: quote.dealer_address || '',
         purchase_order: quote.purchase_order || '',
         consignment: quote.consignment || '',
-        notes: quote.notes || '',
+        notes: (quote.notes || '').replace(/\[(STATUS|LAD):[^\]]+\]\s*/gi, '').trim(),
         ladOptions: {
           dualHydraulicJacks: existingLad.dualHydraulicJacks !== undefined && existingLad.dualHydraulicJacks !== false && existingLad.dualHydraulicJacks !== null ? String(existingLad.dualHydraulicJacks) : '',
           bumperPullSetup: existingLad.bumperPullSetup !== undefined && existingLad.bumperPullSetup !== false && existingLad.bumperPullSetup !== null ? String(existingLad.bumperPullSetup) : '',

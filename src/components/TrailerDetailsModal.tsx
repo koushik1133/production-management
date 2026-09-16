@@ -119,9 +119,11 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
   const resolvedPhoto3 = useResolvedUrl(photo3);
   const resolvedInspection = useResolvedUrl(inspectionSheetFile);
 
+  const cleanInitialNotes = (trailer.notes || '').replace(/\[(STATUS|LAD):[^\]]+\]\s*/gi, '').trim();
+
   const [editForm, setEditForm] = useState({
     name: trailer.name || '',
-    notes: trailer.notes || '',
+    notes: cleanInitialNotes,
     isPriority: trailer.isPriority || false,
     promisedShippingDate: trailer.promisedShippingDate || '',
     serialNumber: trailer.serialNumber || '',
@@ -138,7 +140,7 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
     ladOptions: parseLadOptions(trailer.ladOptions || trailer.lad_options)
   });
 
-  const [localNotes, setLocalNotes] = React.useState(trailer.notes || '');
+  const [localNotes, setLocalNotes] = React.useState(cleanInitialNotes);
   const [isCustomAddress, setIsCustomAddress] = useState(false);
   const [customAddressText, setCustomAddressText] = useState('');
   const [isMiscDealer, setIsMiscDealer] = useState(false);
@@ -150,10 +152,11 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
       const isMisc = !isKnown && !!trailer.name && trailer.name !== '---';
       setIsMiscDealer(isMisc);
       setMiscDealerName(isMisc ? (trailer.name || '') : '');
+      const cleanEffectNotes = (trailer.notes || '').replace(/\[(STATUS|LAD):[^\]]+\]\s*/gi, '').trim();
 
       setEditForm({
         name: trailer.name || '',
-        notes: trailer.notes || '',
+        notes: cleanEffectNotes,
         isPriority: trailer.isPriority || false,
         promisedShippingDate: trailer.promisedShippingDate || '',
         serialNumber: trailer.serialNumber || '',
@@ -169,7 +172,7 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
         dealerLocation: trailer.dealerLocation || '',
         ladOptions: parseLadOptions(trailer.ladOptions || trailer.lad_options)
       });
-      setLocalNotes(trailer.notes || '');
+      setLocalNotes(cleanEffectNotes);
       setIsCustomAddress(false);
       setCustomAddressText('');
     }

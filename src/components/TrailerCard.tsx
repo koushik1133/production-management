@@ -412,33 +412,37 @@ export const TrailerCard: React.FC<Props> = React.memo(({
         )}
       </div>
       
-      {trailer.notes && !isTVMode && (
-        <div style={{ 
-          marginTop: '0.25rem', 
-          padding: '0.5rem 0.75rem', 
-          background: 'rgba(255, 255, 255, 0.02)', 
-          borderRadius: '8px', 
-          border: '1px solid var(--border-default)',
-          display: 'flex',
-          gap: '0.5rem',
-          alignItems: 'start'
-        }}>
-          <StickyNote size={14} style={{ color: '#64748b', marginTop: '2px', flexShrink: 0 }} />
-          <p style={{ 
-            fontSize: '0.75rem', 
-            color: '#475569', 
-            margin: 0, 
-            lineHeight: '1.4', 
-            fontStyle: 'italic',
-            display: '-webkit-box',
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: 'vertical',
-            overflow: 'hidden'
+      {(() => {
+        const cleanCardNotes = (trailer.notes || '').replace(/\[(STATUS|LAD):[^\]]+\]\s*/gi, '').trim();
+        if (!cleanCardNotes || isTVMode) return null;
+        return (
+          <div style={{ 
+            marginTop: '0.25rem', 
+            padding: '0.5rem 0.75rem', 
+            background: 'rgba(255, 255, 255, 0.02)', 
+            borderRadius: '8px', 
+            border: '1px solid var(--border-default)',
+            display: 'flex',
+            gap: '0.5rem',
+            alignItems: 'start'
           }}>
-            {trailer.notes}
-          </p>
-        </div>
-      )}
+            <StickyNote size={14} style={{ color: '#64748b', marginTop: '2px', flexShrink: 0 }} />
+            <p style={{ 
+              fontSize: '0.75rem', 
+              color: '#475569', 
+              margin: 0, 
+              lineHeight: '1.4', 
+              fontStyle: 'italic',
+              display: '-webkit-box',
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: 'vertical',
+              overflow: 'hidden'
+            }}>
+              {cleanCardNotes}
+            </p>
+          </div>
+        );
+      })()}
 
       {!isTVMode && (
         <div className="card-footer">

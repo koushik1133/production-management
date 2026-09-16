@@ -474,16 +474,19 @@ export const QuotesView: React.FC<Props> = ({
       const folder = zip.folder(folderName);
 
       // 1. Master Excel file
-      const rows = toExport.map(t => ({
-        'Quote Label': `${t.dealer_name || 'Customer'} - ${t.model || ''} ${t.serial_number}${t.notes ? ` (${t.notes})` : ''}`,
-        'Serial Number': t.serial_number,
-        'Model': t.model || '',
-        'Dealer / Customer': t.dealer_name || '',
-        'Sales Person': t.sales_person || '',
-        'Notes': t.notes || '',
-        'Sale Price': t.sale_price ?? '',
-        'Date Added': safeDate(t.created_at) ? format(safeDate(t.created_at)!, 'yyyy-MM-dd') : '',
-      }));
+      const rows = toExport.map(t => {
+        const cleanTNotes = (t.notes || '').replace(/\[(STATUS|LAD):[^\]]+\]\s*/gi, '').trim();
+        return {
+          'Quote Label': `${t.dealer_name || 'Customer'} - ${t.model || ''} ${t.serial_number}${cleanTNotes ? ` (${cleanTNotes})` : ''}`,
+          'Serial Number': t.serial_number,
+          'Model': t.model || '',
+          'Dealer / Customer': t.dealer_name || '',
+          'Sales Person': t.sales_person || '',
+          'Notes': cleanTNotes,
+          'Sale Price': t.sale_price ?? '',
+          'Date Added': safeDate(t.created_at) ? format(safeDate(t.created_at)!, 'yyyy-MM-dd') : '',
+        };
+      });
 
       const ws = XLSX.utils.json_to_sheet(rows);
       const wb = XLSX.utils.book_new();
@@ -496,6 +499,7 @@ export const QuotesView: React.FC<Props> = ({
         const dStr = safeDate(t.created_at) ? format(safeDate(t.created_at)!, 'yyyy-MM-dd') : 'N/A';
         const rawLabel = `${t.dealer_name || 'Customer'} - ${t.model || 'Model'} - ${t.serial_number}`;
         const safeFilename = rawLabel.replace(/[/\\?%*:|"<>]/g, '_').trim();
+        const cleanTNotes = (t.notes || '').replace(/\[(STATUS|LAD):[^\]]+\]\s*/gi, '').trim();
 
         // If actual excel quote exists, package it into the zip
         if (t.quote_file_path) {
@@ -515,7 +519,7 @@ export const QuotesView: React.FC<Props> = ({
         const fileContent = [
           `LANE TRAILERS — QUOTE SPECIFICATION`,
           `====================================`,
-          `Quote Label:      ${t.dealer_name || 'Customer'} - ${t.model || ''} ${t.serial_number}${t.notes ? ` (${t.notes})` : ''}`,
+          `Quote Label:      ${t.dealer_name || 'Customer'} - ${t.model || ''} ${t.serial_number}${cleanTNotes ? ` (${cleanTNotes})` : ''}`,
           `Serial Number:    ${t.serial_number}`,
           `Model:            ${t.model || 'N/A'}`,
           `Customer/Dealer:  ${t.dealer_name || 'N/A'}`,
@@ -525,7 +529,7 @@ export const QuotesView: React.FC<Props> = ({
           `Trailer Color:    ${t.trailer_color || 'Standard'}`,
           `Trailer Plug:     ${t.trailer_plug || 'Standard'}`,
           `Status:           ${t.status || 'Quote'}`,
-          `Notes / Options:  ${t.notes || 'None'}`,
+          `Notes / Options:  ${cleanTNotes || 'None'}`,
           `------------------------------------`,
           `Exported:         ${format(now, 'yyyy-MM-dd HH:mm:ss')}`
         ].join('\n');
@@ -537,7 +541,7 @@ export const QuotesView: React.FC<Props> = ({
       const url = URL.createObjectURL(zipBlob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `quotes_${folderName}.zip`;
+      a.download = `LaneTrailers_Quotes_${folderName}.zip`;
       a.click();
       URL.revokeObjectURL(url);
 
@@ -676,7 +680,7 @@ export const QuotesView: React.FC<Props> = ({
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
             {filtered.map(q => {
               const addedDate = safeDate(q.created_at);
-              const cleanNotes = (q.notes || '').replace(/\[STATUS:[^\]]+\]\s*/gi, '').trim();
+              const cleanNotes = (q.notes || '').replace(/\[(STATUS|LAD):[^\]]+\]\s*/gi, '').trim();
               const quoteLabel = `${q.dealer_name || 'Customer'} - ${q.model || 'Model'} ${q.serial_number}${cleanNotes ? ` (${cleanNotes})` : ''}`;
               const isDownloading = downloadingId === q.id;
               const statusInfo = getQuoteStatus(q, trailers);
