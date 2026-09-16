@@ -168,10 +168,17 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
 
   const [isCustomAddress, setIsCustomAddress] = useState(false);
   const [customAddressText, setCustomAddressText] = useState('');
+  const [isMiscDealer, setIsMiscDealer] = useState(false);
+  const [miscDealerName, setMiscDealerName] = useState('');
 
   const handleUseDetails = (trailer: Trailer) => {
     const nextSerial = getNextIncrementedSerial(trailer.serialNumber, trailers);
     const loc = trailer.dealerLocation || '';
+
+    const isKnownDealer = dealers.some(d => d.name === trailer.name);
+    const isMisc = !isKnownDealer && !!trailer.name && trailer.name !== '---';
+    setIsMiscDealer(isMisc);
+    setMiscDealerName(isMisc ? (trailer.name || '') : '');
 
     setFormData({
       name: trailer.name || '',
@@ -584,6 +591,8 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
     
       setIsCustomAddress(false);
       setCustomAddressText('');
+      setIsMiscDealer(false);
+      setMiscDealerName('');
       setFormData({ 
         name: '', 
         model: '', 
@@ -946,51 +955,85 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
                         <select 
                           className="form-select" 
                           style={{ padding: '0.75rem 1rem', fontSize: '0.95rem', background: 'var(--bg-card)' }}
-                          value={formData.name} 
-                          onChange={e => setFormData({...formData, name: e.target.value, dealerLocation: ''})} 
+                          value={isMiscDealer ? '__misc__' : formData.name} 
+                          onChange={e => {
+                            if (e.target.value === '__misc__') {
+                              setIsMiscDealer(true);
+                              setFormData({...formData, name: miscDealerName, dealerLocation: ''});
+                            } else {
+                              setIsMiscDealer(false);
+                              setFormData({...formData, name: e.target.value, dealerLocation: ''});
+                            }
+                          }} 
                           required
                         >
                           <option value="">Select Dealer...</option>
                           {dealers.map(d => (
                             <option key={d.id} value={d.name}>{d.name}</option>
                           ))}
+                          <option value="__misc__">Miscellaneous (One-time Buyer)</option>
                         </select>
+                        {isMiscDealer && (
+                          <input 
+                            type="text"
+                            className="form-input"
+                            style={{ marginTop: '0.5rem', padding: '0.75rem 1rem', fontSize: '0.95rem', background: 'var(--bg-card)', borderColor: '#3b82f6' }}
+                            placeholder="Enter Buyer / Customer Name..."
+                            value={miscDealerName}
+                            onChange={e => {
+                              setMiscDealerName(e.target.value);
+                              setFormData({ ...formData, name: e.target.value });
+                            }}
+                            required
+                          />
+                        )}
                       </div>
                       
                       <div className="form-group" style={{ marginBottom: 0 }}>
                         <label className="form-label" style={{ fontSize: '0.75rem' }}>Shipping Address</label>
-                        <select 
-                          className="form-select" 
-                          style={{ padding: '0.75rem 1rem', fontSize: '0.95rem', background: 'var(--bg-card)' }}
-                          value={isCustomAddress ? 'CUSTOM_ADD' : formData.dealerLocation} 
-                          onChange={e => {
-                            if (e.target.value === 'CUSTOM_ADD') {
-                              setIsCustomAddress(true);
-                              setFormData({ ...formData, dealerLocation: '' });
-                            } else {
-                              setIsCustomAddress(false);
-                              setFormData({ ...formData, dealerLocation: e.target.value });
-                            }
-                          }} 
-                          disabled={!formData.name}
-                        >
-                          <option value="">Select Address...</option>
-                          {(() => {
-                            const d = dealers.find(dl => dl.name === formData.name);
-                            if (!d) return null;
-                            const list = [];
-                            if (d.common_address) list.push(d.common_address);
-                            if (d.addresses) list.push(...d.addresses);
-                            const options = Array.from(new Set(list)).map(addr => (
-                              <option key={addr} value={addr}>{addr}</option>
-                            ));
-                            return [
-                              ...options,
-                              <option key="custom-add" value="CUSTOM_ADD" style={{ color: '#2563eb', fontWeight: 800 }}>+ Add Custom Address...</option>
-                            ];
-                          })()}
-                        </select>
-                        {isCustomAddress && (
+                        {isMiscDealer ? (
+                          <input 
+                            type="text"
+                            className="form-input"
+                            style={{ padding: '0.75rem 1rem', fontSize: '0.95rem', background: 'var(--bg-card)' }}
+                            placeholder="Enter shipping address..."
+                            value={formData.dealerLocation}
+                            onChange={e => setFormData({ ...formData, dealerLocation: e.target.value })}
+                          />
+                        ) : (
+                          <select 
+                            className="form-select" 
+                            style={{ padding: '0.75rem 1rem', fontSize: '0.95rem', background: 'var(--bg-card)' }}
+                            value={isCustomAddress ? 'CUSTOM_ADD' : formData.dealerLocation} 
+                            onChange={e => {
+                              if (e.target.value === 'CUSTOM_ADD') {
+                                setIsCustomAddress(true);
+                                setFormData({ ...formData, dealerLocation: '' });
+                              } else {
+                                setIsCustomAddress(false);
+                                setFormData({ ...formData, dealerLocation: e.target.value });
+                              }
+                            }} 
+                            disabled={!formData.name}
+                          >
+                            <option value="">Select Address...</option>
+                            {(() => {
+                              const d = dealers.find(dl => dl.name === formData.name);
+                              if (!d) return null;
+                              const list = [];
+                              if (d.common_address) list.push(d.common_address);
+                              if (d.addresses) list.push(...d.addresses);
+                              const options = Array.from(new Set(list)).map(addr => (
+                                <option key={addr} value={addr}>{addr}</option>
+                              ));
+                              return [
+                                ...options,
+                                <option key="custom-add" value="CUSTOM_ADD" style={{ color: '#2563eb', fontWeight: 800 }}>+ Add Custom Address...</option>
+                              ];
+                            })()}
+                          </select>
+                        )}
+                        {!isMiscDealer && isCustomAddress && (
                           <input 
                             type="text"
                             className="form-input"
@@ -1637,6 +1680,11 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
                     <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
                         <button 
                           onClick={() => {
+                            const isKnown = dealers.some(d => d.name === quote.name);
+                            const isMisc = !isKnown && !!quote.name && quote.name !== '---';
+                            setIsMiscDealer(isMisc);
+                            setMiscDealerName(isMisc ? (quote.name || '') : '');
+
                             setFormData({
                               name: quote.name !== '---' ? quote.name : '',
                               model: quote.model,

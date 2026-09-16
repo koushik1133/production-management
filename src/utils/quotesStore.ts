@@ -104,6 +104,10 @@ export async function fetchAllPersistentQuotes(trailers: Trailer[] = []): Promis
     if (!error && data && Array.isArray(data)) {
       dbSuccess = true;
       data.forEach((q: any) => {
+        let lad = q.lad_options || q.ladOptions;
+        if (typeof lad === 'string') {
+          try { lad = JSON.parse(lad); } catch (_) {}
+        }
         const record: QuoteRecord = {
           id: q.id,
           trailer_id: q.trailer_id,
@@ -121,10 +125,29 @@ export async function fetchAllPersistentQuotes(trailers: Trailer[] = []): Promis
           quote_file_path: q.quote_file_path,
           status: q.status,
           created_at: q.created_at,
-          notes: q.notes
+          notes: q.notes,
+          lad_options: lad,
+          ladOptions: lad
         };
         const key = record.serial_number ? record.serial_number.trim().toLowerCase() : record.id;
         if (key) map.set(key, record);
+      });
+
+      // Also merge any cached lad_options from localStorage if DB column was empty
+      const localQuotes = getStoredLocalQuotes();
+      localQuotes.forEach(lq => {
+        const k = lq.serial_number ? lq.serial_number.trim().toLowerCase() : lq.id;
+        if (k) {
+          const dbRec = map.get(k);
+          if (dbRec) {
+            let lqLad = lq.lad_options || lq.ladOptions;
+            if (typeof lqLad === 'string') { try { lqLad = JSON.parse(lqLad); } catch (_) {} }
+            if ((!dbRec.lad_options && !dbRec.ladOptions) && lqLad) {
+              dbRec.lad_options = lqLad;
+              dbRec.ladOptions = lqLad;
+            }
+          }
+        }
       });
 
       // Synchronize clean database records into local storage cache
@@ -140,8 +163,12 @@ export async function fetchAllPersistentQuotes(trailers: Trailer[] = []): Promis
   if (!dbSuccess) {
     const localQuotes = getStoredLocalQuotes();
     localQuotes.forEach(q => {
+      let lad = q.lad_options || q.ladOptions;
+      if (typeof lad === 'string') { try { lad = JSON.parse(lad); } catch (_) {} }
       const key = q.serial_number ? q.serial_number.trim().toLowerCase() : q.id;
-      if (key && !map.has(key)) map.set(key, q);
+      if (key && !map.has(key)) {
+        map.set(key, { ...q, lad_options: lad, ladOptions: lad });
+      }
     });
   }
 
@@ -149,33 +176,45 @@ export async function fetchAllPersistentQuotes(trailers: Trailer[] = []): Promis
   // NEVER merge production units (backlog, build, etc.) to prevent phantom duplicate cards
   if (trailers && trailers.length > 0) {
     trailers
-      .filter(t => !t.isDeleted && t.currentPhase === 'quote')
+      .filter(t => !t.isDeleted)
       .forEach(t => {
         const displaySerial = t.serialNumber?.replace(/-Q$/i, '') || t.serialNumber;
         const s = displaySerial?.trim().toLowerCase();
-        if (s && !map.has(s)) {
-          const isApproved = t.quoteStatus === 'approved' || (t.notes && (t.notes.includes('[STATUS:approved]') || t.notes.includes('Approved into Backlog')));
-          const isDenied = t.quoteStatus === 'denied' || (t.notes && (t.notes.includes('[STATUS:denied]') || t.notes.includes('[STATUS:auto_denied]')));
-          const rec: QuoteRecord = {
-            id: t.id,
-            trailer_id: t.id,
-            serial_number: displaySerial,
-            model: t.model,
-            dealer_name: t.name,
-            sale_price: t.sale_price ?? null,
-            trailer_color: t.trailer_color,
-            trailer_plug: t.trailer_plug,
-            sales_person: t.salesPerson,
-            dealer_location: t.dealerLocation,
-            dealer_address: t.dealerCommonAddress,
-            purchase_order: t.purchaseOrder,
-            consignment: t.consignment,
-            quote_file_path: t.spec_sheet_file,
-            status: isApproved ? 'approved' : (isDenied ? 'denied' : 'quote'),
-            created_at: t.dateStarted ? new Date(t.dateStarted).toISOString() : new Date().toISOString(),
-            notes: t.notes
-          };
-          map.set(s, rec);
+        if (s) {
+          let lad = t.lad_options || t.ladOptions;
+          if (typeof lad === 'string') { try { lad = JSON.parse(lad); } catch (_) {} }
+          const existing = map.get(s);
+          if (existing) {
+            if ((!existing.lad_options && !existing.ladOptions) && lad) {
+              existing.lad_options = lad;
+              existing.ladOptions = lad;
+            }
+          } else if (t.currentPhase === 'quote') {
+            const isApproved = t.quoteStatus === 'approved' || (t.notes && (t.notes.includes('[STATUS:approved]') || t.notes.includes('Approved into Backlog')));
+            const isDenied = t.quoteStatus === 'denied' || (t.notes && (t.notes.includes('[STATUS:denied]') || t.notes.includes('[STATUS:auto_denied]')));
+            const rec: QuoteRecord = {
+              id: t.id,
+              trailer_id: t.id,
+              serial_number: displaySerial,
+              model: t.model,
+              dealer_name: t.name,
+              sale_price: t.sale_price ?? null,
+              trailer_color: t.trailer_color,
+              trailer_plug: t.trailer_plug,
+              sales_person: t.salesPerson,
+              dealer_location: t.dealerLocation,
+              dealer_address: t.dealerCommonAddress,
+              purchase_order: t.purchaseOrder,
+              consignment: t.consignment,
+              quote_file_path: t.spec_sheet_file,
+              status: isApproved ? 'approved' : (isDenied ? 'denied' : 'quote'),
+              created_at: t.dateStarted ? new Date(t.dateStarted).toISOString() : new Date().toISOString(),
+              notes: t.notes,
+              lad_options: lad,
+              ladOptions: lad
+            };
+            map.set(s, rec);
+          }
         }
       });
   }

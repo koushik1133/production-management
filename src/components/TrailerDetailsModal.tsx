@@ -28,6 +28,20 @@ interface Props {
   onConvertFrame?: (trailer: Trailer) => void;
 }
 
+const parseLadOptions = (val: any): LadOptions => {
+  if (!val) return { dualHydraulicJacks: '', bumperPullSetup: '', dualSidePlatforms: '', singleSidePlatforms: '' };
+  let obj = val;
+  if (typeof obj === 'string') {
+    try { obj = JSON.parse(obj); } catch (_) { return { dualHydraulicJacks: '', bumperPullSetup: '', dualSidePlatforms: '', singleSidePlatforms: '' }; }
+  }
+  return {
+    dualHydraulicJacks: obj.dualHydraulicJacks !== undefined && obj.dualHydraulicJacks !== false && obj.dualHydraulicJacks !== null ? String(obj.dualHydraulicJacks) : '',
+    bumperPullSetup: obj.bumperPullSetup !== undefined && obj.bumperPullSetup !== false && obj.bumperPullSetup !== null ? String(obj.bumperPullSetup) : '',
+    dualSidePlatforms: obj.dualSidePlatforms !== undefined && obj.dualSidePlatforms !== false && obj.dualSidePlatforms !== null ? String(obj.dualSidePlatforms) : '',
+    singleSidePlatforms: obj.singleSidePlatforms !== undefined && obj.singleSidePlatforms !== false && obj.singleSidePlatforms !== null ? String(obj.singleSidePlatforms) : ''
+  };
+};
+
 export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose, onUpdate, allTrailers = [], localTargetHours, localSpecSheetTemplates = {}, onDeleteTrailer, shippedTrailers = [], userRole, isPriceUnlockedGlobally, onUnlockPrices, initialMode = 'view', dealers = [], onUpdateDealer, onConvertFrame }) => {
   const [isEditing, setIsEditing] = React.useState(initialMode === 'edit');
   const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false);
@@ -121,20 +135,22 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
     purchaseOrder: trailer.purchaseOrder || '',
     consignment: trailer.consignment || '',
     dealerLocation: trailer.dealerLocation || '',
-    ladOptions: trailer.ladOptions || trailer.lad_options || {
-      dualHydraulicJacks: '',
-      bumperPullSetup: '',
-      dualSidePlatforms: '',
-      singleSidePlatforms: ''
-    } as LadOptions
+    ladOptions: parseLadOptions(trailer.ladOptions || trailer.lad_options)
   });
 
   const [localNotes, setLocalNotes] = React.useState(trailer.notes || '');
   const [isCustomAddress, setIsCustomAddress] = useState(false);
   const [customAddressText, setCustomAddressText] = useState('');
+  const [isMiscDealer, setIsMiscDealer] = useState(false);
+  const [miscDealerName, setMiscDealerName] = useState('');
 
   useEffect(() => {
     if (isOpen && trailer.id) {
+      const isKnown = dealers.some(d => d.name === trailer.name);
+      const isMisc = !isKnown && !!trailer.name && trailer.name !== '---';
+      setIsMiscDealer(isMisc);
+      setMiscDealerName(isMisc ? (trailer.name || '') : '');
+
       setEditForm({
         name: trailer.name || '',
         notes: trailer.notes || '',
@@ -151,18 +167,13 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
         purchaseOrder: trailer.purchaseOrder || '',
         consignment: trailer.consignment || '',
         dealerLocation: trailer.dealerLocation || '',
-        ladOptions: trailer.ladOptions || trailer.lad_options || {
-          dualHydraulicJacks: '',
-          bumperPullSetup: '',
-          dualSidePlatforms: '',
-          singleSidePlatforms: ''
-        }
+        ladOptions: parseLadOptions(trailer.ladOptions || trailer.lad_options)
       });
       setLocalNotes(trailer.notes || '');
       setIsCustomAddress(false);
       setCustomAddressText('');
     }
-  }, [trailer.id, isOpen, specSheetFile, inspectionSheetFile, trailer.salesPerson, trailer.trailer_color, trailer.trailer_plug, trailer.purchaseOrder, trailer.consignment, trailer.dealerLocation, trailer.ladOptions, trailer.lad_options]);
+  }, [trailer.id, isOpen, specSheetFile, inspectionSheetFile, trailer.salesPerson, trailer.trailer_color, trailer.trailer_plug, trailer.purchaseOrder, trailer.consignment, trailer.dealerLocation, trailer.ladOptions, trailer.lad_options, trailer.name, dealers]);
 
   const handleGenerateSpecSheet = async (customValues?: Partial<Trailer>): Promise<string | undefined> => {
     const name = customValues ? customValues.name : trailer.name;
@@ -534,49 +545,82 @@ export const TrailerDetailsModal: React.FC<Props> = ({ trailer, isOpen, onClose,
                 <select 
                   className="form-select" 
                   style={{ background: 'rgba(255,255,255,0.02)', fontWeight: 700, width: '100%', padding: '0.75rem 1rem', fontSize: '0.95rem' }}
-                  value={editForm.name} 
-                  onChange={e => setEditForm({ ...editForm, name: e.target.value, dealerLocation: '' })} 
+                  value={isMiscDealer ? '__misc__' : editForm.name} 
+                  onChange={e => {
+                    if (e.target.value === '__misc__') {
+                      setIsMiscDealer(true);
+                      setEditForm({ ...editForm, name: miscDealerName, dealerLocation: '' });
+                    } else {
+                      setIsMiscDealer(false);
+                      setEditForm({ ...editForm, name: e.target.value, dealerLocation: '' });
+                    }
+                  }} 
                 >
                   <option value="">Select Dealer...</option>
                   {dealers.map(d => (
                     <option key={d.id} value={d.name}>{d.name}</option>
                   ))}
+                  <option value="__misc__">Miscellaneous (One-time Buyer)</option>
                 </select>
+                {isMiscDealer && (
+                  <input
+                    type="text"
+                    className="form-input"
+                    style={{ marginTop: '0.5rem', background: 'rgba(255,255,255,0.02)', borderColor: '#3b82f6', fontWeight: 700, width: '100%', padding: '0.75rem 1rem', fontSize: '0.95rem' }}
+                    placeholder="Enter Buyer / Customer Name..."
+                    value={miscDealerName}
+                    onChange={e => {
+                      setMiscDealerName(e.target.value);
+                      setEditForm({ ...editForm, name: e.target.value });
+                    }}
+                  />
+                )}
               </div>
               <div>
                 <label className="form-label" style={{ color: 'var(--text-muted)' }}>Shipping Address</label>
-                <select 
-                  className="form-select" 
-                  style={{ background: 'rgba(255,255,255,0.02)', fontWeight: 700, width: '100%', padding: '0.75rem 1rem', fontSize: '0.95rem' }}
-                  value={isCustomAddress ? 'CUSTOM_ADD' : editForm.dealerLocation} 
-                  onChange={e => {
-                    if (e.target.value === 'CUSTOM_ADD') {
-                      setIsCustomAddress(true);
-                      setEditForm({ ...editForm, dealerLocation: '' });
-                    } else {
-                      setIsCustomAddress(false);
-                      setEditForm({ ...editForm, dealerLocation: e.target.value });
-                    }
-                  }} 
-                  disabled={!editForm.name}
-                >
-                  <option value="">Select Address...</option>
-                  {(() => {
-                    const d = dealers.find(dl => dl.name === editForm.name);
-                    if (!d) return null;
-                    const list = [];
-                    if (d.common_address) list.push(d.common_address);
-                    if (d.addresses) list.push(...d.addresses);
-                    const options = Array.from(new Set(list)).map(addr => (
-                      <option key={addr} value={addr}>{addr}</option>
-                    ));
-                    return [
-                      ...options,
-                      <option key="custom-add" value="CUSTOM_ADD" style={{ color: '#2563eb', fontWeight: 800 }}>+ Add Custom Address...</option>
-                    ];
-                  })()}
-                </select>
-                {isCustomAddress && (
+                {isMiscDealer ? (
+                  <input 
+                    type="text"
+                    className="form-input"
+                    style={{ background: 'rgba(255,255,255,0.02)', fontWeight: 700, width: '100%', padding: '0.75rem 1rem', fontSize: '0.95rem' }}
+                    placeholder="Enter shipping address..."
+                    value={editForm.dealerLocation}
+                    onChange={e => setEditForm({ ...editForm, dealerLocation: e.target.value })}
+                  />
+                ) : (
+                  <select 
+                    className="form-select" 
+                    style={{ background: 'rgba(255,255,255,0.02)', fontWeight: 700, width: '100%', padding: '0.75rem 1rem', fontSize: '0.95rem' }}
+                    value={isCustomAddress ? 'CUSTOM_ADD' : editForm.dealerLocation} 
+                    onChange={e => {
+                      if (e.target.value === 'CUSTOM_ADD') {
+                        setIsCustomAddress(true);
+                        setEditForm({ ...editForm, dealerLocation: '' });
+                      } else {
+                        setIsCustomAddress(false);
+                        setEditForm({ ...editForm, dealerLocation: e.target.value });
+                      }
+                    }} 
+                    disabled={!editForm.name}
+                  >
+                    <option value="">Select Address...</option>
+                    {(() => {
+                      const d = dealers.find(dl => dl.name === editForm.name);
+                      if (!d) return null;
+                      const list = [];
+                      if (d.common_address) list.push(d.common_address);
+                      if (d.addresses) list.push(...d.addresses);
+                      const options = Array.from(new Set(list)).map(addr => (
+                        <option key={addr} value={addr}>{addr}</option>
+                      ));
+                      return [
+                        ...options,
+                        <option key="custom-add" value="CUSTOM_ADD" style={{ color: '#2563eb', fontWeight: 800 }}>+ Add Custom Address...</option>
+                      ];
+                    })()}
+                  </select>
+                )}
+                {!isMiscDealer && isCustomAddress && (
                   <input 
                     type="text"
                     className="form-input"

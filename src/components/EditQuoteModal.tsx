@@ -53,14 +53,22 @@ export const EditQuoteModal: React.FC<EditQuoteModalProps> = ({
   });
 
   const [isSaving, setIsSaving] = useState(false);
-  const [isCustomDealer, setIsCustomDealer] = useState(false);
+  const [isMiscDealer, setIsMiscDealer] = useState(false);
+  const [miscDealerName, setMiscDealerName] = useState('');
 
   useEffect(() => {
     if (isOpen && quote) {
-      const existingLad: LadOptions = quote.lad_options || quote.ladOptions || {};
-      const knownDealer = dealers.some(d => d.name === quote.dealer_name);
+      let existingLad: any = quote.lad_options || quote.ladOptions || {};
+      if (typeof existingLad === 'string') {
+        try { existingLad = JSON.parse(existingLad); } catch (_) {}
+      }
+      if (!existingLad || typeof existingLad !== 'object') existingLad = {};
 
-      setIsCustomDealer(!knownDealer && !!quote.dealer_name);
+      const knownDealer = dealers.some(d => d.name === quote.dealer_name);
+      const isMisc = !knownDealer && !!quote.dealer_name;
+
+      setIsMiscDealer(isMisc);
+      setMiscDealerName(isMisc ? (quote.dealer_name || '') : '');
       setFormData({
         dealer_name: quote.dealer_name || '',
         model: quote.model || '',
@@ -74,10 +82,10 @@ export const EditQuoteModal: React.FC<EditQuoteModalProps> = ({
         consignment: quote.consignment || '',
         notes: quote.notes || '',
         ladOptions: {
-          dualHydraulicJacks: existingLad.dualHydraulicJacks !== undefined && existingLad.dualHydraulicJacks !== false ? String(existingLad.dualHydraulicJacks) : '',
-          bumperPullSetup: existingLad.bumperPullSetup !== undefined && existingLad.bumperPullSetup !== false ? String(existingLad.bumperPullSetup) : '',
-          dualSidePlatforms: existingLad.dualSidePlatforms !== undefined && existingLad.dualSidePlatforms !== false ? String(existingLad.dualSidePlatforms) : '',
-          singleSidePlatforms: existingLad.singleSidePlatforms !== undefined && existingLad.singleSidePlatforms !== false ? String(existingLad.singleSidePlatforms) : ''
+          dualHydraulicJacks: existingLad.dualHydraulicJacks !== undefined && existingLad.dualHydraulicJacks !== false && existingLad.dualHydraulicJacks !== null ? String(existingLad.dualHydraulicJacks) : '',
+          bumperPullSetup: existingLad.bumperPullSetup !== undefined && existingLad.bumperPullSetup !== false && existingLad.bumperPullSetup !== null ? String(existingLad.bumperPullSetup) : '',
+          dualSidePlatforms: existingLad.dualSidePlatforms !== undefined && existingLad.dualSidePlatforms !== false && existingLad.dualSidePlatforms !== null ? String(existingLad.dualSidePlatforms) : '',
+          singleSidePlatforms: existingLad.singleSidePlatforms !== undefined && existingLad.singleSidePlatforms !== false && existingLad.singleSidePlatforms !== null ? String(existingLad.singleSidePlatforms) : ''
         }
       });
     }
@@ -362,60 +370,65 @@ export const EditQuoteModal: React.FC<EditQuoteModalProps> = ({
 
             {/* Dealer Name */}
             <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
-                <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-secondary, #cbd5e1)' }}>
-                  Dealer / Customer Name
-                </label>
-                <button
-                  type="button"
-                  onClick={() => setIsCustomDealer(!isCustomDealer)}
-                  style={{ background: 'transparent', border: 'none', color: '#6366f1', fontSize: '0.7rem', fontWeight: 700, cursor: 'pointer', padding: 0 }}
-                >
-                  {isCustomDealer ? 'Pick from Dealers' : 'Type Custom'}
-                </button>
-              </div>
-              {!isCustomDealer && dealers.length > 0 ? (
-                <select
-                  value={formData.dealer_name}
-                  onChange={e => {
+              <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-secondary, #cbd5e1)', marginBottom: '0.35rem' }}>
+                Dealer / Customer Name
+              </label>
+              <select
+                value={isMiscDealer ? '__misc__' : (dealers.some(d => d.name === formData.dealer_name) ? formData.dealer_name : (formData.dealer_name ? '__misc__' : ''))}
+                onChange={e => {
+                  if (e.target.value === '__misc__') {
+                    setIsMiscDealer(true);
+                    setFormData({
+                      ...formData,
+                      dealer_name: miscDealerName
+                    });
+                  } else {
+                    setIsMiscDealer(false);
                     const sel = dealers.find(d => d.name === e.target.value);
                     setFormData({
                       ...formData,
                       dealer_name: e.target.value,
                       dealer_address: sel?.common_address || formData.dealer_address
                     });
-                  }}
-                  className="form-select"
-                  style={{
-                    width: '100%',
-                    padding: '0.6rem 0.85rem',
-                    fontSize: '0.88rem',
-                    borderRadius: '8px',
-                    border: '1px solid var(--border-default, #334155)',
-                    background: 'var(--bg-card, #1e293b)',
-                    color: 'var(--text-primary, #fff)'
-                  }}
-                >
-                  <option value="">Select Dealer...</option>
-                  {dealers.map(d => (
-                    <option key={d.id || d.name} value={d.name}>{d.name}</option>
-                  ))}
-                </select>
-              ) : (
+                  }
+                }}
+                className="form-select"
+                style={{
+                  width: '100%',
+                  padding: '0.6rem 0.85rem',
+                  fontSize: '0.88rem',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border-default, #334155)',
+                  background: 'var(--bg-card, #1e293b)',
+                  color: 'var(--text-primary, #fff)'
+                }}
+              >
+                <option value="">Select Dealer...</option>
+                {dealers.map(d => (
+                  <option key={d.id || d.name} value={d.name}>{d.name}</option>
+                ))}
+                <option value="__misc__">Miscellaneous (One-time Buyer)</option>
+              </select>
+              {isMiscDealer && (
                 <input
                   type="text"
-                  placeholder="e.g. Dynamic Cropping Systems"
-                  value={formData.dealer_name}
-                  onChange={e => setFormData({ ...formData, dealer_name: e.target.value })}
+                  placeholder="Enter Buyer / Customer Name..."
+                  value={miscDealerName}
+                  onChange={e => {
+                    setMiscDealerName(e.target.value);
+                    setFormData({ ...formData, dealer_name: e.target.value });
+                  }}
                   style={{
                     width: '100%',
-                    padding: '0.6rem 0.85rem',
-                    fontSize: '0.88rem',
+                    marginTop: '0.45rem',
+                    padding: '0.55rem 0.85rem',
+                    fontSize: '0.85rem',
                     borderRadius: '8px',
-                    border: '1px solid var(--border-default, #334155)',
+                    border: '1px solid #3b82f6',
                     background: 'var(--bg-card, #1e293b)',
                     color: 'var(--text-primary, #fff)'
                   }}
+                  required
                 />
               )}
             </div>

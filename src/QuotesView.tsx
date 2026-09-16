@@ -224,13 +224,25 @@ export const QuotesView: React.FC<Props> = ({
           const displaySerial = t.serialNumber?.replace(/-Q$/i, '') || t.serialNumber;
           const s = displaySerial?.trim().toLowerCase();
           if (s) {
+            let tLad = t.lad_options || t.ladOptions;
+            if (typeof tLad === 'string') {
+              try { tLad = JSON.parse(tLad); } catch (_) {}
+            }
             const isApproved = t.quoteStatus === 'approved' || (t.notes && (t.notes.includes('[STATUS:approved]') || t.notes.includes('Approved into Backlog')));
             const isDenied = t.quoteStatus === 'denied' || (t.notes && (t.notes.includes('[STATUS:denied]') || t.notes.includes('[STATUS:auto_denied]')));
             const existing = map.get(s);
             if (existing) {
-              if (isApproved && existing.status !== 'approved') {
-                map.set(s, { ...existing, status: 'approved' });
+              let existingLad = existing.lad_options || existing.ladOptions;
+              if (typeof existingLad === 'string') {
+                try { existingLad = JSON.parse(existingLad); } catch (_) {}
               }
+              const mergedLad = existingLad || tLad;
+              map.set(s, {
+                ...existing,
+                status: isApproved ? 'approved' : existing.status,
+                lad_options: mergedLad,
+                ladOptions: mergedLad
+              });
             } else {
               map.set(s, {
                 id: t.id,
@@ -249,8 +261,28 @@ export const QuotesView: React.FC<Props> = ({
                 quote_file_path: t.spec_sheet_file,
                 status: isApproved ? 'approved' : (isDenied ? 'denied' : 'quote'),
                 created_at: t.dateStarted ? new Date(t.dateStarted).toISOString() : new Date().toISOString(),
-                notes: t.notes
+                notes: t.notes,
+                lad_options: tLad,
+                ladOptions: tLad
               });
+            }
+          }
+        });
+
+      // Also merge any LAD options from trailers in other phases (e.g. approved backlog)
+      trailers
+        .filter(t => !t.isDeleted)
+        .forEach(t => {
+          const displaySerial = t.serialNumber?.replace(/-Q$/i, '') || t.serialNumber;
+          const s = displaySerial?.trim().toLowerCase();
+          if (s && map.has(s)) {
+            const existing = map.get(s)!;
+            let tLad = t.lad_options || t.ladOptions;
+            if (typeof tLad === 'string') {
+              try { tLad = JSON.parse(tLad); } catch (_) {}
+            }
+            if ((!existing.lad_options && !existing.ladOptions) && tLad) {
+              map.set(s, { ...existing, lad_options: tLad, ladOptions: tLad });
             }
           }
         });
@@ -303,16 +335,26 @@ export const QuotesView: React.FC<Props> = ({
       });
   }, [allQuotes, searchQuery, sortBy, statusFilter, trailers]);
 
-  // Download quote logic (fetches stored file or generates on the fly if needed)
+  // Download quote logic (dynamically injects latest price, dealer, colors, and LAD options)
   const handleDownloadQuote = async (q: QuoteRecord) => {
     setDownloadingId(q.id);
     try {
-      if (q.quote_file_path) {
-        await triggerFileDownload(q.quote_file_path, `${q.serial_number}_Quote.xlsx`);
-        return;
+      const matchingTrailer = (trailers || []).find(t =>
+        ((q.trailer_id && t.id === q.trailer_id) ||
+         (t.serialNumber && q.serial_number && (
+           t.serialNumber.trim().toLowerCase() === q.serial_number.trim().toLowerCase() ||
+           t.serialNumber.trim().toLowerCase() === `${q.serial_number.trim().toLowerCase()}-q`
+         ))) &&
+        !t.isDeleted
+      );
+
+      let effectiveLad = q.lad_options || q.ladOptions || matchingTrailer?.lad_options || matchingTrailer?.ladOptions;
+      if (typeof effectiveLad === 'string') {
+        try { effectiveLad = JSON.parse(effectiveLad); } catch (_) {}
       }
 
-      // If no file path was stored yet, generate quote excel sheet on the fly
+      // If we have a model template, ALWAYS generate fresh injected spec sheet
+      // so all edits (price, dealer, colors, LAD options) are dynamically included!
       if (q.model) {
         let templateBase64: string | undefined = localSpecSheetTemplates ? localSpecSheetTemplates[q.model] : undefined;
         if (templateBase64 === 'EXISTS') {
@@ -341,7 +383,7 @@ export const QuotesView: React.FC<Props> = ({
             formattedDate,
             q.purchase_order || undefined,
             q.consignment || undefined,
-            q.lad_options || q.ladOptions
+            effectiveLad
           );
 
           const a = document.createElement('a');
@@ -350,6 +392,12 @@ export const QuotesView: React.FC<Props> = ({
           a.click();
           return;
         }
+      }
+
+      // If no template is configured, fall back to downloaded stored file
+      if (q.quote_file_path) {
+        await triggerFileDownload(q.quote_file_path, `${q.serial_number}_Quote.xlsx`);
+        return;
       }
 
       alert('No template or file found for this quote.');

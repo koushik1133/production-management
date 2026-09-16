@@ -213,6 +213,8 @@ function Dashboard({
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [quickCustomAddress, setQuickCustomAddress] = useState(false);
   const [quickCustomAddressText, setQuickCustomAddressText] = useState('');
+  const [isAddMiscDealer, setIsAddMiscDealer] = useState(false);
+  const [addMiscDealerName, setAddMiscDealerName] = useState('');
   const [isStatsModalOpen, setIsStatsModalOpen] = useState(false);
   const [selectedTrailerId, setSelectedTrailerId] = useState<string | null>(null);
   const [selectedTrailerMode, setSelectedTrailerMode] = useState<'view' | 'edit'>('view');
@@ -676,6 +678,8 @@ function Dashboard({
       setIsAddModalOpen(false);
       setQuickCustomAddress(false);
       setQuickCustomAddressText('');
+      setIsAddMiscDealer(false);
+      setAddMiscDealerName('');
       setNewTrailerData({ 
         serialNumber: '', 
         name: '', 
@@ -1272,16 +1276,27 @@ function Dashboard({
             <label className="form-label">Customer / Dealer *</label>
             <select 
               className="form-select" 
-              value={newTrailerData.name} 
+              value={isAddMiscDealer ? '__misc__' : newTrailerData.name} 
               onChange={e => {
-                const dName = e.target.value;
-                const selectedD = dealers.find(d => d.name === dName);
-                setNewTrailerData({
-                  ...newTrailerData, 
-                  name: dName,
-                  dealerCommonAddress: selectedD?.common_address || '',
-                  dealerLocation: ''
-                });
+                if (e.target.value === '__misc__') {
+                  setIsAddMiscDealer(true);
+                  setNewTrailerData({
+                    ...newTrailerData,
+                    name: addMiscDealerName,
+                    dealerCommonAddress: '',
+                    dealerLocation: ''
+                  });
+                } else {
+                  setIsAddMiscDealer(false);
+                  const dName = e.target.value;
+                  const selectedD = dealers.find(d => d.name === dName);
+                  setNewTrailerData({
+                    ...newTrailerData, 
+                    name: dName,
+                    dealerCommonAddress: selectedD?.common_address || '',
+                    dealerLocation: ''
+                  });
+                }
               }}
               required
             >
@@ -1289,7 +1304,22 @@ function Dashboard({
               {dealers.map(d => (
                 <option key={d.id} value={d.name}>{d.name}</option>
               ))}
+              <option value="__misc__">Miscellaneous (One-time Buyer)</option>
             </select>
+            {isAddMiscDealer && (
+              <input 
+                type="text" 
+                className="form-input" 
+                style={{ marginTop: '0.5rem', borderColor: '#3b82f6' }}
+                placeholder="Enter Buyer / Customer Name..."
+                value={addMiscDealerName} 
+                onChange={e => {
+                  setAddMiscDealerName(e.target.value);
+                  setNewTrailerData({ ...newTrailerData, name: e.target.value });
+                }} 
+                required
+              />
+            )}
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
@@ -1317,44 +1347,54 @@ function Dashboard({
 
           <div className="form-group" style={{ marginTop: '1rem' }}>
             <label className="form-label">Shipping Address (Branch Location)</label>
-            <select 
-              className="form-select" 
-              value={quickCustomAddress ? 'CUSTOM_ADD' : newTrailerData.dealerLocation} 
-              onChange={e => {
-                if (e.target.value === 'CUSTOM_ADD') {
-                  setQuickCustomAddress(true);
-                  setNewTrailerData({ ...newTrailerData, dealerLocation: '' });
-                } else {
-                  setQuickCustomAddress(false);
-                  setNewTrailerData({ ...newTrailerData, dealerLocation: e.target.value });
-                }
-              }} 
-              disabled={!newTrailerData.name}
-            >
-              <option value="">Select Address...</option>
-              {(() => {
-                const d = dealers.find(dl => dl.name === newTrailerData.name);
-                if (!d) return null;
-                const list = [];
-                if (d.common_address) list.push(d.common_address);
-                if (d.addresses) list.push(...d.addresses);
-                const options = Array.from(new Set(list)).map(addr => (
-                  <option key={addr} value={addr}>{addr}</option>
-                ));
-                return [
-                  ...options,
-                  <option key="quick-custom-add" value="CUSTOM_ADD" style={{ color: '#2563eb', fontWeight: 800 }}>+ Add Custom Address...</option>
-                ];
-              })()}
-            </select>
-            {quickCustomAddress && (
+            {isAddMiscDealer ? (
               <input 
                 type="text"
                 className="form-input"
+                placeholder="Enter shipping address..."
+                value={newTrailerData.dealerLocation}
+                onChange={e => setNewTrailerData({ ...newTrailerData, dealerLocation: e.target.value })}
+              />
+            ) : (
+              <select 
+                className="form-select" 
+                value={quickCustomAddress ? 'CUSTOM_ADD' : newTrailerData.dealerLocation} 
+                onChange={e => {
+                  if (e.target.value === 'CUSTOM_ADD') {
+                    setQuickCustomAddress(true);
+                    setNewTrailerData({ ...newTrailerData, dealerLocation: '' });
+                  } else {
+                    setQuickCustomAddress(false);
+                    setNewTrailerData({ ...newTrailerData, dealerLocation: e.target.value });
+                  }
+                }} 
+                disabled={!newTrailerData.name}
+              >
+                <option value="">Select Address...</option>
+                {(() => {
+                  const d = dealers.find(dl => dl.name === newTrailerData.name);
+                  if (!d) return null;
+                  const list = [];
+                  if (d.common_address) list.push(d.common_address);
+                  if (d.addresses) list.push(...d.addresses);
+                  const options = Array.from(new Set(list)).map(addr => (
+                    <option key={addr} value={addr}>{addr}</option>
+                  ));
+                  return [
+                    ...options,
+                    <option key="quick-custom-add" value="CUSTOM_ADD" style={{ color: '#2563eb', fontWeight: 800 }}>+ Add Custom Address...</option>
+                  ];
+                })()}
+              </select>
+            )}
+            {!isAddMiscDealer && quickCustomAddress && (
+              <input 
+                type="text" 
+                className="form-input" 
                 style={{ marginTop: '0.5rem', borderColor: 'var(--accent)' }}
                 placeholder="Enter custom shipping address..."
-                value={quickCustomAddressText}
-                onChange={e => setQuickCustomAddressText(e.target.value)}
+                value={quickCustomAddressText} 
+                onChange={e => setQuickCustomAddressText(e.target.value)} 
                 required
               />
             )}
@@ -2740,6 +2780,15 @@ function AppContent({ userRole, currentUser }: { userRole: UserRole; currentUser
           if ('consignment' in mapped && mapped.consignment === null) { mapped.consignment = undefined; }
           mapped.history = Array.isArray(mapped.history) ? mapped.history : [];
 
+          let lad = mapped.lad_options || mapped.ladOptions;
+          if (typeof lad === 'string') {
+            try { lad = JSON.parse(lad); } catch (_) {}
+          }
+          if (lad && typeof lad === 'object') {
+            mapped.ladOptions = lad;
+            mapped.lad_options = lad;
+          }
+
           // Restore quoteStatus from notes or explicit column
           if (t.notes && (t.notes.includes('[STATUS:approved]') || t.notes.includes('Approved into Backlog'))) {
             mapped.quoteStatus = 'approved';
@@ -3003,6 +3052,7 @@ function AppContent({ userRole, currentUser }: { userRole: UserRole; currentUser
     if ('dealerLocation' in dbUpdates) { dbUpdates.dealer_location = dbUpdates.dealerLocation; delete dbUpdates.dealerLocation; }
     if ('dealerCommonAddress' in dbUpdates) { dbUpdates.dealer_common_address = dbUpdates.dealerCommonAddress; delete dbUpdates.dealerCommonAddress; }
     if ('dealerId' in dbUpdates) { dbUpdates.dealer_id = dbUpdates.dealerId; delete dbUpdates.dealerId; }
+    if ('ladOptions' in dbUpdates) { dbUpdates.lad_options = dbUpdates.ladOptions; delete dbUpdates.ladOptions; }
     
     if (hasPurchaseOrderCols) {
       if ('purchaseOrder' in dbUpdates) { dbUpdates.purchase_order = dbUpdates.purchaseOrder; delete dbUpdates.purchaseOrder; }
@@ -3028,12 +3078,17 @@ function AppContent({ userRole, currentUser }: { userRole: UserRole; currentUser
         .eq('id', id);
       
       if (error) {
-        if (error.code === '42703' || String(error.message || '').includes('shipping_cost') || String(error.message || '').includes('column')) {
+        if (error.code === '42703' || String(error.message || '').includes('shipping_cost') || String(error.message || '').includes('column') || String(error.message || '').includes('lad_options')) {
           let handled = false;
           if ('shipping_cost' in dbUpdates) {
             console.warn('shipping_cost column not in trailers table yet, retrying update without it...');
             delete dbUpdates.shipping_cost;
             setHasShippingCostCols(false);
+            handled = true;
+          }
+          if ('lad_options' in dbUpdates && String(error.message || '').includes('lad_options')) {
+            console.warn('lad_options column not in trailers table yet, retrying update without it...');
+            delete dbUpdates.lad_options;
             handled = true;
           }
           if ('quote_status' in dbUpdates || 'quoteStatus' in dbUpdates) {
