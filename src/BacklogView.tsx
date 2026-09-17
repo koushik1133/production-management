@@ -324,7 +324,7 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
         dealer_address: selectedDealer?.common_address || undefined,
         purchase_order: formData.purchaseOrder || undefined,
         consignment: formData.consignment || undefined,
-        quote_file_path: uploadedQuotePath || injected,
+        quote_file_path: uploadedQuotePath || (injected && !injected.startsWith('data:') ? injected : null),
         status: 'quote',
         created_at: new Date().toISOString(),
         notes: formData.purchaseOrder ? `PO: ${formData.purchaseOrder}` : undefined,
@@ -532,8 +532,15 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
       });
 
       // 3. Permanently save the approved quote record to persistent quotes store (localStorage + Supabase quotes table)
+      const isUUID = (str?: string | null): boolean =>
+        !!str && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+
+      const targetQuoteId = (originalQuote?.id && isUUID(originalQuote.id))
+        ? originalQuote.id
+        : (isUUID(approvingQuoteId) ? approvingQuoteId : crypto.randomUUID());
+
       persistQuote({
-        id: originalQuote ? `quote-${originalQuote.id}` : crypto.randomUUID(),
+        id: targetQuoteId,
         trailer_id: approvingQuoteId,
         serial_number: quoteSerial,
         model: originalQuote?.model || formData.model,
@@ -1745,8 +1752,11 @@ export const BacklogView: React.FC<Props> = ({ onAddTrailer, onUpdateTrailer, on
                               } else {
                                 if (window.confirm(`Deny quote ${quote.serialNumber}? It will be moved to Auto Denied Quotes.`)) {
                                   onUpdateTrailer(quote.id, { quoteStatus: 'denied' });
+                                  const isUUID = (str?: string | null): boolean =>
+                                    !!str && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+                                  const targetId = (quote.id && isUUID(quote.id)) ? quote.id : crypto.randomUUID();
                                   persistQuote({
-                                    id: `quote-${quote.id}`,
+                                    id: targetId,
                                     trailer_id: quote.id,
                                     serial_number: quote.serialNumber,
                                     model: quote.model,

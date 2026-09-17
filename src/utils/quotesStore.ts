@@ -95,13 +95,22 @@ export async function persistQuote(quote: QuoteRecord): Promise<void> {
     ladOptions: hasLadKeys(lad) ? lad : undefined
   };
 
+  const isUUID = (str?: string | null): boolean =>
+    !!str && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+
+  const safeQuoteId = isUUID(enrichedQuote.id) ? enrichedQuote.id : crypto.randomUUID();
+
   // 1. Immediately save to local persistent storage
-  saveStoredLocalQuote(enrichedQuote, true);
+  saveStoredLocalQuote({ ...enrichedQuote, id: safeQuoteId }, true);
 
   // 2. Try to save to Supabase quotes table
   try {
+    const cleanFilePath = (enrichedQuote.quote_file_path && !enrichedQuote.quote_file_path.startsWith('data:'))
+      ? enrichedQuote.quote_file_path
+      : null;
+
     const payload: any = {
-      id: enrichedQuote.id,
+      id: safeQuoteId,
       trailer_id: enrichedQuote.trailer_id || null,
       serial_number: enrichedQuote.serial_number,
       model: enrichedQuote.model || null,
@@ -114,17 +123,16 @@ export async function persistQuote(quote: QuoteRecord): Promise<void> {
       dealer_address: enrichedQuote.dealer_address || null,
       purchase_order: enrichedQuote.purchase_order || null,
       consignment: enrichedQuote.consignment || null,
-      quote_file_path: enrichedQuote.quote_file_path || null,
+      quote_file_path: cleanFilePath,
       status: enrichedQuote.status || 'quote',
       created_at: enrichedQuote.created_at || new Date().toISOString(),
       notes: updatedNotes,
-      lad_options: hasLadKeys(lad) ? lad : null,
-      updated_at: new Date().toISOString()
+      lad_options: hasLadKeys(lad) ? lad : null
     };
 
     let { error } = await supabase.from('quotes').upsert(payload);
 
-    if (error && (String(error.message || '').includes('lad_options') || String(error.message || '').includes('column'))) {
+    if (error && (String(error.message || '').includes('lad_options') || String(error.message || '').includes('column') || error.code === '42703')) {
       delete payload.lad_options;
       const res = await supabase.from('quotes').upsert(payload);
       error = res.error;

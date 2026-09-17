@@ -118,8 +118,17 @@ export const QuotesView: React.FC<Props> = ({
 
     // 1. Update in Supabase public.quotes table
     try {
+      const isUUID = (str?: string | null): boolean =>
+        !!str && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+
+      const safeQuoteId = isUUID(enrichedUpdated.id) ? enrichedUpdated.id : crypto.randomUUID();
+
+      const cleanFilePath = (enrichedUpdated.quote_file_path && !enrichedUpdated.quote_file_path.startsWith('data:'))
+        ? enrichedUpdated.quote_file_path
+        : null;
+
       const payload: any = {
-        id: enrichedUpdated.id,
+        id: safeQuoteId,
         trailer_id: enrichedUpdated.trailer_id || null,
         serial_number: enrichedUpdated.serial_number,
         model: enrichedUpdated.model || null,
@@ -132,15 +141,14 @@ export const QuotesView: React.FC<Props> = ({
         dealer_address: enrichedUpdated.dealer_address || null,
         purchase_order: enrichedUpdated.purchase_order || null,
         consignment: enrichedUpdated.consignment || null,
-        quote_file_path: enrichedUpdated.quote_file_path || null,
+        quote_file_path: cleanFilePath,
         status: enrichedUpdated.status || 'quote',
         notes: updatedNotes,
-        lad_options: hasLadKeys(lad) ? lad : null,
-        updated_at: new Date().toISOString()
+        lad_options: hasLadKeys(lad) ? lad : null
       };
 
       let { error } = await supabase.from('quotes').upsert(payload);
-      if (error && (String(error.message || '').includes('lad_options') || String(error.message || '').includes('column'))) {
+      if (error && (String(error.message || '').includes('lad_options') || String(error.message || '').includes('column') || error.code === '42703')) {
         delete payload.lad_options;
         const res = await supabase.from('quotes').upsert(payload);
         error = res.error;
