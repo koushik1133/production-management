@@ -10,6 +10,7 @@ import { supabase } from './lib/supabase';
 import { injectTrailerDataIntoSpec } from './lib/injectSpecSheet';
 import { fetchAllPersistentQuotes, saveStoredLocalQuote, QUOTES_UPDATED_EVENT, hasLadKeys, extractLadFromNotes } from './utils/quotesStore';
 import { EditQuoteModal } from './components/EditQuoteModal';
+import { downloadExcelAsPdf } from './lib/excelToPdf';
 
 interface Props {
   trailers?: Trailer[];
@@ -458,7 +459,7 @@ export const QuotesView: React.FC<Props> = ({
     return () => document.removeEventListener('mousedown', handleOutsideClick);
   }, [openDownloadMenuId]);
 
-  // Generate the same spec-sheet data as Excel but print it as PDF via hidden iframe
+  // Download quote as PDF — generates the exact same injected Excel, then converts it to PDF
   const handleDownloadQuoteAsPdf = async (q: QuoteRecord) => {
     setOpenDownloadMenuId(null);
     setPdfDownloadingId(q.id);
@@ -480,115 +481,71 @@ export const QuotesView: React.FC<Props> = ({
         try { effectiveLad = JSON.parse(effectiveLad); } catch (_) {}
       }
 
-      // Build a clean, printable HTML document representing the quote
-      const ladRows = hasLadKeys(effectiveLad)
-        ? Object.entries(effectiveLad as Record<string, string>)
-            .map(([k, v]) => {
-              const label = k
-                .replace(/([A-Z])/g, ' $1')
-                .replace(/^./, s => s.toUpperCase())
-                .trim();
-              const val = isNaN(Number(v)) ? v : `$${Number(v).toLocaleString()}`;
-              return `<tr><td style="padding:6px 12px;border-bottom:1px solid #e2e8f0;color:#64748b;">${label}</td><td style="padding:6px 12px;border-bottom:1px solid #e2e8f0;font-weight:600;text-align:right;">${val}</td></tr>`;
-            })
-            .join('')
-        : '';
+      // Step 1: get the injected Excel base64 — same path as Excel download
+      let injectedBase64: string | null = null;
 
-      const formattedDate = q.created_at ? format(new Date(q.created_at), 'MMMM d, yyyy') : '—';
-      const price = q.sale_price != null ? `$${Number(q.sale_price).toLocaleString()}` : '—';
-      const selectedDealer = dealers.find(d => d.name === q.dealer_name);
-      const dealerAddress = selectedDealer?.common_address || q.dealer_address || '';
+      if (q.model) {
+        let templateBase64: string | undefined = localSpecSheetTemplates ? localSpecSheetTemplates[q.model] : undefined;
+        if (templateBase64 === 'EXISTS') {
+          const { data } = await supabase.from('production_models').select('spec_sheet_template').eq('name', q.model).single();
+          if (data?.spec_sheet_template) {
+            templateBase64 = await fetchTemplateAsBase64(data.spec_sheet_template);
+          }
+        } else if (templateBase64 && !templateBase64.startsWith('data:')) {
+          templateBase64 = await fetchTemplateAsBase64(templateBase64);
+        }
 
-      const htmlContent = `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8"/>
-  <title>Quote – ${q.serial_number}</title>
-  <style>
-    @page { size: letter; margin: 0.75in; }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1e293b; font-size: 13px; }
-    .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #4f46e5; padding-bottom: 16px; margin-bottom: 24px; }
-    .brand { font-size: 22px; font-weight: 900; color: #4f46e5; letter-spacing: -0.5px; }
-    .brand-sub { font-size: 11px; color: #64748b; margin-top: 2px; }
-    .meta { text-align: right; font-size: 12px; color: #64748b; }
-    .meta strong { display: block; font-size: 18px; font-weight: 800; color: #1e293b; }
-    h2 { font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; color: #64748b; margin: 20px 0 8px; }
-    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 24px; }
-    .info-item label { font-size: 10px; font-weight: 700; text-transform: uppercase; color: #94a3b8; display: block; margin-bottom: 2px; }
-    .info-item span { font-size: 13px; font-weight: 600; color: #1e293b; }
-    table { width: 100%; border-collapse: collapse; margin-top: 8px; }
-    thead th { background: #f8fafc; padding: 7px 12px; font-size: 11px; font-weight: 700; text-transform: uppercase; color: #64748b; text-align: left; border-bottom: 2px solid #e2e8f0; }
-    .price-box { background: #f0fdf4; border: 2px solid #a7f3d0; border-radius: 12px; padding: 16px 20px; margin-top: 28px; display: flex; justify-content: space-between; align-items: center; }
-    .price-label { font-size: 11px; font-weight: 800; text-transform: uppercase; color: #059669; }
-    .price-val { font-size: 28px; font-weight: 900; color: #059669; }
-    .footer { margin-top: 36px; font-size: 10px; color: #94a3b8; text-align: center; border-top: 1px solid #e2e8f0; padding-top: 12px; }
-    .color-swatch { display: inline-block; width: 14px; height: 14px; border-radius: 3px; border: 1px solid rgba(0,0,0,0.15); vertical-align: middle; margin-right: 5px; }
-  </style>
-</head>
-<body>
-  <div class="header">
-    <div>
-      <div class="brand">Lane Trailers</div>
-      <div class="brand-sub">Production Quote Sheet</div>
-    </div>
-    <div class="meta">
-      <strong>${q.serial_number}</strong>
-      ${formattedDate}
-    </div>
-  </div>
+        if (templateBase64) {
+          const selectedDealer = dealers.find(d => d.name === q.dealer_name);
+          const formattedDate = q.created_at ? format(new Date(q.created_at), 'MM/dd/yyyy') : undefined;
+          injectedBase64 = await injectTrailerDataIntoSpec(
+            templateBase64,
+            q.serial_number,
+            q.dealer_name || undefined,
+            q.trailer_color || undefined,
+            q.trailer_plug || undefined,
+            q.sale_price ? q.sale_price : undefined,
+            q.sales_person || undefined,
+            q.dealer_location || undefined,
+            selectedDealer?.common_address || q.dealer_address || undefined,
+            true, // hideOtherSheets for Quotes
+            formattedDate,
+            q.purchase_order || undefined,
+            q.consignment || undefined,
+            effectiveLad || undefined
+          );
+        }
+      }
 
-  <h2>Trailer Details</h2>
-  <div class="info-grid">
-    <div class="info-item"><label>Model</label><span>${q.model || '—'}</span></div>
-    <div class="info-item"><label>Serial Number</label><span>${q.serial_number}</span></div>
-    <div class="info-item"><label>Dealer / Customer</label><span>${q.dealer_name || '—'}</span></div>
-    ${dealerAddress ? `<div class="info-item"><label>Address</label><span>${dealerAddress}</span></div>` : ''}
-    ${q.dealer_location ? `<div class="info-item"><label>Location</label><span>${q.dealer_location}</span></div>` : ''}
-    ${q.sales_person ? `<div class="info-item"><label>Sales Person</label><span>${q.sales_person}</span></div>` : ''}
-    ${q.trailer_color ? `<div class="info-item"><label>Color</label><span><span class="color-swatch" style="background:${q.trailer_color};"></span>${q.trailer_color}</span></div>` : ''}
-    ${q.trailer_plug ? `<div class="info-item"><label>Plug Type</label><span>${q.trailer_plug}</span></div>` : ''}
-    ${q.purchase_order ? `<div class="info-item"><label>Purchase Order</label><span>${q.purchase_order}</span></div>` : ''}
-    ${q.consignment ? `<div class="info-item"><label>Consignment</label><span>${q.consignment}</span></div>` : ''}
-  </div>
+      // Fallback: if no template, try fetching the stored file blob as base64
+      if (!injectedBase64 && q.quote_file_path) {
+        const blob = await fetchFileBlob(q.quote_file_path);
+        if (blob) {
+          injectedBase64 = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+          });
+        }
+      }
 
-  ${ladRows ? `
-  <h2>LAD Options</h2>
-  <table>
-    <thead><tr><th>Option</th><th style="text-align:right;">Value</th></tr></thead>
-    <tbody>${ladRows}</tbody>
-  </table>` : ''}
-
-  <div class="price-box">
-    <div class="price-label">Total Quote Price</div>
-    <div class="price-val">${price}</div>
-  </div>
-
-  <div class="footer">Lane Trailers — Confidential Quote Document · Generated ${formattedDate}</div>
-</body>
-</html>`;
-
-      const printWindow = window.open('', '_blank', 'width=900,height=700');
-      if (!printWindow) {
-        alert('Popup blocked. Please allow popups for this site to download PDF quotes.');
+      if (!injectedBase64) {
+        alert('No spec sheet template or file found for this quote — PDF cannot be generated.');
         return;
       }
-      printWindow.document.write(htmlContent);
-      printWindow.document.close();
-      printWindow.focus();
-      // Give images / fonts a moment to load before triggering print
-      setTimeout(() => {
-        printWindow.print();
-        // Close the window after the print dialog is dismissed
-        printWindow.onafterprint = () => printWindow.close();
-      }, 400);
+
+      // Step 2: convert the injected Excel → PDF and auto-download
+      await downloadExcelAsPdf(injectedBase64, q.serial_number);
     } catch (err) {
       console.error('Failed to generate PDF quote:', err);
-      alert('Failed to generate PDF quote.');
+      alert('Failed to generate PDF quote. Please try again.');
     } finally {
       setPdfDownloadingId(null);
     }
   };
+
+
 
   const handleExport = async () => {
     const now = new Date();
