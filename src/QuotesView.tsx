@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import { Link } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import JSZip from 'jszip';
-import { Home, Search, BarChart3, Download, FileText, User, Hash, Calendar, Clock, Loader2, CheckCircle2, XCircle, Pencil } from 'lucide-react';
+import { Home, Search, BarChart3, Download, FileText, User, Hash, Calendar, Clock, Loader2, CheckCircle2, XCircle, Pencil, ChevronDown } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import type { Trailer, UserRole, QuoteRecord, Dealer, CatalogModel } from './types';
 import { triggerFileDownload, isRelativePath, fetchFileBlob, fetchTemplateAsBase64 } from './utils/storage';
@@ -91,7 +91,10 @@ export const QuotesView: React.FC<Props> = ({
   const [dbQuotes, setDbQuotes] = useState<QuoteRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [pdfDownloadingId, setPdfDownloadingId] = useState<string | null>(null);
+  const [openDownloadMenuId, setOpenDownloadMenuId] = useState<string | null>(null);
   const [editingQuote, setEditingQuote] = useState<QuoteRecord | null>(null);
+  const downloadMenuRef = useRef<HTMLDivElement | null>(null);
 
   const isFetchingRef = useRef(false);
   const lastFetchTimeRef = useRef(0);
@@ -441,6 +444,149 @@ export const QuotesView: React.FC<Props> = ({
       alert('Failed to download quote.');
     } finally {
       setDownloadingId(null);
+    }
+  };
+
+  // Close download dropdown when clicking outside
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (openDownloadMenuId && downloadMenuRef.current && !downloadMenuRef.current.contains(e.target as Node)) {
+        setOpenDownloadMenuId(null);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, [openDownloadMenuId]);
+
+  // Generate the same spec-sheet data as Excel but print it as PDF via hidden iframe
+  const handleDownloadQuoteAsPdf = async (q: QuoteRecord) => {
+    setOpenDownloadMenuId(null);
+    setPdfDownloadingId(q.id);
+    try {
+      const matchingTrailer = (trailers || []).find(t =>
+        ((q.trailer_id && t.id === q.trailer_id) ||
+         (t.serialNumber && q.serial_number && (
+           t.serialNumber.trim().toLowerCase() === q.serial_number.trim().toLowerCase() ||
+           t.serialNumber.trim().toLowerCase() === `${q.serial_number.trim().toLowerCase()}-q`
+         ))) &&
+        !t.isDeleted
+      );
+
+      let effectiveLad = q.lad_options || q.ladOptions || extractLadFromNotes(q.notes);
+      if (!hasLadKeys(effectiveLad) && matchingTrailer) {
+        effectiveLad = matchingTrailer.lad_options || matchingTrailer.ladOptions || extractLadFromNotes(matchingTrailer.notes);
+      }
+      if (typeof effectiveLad === 'string') {
+        try { effectiveLad = JSON.parse(effectiveLad); } catch (_) {}
+      }
+
+      // Build a clean, printable HTML document representing the quote
+      const ladRows = hasLadKeys(effectiveLad)
+        ? Object.entries(effectiveLad as Record<string, string>)
+            .map(([k, v]) => {
+              const label = k
+                .replace(/([A-Z])/g, ' $1')
+                .replace(/^./, s => s.toUpperCase())
+                .trim();
+              const val = isNaN(Number(v)) ? v : `$${Number(v).toLocaleString()}`;
+              return `<tr><td style="padding:6px 12px;border-bottom:1px solid #e2e8f0;color:#64748b;">${label}</td><td style="padding:6px 12px;border-bottom:1px solid #e2e8f0;font-weight:600;text-align:right;">${val}</td></tr>`;
+            })
+            .join('')
+        : '';
+
+      const formattedDate = q.created_at ? format(new Date(q.created_at), 'MMMM d, yyyy') : '—';
+      const price = q.sale_price != null ? `$${Number(q.sale_price).toLocaleString()}` : '—';
+      const selectedDealer = dealers.find(d => d.name === q.dealer_name);
+      const dealerAddress = selectedDealer?.common_address || q.dealer_address || '';
+
+      const htmlContent = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>Quote – ${q.serial_number}</title>
+  <style>
+    @page { size: letter; margin: 0.75in; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1e293b; font-size: 13px; }
+    .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #4f46e5; padding-bottom: 16px; margin-bottom: 24px; }
+    .brand { font-size: 22px; font-weight: 900; color: #4f46e5; letter-spacing: -0.5px; }
+    .brand-sub { font-size: 11px; color: #64748b; margin-top: 2px; }
+    .meta { text-align: right; font-size: 12px; color: #64748b; }
+    .meta strong { display: block; font-size: 18px; font-weight: 800; color: #1e293b; }
+    h2 { font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; color: #64748b; margin: 20px 0 8px; }
+    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 24px; }
+    .info-item label { font-size: 10px; font-weight: 700; text-transform: uppercase; color: #94a3b8; display: block; margin-bottom: 2px; }
+    .info-item span { font-size: 13px; font-weight: 600; color: #1e293b; }
+    table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+    thead th { background: #f8fafc; padding: 7px 12px; font-size: 11px; font-weight: 700; text-transform: uppercase; color: #64748b; text-align: left; border-bottom: 2px solid #e2e8f0; }
+    .price-box { background: #f0fdf4; border: 2px solid #a7f3d0; border-radius: 12px; padding: 16px 20px; margin-top: 28px; display: flex; justify-content: space-between; align-items: center; }
+    .price-label { font-size: 11px; font-weight: 800; text-transform: uppercase; color: #059669; }
+    .price-val { font-size: 28px; font-weight: 900; color: #059669; }
+    .footer { margin-top: 36px; font-size: 10px; color: #94a3b8; text-align: center; border-top: 1px solid #e2e8f0; padding-top: 12px; }
+    .color-swatch { display: inline-block; width: 14px; height: 14px; border-radius: 3px; border: 1px solid rgba(0,0,0,0.15); vertical-align: middle; margin-right: 5px; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <div class="brand">Lane Trailers</div>
+      <div class="brand-sub">Production Quote Sheet</div>
+    </div>
+    <div class="meta">
+      <strong>${q.serial_number}</strong>
+      ${formattedDate}
+    </div>
+  </div>
+
+  <h2>Trailer Details</h2>
+  <div class="info-grid">
+    <div class="info-item"><label>Model</label><span>${q.model || '—'}</span></div>
+    <div class="info-item"><label>Serial Number</label><span>${q.serial_number}</span></div>
+    <div class="info-item"><label>Dealer / Customer</label><span>${q.dealer_name || '—'}</span></div>
+    ${dealerAddress ? `<div class="info-item"><label>Address</label><span>${dealerAddress}</span></div>` : ''}
+    ${q.dealer_location ? `<div class="info-item"><label>Location</label><span>${q.dealer_location}</span></div>` : ''}
+    ${q.sales_person ? `<div class="info-item"><label>Sales Person</label><span>${q.sales_person}</span></div>` : ''}
+    ${q.trailer_color ? `<div class="info-item"><label>Color</label><span><span class="color-swatch" style="background:${q.trailer_color};"></span>${q.trailer_color}</span></div>` : ''}
+    ${q.trailer_plug ? `<div class="info-item"><label>Plug Type</label><span>${q.trailer_plug}</span></div>` : ''}
+    ${q.purchase_order ? `<div class="info-item"><label>Purchase Order</label><span>${q.purchase_order}</span></div>` : ''}
+    ${q.consignment ? `<div class="info-item"><label>Consignment</label><span>${q.consignment}</span></div>` : ''}
+  </div>
+
+  ${ladRows ? `
+  <h2>LAD Options</h2>
+  <table>
+    <thead><tr><th>Option</th><th style="text-align:right;">Value</th></tr></thead>
+    <tbody>${ladRows}</tbody>
+  </table>` : ''}
+
+  <div class="price-box">
+    <div class="price-label">Total Quote Price</div>
+    <div class="price-val">${price}</div>
+  </div>
+
+  <div class="footer">Lane Trailers — Confidential Quote Document · Generated ${formattedDate}</div>
+</body>
+</html>`;
+
+      const printWindow = window.open('', '_blank', 'width=900,height=700');
+      if (!printWindow) {
+        alert('Popup blocked. Please allow popups for this site to download PDF quotes.');
+        return;
+      }
+      printWindow.document.write(htmlContent);
+      printWindow.document.close();
+      printWindow.focus();
+      // Give images / fonts a moment to load before triggering print
+      setTimeout(() => {
+        printWindow.print();
+        // Close the window after the print dialog is dismissed
+        printWindow.onafterprint = () => printWindow.close();
+      }, 400);
+    } catch (err) {
+      console.error('Failed to generate PDF quote:', err);
+      alert('Failed to generate PDF quote.');
+    } finally {
+      setPdfDownloadingId(null);
     }
   };
 
@@ -795,37 +941,142 @@ export const QuotesView: React.FC<Props> = ({
                       <span>Edit</span>
                     </button>
 
-                    <button
-                      onClick={() => handleDownloadQuote(q)}
-                      disabled={isDownloading}
-                      title="Download generated quote sheet"
-                      style={{
-                        padding: '0.55rem 1.15rem',
-                        fontSize: '0.82rem',
-                        fontWeight: 800,
-                        background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
-                        border: 'none',
-                        borderRadius: '10px',
-                        cursor: isDownloading ? 'wait' : 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.45rem',
-                        color: '#ffffff',
-                        boxShadow: '0 4px 12px rgba(99, 102, 241, 0.35)'
-                      }}
+                    {/* Download split-button dropdown */}
+                    <div
+                      ref={openDownloadMenuId === q.id ? downloadMenuRef : undefined}
+                      style={{ position: 'relative', display: 'inline-flex' }}
                     >
-                      {isDownloading ? (
-                        <>
-                          <Loader2 size={15} className="animate-spin" />
-                          <span>Downloading...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Download size={15} />
-                          <span>Download</span>
-                        </>
+                      {/* Main download button (Excel) */}
+                      <button
+                        onClick={() => { setOpenDownloadMenuId(null); handleDownloadQuote(q); }}
+                        disabled={isDownloading || pdfDownloadingId === q.id}
+                        title="Download as Excel (.xlsx)"
+                        style={{
+                          padding: '0.55rem 1rem',
+                          fontSize: '0.82rem',
+                          fontWeight: 800,
+                          background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
+                          border: 'none',
+                          borderRadius: '10px 0 0 10px',
+                          borderRight: '1px solid rgba(255,255,255,0.2)',
+                          cursor: (isDownloading || pdfDownloadingId === q.id) ? 'wait' : 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.45rem',
+                          color: '#ffffff',
+                          boxShadow: '0 4px 12px rgba(99, 102, 241, 0.35)'
+                        }}
+                      >
+                        {isDownloading ? (
+                          <>
+                            <Loader2 size={15} className="animate-spin" />
+                            <span>Downloading...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Download size={15} />
+                            <span>Download</span>
+                          </>
+                        )}
+                      </button>
+
+                      {/* Chevron toggle button */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setOpenDownloadMenuId(openDownloadMenuId === q.id ? null : q.id);
+                        }}
+                        disabled={isDownloading || pdfDownloadingId === q.id}
+                        title="More download options"
+                        style={{
+                          padding: '0.55rem 0.5rem',
+                          fontSize: '0.82rem',
+                          fontWeight: 800,
+                          background: 'linear-gradient(135deg, #5254cc 0%, #3e37c4 100%)',
+                          border: 'none',
+                          borderRadius: '0 10px 10px 0',
+                          cursor: (isDownloading || pdfDownloadingId === q.id) ? 'wait' : 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          color: '#ffffff',
+                          boxShadow: '0 4px 12px rgba(99, 102, 241, 0.35)'
+                        }}
+                      >
+                        <ChevronDown size={14} style={{ transition: 'transform 0.15s', transform: openDownloadMenuId === q.id ? 'rotate(180deg)' : 'rotate(0deg)' }} />
+                      </button>
+
+                      {/* Dropdown menu */}
+                      {openDownloadMenuId === q.id && (
+                        <div
+                          style={{
+                            position: 'absolute',
+                            top: 'calc(100% + 6px)',
+                            right: 0,
+                            minWidth: '170px',
+                            background: 'var(--bg-card, #1e293b)',
+                            border: '1.5px solid var(--border-default, #334155)',
+                            borderRadius: '12px',
+                            boxShadow: '0 8px 24px rgba(0,0,0,0.35)',
+                            overflow: 'hidden',
+                            zIndex: 9999
+                          }}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => { setOpenDownloadMenuId(null); handleDownloadQuote(q); }}
+                            style={{
+                              width: '100%',
+                              padding: '0.65rem 1rem',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '0.6rem',
+                              background: 'transparent',
+                              border: 'none',
+                              borderBottom: '1px solid var(--border-default, #334155)',
+                              color: 'var(--text-primary, #f1f5f9)',
+                              fontSize: '0.82rem',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              textAlign: 'left'
+                            }}
+                            onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-secondary, #334155)')}
+                            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                          >
+                            <span style={{ fontSize: '1rem' }}>📊</span>
+                            <span>Download Excel</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDownloadQuoteAsPdf(q)}
+                            disabled={pdfDownloadingId === q.id}
+                            style={{
+                              width: '100%',
+                              padding: '0.65rem 1rem',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '0.6rem',
+                              background: 'transparent',
+                              border: 'none',
+                              color: 'var(--text-primary, #f1f5f9)',
+                              fontSize: '0.82rem',
+                              fontWeight: 700,
+                              cursor: pdfDownloadingId === q.id ? 'wait' : 'pointer',
+                              textAlign: 'left'
+                            }}
+                            onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-secondary, #334155)')}
+                            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                          >
+                            {pdfDownloadingId === q.id ? (
+                              <Loader2 size={14} className="animate-spin" />
+                            ) : (
+                              <span style={{ fontSize: '1rem' }}>📄</span>
+                            )}
+                            <span>{pdfDownloadingId === q.id ? 'Generating PDF...' : 'Download PDF'}</span>
+                          </button>
+                        </div>
                       )}
-                    </button>
+                    </div>
                   </div>
                 </div>
               );
