@@ -2305,13 +2305,40 @@ function AuthGate({ children }: { children: (role: UserRole, user: User | null) 
     const cleanEmail = email.trim().toLowerCase();
     const cleanPassword = password;
 
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email: cleanEmail,
-      password: cleanPassword,
-    });
+    const attemptSignIn = async () => {
+      return await supabase.auth.signInWithPassword({
+        email: cleanEmail,
+        password: cleanPassword,
+      });
+    };
+
+    let { error: signInError } = await attemptSignIn();
+
+    // If 500 timeout / context canceled occurs, retry once after a short delay
+    const isTimeout = signInError && (
+      signInError.message?.toLowerCase().includes('timeout') ||
+      signInError.message?.toLowerCase().includes('context canceled') ||
+      signInError.status === 500 ||
+      signInError.status === 504
+    );
+
+    if (isTimeout) {
+      await new Promise((res) => setTimeout(res, 1500));
+      const retryResult = await attemptSignIn();
+      signInError = retryResult.error;
+    }
 
     if (signInError) {
-      setError(signInError.message || 'Invalid email or password.');
+      if (
+        signInError.message?.toLowerCase().includes('timeout') ||
+        signInError.message?.toLowerCase().includes('context canceled') ||
+        signInError.status === 500 ||
+        signInError.status === 504
+      ) {
+        setError('Database connection timed out. Supabase is waking up—please click Login again in a moment.');
+      } else {
+        setError(signInError.message || 'Invalid email or password.');
+      }
       setLoading(false);
       return;
     }
