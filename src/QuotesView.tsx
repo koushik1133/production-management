@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import { Link } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import JSZip from 'jszip';
-import { Home, Search, BarChart3, Download, FileText, User, Hash, Calendar, Clock, Loader2, CheckCircle2, XCircle, Pencil, ChevronDown } from 'lucide-react';
+import { Home, Search, BarChart3, Download, FileText, User, Hash, Calendar, Clock, Loader2, CheckCircle2, XCircle, Pencil } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import type { Trailer, UserRole, QuoteRecord, Dealer, CatalogModel } from './types';
 import { triggerFileDownload, isRelativePath, fetchFileBlob, fetchTemplateAsBase64 } from './utils/storage';
@@ -10,7 +10,7 @@ import { supabase } from './lib/supabase';
 import { injectTrailerDataIntoSpec } from './lib/injectSpecSheet';
 import { fetchAllPersistentQuotes, saveStoredLocalQuote, QUOTES_UPDATED_EVENT, hasLadKeys, extractLadFromNotes } from './utils/quotesStore';
 import { EditQuoteModal } from './components/EditQuoteModal';
-import { downloadExcelAsPdf } from './lib/excelToPdf';
+
 
 interface Props {
   trailers?: Trailer[];
@@ -92,10 +92,7 @@ export const QuotesView: React.FC<Props> = ({
   const [dbQuotes, setDbQuotes] = useState<QuoteRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
-  const [pdfDownloadingId, setPdfDownloadingId] = useState<string | null>(null);
-  const [openDownloadMenuId, setOpenDownloadMenuId] = useState<string | null>(null);
   const [editingQuote, setEditingQuote] = useState<QuoteRecord | null>(null);
-  const downloadMenuRef = useRef<HTMLDivElement | null>(null);
 
   const isFetchingRef = useRef(false);
   const lastFetchTimeRef = useRef(0);
@@ -448,105 +445,6 @@ export const QuotesView: React.FC<Props> = ({
     }
   };
 
-  // Close download dropdown when clicking outside
-  useEffect(() => {
-    const handleOutsideClick = (e: MouseEvent) => {
-      if (openDownloadMenuId && downloadMenuRef.current && !downloadMenuRef.current.contains(e.target as Node)) {
-        setOpenDownloadMenuId(null);
-      }
-    };
-    document.addEventListener('mousedown', handleOutsideClick);
-    return () => document.removeEventListener('mousedown', handleOutsideClick);
-  }, [openDownloadMenuId]);
-
-  // Download quote as PDF — generates the exact same injected Excel, then converts it to PDF
-  const handleDownloadQuoteAsPdf = async (q: QuoteRecord) => {
-    setOpenDownloadMenuId(null);
-    setPdfDownloadingId(q.id);
-    try {
-      const matchingTrailer = (trailers || []).find(t =>
-        ((q.trailer_id && t.id === q.trailer_id) ||
-         (t.serialNumber && q.serial_number && (
-           t.serialNumber.trim().toLowerCase() === q.serial_number.trim().toLowerCase() ||
-           t.serialNumber.trim().toLowerCase() === `${q.serial_number.trim().toLowerCase()}-q`
-         ))) &&
-        !t.isDeleted
-      );
-
-      let effectiveLad = q.lad_options || q.ladOptions || extractLadFromNotes(q.notes);
-      if (!hasLadKeys(effectiveLad) && matchingTrailer) {
-        effectiveLad = matchingTrailer.lad_options || matchingTrailer.ladOptions || extractLadFromNotes(matchingTrailer.notes);
-      }
-      if (typeof effectiveLad === 'string') {
-        try { effectiveLad = JSON.parse(effectiveLad); } catch (_) {}
-      }
-
-      // Step 1: get the injected Excel base64 — same path as Excel download
-      let injectedBase64: string | null = null;
-
-      if (q.model) {
-        let templateBase64: string | undefined = localSpecSheetTemplates ? localSpecSheetTemplates[q.model] : undefined;
-        if (templateBase64 === 'EXISTS') {
-          const { data } = await supabase.from('production_models').select('spec_sheet_template').eq('name', q.model).single();
-          if (data?.spec_sheet_template) {
-            templateBase64 = await fetchTemplateAsBase64(data.spec_sheet_template);
-          }
-        } else if (templateBase64 && !templateBase64.startsWith('data:')) {
-          templateBase64 = await fetchTemplateAsBase64(templateBase64);
-        }
-
-        if (templateBase64) {
-          const selectedDealer = dealers.find(d => d.name === q.dealer_name);
-          const formattedDate = q.created_at ? format(new Date(q.created_at), 'MM/dd/yyyy') : undefined;
-          injectedBase64 = await injectTrailerDataIntoSpec(
-            templateBase64,
-            q.serial_number,
-            q.dealer_name || undefined,
-            q.trailer_color || undefined,
-            q.trailer_plug || undefined,
-            q.sale_price ? q.sale_price : undefined,
-            q.sales_person || undefined,
-            q.dealer_location || undefined,
-            selectedDealer?.common_address || q.dealer_address || undefined,
-            true, // hideOtherSheets for Quotes
-            formattedDate,
-            q.purchase_order || undefined,
-            q.consignment || undefined,
-            effectiveLad || undefined
-          );
-        }
-      }
-
-      // Fallback: if no template, try fetching the stored file blob as base64
-      if (!injectedBase64 && q.quote_file_path) {
-        const blob = await fetchFileBlob(q.quote_file_path);
-        if (blob) {
-          injectedBase64 = await new Promise<string>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result as string);
-            reader.onerror = reject;
-            reader.readAsDataURL(blob);
-          });
-        }
-      }
-
-      if (!injectedBase64) {
-        alert('No spec sheet template or file found for this quote — PDF cannot be generated.');
-        return;
-      }
-
-      // Step 2: convert the injected Excel → PDF and auto-download
-      await downloadExcelAsPdf(injectedBase64, q.serial_number);
-    } catch (err) {
-      console.error('Failed to generate PDF quote:', err);
-      alert('Failed to generate PDF quote. Please try again.');
-    } finally {
-      setPdfDownloadingId(null);
-    }
-  };
-
-
-
   const handleExport = async () => {
     const now = new Date();
     const toExport = filtered.filter(t => {
@@ -898,142 +796,38 @@ export const QuotesView: React.FC<Props> = ({
                       <span>Edit</span>
                     </button>
 
-                    {/* Download split-button dropdown */}
-                    <div
-                      ref={openDownloadMenuId === q.id ? downloadMenuRef : undefined}
-                      style={{ position: 'relative', display: 'inline-flex' }}
+                    {/* Download button */}
+                    <button
+                      onClick={() => handleDownloadQuote(q)}
+                      disabled={isDownloading}
+                      title="Download as Excel (.xlsx)"
+                      style={{
+                        padding: '0.55rem 1rem',
+                        fontSize: '0.82rem',
+                        fontWeight: 800,
+                        background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
+                        border: 'none',
+                        borderRadius: '10px',
+                        cursor: isDownloading ? 'wait' : 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.45rem',
+                        color: '#ffffff',
+                        boxShadow: '0 4px 12px rgba(99, 102, 241, 0.35)'
+                      }}
                     >
-                      {/* Main download button (Excel) */}
-                      <button
-                        onClick={() => { setOpenDownloadMenuId(null); handleDownloadQuote(q); }}
-                        disabled={isDownloading || pdfDownloadingId === q.id}
-                        title="Download as Excel (.xlsx)"
-                        style={{
-                          padding: '0.55rem 1rem',
-                          fontSize: '0.82rem',
-                          fontWeight: 800,
-                          background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
-                          border: 'none',
-                          borderRadius: '10px 0 0 10px',
-                          borderRight: '1px solid rgba(255,255,255,0.2)',
-                          cursor: (isDownloading || pdfDownloadingId === q.id) ? 'wait' : 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '0.45rem',
-                          color: '#ffffff',
-                          boxShadow: '0 4px 12px rgba(99, 102, 241, 0.35)'
-                        }}
-                      >
-                        {isDownloading ? (
-                          <>
-                            <Loader2 size={15} className="animate-spin" />
-                            <span>Downloading...</span>
-                          </>
-                        ) : (
-                          <>
-                            <Download size={15} />
-                            <span>Download</span>
-                          </>
-                        )}
-                      </button>
-
-                      {/* Chevron toggle button */}
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setOpenDownloadMenuId(openDownloadMenuId === q.id ? null : q.id);
-                        }}
-                        disabled={isDownloading || pdfDownloadingId === q.id}
-                        title="More download options"
-                        style={{
-                          padding: '0.55rem 0.5rem',
-                          fontSize: '0.82rem',
-                          fontWeight: 800,
-                          background: 'linear-gradient(135deg, #5254cc 0%, #3e37c4 100%)',
-                          border: 'none',
-                          borderRadius: '0 10px 10px 0',
-                          cursor: (isDownloading || pdfDownloadingId === q.id) ? 'wait' : 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          color: '#ffffff',
-                          boxShadow: '0 4px 12px rgba(99, 102, 241, 0.35)'
-                        }}
-                      >
-                        <ChevronDown size={14} style={{ transition: 'transform 0.15s', transform: openDownloadMenuId === q.id ? 'rotate(180deg)' : 'rotate(0deg)' }} />
-                      </button>
-
-                      {/* Dropdown menu */}
-                      {openDownloadMenuId === q.id && (
-                        <div
-                          style={{
-                            position: 'absolute',
-                            top: 'calc(100% + 6px)',
-                            right: 0,
-                            minWidth: '170px',
-                            background: 'var(--bg-card, #1e293b)',
-                            border: '1.5px solid var(--border-default, #334155)',
-                            borderRadius: '12px',
-                            boxShadow: '0 8px 24px rgba(0,0,0,0.35)',
-                            overflow: 'hidden',
-                            zIndex: 9999
-                          }}
-                        >
-                          <button
-                            type="button"
-                            onClick={() => { setOpenDownloadMenuId(null); handleDownloadQuote(q); }}
-                            style={{
-                              width: '100%',
-                              padding: '0.65rem 1rem',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '0.6rem',
-                              background: 'transparent',
-                              border: 'none',
-                              borderBottom: '1px solid var(--border-default, #334155)',
-                              color: 'var(--text-primary, #f1f5f9)',
-                              fontSize: '0.82rem',
-                              fontWeight: 700,
-                              cursor: 'pointer',
-                              textAlign: 'left'
-                            }}
-                            onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-secondary, #334155)')}
-                            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                          >
-                            <span style={{ fontSize: '1rem' }}>📊</span>
-                            <span>Download Excel</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDownloadQuoteAsPdf(q)}
-                            disabled={pdfDownloadingId === q.id}
-                            style={{
-                              width: '100%',
-                              padding: '0.65rem 1rem',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '0.6rem',
-                              background: 'transparent',
-                              border: 'none',
-                              color: 'var(--text-primary, #f1f5f9)',
-                              fontSize: '0.82rem',
-                              fontWeight: 700,
-                              cursor: pdfDownloadingId === q.id ? 'wait' : 'pointer',
-                              textAlign: 'left'
-                            }}
-                            onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-secondary, #334155)')}
-                            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                          >
-                            {pdfDownloadingId === q.id ? (
-                              <Loader2 size={14} className="animate-spin" />
-                            ) : (
-                              <span style={{ fontSize: '1rem' }}>📄</span>
-                            )}
-                            <span>{pdfDownloadingId === q.id ? 'Generating PDF...' : 'Download PDF'}</span>
-                          </button>
-                        </div>
+                      {isDownloading ? (
+                        <>
+                          <Loader2 size={15} className="animate-spin" />
+                          <span>Downloading...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Download size={15} />
+                          <span>Download</span>
+                        </>
                       )}
-                    </div>
+                    </button>
                   </div>
                 </div>
               );
