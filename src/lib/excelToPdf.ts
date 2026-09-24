@@ -402,125 +402,150 @@ export async function downloadExcelAsPdf(base64Excel: string, serial: string): P
   tableHtml += '</table>';
 
   // 7. Mount off-screen container
+  // Use a clip-container (overflow:hidden, 1×1px) positioned far off-screen
+  // so the browser still lays it out at full size but it stays invisible.
+  // The wrapper inside MUST be position:relative so absolute-positioned
+  // image overlays anchor to it correctly.
+  const clipContainer = document.createElement('div');
+  Object.assign(clipContainer.style, {
+    position: 'absolute',
+    left:     '-99999px',
+    top:      '0px',
+    width:    '1px',
+    height:   '1px',
+    overflow: 'hidden',
+    pointerEvents: 'none',
+    zIndex:   '-1',
+  });
+
   const wrapper = document.createElement('div');
   Object.assign(wrapper.style, {
-    position: 'fixed',
-    top: '-99999px',
-    left: '-99999px',
-    width:  `${totalW}px`,
-    height: `${totalH}px`,
+    position:   'relative',   // ← critical: makes abs-positioned images anchor here
+    width:      `${totalW}px`,
+    minHeight:  `${totalH}px`,
     background: '#ffffff',
-    overflow: 'visible',
-    zIndex: '-1',
     fontFamily: 'Arial, sans-serif',
+    fontSize:   '10pt',
+    lineHeight: '1.2',
   });
   wrapper.innerHTML = tableHtml;
-  document.body.appendChild(wrapper);
+  clipContainer.appendChild(wrapper);
+  document.body.appendChild(clipContainer);
 
-  // Inject image overlays into the wrapper
+  // Inject image overlays — positioned relative to wrapper
   for (const img of images) {
     const left   = colOffsets[img.fromCol] ?? 0;
     const top    = rowOffsets[img.fromRow] ?? 0;
-    const width  = Math.max(10, (colOffsets[img.toCol] ?? totalW) - left);
-    const height = Math.max(10, (rowOffsets[img.toRow] ?? totalH) - top);
+    const right  = colOffsets[Math.min(img.toCol, maxCol + 1)] ?? totalW;
+    const bottom = rowOffsets[Math.min(img.toRow, maxRow + 1)] ?? totalH;
+    const width  = Math.max(10, right  - left);
+    const height = Math.max(10, bottom - top);
+
     const el = document.createElement('img');
     el.src = img.dataUrl;
     Object.assign(el.style, {
-      position: 'absolute',
-      left: `${left}px`,
-      top:  `${top}px`,
-      width: `${width}px`,
-      height: `${height}px`,
-      objectFit: 'fill',
-      pointerEvents: 'none',
-      zIndex: '5',
+      position:     'absolute',
+      left:         `${left}px`,
+      top:          `${top}px`,
+      width:        `${width}px`,
+      height:       `${height}px`,
+      objectFit:    'fill',
+      pointerEvents:'none',
+      zIndex:       '10',
+      display:      'block',
     });
     wrapper.appendChild(el);
   }
 
-  // Wait for images to load
-  if (images.length > 0) {
-    await new Promise<void>(resolve => {
-      const imgs = wrapper.querySelectorAll('img');
-      let loaded = 0;
-      const onLoad = () => { if (++loaded >= imgs.length) resolve(); };
-      imgs.forEach(i => {
-        if (i.complete) onLoad();
-        else { i.onload = onLoad; i.onerror = onLoad; }
-      });
-      // Fallback timeout
-      setTimeout(resolve, 3000);
+  // Wait for ALL images to fully load (data-URIs are instant but force a paint cycle)
+  await new Promise<void>(resolve => {
+    const imgs = Array.from(wrapper.querySelectorAll('img'));
+    if (imgs.length === 0) { resolve(); return; }
+    let remaining = imgs.length;
+    const done = () => { if (--remaining <= 0) resolve(); };
+    imgs.forEach(i => {
+      if (i.complete && i.naturalWidth > 0) { done(); }
+      else { i.addEventListener('load', done); i.addEventListener('error', done); }
     });
-  }
-
-  // 8. Screenshot with html2canvas at 2× for sharpness
-  const scale = 2;
-  const canvas = await html2canvas(wrapper, {
-    scale,
-    useCORS: true,
-    allowTaint: true,
-    backgroundColor: '#ffffff',
-    width:  totalW,
-    height: totalH,
-    logging: false,
+    setTimeout(resolve, 4000); // hard fallback
   });
 
-  // Remove off-screen element
-  document.body.removeChild(wrapper);
+  // One extra rAF to let the browser finish painting before screenshot
+  await new Promise<void>(r => requestAnimationFrame(() => requestAnimationFrame(() => r())));
+
+  // 8. Screenshot with html2canvas
+  //    scrollX/scrollY tell html2canvas where to start reading in the document
+  const SCALE = 2; // 2× for sharpness
+  const canvas = await html2canvas(wrapper, {
+    scale:              SCALE,
+    useCORS:            true,
+    allowTaint:         true,
+    backgroundColor:    '#ffffff',
+    width:              totalW,
+    height:             totalH,
+    scrollX:            0,
+    scrollY:            0,
+    windowWidth:        totalW + 200,
+    windowHeight:       totalH + 200,
+    logging:            false,
+    foreignObjectRendering: false, // more compatible across browsers
+  });
+
+  // Clean up
+  document.body.removeChild(clipContainer);
 
   // 9. Build PDF
-  //    Letter landscape = 11 × 8.5 in = 792 × 612 pt
-  const PDF_W = 792;
-  const PDF_H = 612;
-  const MARGIN = 10; // pt
+  //    Letter landscape: 792 × 612 pt  (11 × 8.5 in)
+  const PDF_W  = 792;
+  const PDF_H  = 612;
+  const MARGIN = 8; // pt on each side
 
-  // Scale canvas to fit the PDF page (keep aspect ratio)
-  const cw = canvas.width  / scale;
-  const ch = canvas.height / scale;
-  const scaleX = (PDF_W - MARGIN * 2) / cw;
-  const scaleY = (PDF_H - MARGIN * 2) / ch;
-  const fitScale = Math.min(scaleX, scaleY, 1); // never upscale
+  const availW = PDF_W - MARGIN * 2;
+  const availH = PDF_H - MARGIN * 2;
 
-  const imgW = cw * fitScale;
-  const imgH = ch * fitScale;
+  // Source dimensions in CSS pixels (before the 2× scale)
+  const srcW = totalW;
+  const srcH = totalH;
 
-  // If the sheet is taller than one page, split into multiple pages
-  const pageContentH = PDF_H - MARGIN * 2;
-  const pageCount = Math.ceil(imgH / pageContentH);
+  // Scale to fit width; then see how many pages tall
+  const fitRatio = availW / srcW;
+  const renderedH = srcH * fitRatio; // height in PDF pts if all on one page
+
+  // Split into pages if needed
+  const pageCount  = Math.ceil(renderedH / availH);
+  // Height in source CSS px that maps to one PDF page
+  const srcPageH   = availH / fitRatio;
 
   const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'letter' });
 
-
-
   for (let page = 0; page < pageCount; page++) {
     if (page > 0) doc.addPage();
-    // Clip: shift source image up by page * pageContentH / fitScale pixels
-    const srcY = (page * pageContentH) / fitScale;
-    const srcH = Math.min(pageContentH / fitScale, ch - srcY);
-    const destH = srcH * fitScale;
 
-    // Create a temporary canvas for this page slice
-    const sliceCanvas = document.createElement('canvas');
-    sliceCanvas.width  = Math.round(cw * scale);
-    sliceCanvas.height = Math.round(srcH * scale);
+    const srcSliceY = page * srcPageH;                          // CSS px
+    const srcSliceH = Math.min(srcPageH, srcH - srcSliceY);    // CSS px
+    const destH     = srcSliceH * fitRatio;                     // PDF pts
+
+    // Slice the canvas
+    const sliceCanvas  = document.createElement('canvas');
+    sliceCanvas.width  = Math.round(srcW  * SCALE);
+    sliceCanvas.height = Math.round(srcSliceH * SCALE);
     const ctx = sliceCanvas.getContext('2d')!;
     ctx.drawImage(
       canvas,
-      0, srcY * scale,                  // source x, y
-      canvas.width, srcH * scale,        // source w, h
-      0, 0,                              // dest x, y
-      sliceCanvas.width, sliceCanvas.height  // dest w, h
+      0,              srcSliceY * SCALE,   // source x, y  (in canvas px = CSS × SCALE)
+      canvas.width,   srcSliceH * SCALE,   // source w, h
+      0,              0,                    // dest x, y
+      sliceCanvas.width, sliceCanvas.height // dest w, h
     );
 
     doc.addImage(
-      sliceCanvas.toDataURL('image/jpeg', 0.97),
+      sliceCanvas.toDataURL('image/jpeg', 0.95),
       'JPEG',
-      MARGIN,
-      MARGIN,
-      imgW,
-      destH,
+      MARGIN, MARGIN,
+      availW, destH,
     );
   }
 
   doc.save(`${serial}_Quote.pdf`);
 }
+
